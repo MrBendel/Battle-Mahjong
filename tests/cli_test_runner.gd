@@ -21,6 +21,9 @@ const MomentumTuningScript := preload("res://scripts/configuration/momentum_tuni
 const BoardLayoutCatalogScript := preload("res://scripts/simulation/board_layout_catalog.gd")
 const BoardLayoutScript := preload("res://scripts/simulation/board_layout.gd")
 const GameSolverScript := preload("res://scripts/simulation/game_solver.gd")
+const BoardLayoutLoaderScript := preload("res://scripts/simulation/board_layout_loader.gd")
+const BoardLayoutRequirementsScript := preload("res://scripts/simulation/board_layout_requirements.gd")
+const ProceduralLayoutGeneratorScript := preload("res://scripts/simulation/procedural_layout_generator.gd")
 
 var _failures := 0
 var _assertions := 0
@@ -393,6 +396,15 @@ func _run_generator_solver_tests() -> void:
 	_check(not classic.call("has_partial_overlap"), "classic layout remains fully aligned")
 	_check(staggered.call("has_partial_overlap"), "staggered layout includes half-tile higher-layer overlap")
 	_check(portrait_stack.call("has_partial_overlap"), "portrait stack includes irregular half-tile overlap")
+	_check(catalog.call("layout_path", BoardLayoutCatalogScript.PORTRAIT_STACK_96).ends_with(".json"), "authored layout resolves to a data asset")
+	var parsed_layout: Variant = BoardLayoutLoaderScript.new().call("from_dict", portrait_stack.to_dict())
+	_check(parsed_layout != null, "expanded layout data round-trips through loader")
+	_check_equal(portrait_stack.content_hash(), parsed_layout.content_hash(), "layout round-trip preserves geometry hash")
+	var reordered_positions: Array = portrait_stack.positions
+	reordered_positions.reverse()
+	var reordered_layout := BoardLayoutScript.new(portrait_stack.id, reordered_positions, portrait_stack.revision)
+	_check_equal(portrait_stack.content_hash(), reordered_layout.content_hash(), "source ordering does not change canonical layout identity")
+	_check_equal(portrait_stack.slots[0].id, reordered_layout.slots[0].id, "coordinate-derived slot ids remain stable after reordering")
 
 	var invalid_layout := BoardLayoutScript.new("invalid", [
 		BoardPositionScript.new(0, 0, 0),
@@ -403,9 +415,12 @@ func _run_generator_solver_tests() -> void:
 	var factory := ReferenceGameFactoryScript.new()
 	var solver := GameSolverScript.new()
 	for layout_id in catalog.call("layout_ids"):
+		var authored_layout: Variant = catalog.call("get_layout", layout_id)
 		var generated: Dictionary = factory.call("create_generated", 92817361, 4, {}, layout_id)
 		var definition: Variant = generated.definition
 		_check_equal(layout_id, definition.configuration.layout_id, "%s id is embedded in definition" % layout_id)
+		_check_equal(authored_layout.revision, definition.configuration.layout_revision, "%s revision is embedded in definition" % layout_id)
+		_check_equal(authored_layout.content_hash(), definition.configuration.layout_hash, "%s geometry hash is embedded in definition" % layout_id)
 		var certificate_result: Dictionary = solver.call("verify_solution", definition, generated.solution)
 		_check(certificate_result.valid, "%s generated certificate wins through transactions: %s" % [layout_id, certificate_result.reason])
 		var solved: Array[String] = solver.call("find_pair_solution", definition)
@@ -415,6 +430,42 @@ func _run_generator_solver_tests() -> void:
 	var classic_definition: Variant = factory.call("create_definition", 77, 4, {}, BoardLayoutCatalogScript.CLASSIC_96)
 	var staggered_definition: Variant = factory.call("create_definition", 77, 4, {}, BoardLayoutCatalogScript.STAGGERED_96)
 	_check(classic_definition.definition_hash() != staggered_definition.definition_hash(), "layout geometry participates in definition identity")
+
+	var requirements: Variant = BoardLayoutRequirementsScript.load_file("res://configuration/layout_requirements/portrait_diamond_96.json")
+	_check(requirements != null, "procedural requirements load from JSON")
+	_check(requirements.call("validation_errors").is_empty(), "procedural requirements validate")
+	var procedural_generator := ProceduralLayoutGeneratorScript.new()
+	var generated_layout: Variant = procedural_generator.call("generate", requirements, 4242)
+	_check(generated_layout != null, "requirements generate a board layout")
+	_check_equal(96, generated_layout.positions.size(), "procedural layout satisfies tile count")
+	_check_equal({0: 42, 1: 30, 2: 18, 3: 6}, _layout_layer_counts(generated_layout), "procedural layout satisfies layer distribution")
+	_check(_is_horizontally_symmetric(generated_layout), "procedural layout satisfies horizontal symmetry")
+	_check(_all_upper_slots_supported(generated_layout), "procedural upper slots overlap their immediate lower layer")
+	_check(generated_layout.call("has_partial_overlap"), "procedural inset layers create partial overlap")
+	var repeated_layout: Variant = procedural_generator.call("generate", requirements, 4242)
+	var alternate_layout: Variant = procedural_generator.call("generate", requirements, 4243)
+	_check_equal(generated_layout.content_hash(), repeated_layout.content_hash(), "same requirements seed reproduces geometry")
+	_check(generated_layout.content_hash() != alternate_layout.content_hash(), "different requirements seed varies geometry")
+
+	var procedural_game: Dictionary = factory.call("create_generated_for_layout", 92817361, generated_layout)
+	_check_equal(generated_layout.content_hash(), procedural_game.definition.configuration.layout_hash, "procedural geometry hash reaches game definition")
+	_check(solver.call("verify_solution", procedural_game.definition, procedural_game.solution).valid, "procedural solution certificate replays to a win")
+	var procedural_solution: Array[String] = solver.call("find_pair_solution", procedural_game.definition)
+	_check_equal(96, procedural_solution.size(), "independent solver clears procedural layout")
+
+	for shape in BoardLayoutRequirementsScript.SHAPES:
+		var shape_requirements := BoardLayoutRequirementsScript.new(
+			"generated_%s_96" % shape,
+			96,
+			6,
+			7,
+			[42, 30, 18, 6],
+			shape
+		)
+		_check(procedural_generator.call("generate", shape_requirements, 101) != null, "%s shape generates a planned layout" % shape)
+
+	var invalid_requirements := BoardLayoutRequirementsScript.new("invalid", 95, 6, 7, [42, 30, 17, 6])
+	_check(not invalid_requirements.call("validation_errors").is_empty(), "odd or inconsistent procedural requirements are rejected")
 
 
 func _run_simulation_tests() -> void:
@@ -451,6 +502,44 @@ func _deal_signature(definition: Variant) -> String:
 	for tile in definition.tiles:
 		identities.append(tile.face.logical_id())
 	return "|".join(identities)
+
+
+func _layout_layer_counts(layout: Variant) -> Dictionary:
+	var counts := {}
+	for position in layout.positions:
+		counts[position.z] = counts.get(position.z, 0) + 1
+	return counts
+
+
+func _is_horizontally_symmetric(layout: Variant) -> bool:
+	var positions: Array = layout.positions
+	var minimum_x: int = positions[0].x
+	var maximum_x: int = positions[0].x
+	var keys := {}
+	for position in positions:
+		minimum_x = mini(minimum_x, position.x)
+		maximum_x = maxi(maximum_x, position.x)
+		keys[position.to_key()] = true
+	for position in positions:
+		var mirror_key := "%d,%d,%d" % [minimum_x + maximum_x - position.x, position.y, position.z]
+		if not keys.has(mirror_key):
+			return false
+	return true
+
+
+func _all_upper_slots_supported(layout: Variant) -> bool:
+	var positions: Array = layout.positions
+	for position in positions:
+		if position.z == 0:
+			continue
+		var supported := false
+		for lower in positions:
+			if lower.z == position.z - 1 and position.overlaps_footprint(lower):
+				supported = true
+				break
+		if not supported:
+			return false
+	return true
 
 
 func _check(condition: bool, message: String) -> void:

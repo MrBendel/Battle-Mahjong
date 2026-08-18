@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "requirements_id": "generated_portrait_diamond_96",
+  "revision": 1,
+  "tile_count": 96,
+  "columns": 6,
+  "rows": 7,
+  "layer_counts": [42, 30, 18, 6],
+  "shape": "diamond",
+  "horizontal_symmetry": true,
+  "require_support": true
+}

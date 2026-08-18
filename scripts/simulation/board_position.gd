@@ -2,14 +2,26 @@ extends RefCounted
 
 const FOOTPRINT_SIZE := 2
 
-var x: int
-var y: int
-var z: int
+var x: int:
+	get:
+		return _x
+
+var y: int:
+	get:
+		return _y
+
+var z: int:
+	get:
+		return _z
+
+var _x: int
+var _y: int
+var _z: int
 
 func _init(position_x: int, position_y: int, position_z: int) -> void:
-	x = position_x
-	y = position_y
-	z = position_z
+	_x = position_x
+	_y = position_y
+	_z = position_z
 
 
 func equals(other: Variant) -> bool:
