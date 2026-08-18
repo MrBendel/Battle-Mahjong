@@ -3,7 +3,7 @@ extends RefCounted
 const GameConfigurationScript := preload("res://scripts/simulation/game_configuration.gd")
 
 const SCHEMA_VERSION := 1
-const CURRENT_RULES_VERSION := 1
+const CURRENT_RULES_VERSION := 2
 
 var seed: int
 var rules_version: int

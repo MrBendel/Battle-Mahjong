@@ -11,6 +11,15 @@ func _run() -> void:
 	var shell: Control = load("res://scenes/main.tscn").instantiate()
 	root.add_child(shell)
 	await process_frame
+	var tuning: Resource = shell.get("momentum_tuning")
+	_check(tuning != null, "main scene exposes a MomentumTuning resource")
+	_check(tuning.call("validation_errors").is_empty(), "main scene MomentumTuning resource validates")
+	var live_game: Variant = shell.get("_game")
+	_check_equal(
+		int(tuning.get("pair_gain")),
+		int(live_game.definition.configuration.momentum_pair_gain),
+		"main scene copies Inspector tuning into game definition"
+	)
 
 	var orientation := "portrait" if root.size.x < root.size.y else "landscape"
 	shell.call("_apply_layout")
@@ -69,6 +78,10 @@ func _check(condition: bool, message: String) -> void:
 		printerr("OK: %s" % message)
 	else:
 		_fail(message)
+
+
+func _check_equal(expected: Variant, actual: Variant, message: String) -> void:
+	_check(expected == actual, "%s (expected=%s actual=%s)" % [message, expected, actual])
 
 
 func _fail(message: String) -> void:

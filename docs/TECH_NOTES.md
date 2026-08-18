@@ -73,9 +73,12 @@ Godot project files use this initial structure:
 
 ```text
 project.godot
+configuration/
+  default_momentum_tuning.tres
 scenes/
   main.tscn
 scripts/
+  configuration/
   simulation/
   presentation/
   ui/
@@ -83,6 +86,8 @@ scripts/
 
 Current boundaries:
 
+- `configuration/`: Inspector-authored tuning assets referenced by scenes.
+- `scripts/configuration/`: Godot authoring adapters that validate and copy resource values into simulation configuration.
 - `scripts/simulation/`: deterministic gameplay-facing utilities that can run without presentation.
 - `scripts/presentation/`: screen composition, responsive layout, and visual placeholders.
 - `scripts/ui/`: debug and interface controls.
@@ -151,10 +156,17 @@ Configuration should eventually cover:
 - difficulty targets
 - scoring
 
+Status: Initial Implementation
+
+- Momentum tuning is authored as a Godot `Resource` referenced by the root scene.
+- The authoring resource validates and converts designer-facing values into a plain configuration dictionary when a game is created.
+- Effective values are copied into `GameDefinition`, included in its hash, and remain independent from presentation and resource lifetime.
+- Headless simulation defaults remain available when no valid authoring resource is supplied.
+
 Status: Open Question
 
-- Configuration file format.
 - Runtime override strategy for debug builds.
+- Resource organization once modifiers, consumables, and difficulty profiles also require tuning.
 
 ## Validation
 

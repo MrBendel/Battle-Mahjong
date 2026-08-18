@@ -71,10 +71,11 @@ func _build_select(command: Variant, definition: Variant, state: Variant) -> Dic
 		changes.append(GameChangeScript.new(GameChangeScript.TILE_ZONE, tile_id, GameStateDataScript.ZONE_BOARD, GameStateDataScript.ZONE_RESOLVED))
 		changes.append(GameChangeScript.new(GameChangeScript.TILE_ZONE, matching_tile_id, GameStateDataScript.ZONE_TRAY, GameStateDataScript.ZONE_RESOLVED))
 		changes.append(GameChangeScript.new(GameChangeScript.COUNTER, "resolved_pair_count", state.resolved_pair_count, state.resolved_pair_count + 1))
+		var score_multiplier: int = MomentumRulesScript.multiplier_for(momentum_after_decay, definition.configuration)
 		var momentum_after_gain: int = MomentumRulesScript.add_pair_gain(momentum_after_decay, definition.configuration)
 		changes.append(GameChangeScript.new(GameChangeScript.COUNTER, "momentum_units", momentum_after_decay, momentum_after_gain))
-		var multiplier: int = MomentumRulesScript.multiplier_for(momentum_after_gain, definition.configuration)
-		var score_gain := int(definition.configuration.pair_base_score) * multiplier
+		var resulting_multiplier: int = MomentumRulesScript.multiplier_for(momentum_after_gain, definition.configuration)
+		var score_gain := int(definition.configuration.pair_base_score) * score_multiplier
 		changes.append(GameChangeScript.new(GameChangeScript.COUNTER, "score", state.score, state.score + score_gain))
 		if command.playback_time_ms != state.last_pair_time_ms:
 			changes.append(GameChangeScript.new(
@@ -83,12 +84,13 @@ func _build_select(command: Variant, definition: Variant, state: Variant) -> Dic
 				state.last_pair_time_ms,
 				command.playback_time_ms
 			))
-		if multiplier > state.max_multiplier:
-			changes.append(GameChangeScript.new(GameChangeScript.COUNTER, "max_multiplier", state.max_multiplier, multiplier))
+		if resulting_multiplier > state.max_multiplier:
+			changes.append(GameChangeScript.new(GameChangeScript.COUNTER, "max_multiplier", state.max_multiplier, resulting_multiplier))
 		telemetry.merge({
 			"pair_interval_ms": command.playback_time_ms - state.last_pair_time_ms,
 			"momentum_after_gain": momentum_after_gain,
-			"multiplier": multiplier,
+			"score_multiplier": score_multiplier,
+			"resulting_multiplier": resulting_multiplier,
 			"score_gain": score_gain,
 		})
 		result = PAIR_RESOLVED
