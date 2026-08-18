@@ -9,6 +9,11 @@ const BOUNDED_ATTENTION := "bounded_attention"
 const RANDOM := "random"
 
 const DEFAULT_ATTENTION_LIMIT := 10
+const DEFAULT_SELECTION_INTERVALS := {
+	PAIR_AWARE: 450,
+	BOUNDED_ATTENTION: 800,
+	RANDOM: 1100,
+}
 
 func run(seed: int, policy: String = PAIR_AWARE, policy_config: Dictionary = {}) -> Dictionary:
 	var definition: Variant = ReferenceGameFactoryScript.new().call("create_definition", seed)
@@ -16,6 +21,11 @@ func run(seed: int, policy: String = PAIR_AWARE, policy_config: Dictionary = {})
 	var policy_rng = DeterministicRngScript.new(seed + 104729)
 	var effective_policy_config := policy_config.duplicate()
 	var attention_limit := maxi(1, int(policy_config.get("attention_limit", DEFAULT_ATTENTION_LIMIT)))
+	var selection_interval_ms := maxi(0, int(policy_config.get(
+		"selection_interval_ms",
+		DEFAULT_SELECTION_INTERVALS.get(policy, 800)
+	)))
+	effective_policy_config["selection_interval_ms"] = selection_interval_ms
 	if policy == BOUNDED_ATTENTION:
 		effective_policy_config["attention_limit"] = attention_limit
 
@@ -32,7 +42,8 @@ func run(seed: int, policy: String = PAIR_AWARE, policy_config: Dictionary = {})
 		if tile == null:
 			break
 
-		game.call("select_tile", tile.id)
+		var next_time: int = game.elapsed_time_ms + selection_interval_ms
+		game.call("select_tile", tile.id, next_time)
 
 	return {
 		"seed": seed,
@@ -44,6 +55,11 @@ func run(seed: int, policy: String = PAIR_AWARE, policy_config: Dictionary = {})
 		"max_tray": game.max_tray_occupancy,
 		"board_remaining": game.board.call("active_tiles").size(),
 		"tray_remaining": game.tray.tiles.size(),
+		"score": game.score,
+		"momentum": game.call("momentum_at", game.elapsed_time_ms),
+		"multiplier": game.call("multiplier_at", game.elapsed_time_ms),
+		"max_multiplier": game.max_multiplier,
+		"elapsed_time_ms": game.elapsed_time_ms,
 	}
 
 

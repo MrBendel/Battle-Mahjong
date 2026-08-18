@@ -67,3 +67,9 @@ func transactions_since(revision: int) -> Array:
 		if transaction.revision > revision:
 			copies.append(transaction.call("duplicate_transaction"))
 	return copies
+
+
+func last_transaction() -> Variant:
+	if _timeline.is_empty():
+		return null
+	return _timeline[-1].call("duplicate_transaction")

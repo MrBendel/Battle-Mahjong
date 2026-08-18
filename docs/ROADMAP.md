@@ -70,7 +70,7 @@ Fast look-ahead play feels meaningfully different from slow stop-and-search play
 
 Record only. Detailed implementation contracts are intentionally deferred.
 
-- M4 Generator + Solver
+- M4 Generator + Solver, including varied solvable geometry that exercises staggered and partial tile overlap
 - M5 Modifiers
 - M6 Consumables
 - M7 Juice / Anime Arcade Feedback
