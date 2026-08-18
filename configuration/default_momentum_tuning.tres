@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="MomentumTuning" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/configuration/momentum_tuning.gd" id="1_tuning"]
+
+[resource]
+script = ExtResource("1_tuning")
+maximum = 100000
+pair_gain = 30000
+multiplier_thresholds = Array[int]([0, 20000, 40000, 60000, 80000])
+decay_per_second = Array[int]([5000, 7000, 10000, 14000, 19000])
+pair_base_score = 100

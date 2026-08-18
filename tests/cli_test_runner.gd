@@ -17,6 +17,7 @@ const GameStateScript := preload("res://scripts/simulation/game_state.gd")
 const ReferenceGameFactoryScript := preload("res://scripts/simulation/reference_game_factory.gd")
 const GameSimulatorScript := preload("res://scripts/simulation/game_simulator.gd")
 const MomentumRulesScript := preload("res://scripts/simulation/momentum_rules.gd")
+const MomentumTuningScript := preload("res://scripts/configuration/momentum_tuning.gd")
 
 var _failures := 0
 var _assertions := 0
@@ -30,6 +31,7 @@ func _init() -> void:
 	_run_fixed_layout_tests()
 	_run_tray_and_game_tests()
 	_run_transaction_timeline_tests()
+	_run_momentum_tuning_tests()
 	_run_momentum_tests()
 	_run_reference_game_tests()
 	_run_simulation_tests()
@@ -296,6 +298,38 @@ func _run_momentum_tests() -> void:
 	slow_game.call("select_tile", "fourth", 6000)
 	_check_equal(1, slow_game.call("last_transaction").telemetry.score_multiplier, "delayed second pair falls back to x1")
 	_check_equal(200, slow_game.score, "hesitation does not receive the consistency bonus")
+
+
+func _run_momentum_tuning_tests() -> void:
+	_log(" - Inspector momentum tuning")
+	var default_tuning: Variant = load("res://configuration/default_momentum_tuning.tres")
+	_check(default_tuning != null, "default MomentumTuning resource loads")
+	_check(default_tuning.call("validation_errors").is_empty(), "default MomentumTuning resource validates")
+	var default_overrides: Dictionary = default_tuning.call("configuration_overrides")
+	_check_equal(100000, default_overrides.momentum_max, "Inspector maximum maps to simulation configuration")
+	_check_equal([5, 7, 10, 14, 19], default_overrides.momentum_decay_per_ms, "per-second Inspector decay converts exactly")
+	_check_equal(MomentumTuningScript.default_overrides(), default_overrides, "Inspector defaults match headless simulation defaults")
+
+	var custom_tuning: Variant = MomentumTuningScript.new()
+	custom_tuning.maximum = 120000
+	custom_tuning.pair_gain = 15000
+	custom_tuning.multiplier_thresholds.assign([0, 30000, 60000, 90000])
+	custom_tuning.decay_per_second.assign([4000, 6000, 9000, 13000])
+	custom_tuning.pair_base_score = 250
+	_check(custom_tuning.call("validation_errors").is_empty(), "valid custom tuning passes validation")
+	var custom_overrides: Dictionary = custom_tuning.call("configuration_overrides")
+	var factory := ReferenceGameFactoryScript.new()
+	var default_definition: Variant = factory.call("create_definition", 42)
+	var custom_definition: Variant = factory.call("create_definition", 42, 4, custom_overrides)
+	_check_equal(120000, custom_definition.configuration.momentum_max, "factory applies Inspector maximum")
+	_check_equal(250, custom_definition.configuration.pair_base_score, "factory applies Inspector scoring")
+	_check(default_definition.definition_hash() != custom_definition.definition_hash(), "custom tuning changes definition hash")
+	custom_overrides.momentum_thresholds[1] = 1
+	_check_equal(30000, custom_tuning.multiplier_thresholds[1], "simulation override cannot mutate Inspector resource")
+
+	custom_tuning.multiplier_thresholds.assign([100, 50])
+	custom_tuning.decay_per_second.assign([4500])
+	_check(custom_tuning.call("validation_errors").size() >= 3, "invalid thresholds and decay report actionable errors")
 
 
 func _run_reference_game_tests() -> void:

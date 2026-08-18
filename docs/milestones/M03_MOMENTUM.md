@@ -45,6 +45,8 @@ Fast look-ahead play feels meaningfully different from slow stop-and-search play
 
 These values are configuration embedded in the game definition. They establish an M3 test baseline, not a final scoring economy.
 
+The default values are authored in `configuration/default_momentum_tuning.tres`. Selecting the root `Main` node exposes that resource in the Godot Inspector. Changes are validated and copied into a new game definition on launch or Restart; the simulation and replay formats remain plain data and do not depend on Godot resources.
+
 ## Remaining Questions
 
 - How active-play time should pause around menus, interruptions, and app suspension.

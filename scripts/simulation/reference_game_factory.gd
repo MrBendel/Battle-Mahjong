@@ -16,7 +16,7 @@ const _ROWS_BY_LAYER := [6, 4, 2]
 const _ROW_START_BY_LAYER := [0, 2, 4]
 const _TILES_PER_ROW := 8
 
-func create_definition(seed: int, tray_capacity: int = 4) -> Variant:
+func create_definition(seed: int, tray_capacity: int = 4, configuration_overrides: Dictionary = {}) -> Variant:
 	var placement_pairs := _build_placement_pairs()
 	var pair_faces := _build_pair_faces()
 	_shuffle(pair_faces, DeterministicRngScript.new(seed))
@@ -33,7 +33,9 @@ func create_definition(seed: int, tray_capacity: int = 4) -> Variant:
 				positions[copy_index]
 			))
 
-	return GameDefinitionScript.new(seed, tiles, GameConfigurationScript.create(tray_capacity))
+	var configuration := GameConfigurationScript.create(tray_capacity)
+	configuration.merge(configuration_overrides, true)
+	return GameDefinitionScript.new(seed, tiles, configuration)
 func _build_pair_faces() -> Array:
 	var faces: Array = []
 	for identity_index in range(IDENTITY_COUNT):

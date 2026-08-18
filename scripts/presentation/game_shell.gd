@@ -7,7 +7,10 @@ const TrayViewScript := preload("res://scripts/presentation/tray_view.gd")
 const MomentumViewScript := preload("res://scripts/presentation/momentum_view.gd")
 const GameStateScript := preload("res://scripts/simulation/game_state.gd")
 const ReferenceGameFactoryScript := preload("res://scripts/simulation/reference_game_factory.gd")
+const MomentumTuningScript := preload("res://scripts/configuration/momentum_tuning.gd")
 const START_SEED := 92817361
+
+@export var momentum_tuning: Resource
 
 var _rng: RefCounted = DeterministicRngScript.new(START_SEED)
 var _regions: Dictionary = {}
@@ -42,10 +45,22 @@ func _build_shell() -> void:
 
 
 func _create_game() -> Variant:
+	var tuning_overrides := {}
+	if momentum_tuning == null:
+		push_warning("No MomentumTuning resource assigned; using simulation defaults.")
+	elif momentum_tuning.get_script() != MomentumTuningScript:
+		push_error("Assigned momentum tuning is not a MomentumTuning resource; using simulation defaults.")
+	else:
+		var tuning_errors: Array[String] = momentum_tuning.validation_errors()
+		if tuning_errors.is_empty():
+			tuning_overrides = momentum_tuning.configuration_overrides()
+		else:
+			push_error("Invalid MomentumTuning; using simulation defaults: %s" % " ".join(tuning_errors))
 	var definition: Variant = ReferenceGameFactoryScript.new().call(
 		"create_definition",
 		_rng.call("get_seed"),
-		GameStateScript.BASE_TRAY_CAPACITY
+		GameStateScript.BASE_TRAY_CAPACITY,
+		tuning_overrides
 	)
 	return GameStateScript.new(definition)
 
