@@ -1,7 +1,7 @@
 extends Control
 class_name BoardView
 
-const ReferenceGameFactoryScript := preload("res://scripts/simulation/reference_game_factory.gd")
+signal tile_selected(tile_id: String)
 
 const TILE_ASPECT := 1.26
 const COLUMN_COUNT := 8
@@ -9,24 +9,27 @@ const ROW_COUNT := 6
 const HEADER_HEIGHT := 48.0
 const BOARD_MARGIN := 14.0
 
-var _board: Variant
-var _seed: int
-var _selected_tile_id := ""
+var _game: Variant
 var _tile_buttons: Dictionary = {}
 var _title_label: Label
 var _status_label: Label
 var _tile_layer: Control
 
 
-func _init(seed: int = 1) -> void:
-	_seed = seed
+func _init(game_state: Variant) -> void:
+	_game = game_state
 
 
 func _ready() -> void:
 	_build()
-	_board = ReferenceGameFactoryScript.new().call("create_board", _seed)
 	_rebuild_tiles()
 	resized.connect(_layout_tiles)
+	_layout_tiles()
+
+
+func set_game_state(game_state: Variant) -> void:
+	_game = game_state
+	_rebuild_tiles()
 	_layout_tiles()
 
 
@@ -59,7 +62,7 @@ func _rebuild_tiles() -> void:
 		button.queue_free()
 	_tile_buttons.clear()
 
-	for tile in _board.tiles:
+	for tile in _game.board.tiles:
 		var button := Button.new()
 		button.name = tile.id
 		button.text = _face_label(tile.face.value)
@@ -70,53 +73,41 @@ func _rebuild_tiles() -> void:
 		_tile_layer.add_child(button)
 		_tile_buttons[tile.id] = button
 
-	_refresh_tiles()
+	refresh()
 
 
-func _refresh_tiles() -> void:
-	var active_count: int = _board.call("active_tiles").size()
+func refresh() -> void:
+	var active_count: int = _game.board.call("active_tiles").size()
 	var selectable_ids := {}
-	for tile in _board.call("selectable_tiles"):
+	for tile in _game.board.call("selectable_tiles"):
 		selectable_ids[tile.id] = true
 
-	for tile in _board.tiles:
+	for tile in _game.board.tiles:
 		var button: Button = _tile_buttons[tile.id]
 		button.visible = not tile.removed
 		if tile.removed:
 			continue
 
-		var selectable: bool = selectable_ids.has(tile.id)
+		var selectable: bool = selectable_ids.has(tile.id) and _game.status == "playing"
 		button.disabled = not selectable
 		button.modulate = Color.WHITE if selectable else Color(0.58, 0.61, 0.60)
-		_apply_tile_style(button, tile.face.value, tile.id == _selected_tile_id)
+		_apply_tile_style(button, tile.face.value)
 
 	if active_count == 0:
 		_status_label.text = "Board cleared"
-	elif _selected_tile_id.is_empty():
-		_status_label.text = "%d tiles  |  %d free" % [active_count, selectable_ids.size()]
 	else:
-		var selected: Variant = _board.call("get_tile", _selected_tile_id)
-		_status_label.text = "Selected %s  |  choose its match" % _face_label(selected.face.value).replace("\n", " ")
+		_status_label.text = "%d tiles  |  %d free" % [active_count, selectable_ids.size()]
 
 
 func _on_tile_pressed(tile_id: String) -> void:
-	if not _board.call("is_tile_selectable", tile_id):
+	if _game.status != "playing" or not _game.board.call("is_tile_selectable", tile_id):
 		return
 
-	if _selected_tile_id.is_empty():
-		_selected_tile_id = tile_id
-	elif _selected_tile_id == tile_id:
-		_selected_tile_id = ""
-	elif _board.call("remove_matching_pair", _selected_tile_id, tile_id):
-		_selected_tile_id = ""
-	else:
-		_selected_tile_id = tile_id
-
-	_refresh_tiles()
+	tile_selected.emit(tile_id)
 
 
 func _layout_tiles() -> void:
-	if _tile_layer == null or _board == null:
+	if _tile_layer == null or _game == null:
 		return
 
 	_status_label.size = Vector2(maxf(80.0, size.x - 140.0 - BOARD_MARGIN), 30.0)
@@ -138,7 +129,7 @@ func _layout_tiles() -> void:
 	var board_size := Vector2(tile_size.x * COLUMN_COUNT, tile_size.y * ROW_COUNT)
 	var origin := (area.size - board_size) * 0.5
 
-	for tile in _board.tiles:
+	for tile in _game.board.tiles:
 		var button: Button = _tile_buttons[tile.id]
 		var depth_offset := Vector2(tile.position.z * 4.0, tile.position.z * -5.0)
 		button.position = origin + Vector2(
@@ -156,7 +147,7 @@ func _face_label(value: String) -> String:
 	return "%s\n%d" % [families[identity / 6], identity % 6 + 1]
 
 
-func _apply_tile_style(button: Button, value: String, selected: bool) -> void:
+func _apply_tile_style(button: Button, value: String) -> void:
 	var identity := int(value) - 1
 	var face_colors := [
 		Color("d8ead6"),
@@ -165,8 +156,8 @@ func _apply_tile_style(button: Button, value: String, selected: bool) -> void:
 		Color("f1e1b8"),
 	]
 	var face_color: Color = face_colors[identity / 6]
-	var border_color := Color("56d6a5") if selected else Color("6c7775")
-	var border_width := 4 if selected else 2
+	var border_color := Color("6c7775")
+	var border_width := 2
 
 	button.add_theme_stylebox_override("normal", _tile_style(face_color, border_color, border_width, Vector2(0.0, 3.0)))
 	button.add_theme_stylebox_override("hover", _tile_style(face_color.lightened(0.08), Color("e8f2ef"), 3, Vector2(0.0, 3.0)))

@@ -10,6 +10,9 @@ const SELECTED := "selected"
 const PAIR_RESOLVED := "pair_resolved"
 const INVALID_SELECTION := "invalid_selection"
 const GAME_OVER := "game_over"
+const UNDONE := "undone"
+const NOTHING_TO_UNDO := "nothing_to_undo"
+const BASE_TRAY_CAPACITY := 4
 
 var board: Variant
 var tray: Variant
@@ -17,7 +20,7 @@ var status := PLAYING
 var selection_count := 0
 var max_tray_occupancy := 0
 
-func _init(initial_board: Variant, tray_capacity: int = 4) -> void:
+func _init(initial_board: Variant, tray_capacity: int = BASE_TRAY_CAPACITY) -> void:
 	board = initial_board
 	tray = TrayStateScript.new(tray_capacity)
 
@@ -45,3 +48,19 @@ func select_tile(tile_id: String) -> String:
 		return PAIR_RESOLVED
 
 	return SELECTED
+
+
+func can_undo() -> bool:
+	return status == PLAYING and not tray.tiles.is_empty()
+
+
+func undo_last_unmatched() -> String:
+	if not can_undo():
+		return NOTHING_TO_UNDO
+
+	var tile: Variant = tray.call("take_last_tile")
+	if tile == null or not board.call("restore_tile", tile.id):
+		return NOTHING_TO_UNDO
+
+	selection_count -= 1
+	return UNDONE

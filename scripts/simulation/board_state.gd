@@ -50,6 +50,15 @@ func take_tile(tile_id: String) -> Variant:
 	return tile
 
 
+func restore_tile(tile_id: String) -> bool:
+	var tile: Variant = get_tile(tile_id)
+	if tile == null or not tile.removed:
+		return false
+
+	tile.removed = false
+	return true
+
+
 func remove_matching_pair(first_tile_id: String, second_tile_id: String) -> bool:
 	var first: Variant = get_tile(first_tile_id)
 	var second: Variant = get_tile(second_tile_id)
