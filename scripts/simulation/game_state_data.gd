@@ -22,6 +22,13 @@ var elapsed_time_ms := 0
 var last_selection_time_ms := 0
 var last_pair_time_ms := 0
 var max_multiplier := 1
+var modifier_activation_count := 0
+var extra_life_charges := 0
+var cold_snap_until_ms := 0
+var score_multiplier_until_ms := 0
+var score_multiplier_basis_points := 1000
+var tray_bonus_capacity := 0
+var tray_bonus_pairs_remaining := 0
 
 
 func _init(definition: Variant = null) -> void:
@@ -49,6 +56,13 @@ func duplicate_data() -> RefCounted:
 	copy.last_selection_time_ms = last_selection_time_ms
 	copy.last_pair_time_ms = last_pair_time_ms
 	copy.max_multiplier = max_multiplier
+	copy.modifier_activation_count = modifier_activation_count
+	copy.extra_life_charges = extra_life_charges
+	copy.cold_snap_until_ms = cold_snap_until_ms
+	copy.score_multiplier_until_ms = score_multiplier_until_ms
+	copy.score_multiplier_basis_points = score_multiplier_basis_points
+	copy.tray_bonus_capacity = tray_bonus_capacity
+	copy.tray_bonus_pairs_remaining = tray_bonus_pairs_remaining
 	return copy
 
 
@@ -67,6 +81,13 @@ func assign_from(other: Variant) -> void:
 	last_selection_time_ms = other.last_selection_time_ms
 	last_pair_time_ms = other.last_pair_time_ms
 	max_multiplier = other.max_multiplier
+	modifier_activation_count = other.modifier_activation_count
+	extra_life_charges = other.extra_life_charges
+	cold_snap_until_ms = other.cold_snap_until_ms
+	score_multiplier_until_ms = other.score_multiplier_until_ms
+	score_multiplier_basis_points = other.score_multiplier_basis_points
+	tray_bonus_capacity = other.tray_bonus_capacity
+	tray_bonus_pairs_remaining = other.tray_bonus_pairs_remaining
 
 
 func state_hash() -> String:
@@ -76,7 +97,7 @@ func state_hash() -> String:
 	for tile_id in tile_ids:
 		zone_parts.append("%s=%s" % [tile_id, tile_zones[tile_id]])
 
-	var canonical := "%d|%s|%s|%s|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d" % [
+	var canonical := "%d|%s|%s|%s|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d" % [
 		revision,
 		status,
 		",".join(zone_parts),
@@ -91,6 +112,13 @@ func state_hash() -> String:
 		last_selection_time_ms,
 		last_pair_time_ms,
 		max_multiplier,
+		modifier_activation_count,
+		extra_life_charges,
+		cold_snap_until_ms,
+		score_multiplier_until_ms,
+		score_multiplier_basis_points,
+		tray_bonus_capacity,
+		tray_bonus_pairs_remaining,
 	]
 	return canonical.sha256_text()
 
@@ -111,4 +139,11 @@ func to_dict() -> Dictionary:
 		"last_selection_time_ms": last_selection_time_ms,
 		"last_pair_time_ms": last_pair_time_ms,
 		"max_multiplier": max_multiplier,
+		"modifier_activation_count": modifier_activation_count,
+		"extra_life_charges": extra_life_charges,
+		"cold_snap_until_ms": cold_snap_until_ms,
+		"score_multiplier_until_ms": score_multiplier_until_ms,
+		"score_multiplier_basis_points": score_multiplier_basis_points,
+		"tray_bonus_capacity": tray_bonus_capacity,
+		"tray_bonus_pairs_remaining": tray_bonus_pairs_remaining,
 	}

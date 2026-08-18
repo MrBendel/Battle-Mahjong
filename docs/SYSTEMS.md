@@ -8,6 +8,14 @@ Modifiers are collectible RPG-style effects attached to ordinary physical tiles 
 
 The player receives the modifier when a pair involving the modified tile is completed.
 
+Status: Implemented M5 baseline
+
+- A game receives a plain-data pre-run loadout snapshot with a configurable initial limit of three equipped modifiers.
+- Reference games give new players one level-0 `2.0x` Score Multiplier modifier.
+- Ownership, collection, upgrade persistence, and loadout UI remain later progression work.
+- Equipped modifiers attach deterministically to stable physical tile IDs and are included in the game-definition hash.
+- M5 permits at most one equipped modifier of each type.
+
 Design principle:
 
 - Modifiers should generally enhance gameplay without unexpectedly disrupting board geography.
@@ -23,10 +31,7 @@ Possible behavior:
 - preserve the run
 - potentially reshuffle only when explicitly appropriate
 
-Status: Open Question
-
-- Exact recovery behavior.
-- Whether Extra Life consumes itself before or after failure is evaluated.
+M5 baseline: a collected Extra Life grants level-scaled charges. When the tray would fill, one charge is consumed and all previously unresolved tray tiles return to their board slots; the attempted tile remains on the board.
 
 ### Cold Snap
 
@@ -40,27 +45,17 @@ Possible upgrade paths:
 
 Modifier leveling should ideally introduce meaningful behavioral changes rather than only numerical increases.
 
-Status: Open Question
+M5 baseline: level 0 freezes active-play momentum decay for 8 seconds, and each level adds 0.5 seconds. Upgrade branches and stacking remain future work.
 
-- Exact freeze duration.
-- Exact upgrade behavior and stacking rules.
+### Score Multiplier
 
-### Multiplier Boost
-
-Adds to or accelerates the current multiplier/momentum.
-
-Status: Open Question
-
-- Whether it modifies momentum, multiplier, or both.
+Applies a time-limited score multiplier after its tile resolves. Level 0 is `2.0x`, each level adds `0.1x`, and the M5 duration is 10 seconds. It does not alter momentum or its tier multiplier.
 
 ### Tray +1
 
 Temporarily expands tray capacity by one slot.
 
-Status: Open Question
-
-- Duration.
-- Behavior when the effect expires while the tray has more tiles than base capacity.
+M5 baseline: level 0 adds one slot for the next three resolved pairs, with one additional pair per level. The triggering pair does not consume duration.
 
 ### Future Modifier Concepts
 

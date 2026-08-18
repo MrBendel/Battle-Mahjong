@@ -16,8 +16,11 @@ func _run() -> void:
 	root.add_child(shell)
 	await process_frame
 	var tuning: Resource = shell.get("momentum_tuning")
+	var modifier_tuning: Resource = shell.get("modifier_tuning")
 	_check(tuning != null, "main scene exposes a MomentumTuning resource")
 	_check(tuning.call("validation_errors").is_empty(), "main scene MomentumTuning resource validates")
+	_check(modifier_tuning != null, "main scene exposes a ModifierTuning resource")
+	_check(modifier_tuning.call("validation_errors").is_empty(), "main scene ModifierTuning resource validates")
 	var live_game: Variant = shell.get("_game")
 	_check_equal(shell.get("layout_id"), live_game.definition.configuration.layout_id, "main scene selects its exported layout id")
 	_check_equal(
@@ -25,6 +28,14 @@ func _run() -> void:
 		int(live_game.definition.configuration.momentum_pair_gain),
 		"main scene copies Inspector tuning into game definition"
 	)
+	_check_equal(
+		int(modifier_tuning.get("loadout_capacity")),
+		int(live_game.definition.configuration.modifier_loadout_capacity),
+		"main scene copies modifier tuning into game definition"
+	)
+	var attached_tile_id: String = str(live_game.definition.modifier_attachments.keys()[0])
+	var attached_button: Button = shell.get("_regions").board.get("_tile_buttons")[attached_tile_id]
+	_check("×" in attached_button.text, "starter modifier has a visible placeholder marker on its physical tile")
 
 	var orientation := "portrait" if root.size.x < root.size.y else "landscape"
 	shell.call("_apply_layout")

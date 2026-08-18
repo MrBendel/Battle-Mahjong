@@ -2,6 +2,7 @@ extends RefCounted
 
 const GameChangeScript := preload("res://scripts/simulation/game_change.gd")
 const GameStateDataScript := preload("res://scripts/simulation/game_state_data.gd")
+const ModifierRulesScript := preload("res://scripts/simulation/modifier_rules.gd")
 const COUNTERS := [
 	"selection_count",
 	"resolved_pair_count",
@@ -12,6 +13,13 @@ const COUNTERS := [
 	"last_selection_time_ms",
 	"last_pair_time_ms",
 	"max_multiplier",
+	"modifier_activation_count",
+	"extra_life_charges",
+	"cold_snap_until_ms",
+	"score_multiplier_until_ms",
+	"score_multiplier_basis_points",
+	"tray_bonus_capacity",
+	"tray_bonus_pairs_remaining",
 ]
 
 
@@ -97,11 +105,22 @@ func _is_valid(definition: Variant, state: Variant) -> bool:
 		return false
 	if state.score < 0 or state.elapsed_time_ms < 0 or state.max_multiplier < 1:
 		return false
+	if state.modifier_activation_count < 0 or state.extra_life_charges < 0:
+		return false
+	if state.cold_snap_until_ms < 0 or state.score_multiplier_until_ms < 0:
+		return false
+	if state.score_multiplier_basis_points < ModifierRulesScript.BASIS_POINTS_ONE:
+		return false
+	if state.tray_bonus_capacity < 0 or state.tray_bonus_pairs_remaining < 0:
+		return false
+	if (state.tray_bonus_capacity == 0) != (state.tray_bonus_pairs_remaining == 0):
+		return false
 	if state.max_multiplier > definition.configuration.momentum_thresholds.size():
 		return false
 	if state.last_selection_time_ms > state.elapsed_time_ms or state.last_pair_time_ms > state.elapsed_time_ms:
 		return false
-	if state.tray_tile_ids.size() > definition.tray_capacity():
+	var effective_tray_capacity: int = ModifierRulesScript.effective_tray_capacity(definition, state)
+	if state.tray_tile_ids.size() > effective_tray_capacity:
 		return false
 	if state.max_tray_occupancy < state.tray_tile_ids.size():
 		return false
@@ -133,6 +152,6 @@ func _is_valid(definition: Variant, state: Variant) -> bool:
 		return false
 	if state.status == GameStateDataScript.WON and (board_count != 0 or not state.tray_tile_ids.is_empty()):
 		return false
-	if state.status == GameStateDataScript.LOST and state.tray_tile_ids.size() != definition.tray_capacity():
+	if state.status == GameStateDataScript.LOST and state.tray_tile_ids.size() != effective_tray_capacity:
 		return false
 	return true

@@ -1,10 +1,11 @@
 extends RefCounted
 
 const GameStateDataScript := preload("res://scripts/simulation/game_state_data.gd")
+const ModifierRulesScript := preload("res://scripts/simulation/modifier_rules.gd")
 
 var capacity: int:
 	get:
-		return _definition.tray_capacity()
+		return ModifierRulesScript.effective_tray_capacity(_definition, _state)
 
 var tiles: Array:
 	get:

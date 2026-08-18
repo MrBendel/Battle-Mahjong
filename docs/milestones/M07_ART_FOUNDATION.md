@@ -157,7 +157,7 @@ Heart, `1UP`, or revival visual language.
 
 Snowflake, ice crystal, or frost visual language.
 
-### Multiplier Boost
+### Score Multiplier
 
 Multiplier symbol, starburst, or arcade-scoring visual language.
 
@@ -501,7 +501,7 @@ Produce:
 - multiplier treatment;
 - Extra Life modifier;
 - Cold Snap modifier;
-- Multiplier Boost modifier;
+- Score Multiplier modifier;
 - Tray +1 modifier;
 - Hint consumable;
 - Undo consumable;

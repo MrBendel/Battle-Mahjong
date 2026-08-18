@@ -9,9 +9,11 @@ const GameStateScript := preload("res://scripts/simulation/game_state.gd")
 const ReferenceGameFactoryScript := preload("res://scripts/simulation/reference_game_factory.gd")
 const BoardLayoutCatalogScript := preload("res://scripts/simulation/board_layout_catalog.gd")
 const MomentumTuningScript := preload("res://scripts/configuration/momentum_tuning.gd")
+const ModifierTuningScript := preload("res://scripts/configuration/modifier_tuning.gd")
 const START_SEED := 92817361
 
 @export var momentum_tuning: Resource
+@export var modifier_tuning: Resource
 @export var layout_id: String = BoardLayoutCatalogScript.DEFAULT_LAYOUT_ID
 
 var _rng: RefCounted = DeterministicRngScript.new(START_SEED)
@@ -58,6 +60,16 @@ func _create_game() -> Variant:
 			tuning_overrides = momentum_tuning.configuration_overrides()
 		else:
 			push_error("Invalid MomentumTuning; using simulation defaults: %s" % " ".join(tuning_errors))
+	if modifier_tuning == null:
+		push_warning("No ModifierTuning resource assigned; using simulation defaults.")
+	elif modifier_tuning.get_script() != ModifierTuningScript:
+		push_error("Assigned modifier tuning is not a ModifierTuning resource; using simulation defaults.")
+	else:
+		var modifier_errors: Array[String] = modifier_tuning.validation_errors()
+		if modifier_errors.is_empty():
+			tuning_overrides.merge(modifier_tuning.configuration_overrides(), true)
+		else:
+			push_error("Invalid ModifierTuning; using simulation defaults: %s" % " ".join(modifier_errors))
 	var factory := ReferenceGameFactoryScript.new()
 	var definition: Variant = factory.call(
 		"create_definition",

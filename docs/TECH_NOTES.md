@@ -162,11 +162,13 @@ Status: Initial Implementation
 - The authoring resource validates and converts designer-facing values into a plain configuration dictionary when a game is created.
 - Effective values are copied into `GameDefinition`, included in its hash, and remain independent from presentation and resource lifetime.
 - Headless simulation defaults remain available when no valid authoring resource is supplied.
+- Modifier tuning is authored in `configuration/default_modifier_tuning.tres`, copied into each game definition, and represented with deterministic integer values.
+- Future player inventory/progression code supplies a plain modifier loadout snapshot; simulation does not depend on accounts or persistence.
 
 Status: Open Question
 
 - Runtime override strategy for debug builds.
-- Resource organization once modifiers, consumables, and difficulty profiles also require tuning.
+- Resource organization once consumables and difficulty profiles also require tuning.
 
 ## Validation
 
