@@ -6,11 +6,14 @@ const GameCommandScript := preload("res://scripts/simulation/game_command.gd")
 const GameStateDataScript := preload("res://scripts/simulation/game_state_data.gd")
 const GameTransactionScript := preload("res://scripts/simulation/game_transaction.gd")
 const MomentumRulesScript := preload("res://scripts/simulation/momentum_rules.gd")
+const ModifierLoadoutScript := preload("res://scripts/simulation/modifier_loadout.gd")
+const ModifierRulesScript := preload("res://scripts/simulation/modifier_rules.gd")
 
 const SELECTED := "selected"
 const PAIR_RESOLVED := "pair_resolved"
 const INVALID_SELECTION := "invalid_selection"
 const GAME_OVER := "game_over"
+const EXTRA_LIFE_USED := "extra_life_used"
 const UNDONE := "undone"
 const NOTHING_TO_UNDO := "nothing_to_undo"
 const STALE_COMMAND := "stale_command"
@@ -62,10 +65,35 @@ func _build_select(command: Variant, definition: Variant, state: Variant) -> Dic
 	tray_after.assign(tray_before)
 	var matching_tile_id := _matching_tray_tile_id(definition, state, tile_id)
 	var result := SELECTED
+	var selection_count_after: int = state.selection_count + 1
+	var extra_life_charges_after: int = state.extra_life_charges
+	var cold_snap_until_ms_after: int = state.cold_snap_until_ms
+	var score_multiplier_until_ms_after: int = state.score_multiplier_until_ms
+	var score_multiplier_basis_points_after: int = state.score_multiplier_basis_points
+	var tray_bonus_capacity_after: int = state.tray_bonus_capacity
+	var tray_bonus_pairs_remaining_after: int = state.tray_bonus_pairs_remaining
+	var modifier_activation_count_after: int = state.modifier_activation_count
+	var triggered_modifiers: Array = []
 
 	if matching_tile_id.is_empty():
 		tray_after.append(tile_id)
-		changes.append(GameChangeScript.new(GameChangeScript.TILE_ZONE, tile_id, GameStateDataScript.ZONE_BOARD, GameStateDataScript.ZONE_TRAY))
+		var active_capacity: int = ModifierRulesScript.effective_tray_capacity(definition, state)
+		if tray_after.size() == active_capacity and state.extra_life_charges > 0:
+			for held_tile_id in tray_before:
+				changes.append(GameChangeScript.new(
+					GameChangeScript.TILE_ZONE,
+					held_tile_id,
+					GameStateDataScript.ZONE_TRAY,
+					GameStateDataScript.ZONE_BOARD
+				))
+			tray_after.clear()
+			extra_life_charges_after -= 1
+			selection_count_after = state.selection_count - tray_before.size()
+			result = EXTRA_LIFE_USED
+			telemetry["extra_life_consumed"] = true
+			telemetry["recovered_tile_ids"] = tray_before.duplicate()
+		else:
+			changes.append(GameChangeScript.new(GameChangeScript.TILE_ZONE, tile_id, GameStateDataScript.ZONE_BOARD, GameStateDataScript.ZONE_TRAY))
 	else:
 		tray_after.erase(matching_tile_id)
 		changes.append(GameChangeScript.new(GameChangeScript.TILE_ZONE, tile_id, GameStateDataScript.ZONE_BOARD, GameStateDataScript.ZONE_RESOLVED))
@@ -75,7 +103,11 @@ func _build_select(command: Variant, definition: Variant, state: Variant) -> Dic
 		var momentum_after_gain: int = MomentumRulesScript.add_pair_gain(momentum_after_decay, definition.configuration)
 		changes.append(GameChangeScript.new(GameChangeScript.COUNTER, "momentum_units", momentum_after_decay, momentum_after_gain))
 		var resulting_multiplier: int = MomentumRulesScript.multiplier_for(momentum_after_gain, definition.configuration)
-		var score_gain := int(definition.configuration.pair_base_score) * score_multiplier
+		var score_modifier_basis_points := ModifierRulesScript.active_score_basis_points(state, command.playback_time_ms)
+		var score_gain := int(
+			int(definition.configuration.pair_base_score) * score_multiplier * score_modifier_basis_points \
+			/ ModifierRulesScript.BASIS_POINTS_ONE
+		)
 		changes.append(GameChangeScript.new(GameChangeScript.COUNTER, "score", state.score, state.score + score_gain))
 		if command.playback_time_ms != state.last_pair_time_ms:
 			changes.append(GameChangeScript.new(
@@ -90,19 +122,64 @@ func _build_select(command: Variant, definition: Variant, state: Variant) -> Dic
 			"pair_interval_ms": command.playback_time_ms - state.last_pair_time_ms,
 			"momentum_after_gain": momentum_after_gain,
 			"score_multiplier": score_multiplier,
+			"score_modifier_basis_points": score_modifier_basis_points,
 			"resulting_multiplier": resulting_multiplier,
 			"score_gain": score_gain,
 		})
+		if tray_bonus_pairs_remaining_after > 0:
+			tray_bonus_pairs_remaining_after -= 1
+			if tray_bonus_pairs_remaining_after == 0:
+				tray_bonus_capacity_after = 0
+
+		var resolved_tile_ids := [tile_id, matching_tile_id]
+		resolved_tile_ids.sort()
+		for resolved_tile_id in resolved_tile_ids:
+			var modifier: Dictionary = definition.modifier_for_tile(resolved_tile_id)
+			if modifier.is_empty():
+				continue
+			var effect: Dictionary = ModifierRulesScript.effect_for(modifier, definition.configuration)
+			var trigger := modifier.duplicate(true)
+			trigger["tile_id"] = resolved_tile_id
+			trigger["effect"] = effect.duplicate(true)
+			triggered_modifiers.append(trigger)
+			match str(modifier.type):
+				ModifierLoadoutScript.EXTRA_LIFE:
+					extra_life_charges_after += int(effect.charges)
+				ModifierLoadoutScript.COLD_SNAP:
+					cold_snap_until_ms_after = maxi(
+						cold_snap_until_ms_after,
+						command.playback_time_ms
+					) + int(effect.duration_ms)
+				ModifierLoadoutScript.SCORE_MULTIPLIER:
+					score_multiplier_basis_points_after = int(effect.basis_points)
+					score_multiplier_until_ms_after = maxi(
+						score_multiplier_until_ms_after,
+						command.playback_time_ms
+					) + int(effect.duration_ms)
+				ModifierLoadoutScript.TRAY_PLUS_ONE:
+					tray_bonus_capacity_after = 1
+					tray_bonus_pairs_remaining_after = int(effect.pair_duration)
+		modifier_activation_count_after += triggered_modifiers.size()
+		if not triggered_modifiers.is_empty():
+			telemetry["modifiers_triggered"] = triggered_modifiers
 		result = PAIR_RESOLVED
 
 	changes.append(GameChangeScript.new(GameChangeScript.TRAY, "tray_tile_ids", tray_before, tray_after))
-	changes.append(GameChangeScript.new(GameChangeScript.COUNTER, "selection_count", state.selection_count, state.selection_count + 1))
+	_append_counter_change(changes, "selection_count", state.selection_count, selection_count_after)
+	_append_counter_change(changes, "extra_life_charges", state.extra_life_charges, extra_life_charges_after)
+	_append_counter_change(changes, "cold_snap_until_ms", state.cold_snap_until_ms, cold_snap_until_ms_after)
+	_append_counter_change(changes, "score_multiplier_until_ms", state.score_multiplier_until_ms, score_multiplier_until_ms_after)
+	_append_counter_change(changes, "score_multiplier_basis_points", state.score_multiplier_basis_points, score_multiplier_basis_points_after)
+	_append_counter_change(changes, "tray_bonus_capacity", state.tray_bonus_capacity, tray_bonus_capacity_after)
+	_append_counter_change(changes, "tray_bonus_pairs_remaining", state.tray_bonus_pairs_remaining, tray_bonus_pairs_remaining_after)
+	_append_counter_change(changes, "modifier_activation_count", state.modifier_activation_count, modifier_activation_count_after)
 	var next_peak := maxi(state.max_tray_occupancy, tray_after.size())
 	if next_peak != state.max_tray_occupancy:
 		changes.append(GameChangeScript.new(GameChangeScript.COUNTER, "max_tray_occupancy", state.max_tray_occupancy, next_peak))
 
 	var next_status: String = state.status
-	if tray_after.size() == definition.tray_capacity():
+	var effective_capacity_after: int = definition.tray_capacity() + tray_bonus_capacity_after
+	if tray_after.size() == effective_capacity_after:
 		next_status = GameStateDataScript.LOST
 		result = GAME_OVER
 	elif _board_tile_count_after(state, changes) == 0 and tray_after.is_empty():
@@ -143,7 +220,7 @@ func _build_undo(command: Variant, definition: Variant, state: Variant, timeline
 
 
 func _append_clock_changes(command: Variant, definition: Variant, state: Variant, changes: Array) -> int:
-	var elapsed_ms: int = command.playback_time_ms - state.elapsed_time_ms
+	var elapsed_ms: int = ModifierRulesScript.momentum_decay_elapsed_ms(state, command.playback_time_ms)
 	var momentum_after_decay: int = MomentumRulesScript.decay(
 		state.momentum_units,
 		elapsed_ms,
@@ -180,9 +257,18 @@ func _board_tile_count_after(state: Variant, changes: Array) -> int:
 		if zone == GameStateDataScript.ZONE_BOARD:
 			count += 1
 	for change in changes:
-		if change.type == GameChangeScript.TILE_ZONE and change.before == GameStateDataScript.ZONE_BOARD:
+		if change.type != GameChangeScript.TILE_ZONE:
+			continue
+		if change.before == GameStateDataScript.ZONE_BOARD and change.after != GameStateDataScript.ZONE_BOARD:
 			count -= 1
+		elif change.before != GameStateDataScript.ZONE_BOARD and change.after == GameStateDataScript.ZONE_BOARD:
+			count += 1
 	return count
+
+
+func _append_counter_change(changes: Array, target: String, before: int, after: int) -> void:
+	if before != after:
+		changes.append(GameChangeScript.new(GameChangeScript.COUNTER, target, before, after))
 
 
 func _find_selection_transaction(timeline: Array, tile_id: String) -> Variant:

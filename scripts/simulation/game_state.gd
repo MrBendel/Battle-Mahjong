@@ -6,6 +6,7 @@ const GameCommandProcessorScript := preload("res://scripts/simulation/game_comma
 const GameStateDataScript := preload("res://scripts/simulation/game_state_data.gd")
 const GameStoreScript := preload("res://scripts/simulation/game_store.gd")
 const MomentumRulesScript := preload("res://scripts/simulation/momentum_rules.gd")
+const ModifierRulesScript := preload("res://scripts/simulation/modifier_rules.gd")
 const TrayStateScript := preload("res://scripts/simulation/tray_state.gd")
 
 const PLAYING := GameStateDataScript.PLAYING
@@ -16,6 +17,7 @@ const SELECTED := GameCommandProcessorScript.SELECTED
 const PAIR_RESOLVED := GameCommandProcessorScript.PAIR_RESOLVED
 const INVALID_SELECTION := GameCommandProcessorScript.INVALID_SELECTION
 const GAME_OVER := GameCommandProcessorScript.GAME_OVER
+const EXTRA_LIFE_USED := GameCommandProcessorScript.EXTRA_LIFE_USED
 const UNDONE := GameCommandProcessorScript.UNDONE
 const NOTHING_TO_UNDO := GameCommandProcessorScript.NOTHING_TO_UNDO
 const BASE_TRAY_CAPACITY := 4
@@ -53,6 +55,10 @@ var max_multiplier: int:
 	get:
 		return _state.max_multiplier
 
+var modifier_activation_count: int:
+	get:
+		return _state.modifier_activation_count
+
 var _state: Variant
 
 
@@ -83,13 +89,17 @@ func undo_last_unmatched(playback_time_ms: int = -1) -> String:
 func momentum_at(playback_time_ms: int) -> int:
 	return MomentumRulesScript.decay(
 		_state.momentum_units,
-		maxi(0, playback_time_ms - _state.elapsed_time_ms),
+		ModifierRulesScript.momentum_decay_elapsed_ms(_state, playback_time_ms),
 		definition.configuration
 	)
 
 
 func multiplier_at(playback_time_ms: int) -> int:
 	return MomentumRulesScript.multiplier_for(momentum_at(playback_time_ms), definition.configuration)
+
+
+func score_multiplier_basis_points_at(playback_time_ms: int) -> int:
+	return ModifierRulesScript.active_score_basis_points(_state, playback_time_ms)
 
 
 func current_snapshot() -> Variant:

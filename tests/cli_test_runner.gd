@@ -8,6 +8,7 @@ const BoardSelectabilityScript := preload("res://scripts/simulation/board_select
 const BoardStateScript := preload("res://scripts/simulation/board_state.gd")
 const FixedLayoutsScript := preload("res://scripts/simulation/fixed_layouts.gd")
 const GameDefinitionScript := preload("res://scripts/simulation/game_definition.gd")
+const GameConfigurationScript := preload("res://scripts/simulation/game_configuration.gd")
 const GameStateDataScript := preload("res://scripts/simulation/game_state_data.gd")
 const GameCommandScript := preload("res://scripts/simulation/game_command.gd")
 const GameChangeScript := preload("res://scripts/simulation/game_change.gd")
@@ -24,6 +25,9 @@ const GameSolverScript := preload("res://scripts/simulation/game_solver.gd")
 const BoardLayoutLoaderScript := preload("res://scripts/simulation/board_layout_loader.gd")
 const BoardLayoutRequirementsScript := preload("res://scripts/simulation/board_layout_requirements.gd")
 const ProceduralLayoutGeneratorScript := preload("res://scripts/simulation/procedural_layout_generator.gd")
+const ModifierLoadoutScript := preload("res://scripts/simulation/modifier_loadout.gd")
+const ModifierRulesScript := preload("res://scripts/simulation/modifier_rules.gd")
+const ModifierTuningScript := preload("res://scripts/configuration/modifier_tuning.gd")
 
 var _failures := 0
 var _assertions := 0
@@ -39,6 +43,7 @@ func _init() -> void:
 	_run_transaction_timeline_tests()
 	_run_momentum_tuning_tests()
 	_run_momentum_tests()
+	_run_modifier_tests()
 	_run_generator_solver_tests()
 	_run_reference_game_tests()
 	_run_simulation_tests()
@@ -245,7 +250,7 @@ func _run_momentum_tests() -> void:
 		TileInstanceScript.new("fourth", second_face, BoardPositionScript.new(12, 0, 0)),
 	])
 	var configuration: Dictionary = definition.configuration
-	_check_equal(2, definition.rules_version, "gradual multiplier scoring uses rules version 2")
+	_check_equal(3, definition.rules_version, "modifier-aware scoring uses rules version 3")
 	_check_equal(1, MomentumRulesScript.multiplier_for(19999, configuration), "momentum below first threshold stays x1")
 	_check_equal(2, MomentumRulesScript.multiplier_for(20000, configuration), "first threshold enters x2")
 	_check(
@@ -339,6 +344,127 @@ func _run_momentum_tuning_tests() -> void:
 	custom_tuning.multiplier_thresholds.assign([100, 50])
 	custom_tuning.decay_per_second.assign([4500])
 	_check(custom_tuning.call("validation_errors").size() >= 3, "invalid thresholds and decay report actionable errors")
+
+
+func _run_modifier_tests() -> void:
+	_log(" - deterministic M5 modifiers and loadouts")
+	var tuning: Variant = load("res://configuration/default_modifier_tuning.tres")
+	_check(tuning != null, "default ModifierTuning resource loads")
+	_check(tuning.call("validation_errors").is_empty(), "default ModifierTuning resource validates")
+	_check_equal(3, tuning.loadout_capacity, "default loadout is limited to three equipped tiles")
+	var starter: Array = ModifierLoadoutScript.starter()
+	_check_equal(1, starter.size(), "new-player loadout contains one starter modifier")
+	_check_equal(ModifierLoadoutScript.SCORE_MULTIPLIER, starter[0].type, "starter modifier is the score multiplier")
+	var level_two_effect: Dictionary = ModifierRulesScript.effect_for(
+		{"type": ModifierLoadoutScript.SCORE_MULTIPLIER, "level": 2},
+		GameConfigurationScript.create()
+	)
+	_check_equal(2200, level_two_effect.basis_points, "multiplier levels advance exactly from 2.0x to 2.2x")
+	var overfilled: Dictionary = ModifierLoadoutScript.normalize([
+		{"modifier_id": "a", "type": ModifierLoadoutScript.EXTRA_LIFE, "level": 0},
+		{"modifier_id": "b", "type": ModifierLoadoutScript.COLD_SNAP, "level": 0},
+		{"modifier_id": "c", "type": ModifierLoadoutScript.SCORE_MULTIPLIER, "level": 0},
+		{"modifier_id": "d", "type": ModifierLoadoutScript.TRAY_PLUS_ONE, "level": 0},
+	], 3)
+	_check(not overfilled.errors.is_empty(), "loadout validation rejects more equipped tiles than capacity")
+
+	var multiplier_face := TileFaceScript.new("modifier", "multiplier")
+	var normal_face := TileFaceScript.new("modifier", "normal")
+	var third_face := TileFaceScript.new("modifier", "third")
+	var fourth_face := TileFaceScript.new("modifier", "fourth")
+	var multiplier_tiles := [
+		TileInstanceScript.new("boost_a", multiplier_face, BoardPositionScript.new(0, 0, 0)),
+		TileInstanceScript.new("boost_b", multiplier_face, BoardPositionScript.new(4, 0, 0)),
+		TileInstanceScript.new("normal_a", normal_face, BoardPositionScript.new(8, 0, 0)),
+		TileInstanceScript.new("normal_b", normal_face, BoardPositionScript.new(12, 0, 0)),
+		TileInstanceScript.new("third_a", third_face, BoardPositionScript.new(16, 0, 0)),
+		TileInstanceScript.new("third_b", third_face, BoardPositionScript.new(20, 0, 0)),
+		TileInstanceScript.new("fourth_a", fourth_face, BoardPositionScript.new(24, 0, 0)),
+		TileInstanceScript.new("fourth_b", fourth_face, BoardPositionScript.new(28, 0, 0)),
+	]
+	var multiplier_modifier := {"modifier_id": "boost", "type": ModifierLoadoutScript.SCORE_MULTIPLIER, "level": 1}
+	var multiplier_definition: Variant = _definition_with_modifiers(
+		multiplier_tiles,
+		[multiplier_modifier],
+		{"boost_a": multiplier_modifier}
+	)
+	var multiplier_game := GameStateScript.new(multiplier_definition)
+	multiplier_game.call("select_tile", "boost_a", 100)
+	multiplier_game.call("select_tile", "boost_b", 200)
+	_check_equal(2100, multiplier_game.call("current_snapshot").score_multiplier_basis_points, "collecting level 1 activates a 2.1x score effect")
+	_check_equal(10200, multiplier_game.call("current_snapshot").score_multiplier_until_ms, "score boost records deterministic active-play expiry")
+	multiplier_game.call("select_tile", "normal_a", 300)
+	multiplier_game.call("select_tile", "normal_b", 400)
+	var boosted_transaction: Variant = multiplier_game.call("last_transaction")
+	_check_equal(2100, boosted_transaction.telemetry.score_modifier_basis_points, "subsequent pair telemetry records active 2.1x boost")
+	_check_equal(420, boosted_transaction.telemetry.score_gain, "2.1x boost combines exactly with the x2 momentum tier")
+	multiplier_game.call("select_tile", "third_a", 11000)
+	multiplier_game.call("select_tile", "third_b", 11200)
+	_check_equal(1000, multiplier_game.call("last_transaction").telemetry.score_modifier_basis_points, "score boost expires on the authoritative active-play clock")
+
+	var cold_modifier := {"modifier_id": "cold", "type": ModifierLoadoutScript.COLD_SNAP, "level": 0}
+	var cold_definition: Variant = _definition_with_modifiers(
+		multiplier_tiles,
+		[cold_modifier],
+		{"boost_a": cold_modifier}
+	)
+	var cold_game := GameStateScript.new(cold_definition)
+	cold_game.call("select_tile", "boost_a", 100)
+	cold_game.call("select_tile", "boost_b", 200)
+	cold_game.call("select_tile", "normal_a", 5000)
+	cold_game.call("select_tile", "normal_b", 6000)
+	_check_equal(30000, cold_game.call("last_transaction").telemetry.momentum_after_decay, "Cold Snap freezes committed momentum decay")
+
+	var tray_modifier := {"modifier_id": "tray", "type": ModifierLoadoutScript.TRAY_PLUS_ONE, "level": 0}
+	var tray_definition: Variant = _definition_with_modifiers(
+		multiplier_tiles,
+		[tray_modifier],
+		{"boost_a": tray_modifier}
+	)
+	var tray_game := GameStateScript.new(tray_definition)
+	tray_game.call("select_tile", "boost_a")
+	tray_game.call("select_tile", "boost_b")
+	_check_equal(5, tray_game.tray.capacity, "Tray +1 expands the projected capacity")
+	_check_equal(3, tray_game.call("current_snapshot").tray_bonus_pairs_remaining, "Tray +1 duration begins after its triggering pair")
+	for pair_ids in [["normal_a", "normal_b"], ["third_a", "third_b"], ["fourth_a", "fourth_b"]]:
+		tray_game.call("select_tile", pair_ids[0])
+		tray_game.call("select_tile", pair_ids[1])
+	_check_equal(4, tray_game.tray.capacity, "Tray +1 expires after its configured subsequent pair count")
+	_check_equal(0, tray_game.call("current_snapshot").tray_bonus_pairs_remaining, "Tray +1 clears its duration state on expiry")
+
+	var life_face := TileFaceScript.new("modifier", "life")
+	var life_tiles := [
+		TileInstanceScript.new("life_a", life_face, BoardPositionScript.new(0, 0, 0)),
+		TileInstanceScript.new("life_b", life_face, BoardPositionScript.new(4, 0, 0)),
+	]
+	for index in range(4):
+		life_tiles.append(TileInstanceScript.new(
+			"risk_%d" % index,
+			TileFaceScript.new("risk", str(index)),
+			BoardPositionScript.new(8 + index * 4, 0, 0)
+		))
+	var life_modifier := {"modifier_id": "life", "type": ModifierLoadoutScript.EXTRA_LIFE, "level": 0}
+	var life_definition: Variant = _definition_with_modifiers(life_tiles, [life_modifier], {"life_a": life_modifier})
+	var life_game := GameStateScript.new(life_definition)
+	life_game.call("select_tile", "life_a")
+	life_game.call("select_tile", "life_b")
+	_check_equal(1, life_game.call("current_snapshot").extra_life_charges, "Extra Life grants its configured recovery charge")
+	for index in range(3):
+		life_game.call("select_tile", "risk_%d" % index)
+	_check_equal(GameStateScript.EXTRA_LIFE_USED, life_game.call("select_tile", "risk_3"), "Extra Life intercepts tray failure")
+	_check_equal(GameStateScript.PLAYING, life_game.status, "Extra Life preserves the run")
+	_check_equal(0, life_game.tray.tiles.size(), "Extra Life returns unresolved tray tiles to the board")
+	_check_equal(0, life_game.call("current_snapshot").extra_life_charges, "Extra Life consumes one charge")
+
+	var factory := ReferenceGameFactoryScript.new()
+	var placed_a: Variant = factory.call("create_definition", 99)
+	var placed_b: Variant = factory.call("create_definition", 99)
+	_check_equal(starter, placed_a.modifier_loadout, "reference games use the starter loadout by default")
+	_check_equal(placed_a.modifier_attachments, placed_b.modifier_attachments, "same seed places equipped modifiers identically")
+	var serialized_definition: Variant = JSON.parse_string(JSON.stringify(placed_a.to_dict()))
+	var parsed_definition: Variant = GameDefinitionScript.from_dict(serialized_definition)
+	_check_equal(placed_a.modifier_attachments, parsed_definition.modifier_attachments, "modifier attachments round-trip with the game definition")
+	_check_equal(placed_a.definition_hash(), parsed_definition.definition_hash(), "modifier definition replay hash survives serialization")
 
 
 func _run_reference_game_tests() -> void:
@@ -495,6 +621,17 @@ func _run_simulation_tests() -> void:
 
 func _definition(tiles: Array, tray_capacity: int = 4) -> Variant:
 	return GameDefinitionScript.new(1, tiles, {"tray_capacity": tray_capacity})
+
+
+func _definition_with_modifiers(tiles: Array, loadout: Array, attachments: Dictionary) -> Variant:
+	return GameDefinitionScript.new(
+		1,
+		tiles,
+		GameConfigurationScript.create(),
+		GameDefinitionScript.CURRENT_RULES_VERSION,
+		loadout,
+		attachments
+	)
 
 
 func _deal_signature(definition: Variant) -> String:

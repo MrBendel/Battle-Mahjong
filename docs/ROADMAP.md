@@ -85,11 +85,26 @@ Every generated reference game has a verified legal solution, and the playable s
 
 Detailed contract: [M04 Generator + Solver](milestones/M04_GENERATOR_SOLVER.md)
 
+## M5 - Modifiers
+
+Implement:
+
+- bounded pre-run modifier loadouts
+- deterministic attachment to physical tiles
+- level-scaled Extra Life, Cold Snap, Score Multiplier, and Tray +1 effects
+- transactional effect state and replay telemetry
+- placeholder board presentation
+
+Success criteria:
+
+An equipped modifier loadout is reproduced from the game definition, activates deterministically through ordinary pair clears, and replays through the authoritative transaction reducer.
+
+Detailed contract: [M05 Modifiers](milestones/M05_MODIFIERS.md)
+
 ## Later Milestones
 
 Later milestones are recorded here to preserve ordering. Detailed implementation contracts remain deferred unless linked below.
 
-- M5 Modifiers
 - M6 Consumables
 - [M7 Art Foundation And First Visual Slice](milestones/M07_ART_FOUNDATION.md) - canonical tile system, first production-ready visual slice, reusable arcade/anime feedback, and Default-to-Neon skin proof. This consolidates the former M7 feedback and foundational M8 art placeholders.
 - M8 Art Expansion + Cosmetics - additional skins, characters, backgrounds, and visual breadth built on the M7 contracts

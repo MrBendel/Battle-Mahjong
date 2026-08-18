@@ -64,6 +64,12 @@ GameDefinition
     tile_id
     face_identity
     board_position
+  modifier_loadout
+    modifier_id
+    type
+    level
+  modifier_attachments
+    tile_id -> modifier
 ```
 
 Tile identity and original board position remain immutable. Cosmetic skin data is not part of the simulation definition.
@@ -85,6 +91,13 @@ GameStateData
   resolved_pair_count
   max_tray_occupancy
   rng_state
+  modifier_activation_count
+  extra_life_charges
+  cold_snap_until_ms
+  score_multiplier_until_ms
+  score_multiplier_basis_points
+  tray_bonus_capacity
+  tray_bonus_pairs_remaining
 ```
 
 A tile has one mutable location. This replaces the current duplicated representation where a tile can be marked removed while also being stored separately in the tray.
@@ -261,7 +274,7 @@ Client prediction and rollback can reuse reversible changes, but should not be i
 
 ## Implemented Foundation
 
-Completed through M3:
+Completed through M5:
 
 1. Serializable `GameDefinition`, `GameStateData`, `GameCommand`, `GameChange`, and `GameTransaction` models.
 2. One atomic reducer that applies and reverses typed changes.
@@ -271,6 +284,8 @@ Completed through M3:
 6. Read-only board and tray projections over normalized tile zones.
 7. JSON round-trip, replay, reverse-apply, stale revision, atomic rejection, hash-divergence, snapshot isolation, and same-seed tests.
 8. Monotonic active-play timestamps, atomic momentum decay, score changes, and pair timing telemetry.
+9. Immutable modifier loadouts and deterministic physical-tile attachments in game definitions.
+10. Reversible modifier effect state, pair trigger telemetry, fixed-point score boosts, frozen decay, dynamic tray capacity, and atomic loss recovery.
 
 Current serialization uses JSON-compatible dictionaries. State hashes use SHA-256 over a canonical ordered state string. Local command and transaction IDs are deterministic revision-based IDs within one game record.
 

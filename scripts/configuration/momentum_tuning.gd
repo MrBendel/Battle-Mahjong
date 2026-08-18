@@ -60,5 +60,10 @@ func validation_errors() -> Array[String]:
 
 static func default_overrides() -> Dictionary:
 	var configuration := GameConfigurationScript.create()
-	configuration.erase("tray_capacity")
-	return configuration
+	return {
+		"momentum_max": configuration.momentum_max,
+		"momentum_pair_gain": configuration.momentum_pair_gain,
+		"momentum_thresholds": configuration.momentum_thresholds.duplicate(),
+		"momentum_decay_per_ms": configuration.momentum_decay_per_ms.duplicate(),
+		"pair_base_score": configuration.pair_base_score,
+	}

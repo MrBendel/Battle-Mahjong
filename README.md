@@ -6,7 +6,7 @@ Core principle:
 
 > Battle Mahjong is a game about staying in motion.
 
-The project is currently in documentation and scaffolding. Gameplay implementation, engine selection, networking, monetization, accounts, and backend systems are intentionally out of scope until their milestones.
+The project currently has deterministic gameplay implemented through M5 Modifiers. Networking, monetization, accounts, backend systems, persistent collection, and later milestones remain out of scope until requested.
 
 ## Source Of Truth
 
@@ -23,6 +23,7 @@ Read these documents before implementing:
 
 - Engine choice: Godot 4.6.3 stable.
 - Primary language: GDScript.
-- First implementation milestone: M0 Project Skeleton.
-- Simulation and presentation should remain separate.
-- All gameplay randomness must eventually use seeded deterministic RNG.
+- Completed scope: M0 through M5.
+- Next milestone: M6 Consumables.
+- Simulation and presentation remain separate.
+- Gameplay randomness uses seeded deterministic RNG.

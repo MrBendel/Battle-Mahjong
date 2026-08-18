@@ -7,6 +7,7 @@ const GameConfigurationScript := preload("res://scripts/simulation/game_configur
 const DeterministicRngScript := preload("res://scripts/simulation/deterministic_rng.gd")
 const BoardLayoutCatalogScript := preload("res://scripts/simulation/board_layout_catalog.gd")
 const LayoutSolutionPlannerScript := preload("res://scripts/simulation/layout_solution_planner.gd")
+const ModifierLoadoutScript := preload("res://scripts/simulation/modifier_loadout.gd")
 
 const IDENTITY_COUNT := 24
 const COPIES_PER_IDENTITY := 4
@@ -17,29 +18,32 @@ func create_definition(
 		seed: int,
 		tray_capacity: int = 4,
 		configuration_overrides: Dictionary = {},
-		layout_id: String = BoardLayoutCatalogScript.DEFAULT_LAYOUT_ID
+		layout_id: String = BoardLayoutCatalogScript.DEFAULT_LAYOUT_ID,
+		modifier_loadout: Variant = null
 ) -> Variant:
-	return create_generated(seed, tray_capacity, configuration_overrides, layout_id).get("definition")
+	return create_generated(seed, tray_capacity, configuration_overrides, layout_id, modifier_loadout).get("definition")
 
 
 func create_generated(
 		seed: int,
 		tray_capacity: int = 4,
 		configuration_overrides: Dictionary = {},
-		layout_id: String = BoardLayoutCatalogScript.DEFAULT_LAYOUT_ID
+		layout_id: String = BoardLayoutCatalogScript.DEFAULT_LAYOUT_ID,
+		modifier_loadout: Variant = null
 ) -> Dictionary:
 	var layout: Variant = BoardLayoutCatalogScript.new().call("get_layout", layout_id)
 	if layout == null:
 		push_error("Unknown board layout: %s" % layout_id)
 		return {}
-	return create_generated_for_layout(seed, layout, tray_capacity, configuration_overrides)
+	return create_generated_for_layout(seed, layout, tray_capacity, configuration_overrides, modifier_loadout)
 
 
 func create_generated_for_layout(
 		seed: int,
 		layout: Variant,
 		tray_capacity: int = 4,
-		configuration_overrides: Dictionary = {}
+		configuration_overrides: Dictionary = {},
+		modifier_loadout: Variant = null
 ) -> Dictionary:
 	if layout == null or not layout.call("validation_errors").is_empty():
 		push_error("Cannot create a game from an invalid board layout")
@@ -74,8 +78,27 @@ func create_generated_for_layout(
 	configuration["layout_id"] = layout.id
 	configuration["layout_revision"] = layout.revision
 	configuration["layout_hash"] = layout.content_hash()
+	var requested_loadout: Array = ModifierLoadoutScript.starter() if modifier_loadout == null else modifier_loadout
+	var normalized: Dictionary = ModifierLoadoutScript.normalize(
+		requested_loadout,
+		int(configuration.modifier_loadout_capacity)
+	)
+	if not normalized.errors.is_empty():
+		push_error("Invalid modifier loadout: %s" % " ".join(normalized.errors))
+		return {}
+	if normalized.loadout.size() > tiles.size():
+		push_error("Modifier loadout cannot fit on the generated board.")
+		return {}
+	var attachments := _place_modifiers(seed, tiles, normalized.loadout)
 	return {
-		"definition": GameDefinitionScript.new(seed, tiles, configuration),
+		"definition": GameDefinitionScript.new(
+			seed,
+			tiles,
+			configuration,
+			GameDefinitionScript.CURRENT_RULES_VERSION,
+			normalized.loadout,
+			attachments
+		),
 		"solution": solution,
 	}
 
@@ -96,3 +119,15 @@ func _shuffle(values: Array, rng: Variant) -> void:
 		var value: Variant = values[index]
 		values[index] = values[swap_index]
 		values[swap_index] = value
+
+
+func _place_modifiers(seed: int, tiles: Array, loadout: Array) -> Dictionary:
+	var tile_ids: Array = []
+	for tile in tiles:
+		tile_ids.append(tile.id)
+	tile_ids.sort()
+	_shuffle(tile_ids, DeterministicRngScript.new(seed + 130363))
+	var attachments := {}
+	for index in range(loadout.size()):
+		attachments[tile_ids[index]] = loadout[index].duplicate(true)
+	return attachments

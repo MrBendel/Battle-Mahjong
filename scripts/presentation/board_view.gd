@@ -63,8 +63,8 @@ func _rebuild_tiles() -> void:
 	for tile in _game.board.tiles:
 		var button := Button.new()
 		button.name = tile.id
-		button.text = _face_label(tile.face.value)
-		button.tooltip_text = _face_label(tile.face.value).replace("\n", " ")
+		button.text = _tile_label(tile)
+		button.tooltip_text = _tile_tooltip(tile)
 		button.focus_mode = Control.FOCUS_NONE
 		button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		button.pressed.connect(_on_tile_pressed.bind(tile.id))
@@ -165,6 +165,28 @@ func _face_label(value: String) -> String:
 	var identity := int(value) - 1
 	var families := ["BAM", "DOT", "CHR", "HON"]
 	return "%s\n%d" % [families[identity / 6], identity % 6 + 1]
+
+
+func _tile_label(tile: Variant) -> String:
+	var label := _face_label(tile.face.value)
+	var modifier: Dictionary = _game.definition.modifier_for_tile(tile.id)
+	if modifier.is_empty():
+		return label
+	var symbols := {
+		"extra_life": "♥",
+		"cold_snap": "❄",
+		"score_multiplier": "×",
+		"tray_plus_one": "+1",
+	}
+	return "%s\n%s L%d" % [label.replace("\n", " "), symbols.get(modifier.type, "★"), int(modifier.level)]
+
+
+func _tile_tooltip(tile: Variant) -> String:
+	var label := _face_label(tile.face.value).replace("\n", " ")
+	var modifier: Dictionary = _game.definition.modifier_for_tile(tile.id)
+	if modifier.is_empty():
+		return label
+	return "%s | %s level %d" % [label, str(modifier.type).replace("_", " ").capitalize(), int(modifier.level)]
 
 
 func _apply_tile_style(button: Button, value: String) -> void:

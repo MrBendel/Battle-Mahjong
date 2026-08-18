@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="ModifierTuning" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/configuration/modifier_tuning.gd" id="1_tuning"]
+
+[resource]
+script = ExtResource("1_tuning")
+loadout_capacity = 3
+extra_life_base_charges = 1
+extra_life_charges_per_level = 1
+cold_snap_base_duration_ms = 8000
+cold_snap_duration_ms_per_level = 500
+score_multiplier_base_basis_points = 2000
+score_multiplier_basis_points_per_level = 100
+score_multiplier_duration_ms = 10000
+tray_plus_one_base_pairs = 3
+tray_plus_one_pairs_per_level = 1
