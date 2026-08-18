@@ -2,6 +2,7 @@ extends Control
 
 const DebugPanelScript := preload("res://scripts/ui/debug_panel.gd")
 const DeterministicRngScript := preload("res://scripts/simulation/deterministic_rng.gd")
+const BoardViewScript := preload("res://scripts/presentation/board_view.gd")
 const START_SEED := 92817361
 
 var _rng: RefCounted = DeterministicRngScript.new(START_SEED)
@@ -15,7 +16,7 @@ func _ready() -> void:
 
 
 func _build_shell() -> void:
-	_regions.board = _make_region("Board", "future tile playfield", Color(0.10, 0.16, 0.18, 1.0))
+	_regions.board = BoardViewScript.new(_rng.call("get_seed"))
 	_regions.momentum = _make_region("Momentum", "meter and multiplier", Color(0.18, 0.13, 0.22, 1.0))
 	_regions.tray = _make_region("Tray", "four unresolved slots", Color(0.19, 0.17, 0.10, 1.0))
 	_regions.consumables = _make_region("Consumables", "player-triggered tools", Color(0.11, 0.17, 0.13, 1.0))

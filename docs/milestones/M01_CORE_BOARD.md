@@ -28,9 +28,9 @@ A player can interact with and clear a traditional layered board using legal til
 
 ## Open Questions
 
-Status: Open Question
+Status: Decided
 
-- Exact placeholder tile art approach.
+- Placeholder tiles are code-drawn controls with family-coded colors and short face labels. Tile skins remain presentation-only and do not alter logical identity.
 
 ## Current M1 Simulation Decisions
 
@@ -40,7 +40,11 @@ Status: Decided
 - Each tile occupies a `2 x 2` footprint in board grid units.
 - Horizontal blocking is evaluated against immediate left/right neighbors on the same `z` level.
 - Cover blocking is evaluated by footprint overlap from any active tile at a higher `z` level.
-- The initial fixed layout is a small six-tile smoke-test layout for command-line validation, not the final playable board.
+- The six-tile fixed layout remains the focused command-line smoke test.
+- The playable M1 board uses one fixed 96-position, three-layer geometry with 24 identities and four copies per identity.
+- The seed changes only identity placement; board geometry remains fixed.
+- The player selects two free matching tiles directly. A mismatch moves selection to the second tile, and selecting the same tile again cancels selection.
+- Tray behavior remains outside the M1 presentation even though headless experiments exist for later milestone validation.
 
 ## Command-Line Validation
 

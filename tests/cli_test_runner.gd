@@ -176,6 +176,19 @@ func _run_reference_game_tests() -> void:
 	_check_equal(_deal_signature(board), _deal_signature(same_seed_board), "same seed reproduces deal")
 	_check(_deal_signature(board) != _deal_signature(other_seed_board), "different seed changes deal")
 
+	var direct_pair_board = factory.call("create_board", 92817361)
+	var removed_pairs := 0
+	while not direct_pair_board.call("active_tiles").is_empty():
+		var pair: Array = _find_selectable_pair(direct_pair_board)
+		if pair.is_empty():
+			break
+		if not direct_pair_board.call("remove_matching_pair", pair[0].id, pair[1].id):
+			break
+		removed_pairs += 1
+
+	_check_equal(ReferenceGameFactoryScript.PAIR_COUNT, removed_pairs, "reference board clears through direct legal pair removals")
+	_check_equal(0, direct_pair_board.call("active_tiles").size(), "direct pair clearing leaves no active tiles")
+
 
 func _run_simulation_tests() -> void:
 	_log(" - full game simulation")
@@ -203,6 +216,17 @@ func _deal_signature(board: Variant) -> String:
 	for tile in board.tiles:
 		identities.append(tile.face.logical_id())
 	return "|".join(identities)
+
+
+func _find_selectable_pair(board: Variant) -> Array:
+	var first_by_identity := {}
+	for tile in board.call("selectable_tiles"):
+		var identity: String = tile.face.logical_id()
+		if first_by_identity.has(identity):
+			return [first_by_identity[identity], tile]
+		first_by_identity[identity] = tile
+
+	return []
 
 
 func _check(condition: bool, message: String) -> void:
