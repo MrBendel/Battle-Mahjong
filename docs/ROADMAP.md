@@ -68,13 +68,13 @@ Fast look-ahead play feels meaningfully different from slow stop-and-search play
 
 ## Later Milestones
 
-Record only. Detailed implementation contracts are intentionally deferred.
+Later milestones are recorded here to preserve ordering. Detailed implementation contracts remain deferred unless linked below.
 
 - M4 Generator + Solver, including varied solvable geometry that exercises staggered and partial tile overlap
 - M5 Modifiers
 - M6 Consumables
-- M7 Juice / Anime Arcade Feedback
-- M8 Tile Skin + Art System
+- [M7 Art Foundation And First Visual Slice](milestones/M07_ART_FOUNDATION.md) - canonical tile system, first production-ready visual slice, reusable arcade/anime feedback, and Default-to-Neon skin proof. This consolidates the former M7 feedback and foundational M8 art placeholders.
+- M8 Art Expansion + Cosmetics - additional skins, characters, backgrounds, and visual breadth built on the M7 contracts
 - M9 Replays + Ghosts
 - M10 Game Modes
 - M11 Backend + Async Battle
