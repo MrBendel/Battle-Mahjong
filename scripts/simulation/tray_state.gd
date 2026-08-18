@@ -34,3 +34,10 @@ func add_tile(tile: Variant) -> String:
 		return FAILED
 
 	return STORED
+
+
+func take_last_tile() -> Variant:
+	if failed or tiles.is_empty():
+		return null
+
+	return tiles.pop_back()

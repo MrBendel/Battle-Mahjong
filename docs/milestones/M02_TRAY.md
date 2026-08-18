@@ -26,12 +26,14 @@ We can evaluate whether tray-based risk management is fun.
 
 ## Open Questions
 
-Status: Open Question
+Status: Decided For M2
 
-- Exact Undo restrictions.
-- Whether tray capacity can be configured for debug or accessibility modes.
+- M2 Undo returns the most recently selected tile that remains unresolved in the tray.
+- Undo cannot restore an already resolved pair and is unavailable after win or loss.
+- Restart recreates the same board geometry and seeded identity deal.
+- Player-facing tray capacity remains four. The headless state constructor retains a capacity parameter for simulation tests; debug and accessibility modes are deferred.
 
-## Current Headless Simulation Decisions
+## Current M2 Decisions
 
 Status: Decided
 
@@ -39,7 +41,8 @@ Status: Decided
 - A pair resolves immediately when the second matching identity enters the tray.
 - The fourth unresolved tile causes immediate failure.
 - The initial reference simulation uses 96 tiles, 24 identities, and 4 copies per identity.
-- Undo, presentation, and player interaction remain outside the current headless slice.
+- Board selection now moves exposed tiles into the tray instead of directly removing pairs.
+- The four tray slots, Undo, restart, and terminal win/loss state are presented in both portrait and landscape layouts.
 - Simulation policies include a guaranteed-route baseline, a one-ply bounded-attention heuristic, and a blind random control.
 - The bounded-attention window is simulation configuration; the current easy-board baseline observes up to 10 selectable tiles per decision.
 

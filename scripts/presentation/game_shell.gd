@@ -3,11 +3,15 @@ extends Control
 const DebugPanelScript := preload("res://scripts/ui/debug_panel.gd")
 const DeterministicRngScript := preload("res://scripts/simulation/deterministic_rng.gd")
 const BoardViewScript := preload("res://scripts/presentation/board_view.gd")
+const TrayViewScript := preload("res://scripts/presentation/tray_view.gd")
+const GameStateScript := preload("res://scripts/simulation/game_state.gd")
+const ReferenceGameFactoryScript := preload("res://scripts/simulation/reference_game_factory.gd")
 const START_SEED := 92817361
 
 var _rng: RefCounted = DeterministicRngScript.new(START_SEED)
 var _regions: Dictionary = {}
 var _debug_panel: PanelContainer
+var _game: Variant
 
 func _ready() -> void:
 	_build_shell()
@@ -16,17 +20,48 @@ func _ready() -> void:
 
 
 func _build_shell() -> void:
-	_regions.board = BoardViewScript.new(_rng.call("get_seed"))
+	_game = _create_game()
+	_regions.board = BoardViewScript.new(_game)
 	_regions.momentum = _make_region("Momentum", "meter and multiplier", Color(0.18, 0.13, 0.22, 1.0))
-	_regions.tray = _make_region("Tray", "four unresolved slots", Color(0.19, 0.17, 0.10, 1.0))
+	_regions.tray = TrayViewScript.new(_game)
 	_regions.consumables = _make_region("Consumables", "player-triggered tools", Color(0.11, 0.17, 0.13, 1.0))
 	_regions.character = _make_region("Character / FX", "decorative reaction space", Color(0.17, 0.11, 0.13, 1.0))
 
 	for region in _regions.values():
 		add_child(region)
 
+	_regions.board.tile_selected.connect(_on_tile_selected)
+	_regions.tray.undo_requested.connect(_on_undo_requested)
+	_regions.tray.restart_requested.connect(_on_restart_requested)
+
 	_debug_panel = DebugPanelScript.new()
 	add_child(_debug_panel)
+
+
+func _create_game() -> Variant:
+	var board: Variant = ReferenceGameFactoryScript.new().call("create_board", _rng.call("get_seed"))
+	return GameStateScript.new(board, GameStateScript.BASE_TRAY_CAPACITY)
+
+
+func _on_tile_selected(tile_id: String) -> void:
+	_game.call("select_tile", tile_id)
+	_refresh_game_views()
+
+
+func _on_undo_requested() -> void:
+	_game.call("undo_last_unmatched")
+	_refresh_game_views()
+
+
+func _on_restart_requested() -> void:
+	_game = _create_game()
+	_regions.board.call("set_game_state", _game)
+	_regions.tray.call("set_game_state", _game)
+
+
+func _refresh_game_views() -> void:
+	_regions.board.call("refresh")
+	_regions.tray.call("refresh")
 
 
 func _make_region(title: String, subtitle: String, color: Color) -> PanelContainer:

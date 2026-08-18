@@ -88,6 +88,9 @@ func _run_board_state_tests() -> void:
 	_check(first.removed, "first tile is marked removed")
 	_check(second.removed, "second tile is marked removed")
 	_check_equal(0, removable_board.call("active_tiles").size(), "removed pair is absent from active tiles")
+	_check(removable_board.call("restore_tile", "first"), "removed tile can be restored")
+	_check(not first.removed, "restored tile is active")
+	_check(not removable_board.call("restore_tile", "first"), "active tile cannot be restored twice")
 
 	var mismatch_first = TileInstanceScript.new("first", bamboo_1, BoardPositionScript.new(0, 0, 0))
 	var mismatch_second = TileInstanceScript.new("second", bamboo_2, BoardPositionScript.new(4, 0, 0))
@@ -132,13 +135,18 @@ func _run_tray_tests() -> void:
 	_check_equal(TrayStateScript.MATCHED, tray.call("add_tile", TileInstanceScript.new("a2", face_a, position)), "matching tile resolves immediately")
 	_check_equal(0, tray.tiles.size(), "resolved pair leaves tray empty")
 	_check_equal(1, tray.resolved_pair_count, "tray counts resolved pair")
+	_check(tray.call("take_last_tile") == null, "empty tray has nothing to undo")
 
 	tray.call("add_tile", TileInstanceScript.new("a3", face_a, position))
 	tray.call("add_tile", TileInstanceScript.new("b1", face_b, position))
+	_check_equal("b1", tray.call("take_last_tile").id, "tray returns most recent unmatched tile")
+	_check_equal(1, tray.tiles.size(), "undo removes one tile from tray")
+	tray.call("add_tile", TileInstanceScript.new("b2", face_b, position))
 	tray.call("add_tile", TileInstanceScript.new("c1", face_c, position))
 	_check_equal(TrayStateScript.FAILED, tray.call("add_tile", TileInstanceScript.new("d1", face_d, position)), "four unresolved tiles fail the tray")
 	_check(tray.failed, "tray records failure")
 	_check_equal(4, tray.tiles.size(), "failed tray retains four unresolved tiles")
+	_check(tray.call("take_last_tile") == null, "failed tray cannot be undone")
 
 
 func _run_game_state_tests() -> void:
@@ -154,6 +162,31 @@ func _run_game_state_tests() -> void:
 	_check_equal(GameStateScript.PAIR_RESOLVED, game.call("select_tile", "second"), "second matching selection resolves pair")
 	_check_equal(GameStateScript.WON, game.status, "empty board and tray wins game")
 	_check_equal(1, game.tray.resolved_pair_count, "game exposes resolved pair count")
+
+	var undo_first = TileInstanceScript.new("undo_first", face, BoardPositionScript.new(0, 0, 0))
+	var undo_second = TileInstanceScript.new("undo_second", TileFaceScript.new("test", "other"), BoardPositionScript.new(4, 0, 0))
+	var undo_game = GameStateScript.new(BoardStateScript.new([undo_first, undo_second]))
+	_check_equal(GameStateScript.SELECTED, undo_game.call("select_tile", "undo_first"), "unmatched tile enters tray before undo")
+	_check(undo_game.call("can_undo"), "game allows undo with an unresolved tray tile")
+	_check_equal(GameStateScript.UNDONE, undo_game.call("undo_last_unmatched"), "game undoes latest unresolved tile")
+	_check(not undo_first.removed, "undo restores tile to board")
+	_check_equal(0, undo_game.tray.tiles.size(), "undo clears restored tile from tray")
+	_check_equal(0, undo_game.selection_count, "undo rolls back selection count")
+	_check_equal(GameStateScript.NOTHING_TO_UNDO, undo_game.call("undo_last_unmatched"), "game refuses undo with empty tray")
+
+	var loss_tiles: Array = []
+	for index in range(GameStateScript.BASE_TRAY_CAPACITY):
+		loss_tiles.append(TileInstanceScript.new(
+			"loss_%d" % index,
+			TileFaceScript.new("loss", str(index)),
+			BoardPositionScript.new(index * 4, 0, 0)
+		))
+	var loss_game = GameStateScript.new(BoardStateScript.new(loss_tiles))
+	for tile in loss_tiles:
+		loss_game.call("select_tile", tile.id)
+	_check_equal(GameStateScript.LOST, loss_game.status, "four unresolved selections lose the game")
+	_check_equal(GameStateScript.NOTHING_TO_UNDO, loss_game.call("undo_last_unmatched"), "terminal loss cannot be undone")
+	_check_equal(GameStateScript.GAME_OVER, loss_game.call("select_tile", "loss_0"), "terminal loss rejects further selections")
 
 
 func _run_reference_game_tests() -> void:
