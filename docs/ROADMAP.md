@@ -66,11 +66,27 @@ Success criteria:
 
 Fast look-ahead play feels meaningfully different from slow stop-and-search play.
 
+## M4 - Generator + Solver
+
+Implement:
+
+- first-class layout geometry independent from tile faces
+- aligned, staggered, and portrait-stack 96-tile templates
+- deterministic solvable deal generation
+- generated solution certificates
+- independent solution search and transactional replay validation
+- responsive presentation of partial tile overlap
+
+Success criteria:
+
+Every generated reference game has a verified legal solution, and the playable shell exercises an irregular portrait-stack layout with partial overlap in both orientations.
+
+Detailed contract: [M04 Generator + Solver](milestones/M04_GENERATOR_SOLVER.md)
+
 ## Later Milestones
 
 Later milestones are recorded here to preserve ordering. Detailed implementation contracts remain deferred unless linked below.
 
-- M4 Generator + Solver, including varied solvable geometry that exercises staggered and partial tile overlap
 - M5 Modifiers
 - M6 Consumables
 - [M7 Art Foundation And First Visual Slice](milestones/M07_ART_FOUNDATION.md) - canonical tile system, first production-ready visual slice, reusable arcade/anime feedback, and Default-to-Neon skin proof. This consolidates the former M7 feedback and foundational M8 art placeholders.

@@ -131,9 +131,7 @@ Status: Open Question
 
 ## Board Generation
 
-Boards should not rely on naive full randomness.
-
-A likely approach is reverse construction:
+Boards do not rely on naive full randomness. The M4 baseline uses constructive assignment:
 
 1. Start from an empty board layout.
 2. Add matching pairs into positions that correspond to legal removal states.
@@ -157,12 +155,12 @@ Difficulty targets may include:
 - branching factor
 - dead-end risk
 
-Generated boards should eventually be analyzed or simulated so difficulty can be measured rather than guessed.
+M4 implements this against authored layout templates. It emits a legal pair-removal certificate and independently verifies completed definitions with a pair-only solver. Generated boards should eventually be analyzed or simulated so difficulty can be measured rather than guessed.
 
 Status: Open Question
 
-- Exact generation algorithm.
-- Exact solver requirements.
+- Whether future geometry should remain authored, become procedural, or combine both.
+- When solver routes should require temporary unmatched tray holdings.
 - How much alternate-route density is enough.
 
 ## Difficulty
