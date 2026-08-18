@@ -3,9 +3,9 @@ extends RefCounted
 const BoardPositionScript := preload("res://scripts/simulation/board_position.gd")
 const TileFaceScript := preload("res://scripts/simulation/tile_face.gd")
 const TileInstanceScript := preload("res://scripts/simulation/tile_instance.gd")
-const BoardStateScript := preload("res://scripts/simulation/board_state.gd")
+const GameDefinitionScript := preload("res://scripts/simulation/game_definition.gd")
 
-func m1_smoke_layout() -> Variant:
+func m1_smoke_definition() -> Variant:
 	var bamboo_1 = TileFaceScript.new(TileFaceScript.FAMILY_BAMBOO, "1")
 	var dots_2 = TileFaceScript.new(TileFaceScript.FAMILY_DOTS, "2")
 	var east = TileFaceScript.new(TileFaceScript.FAMILY_WIND, TileFaceScript.WIND_EAST)
@@ -19,4 +19,4 @@ func m1_smoke_layout() -> Variant:
 		TileInstanceScript.new("tile_006", east, BoardPositionScript.new(4, 0, 1)),
 	]
 
-	return BoardStateScript.new(tiles)
+	return GameDefinitionScript.new(1, tiles, {"tray_capacity": 4})

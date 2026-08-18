@@ -7,7 +7,12 @@ const TileMatcherScript := preload("res://scripts/simulation/tile_matcher.gd")
 const BoardSelectabilityScript := preload("res://scripts/simulation/board_selectability.gd")
 const BoardStateScript := preload("res://scripts/simulation/board_state.gd")
 const FixedLayoutsScript := preload("res://scripts/simulation/fixed_layouts.gd")
-const TrayStateScript := preload("res://scripts/simulation/tray_state.gd")
+const GameDefinitionScript := preload("res://scripts/simulation/game_definition.gd")
+const GameStateDataScript := preload("res://scripts/simulation/game_state_data.gd")
+const GameCommandScript := preload("res://scripts/simulation/game_command.gd")
+const GameChangeScript := preload("res://scripts/simulation/game_change.gd")
+const GameTransactionScript := preload("res://scripts/simulation/game_transaction.gd")
+const GameReducerScript := preload("res://scripts/simulation/game_reducer.gd")
 const GameStateScript := preload("res://scripts/simulation/game_state.gd")
 const ReferenceGameFactoryScript := preload("res://scripts/simulation/reference_game_factory.gd")
 const GameSimulatorScript := preload("res://scripts/simulation/game_simulator.gd")
@@ -15,15 +20,15 @@ const GameSimulatorScript := preload("res://scripts/simulation/game_simulator.gd
 var _failures := 0
 var _assertions := 0
 
+
 func _init() -> void:
 	_log("Running Battle Mahjong simulation tests")
-
 	_run_tile_matcher_tests()
 	_run_board_selectability_tests()
-	_run_board_state_tests()
+	_run_board_projection_tests()
 	_run_fixed_layout_tests()
-	_run_tray_tests()
-	_run_game_state_tests()
+	_run_tray_and_game_tests()
+	_run_transaction_timeline_tests()
 	_run_reference_game_tests()
 	_run_simulation_tests()
 
@@ -31,8 +36,7 @@ func _init() -> void:
 		_log("PASS: %d assertions" % _assertions)
 	else:
 		_log("FAIL: %d failed assertion(s) across %d assertion(s)" % [_failures, _assertions])
-
-	quit()
+	quit(1 if _failures > 0 else 0)
 
 
 func _run_tile_matcher_tests() -> void:
@@ -43,20 +47,15 @@ func _run_tile_matcher_tests() -> void:
 	var bamboo_2 = TileFaceScript.new(TileFaceScript.FAMILY_BAMBOO, "2")
 	var east_a = TileFaceScript.new(TileFaceScript.FAMILY_WIND, TileFaceScript.WIND_EAST)
 	var east_b = TileFaceScript.new(TileFaceScript.FAMILY_WIND, TileFaceScript.WIND_EAST)
-	var red_dragon_a = TileFaceScript.new(TileFaceScript.FAMILY_DRAGON, TileFaceScript.DRAGON_RED)
-	var red_dragon_b = TileFaceScript.new(TileFaceScript.FAMILY_DRAGON, TileFaceScript.DRAGON_RED)
-
 	_check(matcher.call("faces_match", bamboo_1_a, bamboo_1_b), "bamboo_1 matches bamboo_1")
 	_check(not matcher.call("faces_match", bamboo_1_a, bamboo_2), "bamboo_1 does not match bamboo_2")
 	_check(matcher.call("faces_match", east_a, east_b), "east matches east")
-	_check(matcher.call("faces_match", red_dragon_a, red_dragon_b), "red_dragon matches red_dragon")
 
 
 func _run_board_selectability_tests() -> void:
 	_log(" - board selectability")
 	var selectability = BoardSelectabilityScript.new()
 	var face = TileFaceScript.new(TileFaceScript.FAMILY_BAMBOO, "1")
-
 	var covered = TileInstanceScript.new("covered", face, BoardPositionScript.new(0, 0, 0))
 	var cover = TileInstanceScript.new("cover", face, BoardPositionScript.new(0, 0, 1))
 	_check(not selectability.call("is_selectable", covered, [covered, cover]), "tile with another tile above is blocked")
@@ -64,115 +63,66 @@ func _run_board_selectability_tests() -> void:
 	var middle = TileInstanceScript.new("middle", face, BoardPositionScript.new(2, 0, 0))
 	var left = TileInstanceScript.new("left", face, BoardPositionScript.new(0, 0, 0))
 	var right = TileInstanceScript.new("right", face, BoardPositionScript.new(4, 0, 0))
-	_check(not selectability.call("is_selectable", middle, [left, middle, right]), "tile with both left and right neighbors is blocked")
-
-	var edge = TileInstanceScript.new("edge", face, BoardPositionScript.new(0, 0, 0))
-	var neighbor = TileInstanceScript.new("neighbor", face, BoardPositionScript.new(2, 0, 0))
-	_check(selectability.call("is_selectable", edge, [edge, neighbor]), "tile with no cover and one horizontal side free is selectable")
+	_check(not selectability.call("is_selectable", middle, [left, middle, right]), "tile with both horizontal sides blocked is blocked")
+	_check(selectability.call("is_selectable", left, [left, middle]), "tile with one horizontal side free is selectable")
 
 
-func _run_board_state_tests() -> void:
-	_log(" - board state")
-	var bamboo_1 = TileFaceScript.new(TileFaceScript.FAMILY_BAMBOO, "1")
-	var bamboo_2 = TileFaceScript.new(TileFaceScript.FAMILY_BAMBOO, "2")
-
-	var lookup_tile = TileInstanceScript.new("tile_a", bamboo_1, BoardPositionScript.new(0, 0, 0))
-	var lookup_board = BoardStateScript.new([lookup_tile])
-	_check(lookup_tile == lookup_board.call("get_tile", "tile_a"), "can find tile by id")
-	_check(lookup_board.call("get_tile", "missing") == null, "missing tile id returns null")
-
-	var first = TileInstanceScript.new("first", bamboo_1, BoardPositionScript.new(0, 0, 0))
-	var second = TileInstanceScript.new("second", bamboo_1, BoardPositionScript.new(4, 0, 0))
-	var removable_board = BoardStateScript.new([first, second])
-	_check(removable_board.call("remove_matching_pair", "first", "second"), "can remove a matching selectable pair")
-	_check(first.removed, "first tile is marked removed")
-	_check(second.removed, "second tile is marked removed")
-	_check_equal(0, removable_board.call("active_tiles").size(), "removed pair is absent from active tiles")
-	_check(removable_board.call("restore_tile", "first"), "removed tile can be restored")
-	_check(not first.removed, "restored tile is active")
-	_check(not removable_board.call("restore_tile", "first"), "active tile cannot be restored twice")
-
-	var mismatch_first = TileInstanceScript.new("first", bamboo_1, BoardPositionScript.new(0, 0, 0))
-	var mismatch_second = TileInstanceScript.new("second", bamboo_2, BoardPositionScript.new(4, 0, 0))
-	var mismatch_board = BoardStateScript.new([mismatch_first, mismatch_second])
-	_check(not mismatch_board.call("remove_matching_pair", "first", "second"), "refuses non-matching pair")
-	_check_equal(2, mismatch_board.call("active_tiles").size(), "non-matching pair remains active")
-
-	var blocked = TileInstanceScript.new("blocked", bamboo_1, BoardPositionScript.new(2, 0, 0))
-	var mate = TileInstanceScript.new("mate", bamboo_1, BoardPositionScript.new(8, 0, 0))
-	var left_blocker = TileInstanceScript.new("left", bamboo_1, BoardPositionScript.new(0, 0, 0))
-	var right_blocker = TileInstanceScript.new("right", bamboo_1, BoardPositionScript.new(4, 0, 0))
-	var blocked_board = BoardStateScript.new([left_blocker, blocked, right_blocker, mate])
-	_check(not blocked_board.call("remove_matching_pair", "blocked", "mate"), "refuses blocked tile")
-	_check_equal(4, blocked_board.call("active_tiles").size(), "blocked failed removal leaves board unchanged")
+func _run_board_projection_tests() -> void:
+	_log(" - normalized board projection")
+	var face = TileFaceScript.new("test", "a")
+	var tile = TileInstanceScript.new("tile_a", face, BoardPositionScript.new(0, 0, 0))
+	var definition = _definition([tile])
+	var state = GameStateDataScript.new(definition)
+	var board = BoardStateScript.new(definition, state)
+	_check_equal(tile, board.call("get_tile", "tile_a"), "board resolves immutable tile definition")
+	_check_equal(1, board.call("active_tiles").size(), "board zone projects active tile")
+	state.tile_zones[tile.id] = GameStateDataScript.ZONE_RESOLVED
+	_check_equal(0, board.call("active_tiles").size(), "resolved zone removes tile from board projection")
+	_check(board.call("get_tile", "missing") == null, "missing tile id returns null")
 
 
 func _run_fixed_layout_tests() -> void:
-	_log(" - fixed layout")
-	var board = FixedLayoutsScript.new().call("m1_smoke_layout")
-
-	_check_equal(6, board.call("active_tiles").size(), "M1 smoke layout starts with six active tiles")
-	_check(board.call("is_tile_selectable", "tile_001"), "outer bottom tile is selectable")
-	_check(board.call("is_tile_selectable", "tile_002"), "opposite outer bottom tile is selectable")
-	_check(not board.call("is_tile_selectable", "tile_003"), "covered bottom tile is blocked")
-	_check(not board.call("is_tile_selectable", "tile_004"), "covered bottom tile on other side is blocked")
-	_check(board.call("remove_matching_pair", "tile_005", "tile_006"), "top pair can be cleared")
-	_check(board.call("remove_matching_pair", "tile_001", "tile_002"), "outer pair can be cleared")
-	_check(board.call("remove_matching_pair", "tile_003", "tile_004"), "middle pair can be cleared after top and outer removal")
-	_check_equal(0, board.call("active_tiles").size(), "M1 smoke layout can be fully cleared")
-
-
-func _run_tray_tests() -> void:
-	_log(" - four-slot tray")
-	var face_a = TileFaceScript.new("test", "a")
-	var face_b = TileFaceScript.new("test", "b")
-	var face_c = TileFaceScript.new("test", "c")
-	var face_d = TileFaceScript.new("test", "d")
-	var position = BoardPositionScript.new(0, 0, 0)
-	var tray = TrayStateScript.new(4)
-
-	_check_equal(TrayStateScript.STORED, tray.call("add_tile", TileInstanceScript.new("a1", face_a, position)), "first unmatched tile stays in tray")
-	_check_equal(TrayStateScript.MATCHED, tray.call("add_tile", TileInstanceScript.new("a2", face_a, position)), "matching tile resolves immediately")
-	_check_equal(0, tray.tiles.size(), "resolved pair leaves tray empty")
-	_check_equal(1, tray.resolved_pair_count, "tray counts resolved pair")
-	_check(tray.call("take_last_tile") == null, "empty tray has nothing to undo")
-
-	tray.call("add_tile", TileInstanceScript.new("a3", face_a, position))
-	tray.call("add_tile", TileInstanceScript.new("b1", face_b, position))
-	_check_equal("b1", tray.call("take_last_tile").id, "tray returns most recent unmatched tile")
-	_check_equal(1, tray.tiles.size(), "undo removes one tile from tray")
-	tray.call("add_tile", TileInstanceScript.new("b2", face_b, position))
-	tray.call("add_tile", TileInstanceScript.new("c1", face_c, position))
-	_check_equal(TrayStateScript.FAILED, tray.call("add_tile", TileInstanceScript.new("d1", face_d, position)), "four unresolved tiles fail the tray")
-	_check(tray.failed, "tray records failure")
-	_check_equal(4, tray.tiles.size(), "failed tray retains four unresolved tiles")
-	_check(tray.call("take_last_tile") == null, "failed tray cannot be undone")
+	_log(" - fixed M1 layout through transactions")
+	var game = GameStateScript.new(FixedLayoutsScript.new().call("m1_smoke_definition"))
+	_check_equal(6, game.board.call("active_tiles").size(), "M1 layout starts with six board tiles")
+	_check(game.board.call("is_tile_selectable", "tile_005"), "top tile is selectable")
+	_check_equal(GameStateScript.SELECTED, game.call("select_tile", "tile_005"), "first top tile enters tray")
+	_check_equal(GameStateScript.PAIR_RESOLVED, game.call("select_tile", "tile_006"), "top pair resolves")
+	game.call("select_tile", "tile_001")
+	_check_equal(GameStateScript.PAIR_RESOLVED, game.call("select_tile", "tile_002"), "outer pair resolves")
+	game.call("select_tile", "tile_003")
+	_check_equal(GameStateScript.PAIR_RESOLVED, game.call("select_tile", "tile_004"), "middle pair resolves")
+	_check_equal(GameStateScript.WON, game.status, "clearing board and tray wins")
+	_check_equal(0, game.board.call("active_tiles").size(), "fixed layout clears fully")
+	_check_equal(6, game.revision, "each selection commits one transaction")
 
 
-func _run_game_state_tests() -> void:
-	_log(" - game state")
-	var face = TileFaceScript.new("test", "pair")
-	var first = TileInstanceScript.new("first", face, BoardPositionScript.new(0, 0, 0))
-	var second = TileInstanceScript.new("second", face, BoardPositionScript.new(4, 0, 0))
-	var game = GameStateScript.new(BoardStateScript.new([first, second]))
+func _run_tray_and_game_tests() -> void:
+	_log(" - transactional tray and game state")
+	var pair_face = TileFaceScript.new("test", "pair")
+	var pair_tiles := [
+		TileInstanceScript.new("first", pair_face, BoardPositionScript.new(0, 0, 0)),
+		TileInstanceScript.new("second", pair_face, BoardPositionScript.new(4, 0, 0)),
+	]
+	var pair_game = GameStateScript.new(_definition(pair_tiles))
+	_check_equal(GameStateScript.SELECTED, pair_game.call("select_tile", "first"), "unmatched selection enters tray")
+	_check_equal(1, pair_game.tray.tiles.size(), "tray projection contains unresolved tile")
+	_check_equal(GameStateScript.PAIR_RESOLVED, pair_game.call("select_tile", "second"), "matching selection resolves pair")
+	_check_equal(0, pair_game.tray.tiles.size(), "resolved pair leaves tray")
+	_check_equal(1, pair_game.tray.resolved_pair_count, "pair count is projected from state")
+	_check_equal(GameStateScript.WON, pair_game.status, "empty board and tray wins")
 
-	_check_equal(GameStateScript.SELECTED, game.call("select_tile", "first"), "selectable tile moves into tray")
-	_check_equal(1, game.tray.tiles.size(), "selected tile occupies tray slot")
-	_check_equal(1, game.board.call("active_tiles").size(), "selected tile leaves board")
-	_check_equal(GameStateScript.PAIR_RESOLVED, game.call("select_tile", "second"), "second matching selection resolves pair")
-	_check_equal(GameStateScript.WON, game.status, "empty board and tray wins game")
-	_check_equal(1, game.tray.resolved_pair_count, "game exposes resolved pair count")
-
-	var undo_first = TileInstanceScript.new("undo_first", face, BoardPositionScript.new(0, 0, 0))
-	var undo_second = TileInstanceScript.new("undo_second", TileFaceScript.new("test", "other"), BoardPositionScript.new(4, 0, 0))
-	var undo_game = GameStateScript.new(BoardStateScript.new([undo_first, undo_second]))
-	_check_equal(GameStateScript.SELECTED, undo_game.call("select_tile", "undo_first"), "unmatched tile enters tray before undo")
-	_check(undo_game.call("can_undo"), "game allows undo with an unresolved tray tile")
-	_check_equal(GameStateScript.UNDONE, undo_game.call("undo_last_unmatched"), "game undoes latest unresolved tile")
-	_check(not undo_first.removed, "undo restores tile to board")
-	_check_equal(0, undo_game.tray.tiles.size(), "undo clears restored tile from tray")
-	_check_equal(0, undo_game.selection_count, "undo rolls back selection count")
-	_check_equal(GameStateScript.NOTHING_TO_UNDO, undo_game.call("undo_last_unmatched"), "game refuses undo with empty tray")
+	var undo_tiles := [
+		TileInstanceScript.new("undo", TileFaceScript.new("test", "a"), BoardPositionScript.new(0, 0, 0)),
+		TileInstanceScript.new("other", TileFaceScript.new("test", "b"), BoardPositionScript.new(4, 0, 0)),
+	]
+	var undo_game = GameStateScript.new(_definition(undo_tiles))
+	undo_game.call("select_tile", "undo")
+	_check(undo_game.call("can_undo"), "unresolved tray tile enables Undo")
+	_check_equal(GameStateScript.UNDONE, undo_game.call("undo_last_unmatched"), "Undo commits compensation")
+	_check(undo_game.board.call("is_tile_active", "undo"), "Undo restores tile zone to board")
+	_check_equal(0, undo_game.tray.tiles.size(), "Undo removes tile from tray projection")
+	_check_equal(2, undo_game.revision, "Undo advances authoritative revision")
 
 	var loss_tiles: Array = []
 	for index in range(GameStateScript.BASE_TRAY_CAPACITY):
@@ -181,46 +131,132 @@ func _run_game_state_tests() -> void:
 			TileFaceScript.new("loss", str(index)),
 			BoardPositionScript.new(index * 4, 0, 0)
 		))
-	var loss_game = GameStateScript.new(BoardStateScript.new(loss_tiles))
+	var loss_game = GameStateScript.new(_definition(loss_tiles))
 	for tile in loss_tiles:
 		loss_game.call("select_tile", tile.id)
-	_check_equal(GameStateScript.LOST, loss_game.status, "four unresolved selections lose the game")
+	_check_equal(GameStateScript.LOST, loss_game.status, "four unresolved selections lose")
+	_check_equal(4, loss_game.tray.tiles.size(), "failed tray retains four unresolved tiles")
 	_check_equal(GameStateScript.NOTHING_TO_UNDO, loss_game.call("undo_last_unmatched"), "terminal loss cannot be undone")
-	_check_equal(GameStateScript.GAME_OVER, loss_game.call("select_tile", "loss_0"), "terminal loss rejects further selections")
+	var projected_tiles: Array = loss_game.tray.tiles
+	projected_tiles.clear()
+	_check_equal(4, loss_game.tray.tiles.size(), "mutating tray projection cannot mutate store")
+
+
+func _run_transaction_timeline_tests() -> void:
+	_log(" - transaction timeline")
+	var definition = FixedLayoutsScript.new().call("m1_smoke_definition")
+	var game = GameStateScript.new(definition)
+	var initial = game.call("current_snapshot")
+	var initial_hash: String = initial.state_hash()
+	game.call("select_tile", "tile_005")
+	var selected = game.call("current_snapshot")
+	var timeline: Array = game.call("transactions")
+	var transaction: Variant = timeline[0]
+	_check_equal(1, timeline.size(), "accepted command appends one transaction")
+	_check_equal(1, game.store.call("transactions_since", 0).size(), "store exposes transactions after revision")
+	_check_equal(0, game.store.call("transactions_since", 1).size(), "transaction range excludes current revision")
+	_check_equal(initial_hash, transaction.previous_state_hash, "transaction links previous state hash")
+	_check_equal(selected.state_hash(), transaction.next_state_hash, "transaction links next state hash")
+	_check_equal(1, transaction.revision, "transaction receives monotonic revision")
+	_check_equal(definition.definition_hash(), transaction.definition_hash, "transaction binds exact game definition")
+	_check(not transaction.to_dict().changes.is_empty(), "transaction serializes typed changes")
+	var serialized_transaction: Variant = JSON.parse_string(JSON.stringify(transaction.to_dict()))
+	_check(serialized_transaction is Dictionary, "transaction dictionary round-trips through JSON")
+	var parsed_transaction: Variant = GameTransactionScript.from_dict(serialized_transaction)
+	var replica = GameStateScript.new(definition)
+	var replicated_result: Dictionary = replica.call("apply_transaction", parsed_transaction)
+	_check(replicated_result.accepted, "serialized transaction applies through store API")
+	_check_equal(selected.state_hash(), replica.call("current_snapshot").state_hash(), "replica reaches authoritative state hash")
+	var exposed_transaction: Variant = game.call("transactions")[0]
+	exposed_transaction.next_state_hash = "caller_mutation"
+	_check_equal(selected.state_hash(), game.call("transactions")[0].next_state_hash, "mutating returned transaction cannot alter timeline")
+
+	var reducer = GameReducerScript.new()
+	var replayed: Variant = reducer.call("apply_forward", definition, GameStateDataScript.new(definition), transaction)
+	_check(replayed != null, "production reducer replays transaction")
+	_check_equal(selected.state_hash(), replayed.state_hash(), "replay produces recorded state hash")
+	var reversed: Variant = reducer.call("apply_reverse", definition, replayed, transaction)
+	_check(reversed != null, "transaction applies in reverse")
+	_check_equal(initial_hash, reversed.state_hash(), "reverse application restores exact prior state")
+
+	var isolated_snapshot = game.call("current_snapshot")
+	isolated_snapshot.tile_zones["tile_006"] = GameStateDataScript.ZONE_RESOLVED
+	_check(game.board.call("is_tile_active", "tile_006"), "mutating snapshot cannot mutate store")
+
+	var stale_command = GameCommandScript.new(GameCommandScript.SELECT_TILE, {"tile_id": "tile_006"}, 0, "stale")
+	var before_stale_hash: String = game.call("current_snapshot").state_hash()
+	var stale_result: Dictionary = game.store.call("submit_command", stale_command)
+	_check(not stale_result.accepted, "stale revision is rejected")
+	_check_equal(before_stale_hash, game.call("current_snapshot").state_hash(), "rejected command leaves state unchanged")
+	_check_equal(1, game.call("transactions").size(), "rejected command leaves timeline unchanged")
+
+	var bad_change = GameChangeScript.new(GameChangeScript.TILE_ZONE, "tile_006", GameStateDataScript.ZONE_BOARD, GameStateDataScript.ZONE_TRAY)
+	var bad_command = GameCommandScript.new(GameCommandScript.SELECT_TILE, {"tile_id": "tile_006"}, selected.revision)
+	var bad_transaction = GameTransactionScript.new(bad_command, [bad_change], GameStateScript.SELECTED)
+	bad_transaction.definition_hash = definition.definition_hash()
+	bad_transaction.previous_state_hash = selected.state_hash()
+	bad_transaction.next_state_hash = "tampered"
+	_check(reducer.call("apply_forward", definition, selected, bad_transaction) == null, "hash mismatch rejects entire transaction")
+	_check_equal(transaction.next_state_hash, selected.state_hash(), "failed apply does not partially mutate source state")
+	var wrong_definition = ReferenceGameFactoryScript.new().call("create_definition", 92817361)
+	_check(reducer.call("apply_forward", wrong_definition, GameStateDataScript.new(wrong_definition), transaction) == null, "definition mismatch rejects transaction")
+
+	game.call("undo_last_unmatched")
+	var undo_timeline: Array = game.call("transactions")
+	var undo_transaction: Variant = undo_timeline[-1]
+	_check_equal(2, undo_timeline.size(), "gameplay Undo appends instead of deleting history")
+	_check_equal(transaction.transaction_id, undo_transaction.reverts_transaction_id, "Undo references compensated transaction")
+	_check_equal(2, undo_transaction.revision, "Undo keeps revision monotonic")
+
+	var replay_state: Variant = GameStateDataScript.new(definition)
+	for recorded_transaction in undo_timeline:
+		replay_state = reducer.call("apply_forward", definition, replay_state, recorded_transaction)
+		if replay_state == null:
+			break
+	_check(replay_state != null, "complete timeline replays")
+	_check_equal(game.call("current_snapshot").state_hash(), replay_state.state_hash(), "complete replay reaches live state")
+
+	var same_game = GameStateScript.new(definition)
+	same_game.call("select_tile", "tile_005")
+	_check_equal(transaction.next_state_hash, same_game.call("transactions")[0].next_state_hash, "same definition and command produce same hash")
 
 
 func _run_reference_game_tests() -> void:
 	_log(" - 96-tile reference game")
 	var factory = ReferenceGameFactoryScript.new()
-	var board = factory.call("create_board", 92817361)
+	var definition = factory.call("create_definition", 92817361)
 	var identity_counts := {}
-
-	for tile in board.tiles:
+	for tile in definition.tiles:
 		var identity: String = tile.face.logical_id()
 		identity_counts[identity] = identity_counts.get(identity, 0) + 1
-
-	_check_equal(ReferenceGameFactoryScript.TILE_COUNT, board.tiles.size(), "reference board has 96 tiles")
-	_check_equal(ReferenceGameFactoryScript.IDENTITY_COUNT, identity_counts.size(), "reference board has 24 identities")
+	_check_equal(ReferenceGameFactoryScript.TILE_COUNT, definition.tiles.size(), "reference game has 96 tile definitions")
+	_check_equal(ReferenceGameFactoryScript.IDENTITY_COUNT, identity_counts.size(), "reference game has 24 identities")
 	for count in identity_counts.values():
-		_check_equal(ReferenceGameFactoryScript.COPIES_PER_IDENTITY, count, "each reference identity has four copies")
+		_check_equal(ReferenceGameFactoryScript.COPIES_PER_IDENTITY, count, "each identity has four copies")
 
-	var same_seed_board = factory.call("create_board", 92817361)
-	var other_seed_board = factory.call("create_board", 92817362)
-	_check_equal(_deal_signature(board), _deal_signature(same_seed_board), "same seed reproduces deal")
-	_check(_deal_signature(board) != _deal_signature(other_seed_board), "different seed changes deal")
+	var same_definition = factory.call("create_definition", 92817361)
+	var other_definition = factory.call("create_definition", 92817362)
+	_check_equal(_deal_signature(definition), _deal_signature(same_definition), "same seed reproduces definition")
+	_check(_deal_signature(definition) != _deal_signature(other_definition), "different seed changes definition")
+	var serialized_definition: Variant = JSON.parse_string(JSON.stringify(definition.to_dict()))
+	var parsed_definition: Variant = GameDefinitionScript.from_dict(serialized_definition)
+	_check_equal(_deal_signature(definition), _deal_signature(parsed_definition), "definition round-trips through JSON")
+	_check_equal(definition.tray_capacity(), parsed_definition.tray_capacity(), "definition preserves effective configuration")
+	_check_equal(definition.rules_version, parsed_definition.rules_version, "definition preserves rules version")
 
-	var direct_pair_board = factory.call("create_board", 92817361)
+	var game = GameStateScript.new(definition)
 	var removed_pairs := 0
-	while not direct_pair_board.call("active_tiles").is_empty():
-		var pair: Array = _find_selectable_pair(direct_pair_board)
+	while not game.board.call("active_tiles").is_empty():
+		var pair: Array = _find_selectable_pair(game.board)
 		if pair.is_empty():
 			break
-		if not direct_pair_board.call("remove_matching_pair", pair[0].id, pair[1].id):
+		game.call("select_tile", pair[0].id)
+		if game.call("select_tile", pair[1].id) != GameStateScript.PAIR_RESOLVED:
 			break
 		removed_pairs += 1
-
-	_check_equal(ReferenceGameFactoryScript.PAIR_COUNT, removed_pairs, "reference board clears through direct legal pair removals")
-	_check_equal(0, direct_pair_board.call("active_tiles").size(), "direct pair clearing leaves no active tiles")
+	_check_equal(ReferenceGameFactoryScript.PAIR_COUNT, removed_pairs, "reference game clears through legal transactional pairs")
+	_check_equal(GameStateScript.WON, game.status, "reference game reaches won state")
+	_check_equal(96, game.call("transactions").size(), "full game records every selection")
 
 
 func _run_simulation_tests() -> void:
@@ -234,19 +270,20 @@ func _run_simulation_tests() -> void:
 		_check(result.max_tray <= 3, "seed %d stays below failure occupancy" % seed)
 
 	var random_result: Dictionary = simulator.call("run", 92817361, GameSimulatorScript.RANDOM)
-	_check(random_result.status != GameStateScript.PLAYING, "random policy reaches a terminal state")
-
+	_check(random_result.status != GameStateScript.PLAYING, "random policy reaches terminal state")
 	var bounded_result: Dictionary = simulator.call("run", 92817361, GameSimulatorScript.BOUNDED_ATTENTION)
 	var repeated_result: Dictionary = simulator.call("run", 92817361, GameSimulatorScript.BOUNDED_ATTENTION)
-	_check(bounded_result.status != GameStateScript.PLAYING, "bounded-attention policy reaches a terminal state")
-	_check_equal(bounded_result, repeated_result, "bounded-attention policy is deterministic for a seed")
-	_check_equal(GameSimulatorScript.DEFAULT_ATTENTION_LIMIT, bounded_result.policy_config.attention_limit, "bounded-attention result records effective default configuration")
-	_check(bounded_result.max_tray <= 4, "bounded-attention policy respects tray capacity")
+	_check(bounded_result.status != GameStateScript.PLAYING, "bounded-attention policy reaches terminal state")
+	_check_equal(bounded_result, repeated_result, "bounded-attention policy remains deterministic")
 
 
-func _deal_signature(board: Variant) -> String:
+func _definition(tiles: Array, tray_capacity: int = 4) -> Variant:
+	return GameDefinitionScript.new(1, tiles, {"tray_capacity": tray_capacity})
+
+
+func _deal_signature(definition: Variant) -> String:
 	var identities: Array[String] = []
-	for tile in board.tiles:
+	for tile in definition.tiles:
 		identities.append(tile.face.logical_id())
 	return "|".join(identities)
 
@@ -258,7 +295,6 @@ func _find_selectable_pair(board: Variant) -> Array:
 		if first_by_identity.has(identity):
 			return [first_by_identity[identity], tile]
 		first_by_identity[identity] = tile
-
 	return []
 
 

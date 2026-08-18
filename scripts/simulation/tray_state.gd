@@ -1,43 +1,30 @@
 extends RefCounted
 
-const TileMatcherScript := preload("res://scripts/simulation/tile_matcher.gd")
+const GameStateDataScript := preload("res://scripts/simulation/game_state_data.gd")
 
-const STORED := "stored"
-const MATCHED := "matched"
-const FAILED := "failed"
-const REJECTED := "rejected"
+var capacity: int:
+	get:
+		return _definition.tray_capacity()
 
-var capacity: int
-var tiles: Array = []
-var resolved_pair_count := 0
-var failed := false
+var tiles: Array:
+	get:
+		var projected: Array = []
+		for tile_id in _state.tray_tile_ids:
+			projected.append(_definition.get_tile(tile_id))
+		return projected
 
-var _matcher := TileMatcherScript.new()
+var resolved_pair_count: int:
+	get:
+		return _state.resolved_pair_count
 
-func _init(tray_capacity: int = 4) -> void:
-	capacity = tray_capacity
+var failed: bool:
+	get:
+		return _state.status == GameStateDataScript.LOST
 
-
-func add_tile(tile: Variant) -> String:
-	if tile == null or failed or tiles.size() >= capacity:
-		return REJECTED
-
-	for index in range(tiles.size()):
-		if _matcher.call("tiles_match", tiles[index], tile):
-			tiles.remove_at(index)
-			resolved_pair_count += 1
-			return MATCHED
-
-	tiles.append(tile)
-	if tiles.size() == capacity:
-		failed = true
-		return FAILED
-
-	return STORED
+var _definition: Variant
+var _state: Variant
 
 
-func take_last_tile() -> Variant:
-	if failed or tiles.is_empty():
-		return null
-
-	return tiles.pop_back()
+func _init(definition: Variant, state: Variant) -> void:
+	_definition = definition
+	_state = state

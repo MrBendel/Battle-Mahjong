@@ -130,11 +130,12 @@ This architecture supports:
 - board difficulty analysis
 - replay validation
 
-Status: Open Question
+Status: Implemented Foundation
 
-- Exact event schema.
-- Exact replay validation format.
-- Exact seeded RNG implementation.
+- The command, transaction, reversible change, Undo, replication, and replay contracts are defined in `GAME_TIMELINE.md`.
+- The M2 simulation uses a single-writer transactional store, normalized state, JSON-compatible models, and canonical SHA-256 state hashes.
+- Durable replay storage, global identifiers, snapshots, and replay timing remain open decisions.
+- Exact seeded RNG state serialization remains an open decision.
 
 ## Configuration
 

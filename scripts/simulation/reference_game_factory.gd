@@ -3,7 +3,7 @@ extends RefCounted
 const BoardPositionScript := preload("res://scripts/simulation/board_position.gd")
 const TileFaceScript := preload("res://scripts/simulation/tile_face.gd")
 const TileInstanceScript := preload("res://scripts/simulation/tile_instance.gd")
-const BoardStateScript := preload("res://scripts/simulation/board_state.gd")
+const GameDefinitionScript := preload("res://scripts/simulation/game_definition.gd")
 const DeterministicRngScript := preload("res://scripts/simulation/deterministic_rng.gd")
 
 const IDENTITY_COUNT := 24
@@ -15,7 +15,7 @@ const _ROWS_BY_LAYER := [6, 4, 2]
 const _ROW_START_BY_LAYER := [0, 2, 4]
 const _TILES_PER_ROW := 8
 
-func create_board(seed: int) -> Variant:
+func create_definition(seed: int, tray_capacity: int = 4) -> Variant:
 	var placement_pairs := _build_placement_pairs()
 	var pair_faces := _build_pair_faces()
 	_shuffle(pair_faces, DeterministicRngScript.new(seed))
@@ -32,9 +32,7 @@ func create_board(seed: int) -> Variant:
 				positions[copy_index]
 			))
 
-	return BoardStateScript.new(tiles)
-
-
+	return GameDefinitionScript.new(seed, tiles, {"tray_capacity": tray_capacity})
 func _build_pair_faces() -> Array:
 	var faces: Array = []
 	for identity_index in range(IDENTITY_COUNT):

@@ -39,8 +39,12 @@ func _build_shell() -> void:
 
 
 func _create_game() -> Variant:
-	var board: Variant = ReferenceGameFactoryScript.new().call("create_board", _rng.call("get_seed"))
-	return GameStateScript.new(board, GameStateScript.BASE_TRAY_CAPACITY)
+	var definition: Variant = ReferenceGameFactoryScript.new().call(
+		"create_definition",
+		_rng.call("get_seed"),
+		GameStateScript.BASE_TRAY_CAPACITY
+	)
+	return GameStateScript.new(definition)
 
 
 func _on_tile_selected(tile_id: String) -> void:
