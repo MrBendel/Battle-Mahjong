@@ -18,6 +18,7 @@ var result: String
 var reverts_transaction_id: String
 var previous_state_hash: String
 var next_state_hash: String
+var telemetry: Dictionary
 
 
 func _init(
@@ -32,10 +33,11 @@ func _init(
 	command_id = command.command_id
 	command_type = command.type
 	logical_tick = revision
-	playback_time_ms = 0
+	playback_time_ms = command.playback_time_ms
 	changes = transaction_changes.duplicate()
 	result = transaction_result
 	reverts_transaction_id = reverts_id
+	telemetry = {}
 
 
 func to_dict() -> Dictionary:
@@ -57,6 +59,7 @@ func to_dict() -> Dictionary:
 		"reverts_transaction_id": reverts_transaction_id,
 		"previous_state_hash": previous_state_hash,
 		"next_state_hash": next_state_hash,
+		"telemetry": telemetry.duplicate(true),
 	}
 
 
@@ -64,7 +67,7 @@ func duplicate_transaction() -> RefCounted:
 	var copied_changes: Array = []
 	for change in changes:
 		copied_changes.append(change.call("duplicate_change"))
-	var command := GameCommandScript.new(command_type, {}, revision - 1, command_id, actor_id)
+	var command := GameCommandScript.new(command_type, {}, revision - 1, command_id, actor_id, playback_time_ms)
 	var copy: Variant = get_script().new(command, copied_changes, result, reverts_transaction_id)
 	copy.transaction_id = transaction_id
 	copy.definition_hash = definition_hash
@@ -72,6 +75,7 @@ func duplicate_transaction() -> RefCounted:
 	copy.playback_time_ms = playback_time_ms
 	copy.previous_state_hash = previous_state_hash
 	copy.next_state_hash = next_state_hash
+	copy.telemetry = telemetry.duplicate(true)
 	return copy
 
 
@@ -84,7 +88,8 @@ static func from_dict(data: Dictionary) -> RefCounted:
 		{},
 		revision_value - 1,
 		str(data.get("command_id", "")),
-		str(data.get("actor_id", ""))
+		str(data.get("actor_id", "")),
+		int(data.get("playback_time_ms", 0))
 	)
 	var parsed_changes: Array = []
 	for serialized_change in data.get("changes", []):
@@ -103,4 +108,5 @@ static func from_dict(data: Dictionary) -> RefCounted:
 	transaction.playback_time_ms = int(data.get("playback_time_ms", 0))
 	transaction.previous_state_hash = str(data.get("previous_state_hash", ""))
 	transaction.next_state_hash = str(data.get("next_state_hash", ""))
+	transaction.telemetry = data.get("telemetry", {}).duplicate(true)
 	return transaction

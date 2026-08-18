@@ -4,6 +4,7 @@ const BoardPositionScript := preload("res://scripts/simulation/board_position.gd
 const TileFaceScript := preload("res://scripts/simulation/tile_face.gd")
 const TileInstanceScript := preload("res://scripts/simulation/tile_instance.gd")
 const GameDefinitionScript := preload("res://scripts/simulation/game_definition.gd")
+const GameConfigurationScript := preload("res://scripts/simulation/game_configuration.gd")
 const DeterministicRngScript := preload("res://scripts/simulation/deterministic_rng.gd")
 
 const IDENTITY_COUNT := 24
@@ -32,7 +33,7 @@ func create_definition(seed: int, tray_capacity: int = 4) -> Variant:
 				positions[copy_index]
 			))
 
-	return GameDefinitionScript.new(seed, tiles, {"tray_capacity": tray_capacity})
+	return GameDefinitionScript.new(seed, tiles, GameConfigurationScript.create(tray_capacity))
 func _build_pair_faces() -> Array:
 	var faces: Array = []
 	for identity_index in range(IDENTITY_COUNT):

@@ -64,14 +64,15 @@ As players solve more rapidly:
 
 Stopping to search causes momentum to fall.
 
-Status: Open Question
+Status: Decided for the initial M3 tuning baseline
 
-- Exact momentum gain values.
-- Exact decay values.
-- Exact multiplier thresholds.
-- Exact score formula.
+- Momentum uses integer units from `0` to `100000`.
+- A pair adds `30000` units.
+- Thresholds at `0`, `20000`, `40000`, `60000`, and `80000` produce `x1` through `x5`.
+- Tier decay rates are `5`, `7`, `10`, `14`, and `19` units per millisecond, making higher tiers harder to maintain.
+- A pair scores `100 * post-gain multiplier`.
 
-Tuning values should be configuration, not hard-coded assumptions.
+These values are stored in game configuration and remain provisional pending playtesting.
 
 ## Win And Loss
 

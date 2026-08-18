@@ -129,6 +129,7 @@ GameTransaction
   logical_tick
   playback_time_ms
   changes
+  telemetry
   reverts_transaction_id
   previous_state_hash
   next_state_hash
@@ -136,14 +137,17 @@ GameTransaction
 
 - `revision` is monotonic within a game record.
 - `definition_hash` binds the transaction to exact seed, configuration, tile identities, and geometry.
-- `logical_tick` orders deterministic rules. Wall-clock time must not decide gameplay outcomes.
-- `playback_time_ms` is presentation metadata used to reproduce pacing.
+- `logical_tick` orders deterministic transactions.
+- `playback_time_ms` is monotonic active gameplay time supplied by the command. M3 uses it as authoritative input for momentum decay and replay pacing; system wall-clock time is never read by simulation code.
+- `telemetry` records derived observations such as pair intervals and awarded multiplier. It does not drive reduction.
 - `reverts_transaction_id` is present only for a compensating Undo transaction.
 - State hashes detect divergence; they are validation aids, not game logic.
 
 All changes in a transaction validate first and apply atomically. A partially applied transaction is invalid.
 
 The transaction is the persistence and replication boundary. Signals, animations, and audio cues may be derived after commit, but they are never authoritative mutations.
+
+Momentum does not generate frame-by-frame transactions. Each accepted command materializes elapsed decay as part of that command's atomic changes. Presentation may preview the same deterministic decay function between commands, but only committed command boundaries affect state hashes and replay data.
 
 ## Reversible Changes
 
@@ -220,7 +224,7 @@ GameReplay
   terminal_state_hash
 ```
 
-Playback starts from the initial state and applies transactions through the production reducer. Presentation consumes `playback_time_ms` and transaction types to animate the result like a video without storing video frames.
+Playback starts from the initial state and applies transactions through the production reducer. Presentation consumes `playback_time_ms`, telemetry, and transaction types to animate the result like a video without storing video frames.
 
 Seeking can replay from revision zero initially. Periodic verified snapshots may be added later as a performance optimization; the transaction timeline remains authoritative.
 
@@ -239,7 +243,7 @@ Future gameplay randomness must be consumed while building a transaction. The re
 
 Replaying an accepted transaction does not reroll randomness. Re-simulating commands may rerun the deterministic RNG and verify that it produces the recorded transaction.
 
-The current state records the game seed as its initial RNG state. No implemented M2 command consumes gameplay randomness, so `RngStateChanged` is defined but not yet emitted.
+The current state records the game seed as its initial RNG state. No implemented command consumes gameplay randomness yet, so `RngStateChanged` is defined but not yet emitted.
 
 ## Future Synchronous Replication
 
@@ -257,7 +261,7 @@ Client prediction and rollback can reuse reversible changes, but should not be i
 
 ## Implemented Foundation
 
-Completed before M3 introduces time-dependent momentum:
+Completed through M3:
 
 1. Serializable `GameDefinition`, `GameStateData`, `GameCommand`, `GameChange`, and `GameTransaction` models.
 2. One atomic reducer that applies and reverses typed changes.
@@ -266,6 +270,7 @@ Completed before M3 introduces time-dependent momentum:
 5. Compensating M2 Undo transactions that preserve append-only history.
 6. Read-only board and tray projections over normalized tile zones.
 7. JSON round-trip, replay, reverse-apply, stale revision, atomic rejection, hash-divergence, snapshot isolation, and same-seed tests.
+8. Monotonic active-play timestamps, atomic momentum decay, score changes, and pair timing telemetry.
 
 Current serialization uses JSON-compatible dictionaries. State hashes use SHA-256 over a canonical ordered state string. Local command and transaction IDs are deterministic revision-based IDs within one game record.
 
@@ -276,6 +281,6 @@ Do not add networking, persistence services, prediction, or replay UI as part of
 - Durable replay container and migration format beyond the current JSON-compatible dictionaries.
 - Globally unique transaction and command ID format for persisted or networked games.
 - Snapshot interval and storage format.
-- Whether `playback_time_ms` records active gameplay time or wall time.
+- How active gameplay time pauses around menus, interruptions, and app suspension.
 - Whether any future mode permits rewinding resolved-pair transactions.
 - How restart links related game records.

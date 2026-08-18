@@ -16,6 +16,7 @@ const GameReducerScript := preload("res://scripts/simulation/game_reducer.gd")
 const GameStateScript := preload("res://scripts/simulation/game_state.gd")
 const ReferenceGameFactoryScript := preload("res://scripts/simulation/reference_game_factory.gd")
 const GameSimulatorScript := preload("res://scripts/simulation/game_simulator.gd")
+const MomentumRulesScript := preload("res://scripts/simulation/momentum_rules.gd")
 
 var _failures := 0
 var _assertions := 0
@@ -29,6 +30,7 @@ func _init() -> void:
 	_run_fixed_layout_tests()
 	_run_tray_and_game_tests()
 	_run_transaction_timeline_tests()
+	_run_momentum_tests()
 	_run_reference_game_tests()
 	_run_simulation_tests()
 
@@ -221,6 +223,61 @@ func _run_transaction_timeline_tests() -> void:
 	_check_equal(transaction.next_state_hash, same_game.call("transactions")[0].next_state_hash, "same definition and command produce same hash")
 
 
+func _run_momentum_tests() -> void:
+	_log(" - deterministic momentum and score")
+	var face = TileFaceScript.new("test", "pair")
+	var definition = _definition([
+		TileInstanceScript.new("first", face, BoardPositionScript.new(0, 0, 0)),
+		TileInstanceScript.new("second", face, BoardPositionScript.new(4, 0, 0)),
+	])
+	var configuration: Dictionary = definition.configuration
+	_check_equal(1, MomentumRulesScript.multiplier_for(19999, configuration), "momentum below first threshold stays x1")
+	_check_equal(2, MomentumRulesScript.multiplier_for(20000, configuration), "first threshold enters x2")
+	_check(
+		90000 - MomentumRulesScript.decay(90000, 100, configuration) \
+			> 30000 - MomentumRulesScript.decay(30000, 100, configuration),
+		"higher tiers lose more momentum over the same interval"
+	)
+
+	var game = GameStateScript.new(definition)
+	_check_equal(GameStateScript.SELECTED, game.call("select_tile", "first", 100), "timestamped first selection is accepted")
+	_check_equal(GameStateScript.PAIR_RESOLVED, game.call("select_tile", "second", 200), "timestamped pair resolves")
+	var snapshot: Variant = game.call("current_snapshot")
+	_check_equal(30000, snapshot.momentum_units, "pair adds configured momentum")
+	_check_equal(200, snapshot.score, "pair scores at the post-gain multiplier")
+	_check_equal(200, snapshot.elapsed_time_ms, "accepted command materializes gameplay time")
+	_check_equal(2, snapshot.max_multiplier, "state records peak multiplier")
+	_check_equal(24400, game.call("momentum_at", 1000), "presentation preview applies deterministic decay")
+	_check_equal(30000, game.call("current_snapshot").momentum_units, "momentum preview does not mutate authoritative state")
+
+	var pair_transaction: Variant = game.call("transactions")[-1]
+	_check_equal(200, pair_transaction.playback_time_ms, "transaction records command playback time")
+	_check_equal(2, pair_transaction.telemetry.multiplier, "pair telemetry records awarded multiplier")
+	_check_equal(200, pair_transaction.telemetry.score_gain, "pair telemetry records score delta")
+	_check_equal(100, pair_transaction.telemetry.selection_interval_ms, "pair telemetry records selection interval")
+	var serialized: Variant = JSON.parse_string(JSON.stringify(pair_transaction.to_dict()))
+	var parsed: Variant = GameTransactionScript.from_dict(serialized)
+	_check_equal(
+		int(pair_transaction.telemetry.score_gain),
+		int(parsed.telemetry.score_gain),
+		"transaction telemetry round-trips through JSON"
+	)
+	_check_equal(pair_transaction.playback_time_ms, parsed.playback_time_ms, "playback time round-trips through JSON")
+
+	var stale_time_command = GameCommandScript.new(
+		GameCommandScript.SELECT_TILE,
+		{"tile_id": "missing"},
+		game.revision,
+		"stale_time",
+		"local",
+		199
+	)
+	var before_stale_hash: String = game.call("current_snapshot").state_hash()
+	var stale_result: Dictionary = game.store.call("submit_command", stale_time_command)
+	_check(not stale_result.accepted, "command time cannot move backward")
+	_check_equal(before_stale_hash, game.call("current_snapshot").state_hash(), "rejected stale time leaves state unchanged")
+
+
 func _run_reference_game_tests() -> void:
 	_log(" - 96-tile reference game")
 	var factory = ReferenceGameFactoryScript.new()
@@ -275,6 +332,13 @@ func _run_simulation_tests() -> void:
 	var repeated_result: Dictionary = simulator.call("run", 92817361, GameSimulatorScript.BOUNDED_ATTENTION)
 	_check(bounded_result.status != GameStateScript.PLAYING, "bounded-attention policy reaches terminal state")
 	_check_equal(bounded_result, repeated_result, "bounded-attention policy remains deterministic")
+
+	var fast_result: Dictionary = simulator.call("run", 92817361, GameSimulatorScript.PAIR_AWARE, {"selection_interval_ms": 250})
+	var slow_result: Dictionary = simulator.call("run", 92817361, GameSimulatorScript.PAIR_AWARE, {"selection_interval_ms": 3000})
+	_check_equal(GameStateScript.WON, fast_result.status, "fast momentum simulation still clears the board")
+	_check_equal(GameStateScript.WON, slow_result.status, "slow momentum simulation still clears the board")
+	_check(fast_result.score > slow_result.score, "fast play produces a higher score than slow play")
+	_check(fast_result.max_multiplier > slow_result.max_multiplier, "fast play reaches a higher multiplier tier")
 
 
 func _definition(tiles: Array, tray_capacity: int = 4) -> Variant:

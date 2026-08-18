@@ -4,6 +4,7 @@ const BoardPositionScript := preload("res://scripts/simulation/board_position.gd
 const TileFaceScript := preload("res://scripts/simulation/tile_face.gd")
 const TileInstanceScript := preload("res://scripts/simulation/tile_instance.gd")
 const GameDefinitionScript := preload("res://scripts/simulation/game_definition.gd")
+const GameConfigurationScript := preload("res://scripts/simulation/game_configuration.gd")
 
 func m1_smoke_definition() -> Variant:
 	var bamboo_1 = TileFaceScript.new(TileFaceScript.FAMILY_BAMBOO, "1")
@@ -19,4 +20,4 @@ func m1_smoke_definition() -> Variant:
 		TileInstanceScript.new("tile_006", east, BoardPositionScript.new(4, 0, 1)),
 	]
 
-	return GameDefinitionScript.new(1, tiles, {"tray_capacity": 4})
+	return GameDefinitionScript.new(1, tiles, GameConfigurationScript.create())

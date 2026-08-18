@@ -2,7 +2,17 @@ extends RefCounted
 
 const GameChangeScript := preload("res://scripts/simulation/game_change.gd")
 const GameStateDataScript := preload("res://scripts/simulation/game_state_data.gd")
-const COUNTERS := ["selection_count", "resolved_pair_count", "max_tray_occupancy"]
+const COUNTERS := [
+	"selection_count",
+	"resolved_pair_count",
+	"max_tray_occupancy",
+	"momentum_units",
+	"score",
+	"elapsed_time_ms",
+	"last_selection_time_ms",
+	"last_pair_time_ms",
+	"max_multiplier",
+]
 
 
 func apply_forward(definition: Variant, state: Variant, transaction: Variant) -> Variant:
@@ -82,6 +92,14 @@ func _is_valid(definition: Variant, state: Variant) -> bool:
 	if state.status not in [GameStateDataScript.PLAYING, GameStateDataScript.WON, GameStateDataScript.LOST]:
 		return false
 	if state.selection_count < 0 or state.resolved_pair_count < 0 or state.max_tray_occupancy < 0:
+		return false
+	if state.momentum_units < 0 or state.momentum_units > int(definition.configuration.momentum_max):
+		return false
+	if state.score < 0 or state.elapsed_time_ms < 0 or state.max_multiplier < 1:
+		return false
+	if state.max_multiplier > definition.configuration.momentum_thresholds.size():
+		return false
+	if state.last_selection_time_ms > state.elapsed_time_ms or state.last_pair_time_ms > state.elapsed_time_ms:
 		return false
 	if state.tray_tile_ids.size() > definition.tray_capacity():
 		return false

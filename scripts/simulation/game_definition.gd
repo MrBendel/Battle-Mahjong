@@ -1,5 +1,7 @@
 extends RefCounted
 
+const GameConfigurationScript := preload("res://scripts/simulation/game_configuration.gd")
+
 const SCHEMA_VERSION := 1
 const CURRENT_RULES_VERSION := 1
 
@@ -20,7 +22,8 @@ func _init(
 	seed = game_seed
 	rules_version = game_rules_version
 	tiles = tile_definitions.duplicate()
-	configuration = game_configuration.duplicate(true)
+	configuration = GameConfigurationScript.create()
+	configuration.merge(game_configuration, true)
 	for tile in tiles:
 		_tiles_by_id[tile.id] = tile
 
