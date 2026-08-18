@@ -130,11 +130,11 @@ This architecture supports:
 - board difficulty analysis
 - replay validation
 
-Status: Open Question
+Status: Proposed
 
-- Exact event schema.
-- Exact replay validation format.
-- Exact seeded RNG implementation.
+- The proposed command, transaction, reversible change, Undo, replication, and replay contracts are defined in `GAME_TIMELINE.md`.
+- Serialization, canonical hashing, identifiers, snapshots, and replay timing remain open decisions.
+- Exact seeded RNG state serialization remains an open decision.
 
 ## Configuration
 
