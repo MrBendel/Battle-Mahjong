@@ -226,11 +226,15 @@ func _run_transaction_timeline_tests() -> void:
 func _run_momentum_tests() -> void:
 	_log(" - deterministic momentum and score")
 	var face = TileFaceScript.new("test", "pair")
+	var second_face = TileFaceScript.new("test", "second_pair")
 	var definition = _definition([
 		TileInstanceScript.new("first", face, BoardPositionScript.new(0, 0, 0)),
 		TileInstanceScript.new("second", face, BoardPositionScript.new(4, 0, 0)),
+		TileInstanceScript.new("third", second_face, BoardPositionScript.new(8, 0, 0)),
+		TileInstanceScript.new("fourth", second_face, BoardPositionScript.new(12, 0, 0)),
 	])
 	var configuration: Dictionary = definition.configuration
+	_check_equal(2, definition.rules_version, "gradual multiplier scoring uses rules version 2")
 	_check_equal(1, MomentumRulesScript.multiplier_for(19999, configuration), "momentum below first threshold stays x1")
 	_check_equal(2, MomentumRulesScript.multiplier_for(20000, configuration), "first threshold enters x2")
 	_check(
@@ -244,7 +248,7 @@ func _run_momentum_tests() -> void:
 	_check_equal(GameStateScript.PAIR_RESOLVED, game.call("select_tile", "second", 200), "timestamped pair resolves")
 	var snapshot: Variant = game.call("current_snapshot")
 	_check_equal(30000, snapshot.momentum_units, "pair adds configured momentum")
-	_check_equal(200, snapshot.score, "pair scores at the post-gain multiplier")
+	_check_equal(100, snapshot.score, "first pair scores at x1 before its momentum gain")
 	_check_equal(200, snapshot.elapsed_time_ms, "accepted command materializes gameplay time")
 	_check_equal(2, snapshot.max_multiplier, "state records peak multiplier")
 	_check_equal(24400, game.call("momentum_at", 1000), "presentation preview applies deterministic decay")
@@ -252,8 +256,9 @@ func _run_momentum_tests() -> void:
 
 	var pair_transaction: Variant = game.call("transactions")[-1]
 	_check_equal(200, pair_transaction.playback_time_ms, "transaction records command playback time")
-	_check_equal(2, pair_transaction.telemetry.multiplier, "pair telemetry records awarded multiplier")
-	_check_equal(200, pair_transaction.telemetry.score_gain, "pair telemetry records score delta")
+	_check_equal(1, pair_transaction.telemetry.score_multiplier, "pair telemetry records awarded multiplier")
+	_check_equal(2, pair_transaction.telemetry.resulting_multiplier, "pair telemetry records tier reached for the next pair")
+	_check_equal(100, pair_transaction.telemetry.score_gain, "pair telemetry records score delta")
 	_check_equal(100, pair_transaction.telemetry.selection_interval_ms, "pair telemetry records selection interval")
 	var serialized: Variant = JSON.parse_string(JSON.stringify(pair_transaction.to_dict()))
 	var parsed: Variant = GameTransactionScript.from_dict(serialized)
@@ -276,6 +281,21 @@ func _run_momentum_tests() -> void:
 	var stale_result: Dictionary = game.store.call("submit_command", stale_time_command)
 	_check(not stale_result.accepted, "command time cannot move backward")
 	_check_equal(before_stale_hash, game.call("current_snapshot").state_hash(), "rejected stale time leaves state unchanged")
+
+	game.call("select_tile", "third", 300)
+	_check_equal(GameStateScript.PAIR_RESOLVED, game.call("select_tile", "fourth", 400), "consistent second pair resolves")
+	var second_pair_transaction: Variant = game.call("last_transaction")
+	_check_equal(2, second_pair_transaction.telemetry.score_multiplier, "consistent second pair earns x2")
+	_check_equal(3, second_pair_transaction.telemetry.resulting_multiplier, "consistent second pair builds x3 for the next pair")
+	_check_equal(300, game.score, "gradual x1 then x2 awards accumulate")
+
+	var slow_game = GameStateScript.new(definition)
+	slow_game.call("select_tile", "first", 100)
+	slow_game.call("select_tile", "second", 200)
+	slow_game.call("select_tile", "third", 3000)
+	slow_game.call("select_tile", "fourth", 6000)
+	_check_equal(1, slow_game.call("last_transaction").telemetry.score_multiplier, "delayed second pair falls back to x1")
+	_check_equal(200, slow_game.score, "hesitation does not receive the consistency bonus")
 
 
 func _run_reference_game_tests() -> void:

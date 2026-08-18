@@ -55,7 +55,7 @@ func _on_tile_selected(tile_id: String) -> void:
 	_refresh_game_views()
 	if result == GameStateScript.PAIR_RESOLVED:
 		var transaction: Variant = _game.call("last_transaction")
-		_regions.momentum.call("play_pair_feedback", int(transaction.telemetry.multiplier))
+		_regions.momentum.call("play_pair_feedback", int(transaction.telemetry.resulting_multiplier))
 
 
 func _on_undo_requested() -> void:

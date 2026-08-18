@@ -30,9 +30,10 @@ Fast look-ahead play feels meaningfully different from slow stop-and-search play
 
 - Gameplay commands carry monotonic active-play timestamps in integer milliseconds.
 - Accepted commands atomically materialize momentum decay since the prior command. The HUD previews the same deterministic decay function between commands without mutating state.
-- Pair resolution adds momentum before its score multiplier is evaluated.
-- Pair transactions record selection interval, pair interval, momentum before/after decay, momentum after gain, multiplier, and score gain.
+- Pair resolution scores with the current multiplier, then adds momentum toward the multiplier for the next pair.
+- Pair transactions record selection interval, pair interval, momentum before/after decay, momentum after gain, scoring multiplier, resulting multiplier, and score gain.
 - Score, momentum, timestamps, and peak multiplier are authoritative state included in state hashes and replay deltas.
+- The gradual multiplier award order is gameplay rules version `2` because it changes command-to-score results.
 
 ## Provisional Tuning
 
@@ -40,7 +41,7 @@ Fast look-ahead play feels meaningfully different from slow stop-and-search play
 - Pair gain: `30000` units.
 - Multiplier thresholds: `0`, `20000`, `40000`, `60000`, `80000` for `x1` through `x5`.
 - Decay by tier: `5`, `7`, `10`, `14`, `19` units per millisecond.
-- Pair score: `100 * post-gain multiplier`.
+- Pair score: `100 * current multiplier`; the first pair scores at `x1` and builds momentum toward later tiers.
 
 These values are configuration embedded in the game definition. They establish an M3 test baseline, not a final scoring economy.
 

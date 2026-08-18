@@ -70,7 +70,7 @@ Status: Decided for the initial M3 tuning baseline
 - A pair adds `30000` units.
 - Thresholds at `0`, `20000`, `40000`, `60000`, and `80000` produce `x1` through `x5`.
 - Tier decay rates are `5`, `7`, `10`, `14`, and `19` units per millisecond, making higher tiers harder to maintain.
-- A pair scores `100 * post-gain multiplier`.
+- A pair scores `100 * current multiplier`, then its momentum gain builds the multiplier for the next pair. This makes a consistent streak progress from `x1` upward instead of awarding `x2` immediately.
 
 These values are stored in game configuration and remain provisional pending playtesting.
 
