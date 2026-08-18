@@ -2,6 +2,13 @@
 
 Project-level instructions for Codex working on Battle Mahjong.
 
+## Project Stack
+
+- Engine: Godot 4.6.3 stable.
+- Language: GDScript.
+- Keep gameplay simulation independent from scenes, rendering, presentation, and UI.
+- Treat deterministic simulation and replayability as core architectural requirements.
+
 ## Required Practice
 
 - Read relevant `/docs` files before implementing a system.
@@ -16,7 +23,42 @@ Project-level instructions for Codex working on Battle Mahjong.
 - Do not implement networking, monetization, accounts, or backend systems until their milestones.
 - Update docs when implementation reveals a real design constraint or when an explicit design decision changes.
 - Do not silently reinterpret unresolved design questions as finalized requirements.
+- Model gameplay mutations as transactions applied to game state and recorded in the game timeline.
+- Preserve stable layout slot identifiers so transactions and replays do not depend on presentation coordinates.
+- Keep authored layouts and procedural layout requirements data-driven under `configuration/`.
+- Verify generated layouts structurally and with the solver before accepting them.
+- Do not commit `.codex-remote-attachments/`; those files are local conversation inputs.
+
+## Current State
+
+- Milestones M0 through M4 are implemented.
+- The playable reference board uses the authored `portrait_stack_96` layout with 96 tiles.
+- The current reference identity composition is 24 identities with four copies each. The complete 34-face art vocabulary remains a separate unresolved production decision.
+- Authored layouts live in `configuration/layouts/` and are discovered automatically.
+- Procedural layout requirements live in `configuration/layout_requirements/`.
+- Layout authoring conventions and schema details are documented in `docs/LAYOUT_AUTHORING.md`.
+- Game definitions record layout identity, revision, and content hash for deterministic replay validation.
+- The M4 solver proves pair-only removal routes. Tray-aware routes that require temporarily holding unmatched tiles are deferred.
 
 ## Current Boundary
 
-This repository is in documentation and project scaffolding. Do not start gameplay implementation or choose an engine until requested milestone work explicitly calls for it.
+M4 layout authoring and generation is the current completed scope. M5 Modifiers is next, but do not begin M5 or any later gameplay milestone until explicitly requested. M7 Art Foundation currently defines documentation and production requirements only; do not add production art as incidental work.
+
+## Validation
+
+Run Godot commands from the repository root using the Godot 4.6.3 console executable available on the machine.
+
+- Core tests: `godot --headless --path . --script res://tests/cli_test_runner.gd`
+- Responsive UI smoke test: `godot --headless --path . --script res://tests/ui_smoke_runner.gd`
+- Portrait UI smoke test: `godot --headless --path . --script res://tests/ui_smoke_runner.gd -- --portrait`
+- Simulation suite: `godot --headless --path . --script res://tests/simulation_runner.gd`
+- Layout generation: `godot --headless --path . --script res://scripts/tools/generate_layout.gd -- <requirements.json> <seed> <output.json>`
+
+For documentation-only changes, `git diff --check` is sufficient unless the documentation describes behavior that should be verified against the executable project.
+
+## Documentation Map
+
+- `docs/ROADMAP.md`: milestone order, status, and scope.
+- `docs/LAYOUT_AUTHORING.md`: authored and generated board-layout workflow.
+- `docs/ART_DIRECTION.md`: canonical visual direction.
+- `docs/milestones/`: detailed milestone requirements and definitions of done.

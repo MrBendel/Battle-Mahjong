@@ -155,11 +155,11 @@ Difficulty targets may include:
 - branching factor
 - dead-end risk
 
-M4 implements this against authored layout templates. It emits a legal pair-removal certificate and independently verifies completed definitions with a pair-only solver. Generated boards should eventually be analyzed or simulated so difficulty can be measured rather than guessed.
+M4 implements this against both versioned authored assets and seeded requirements-driven geometry. Procedural requirements currently control tile count, layer distribution, dimensions, broad shape family, horizontal symmetry, and immediate support. Every result emits a legal pair-removal certificate and completed definitions are independently verified with a pair-only solver. Generated boards should eventually be analyzed or simulated so difficulty can be measured rather than guessed.
 
 Status: Open Question
 
-- Whether future geometry should remain authored, become procedural, or combine both.
+- How art-directed masks and measured difficulty targets should extend the initial procedural requirements.
 - When solver routes should require temporary unmatched tray holdings.
 - How much alternate-route density is enough.
 

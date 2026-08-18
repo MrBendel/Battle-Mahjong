@@ -19,6 +19,7 @@ func _run() -> void:
 	_check(tuning != null, "main scene exposes a MomentumTuning resource")
 	_check(tuning.call("validation_errors").is_empty(), "main scene MomentumTuning resource validates")
 	var live_game: Variant = shell.get("_game")
+	_check_equal(shell.get("layout_id"), live_game.definition.configuration.layout_id, "main scene selects its exported layout id")
 	_check_equal(
 		int(tuning.get("pair_gain")),
 		int(live_game.definition.configuration.momentum_pair_gain),

@@ -7,10 +7,12 @@ const TrayViewScript := preload("res://scripts/presentation/tray_view.gd")
 const MomentumViewScript := preload("res://scripts/presentation/momentum_view.gd")
 const GameStateScript := preload("res://scripts/simulation/game_state.gd")
 const ReferenceGameFactoryScript := preload("res://scripts/simulation/reference_game_factory.gd")
+const BoardLayoutCatalogScript := preload("res://scripts/simulation/board_layout_catalog.gd")
 const MomentumTuningScript := preload("res://scripts/configuration/momentum_tuning.gd")
 const START_SEED := 92817361
 
 @export var momentum_tuning: Resource
+@export var layout_id: String = BoardLayoutCatalogScript.DEFAULT_LAYOUT_ID
 
 var _rng: RefCounted = DeterministicRngScript.new(START_SEED)
 var _regions: Dictionary = {}
@@ -56,12 +58,23 @@ func _create_game() -> Variant:
 			tuning_overrides = momentum_tuning.configuration_overrides()
 		else:
 			push_error("Invalid MomentumTuning; using simulation defaults: %s" % " ".join(tuning_errors))
-	var definition: Variant = ReferenceGameFactoryScript.new().call(
+	var factory := ReferenceGameFactoryScript.new()
+	var definition: Variant = factory.call(
 		"create_definition",
 		_rng.call("get_seed"),
 		GameStateScript.BASE_TRAY_CAPACITY,
-		tuning_overrides
+		tuning_overrides,
+		layout_id
 	)
+	if definition == null and layout_id != BoardLayoutCatalogScript.DEFAULT_LAYOUT_ID:
+		push_error("Unknown or invalid layout '%s'; using default." % layout_id)
+		definition = factory.call(
+			"create_definition",
+			_rng.call("get_seed"),
+			GameStateScript.BASE_TRAY_CAPACITY,
+			tuning_overrides,
+			BoardLayoutCatalogScript.DEFAULT_LAYOUT_ID
+		)
 	return GameStateScript.new(definition)
 
 

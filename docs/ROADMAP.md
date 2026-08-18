@@ -76,6 +76,8 @@ Implement:
 - generated solution certificates
 - independent solution search and transactional replay validation
 - responsive presentation of partial tile overlap
+- versioned data-authored layouts with stable slots
+- seeded requirements-driven layout generation
 
 Success criteria:
 

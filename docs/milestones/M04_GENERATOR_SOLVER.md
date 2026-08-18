@@ -1,6 +1,6 @@
 # M04 - Generator + Solver
 
-Status: Implemented baseline
+Status: Implemented authoring and procedural baseline
 
 Goal: generate deterministic games on varied layered layouts while proving that every generated game has at least one legal solution.
 
@@ -14,6 +14,9 @@ Goal: generate deterministic games on varied layered layouts while proving that 
 - independent pair-removal solver
 - transactional solution replay validation
 - layout-aware responsive board presentation and debug information
+- versioned JSON authoring with stable coordinate-derived slot IDs
+- deterministic requirements-driven generation for rectangular, elliptical, and diamond silhouettes
+- automatic authored-layout discovery and a command-line generation tool
 
 ## Success Criteria
 
@@ -25,15 +28,19 @@ Goal: generate deterministic games on varied layered layouts while proving that 
 
 ## Initial Decisions
 
-- A layout owns only an identifier and ordered `(x, y, z)` positions. Tile faces remain deal data, and tile skins remain presentation data.
+- A layout owns an ID, revision, metadata, and canonical stable slots. Tile faces remain deal data, and tile skins remain presentation data.
 - A tile still occupies `2x2` integer grid units. Odd coordinates therefore represent half-tile offsets without introducing floating-point simulation geometry.
 - Same-layer footprint overlap is invalid. Higher-layer overlap is expected and controls cover blocking.
-- M4 uses authored geometry templates. Procedural geometry synthesis is deferred until difficulty requirements justify it.
+- Authored layouts use compact versioned JSON assets. Source ordering does not affect canonical slot identity or geometry hashes.
+- Procedural requirements specify tile count, base dimensions, layer distribution, shape family, horizontal symmetry, and immediate support.
+- Procedural generation is seeded and deterministic. It builds symmetric slot groups directly and rejects output without a complete removal plan.
 - Generation derives a legal geometry-removal plan, shuffles the existing pair vocabulary with the seeded RNG, and assigns one matching face to each planned pair.
 - The generated certificate is verification/debug output, not authoritative game state and not exposed to the player.
 - The independent solver searches legal selectable matching pairs. It currently proves pair-only solutions and does not require temporary unmatched tray holdings.
 - The perfect-information `pair_aware` simulator follows a solver result. `bounded_attention` and `random` remain behavioral heuristics rather than solvability proofs.
-- Layout identity is included in game configuration and therefore in the definition hash and replay contract.
+- Layout ID, revision, and geometry hash are included in game configuration and therefore in the definition hash and replay contract.
+
+Authoring and generation workflow: [Board Layout Authoring](../LAYOUT_AUTHORING.md)
 
 ## Reference Layouts
 
@@ -51,7 +58,7 @@ A tall, irregular layout transcribed from a hand-authored half-tile grid based o
 
 ## Non-Goals
 
-- Procedurally inventing arbitrary board silhouettes.
+- Arbitrary image-mask or natural-language layout synthesis.
 - Difficulty scoring or ranking.
 - Requiring unmatched tray occupancy in a solution.
 - Enumerating all solutions or measuring alternate-route density.
@@ -61,6 +68,8 @@ A tall, irregular layout transcribed from a hand-authored half-tile grid based o
 ## Validation
 
 - Layout validation rejects empty, odd-sized, negative-depth, and same-layer overlapping geometry.
+- Authoring tests cover compact JSON loading, expanded round-trips, stable IDs, source-order independence, and automatic catalog discovery.
+- Procedural tests cover deterministic seeds, seed variation, required layer counts, symmetry, support, three shape families, solution certificates, and independent solving.
 - Tests verify aligned and partial-overlap selectability.
 - Generated certificates and independently solved routes replay through normal game transactions to `won`.
 - Seeded simulation tests continue to cover perfect-information, bounded-attention, and random policies.
@@ -70,5 +79,5 @@ A tall, irregular layout transcribed from a hand-authored half-tile grid based o
 
 - How gameplay should map the intended 34-face art vocabulary into board composition; M4 preserves the current 24 abstract identities.
 - Which difficulty metrics best predict human tray pressure and dead-end risk.
-- Whether later generators should synthesize geometry, select from authored templates, or combine both.
+- How procedural requirements should evolve from broad shape families toward art-directed masks and measured difficulty targets.
 - When a full tray-aware solver that permits temporary unmatched selections becomes necessary.
