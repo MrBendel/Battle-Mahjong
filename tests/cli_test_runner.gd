@@ -190,6 +190,13 @@ func _run_simulation_tests() -> void:
 	var random_result: Dictionary = simulator.call("run", 92817361, GameSimulatorScript.RANDOM)
 	_check(random_result.status != GameStateScript.PLAYING, "random policy reaches a terminal state")
 
+	var bounded_result: Dictionary = simulator.call("run", 92817361, GameSimulatorScript.BOUNDED_ATTENTION)
+	var repeated_result: Dictionary = simulator.call("run", 92817361, GameSimulatorScript.BOUNDED_ATTENTION)
+	_check(bounded_result.status != GameStateScript.PLAYING, "bounded-attention policy reaches a terminal state")
+	_check_equal(bounded_result, repeated_result, "bounded-attention policy is deterministic for a seed")
+	_check_equal(GameSimulatorScript.DEFAULT_ATTENTION_LIMIT, bounded_result.policy_config.attention_limit, "bounded-attention result records effective default configuration")
+	_check(bounded_result.max_tray <= 4, "bounded-attention policy respects tray capacity")
+
 
 func _deal_signature(board: Variant) -> String:
 	var identities: Array[String] = []
