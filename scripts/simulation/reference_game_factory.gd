@@ -1,41 +1,69 @@
 extends RefCounted
 
-const BoardPositionScript := preload("res://scripts/simulation/board_position.gd")
 const TileFaceScript := preload("res://scripts/simulation/tile_face.gd")
 const TileInstanceScript := preload("res://scripts/simulation/tile_instance.gd")
 const GameDefinitionScript := preload("res://scripts/simulation/game_definition.gd")
 const GameConfigurationScript := preload("res://scripts/simulation/game_configuration.gd")
 const DeterministicRngScript := preload("res://scripts/simulation/deterministic_rng.gd")
+const BoardLayoutCatalogScript := preload("res://scripts/simulation/board_layout_catalog.gd")
+const LayoutSolutionPlannerScript := preload("res://scripts/simulation/layout_solution_planner.gd")
 
 const IDENTITY_COUNT := 24
 const COPIES_PER_IDENTITY := 4
 const PAIR_COUNT := 48
 const TILE_COUNT := 96
 
-const _ROWS_BY_LAYER := [6, 4, 2]
-const _ROW_START_BY_LAYER := [0, 2, 4]
-const _TILES_PER_ROW := 8
+func create_definition(
+		seed: int,
+		tray_capacity: int = 4,
+		configuration_overrides: Dictionary = {},
+		layout_id: String = BoardLayoutCatalogScript.DEFAULT_LAYOUT_ID
+) -> Variant:
+	return create_generated(seed, tray_capacity, configuration_overrides, layout_id).definition
 
-func create_definition(seed: int, tray_capacity: int = 4, configuration_overrides: Dictionary = {}) -> Variant:
-	var placement_pairs := _build_placement_pairs()
+
+func create_generated(
+		seed: int,
+		tray_capacity: int = 4,
+		configuration_overrides: Dictionary = {},
+		layout_id: String = BoardLayoutCatalogScript.DEFAULT_LAYOUT_ID
+) -> Dictionary:
+	var layout: Variant = BoardLayoutCatalogScript.new().call("get_layout", layout_id)
+	if layout == null:
+		push_error("Unknown board layout: %s" % layout_id)
+		return {}
+	var placement_pairs: Array = LayoutSolutionPlannerScript.new().call("build_plan", layout)
+	if placement_pairs.size() * 2 != layout.positions.size():
+		push_error("Board layout has no complete pair-removal plan: %s" % layout_id)
+		return {}
 	var pair_faces := _build_pair_faces()
 	_shuffle(pair_faces, DeterministicRngScript.new(seed))
 
 	var tiles: Array = []
+	tiles.resize(layout.positions.size())
+	var solution: Array[String] = []
 	for pair_index in range(placement_pairs.size()):
 		var face: Variant = pair_faces[pair_index]
-		var positions: Array = placement_pairs[pair_index]
+		var position_indexes: Array = placement_pairs[pair_index]
 		for copy_index in range(2):
-			var tile_number := tiles.size()
-			tiles.append(TileInstanceScript.new(
-				"tile_%03d" % tile_number,
+			var tile_number: int = position_indexes[copy_index]
+			var tile_id := "tile_%03d" % tile_number
+			tiles[tile_number] = TileInstanceScript.new(
+				tile_id,
 				face,
-				positions[copy_index]
-			))
+				layout.positions[tile_number]
+			)
+			solution.append(tile_id)
 
 	var configuration := GameConfigurationScript.create(tray_capacity)
 	configuration.merge(configuration_overrides, true)
-	return GameDefinitionScript.new(seed, tiles, configuration)
+	configuration["layout_id"] = layout.id
+	return {
+		"definition": GameDefinitionScript.new(seed, tiles, configuration),
+		"solution": solution,
+	}
+
+
 func _build_pair_faces() -> Array:
 	var faces: Array = []
 	for identity_index in range(IDENTITY_COUNT):
@@ -44,24 +72,6 @@ func _build_pair_faces() -> Array:
 			faces.append(face)
 
 	return faces
-
-
-func _build_placement_pairs() -> Array:
-	var pairs: Array = []
-	for z in range(_ROWS_BY_LAYER.size()):
-		var row_count: int = _ROWS_BY_LAYER[z]
-		var first_y: int = _ROW_START_BY_LAYER[z]
-		for row_index in range(row_count):
-			var y := first_y + row_index * 2
-			for depth_index in range(_TILES_PER_ROW / 2):
-				var left_x := depth_index * 2
-				var right_x := (_TILES_PER_ROW - 1 - depth_index) * 2
-				pairs.append([
-					BoardPositionScript.new(left_x, y, z),
-					BoardPositionScript.new(right_x, y, z),
-				])
-
-	return pairs
 
 
 func _shuffle(values: Array, rng: Variant) -> void:

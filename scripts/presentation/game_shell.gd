@@ -138,7 +138,13 @@ func _apply_layout() -> void:
 		_apply_portrait_layout(viewport_size)
 
 	_place_debug_panel(viewport_size, orientation)
-	_debug_panel.call("set_info", _rng.call("get_seed"), viewport_i, orientation)
+	_debug_panel.call(
+		"set_info",
+		_rng.call("get_seed"),
+		viewport_i,
+		orientation,
+		str(_game.definition.configuration.get("layout_id", "unknown"))
+	)
 
 
 func _apply_landscape_layout(size: Vector2) -> void:
@@ -163,7 +169,7 @@ func _apply_portrait_layout(size: Vector2) -> void:
 	var gap := 10.0
 	var usable_width := size.x - margin * 2.0
 	var momentum_height := 64.0
-	var debug_height := 104.0
+	var debug_height := 120.0
 	var board_height: float = clampf(size.y * 0.39, 260.0, size.y * 0.46)
 	var tray_height := 86.0
 	var consumables_height := 90.0
@@ -185,11 +191,11 @@ func _place(control: Control, rect: Rect2) -> void:
 
 
 func _place_debug_panel(size: Vector2, orientation: String) -> void:
-	var panel_size := Vector2(220.0, 92.0)
+	var panel_size := Vector2(220.0, 104.0)
 	var panel_position := Vector2(max(12.0, size.x - panel_size.x - 18.0), 18.0)
 	if orientation == "Portrait":
 		panel_size.x = size.x - 28.0
-		panel_size.y = 104.0
+		panel_size.y = 120.0
 		panel_position = Vector2(14.0, 88.0)
 	_debug_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	_debug_panel.position = panel_position

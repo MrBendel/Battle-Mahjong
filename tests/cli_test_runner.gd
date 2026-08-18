@@ -18,6 +18,9 @@ const ReferenceGameFactoryScript := preload("res://scripts/simulation/reference_
 const GameSimulatorScript := preload("res://scripts/simulation/game_simulator.gd")
 const MomentumRulesScript := preload("res://scripts/simulation/momentum_rules.gd")
 const MomentumTuningScript := preload("res://scripts/configuration/momentum_tuning.gd")
+const BoardLayoutCatalogScript := preload("res://scripts/simulation/board_layout_catalog.gd")
+const BoardLayoutScript := preload("res://scripts/simulation/board_layout.gd")
+const GameSolverScript := preload("res://scripts/simulation/game_solver.gd")
 
 var _failures := 0
 var _assertions := 0
@@ -33,6 +36,7 @@ func _init() -> void:
 	_run_transaction_timeline_tests()
 	_run_momentum_tuning_tests()
 	_run_momentum_tests()
+	_run_generator_solver_tests()
 	_run_reference_game_tests()
 	_run_simulation_tests()
 
@@ -63,6 +67,8 @@ func _run_board_selectability_tests() -> void:
 	var covered = TileInstanceScript.new("covered", face, BoardPositionScript.new(0, 0, 0))
 	var cover = TileInstanceScript.new("cover", face, BoardPositionScript.new(0, 0, 1))
 	_check(not selectability.call("is_selectable", covered, [covered, cover]), "tile with another tile above is blocked")
+	var partial_cover = TileInstanceScript.new("partial_cover", face, BoardPositionScript.new(1, 1, 1))
+	_check(not selectability.call("is_selectable", covered, [covered, partial_cover]), "half-offset higher tile blocks by partial footprint overlap")
 
 	var middle = TileInstanceScript.new("middle", face, BoardPositionScript.new(2, 0, 0))
 	var left = TileInstanceScript.new("left", face, BoardPositionScript.new(0, 0, 0))
@@ -368,6 +374,40 @@ func _run_reference_game_tests() -> void:
 	_check_equal(ReferenceGameFactoryScript.PAIR_COUNT, removed_pairs, "reference game clears through legal transactional pairs")
 	_check_equal(GameStateScript.WON, game.status, "reference game reaches won state")
 	_check_equal(96, game.call("transactions").size(), "full game records every selection")
+
+
+func _run_generator_solver_tests() -> void:
+	_log(" - M4 layouts, generator, and solver")
+	var catalog := BoardLayoutCatalogScript.new()
+	var classic: Variant = catalog.call("get_layout", BoardLayoutCatalogScript.CLASSIC_96)
+	var staggered: Variant = catalog.call("get_layout", BoardLayoutCatalogScript.STAGGERED_96)
+	_check(classic.call("validation_errors").is_empty(), "classic layout geometry validates")
+	_check(staggered.call("validation_errors").is_empty(), "staggered layout geometry validates")
+	_check_equal(96, staggered.positions.size(), "staggered layout contains 96 positions")
+	_check(not classic.call("has_partial_overlap"), "classic layout remains fully aligned")
+	_check(staggered.call("has_partial_overlap"), "staggered layout includes half-tile higher-layer overlap")
+
+	var invalid_layout := BoardLayoutScript.new("invalid", [
+		BoardPositionScript.new(0, 0, 0),
+		BoardPositionScript.new(1, 0, 0),
+	])
+	_check(not invalid_layout.call("validation_errors").is_empty(), "same-layer physical overlap is rejected")
+
+	var factory := ReferenceGameFactoryScript.new()
+	var solver := GameSolverScript.new()
+	for layout_id in catalog.call("layout_ids"):
+		var generated: Dictionary = factory.call("create_generated", 92817361, 4, {}, layout_id)
+		var definition: Variant = generated.definition
+		_check_equal(layout_id, definition.configuration.layout_id, "%s id is embedded in definition" % layout_id)
+		var certificate_result: Dictionary = solver.call("verify_solution", definition, generated.solution)
+		_check(certificate_result.valid, "%s generated certificate wins through transactions: %s" % [layout_id, certificate_result.reason])
+		var solved: Array[String] = solver.call("find_pair_solution", definition)
+		_check_equal(definition.tiles.size(), solved.size(), "%s independent solver finds every selection" % layout_id)
+		_check(solver.call("verify_solution", definition, solved).valid, "%s independent solution replays to a win" % layout_id)
+
+	var classic_definition: Variant = factory.call("create_definition", 77, 4, {}, BoardLayoutCatalogScript.CLASSIC_96)
+	var staggered_definition: Variant = factory.call("create_definition", 77, 4, {}, BoardLayoutCatalogScript.STAGGERED_96)
+	_check(classic_definition.definition_hash() != staggered_definition.definition_hash(), "layout geometry participates in definition identity")
 
 
 func _run_simulation_tests() -> void:

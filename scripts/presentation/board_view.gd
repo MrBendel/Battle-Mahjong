@@ -4,8 +4,6 @@ class_name BoardView
 signal tile_selected(tile_id: String)
 
 const TILE_ASPECT := 1.26
-const COLUMN_COUNT := 8
-const ROW_COUNT := 6
 const HEADER_HEIGHT := 48.0
 const BOARD_MARGIN := 14.0
 
@@ -121,25 +119,45 @@ func _layout_tiles() -> void:
 	_tile_layer.position = area.position
 	_tile_layer.size = area.size
 
-	var layer_allowance := 10.0
+	var bounds := _grid_bounds()
+	var grid_width: float = float(bounds.size.x) * 0.5
+	var grid_height: float = float(bounds.size.y) * 0.5
+	var max_depth := 0
+	for tile in _game.board.tiles:
+		max_depth = maxi(max_depth, tile.position.z)
+	var depth_extent := Vector2(float(max_depth) * 4.0, float(max_depth) * 5.0)
 	var tile_width: float = minf(
-		(area.size.x - layer_allowance) / COLUMN_COUNT,
-		(area.size.y - layer_allowance) / (ROW_COUNT * TILE_ASPECT)
+		(area.size.x - depth_extent.x) / grid_width,
+		(area.size.y - depth_extent.y) / (grid_height * TILE_ASPECT)
 	)
 	var tile_size := Vector2(maxf(16.0, tile_width), maxf(20.0, tile_width * TILE_ASPECT))
-	var board_size := Vector2(tile_size.x * COLUMN_COUNT, tile_size.y * ROW_COUNT)
-	var origin := (area.size - board_size) * 0.5
+	var board_size := Vector2(tile_size.x * grid_width, tile_size.y * grid_height)
+	var origin := (area.size - board_size - depth_extent) * 0.5 + Vector2(0.0, depth_extent.y)
 
 	for tile in _game.board.tiles:
 		var button: Button = _tile_buttons[tile.id]
 		var depth_offset := Vector2(tile.position.z * 4.0, tile.position.z * -5.0)
 		button.position = origin + Vector2(
-			float(tile.position.x) * tile_size.x * 0.5,
-			float(tile.position.y) * tile_size.y * 0.5
+			float(tile.position.x - bounds.position.x) * tile_size.x * 0.5,
+			float(tile.position.y - bounds.position.y) * tile_size.y * 0.5
 		) + depth_offset
 		button.size = tile_size - Vector2(3.0, 3.0)
 		button.z_index = tile.position.z * 100 + int(tile.position.y)
 		button.add_theme_font_size_override("font_size", clampi(int(tile_size.x * 0.25), 10, 18))
+
+
+func _grid_bounds() -> Rect2i:
+	if _game.board.tiles.is_empty():
+		return Rect2i(0, 0, 2, 2)
+	var first_position: Variant = _game.board.tiles[0].position
+	var minimum := Vector2i(first_position.x, first_position.y)
+	var maximum := minimum + Vector2i(2, 2)
+	for tile in _game.board.tiles:
+		minimum.x = mini(minimum.x, tile.position.x)
+		minimum.y = mini(minimum.y, tile.position.y)
+		maximum.x = maxi(maximum.x, tile.position.x + 2)
+		maximum.y = maxi(maximum.y, tile.position.y + 2)
+	return Rect2i(minimum, maximum - minimum)
 
 
 func _face_label(value: String) -> String:

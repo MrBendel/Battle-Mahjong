@@ -16,8 +16,14 @@ const DEFAULT_SELECTION_INTERVALS := {
 }
 
 func run(seed: int, policy: String = PAIR_AWARE, policy_config: Dictionary = {}) -> Dictionary:
-	var definition: Variant = ReferenceGameFactoryScript.new().call("create_definition", seed)
+	var factory := ReferenceGameFactoryScript.new()
+	var generated: Dictionary = factory.call("create_generated", seed)
+	var definition: Variant = generated.definition
 	var game = GameStateScript.new(definition)
+	var perfect_solution: Array[String] = []
+	var solution_index := 0
+	if policy == PAIR_AWARE:
+		perfect_solution.assign(generated.solution)
 	var policy_rng = DeterministicRngScript.new(seed + 104729)
 	var effective_policy_config := policy_config.duplicate()
 	var attention_limit := maxi(1, int(policy_config.get("attention_limit", DEFAULT_ATTENTION_LIMIT)))
@@ -37,7 +43,9 @@ func run(seed: int, policy: String = PAIR_AWARE, policy_config: Dictionary = {})
 			BOUNDED_ATTENTION:
 				tile = _choose_bounded_attention_tile(game, policy_rng, attention_limit)
 			_:
-				tile = _choose_pair_aware_tile(game)
+				if solution_index < perfect_solution.size():
+					tile = game.board.call("get_tile", perfect_solution[solution_index])
+					solution_index += 1
 
 		if tile == null:
 			break

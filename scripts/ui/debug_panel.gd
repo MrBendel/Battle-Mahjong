@@ -4,18 +4,20 @@ class_name DebugPanel
 var _seed_value: Label
 var _viewport_value: Label
 var _orientation_value: Label
+var _layout_value: Label
 
 func _ready() -> void:
 	_build()
 
 
-func set_info(seed: int, viewport_size: Vector2i, orientation: String) -> void:
+func set_info(seed: int, viewport_size: Vector2i, orientation: String, layout_id: String = "") -> void:
 	if _seed_value == null:
 		return
 
 	_seed_value.text = "Seed: %d" % seed
 	_viewport_value.text = "Viewport: %d x %d" % [viewport_size.x, viewport_size.y]
 	_orientation_value.text = "Orientation: %s" % orientation
+	_layout_value.text = "Layout: %s" % layout_id
 
 
 func _build() -> void:
@@ -42,7 +44,8 @@ func _build() -> void:
 	_seed_value = Label.new()
 	_viewport_value = Label.new()
 	_orientation_value = Label.new()
+	_layout_value = Label.new()
 
-	for label in [_seed_value, _viewport_value, _orientation_value]:
+	for label in [_seed_value, _viewport_value, _orientation_value, _layout_value]:
 		label.add_theme_font_size_override("font_size", 12)
 		list.add_child(label)

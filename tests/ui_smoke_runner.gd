@@ -8,6 +8,10 @@ func _init() -> void:
 
 
 func _run() -> void:
+	var requested_size := Vector2i(1280, 720)
+	if OS.get_cmdline_user_args().has("--portrait"):
+		requested_size = Vector2i(430, 932)
+	root.size = requested_size
 	var shell: Control = load("res://scenes/main.tscn").instantiate()
 	root.add_child(shell)
 	await process_frame
@@ -25,15 +29,19 @@ func _run() -> void:
 	shell.call("_apply_layout")
 	await process_frame
 	_validate_regions(shell, orientation)
-	RenderingServer.force_draw()
-	var image := root.get_texture().get_image()
-	var output_path := "user://m3_%s.png" % orientation
-	if image == null:
+	_validate_board_tiles(shell, orientation)
+	if DisplayServer.get_name() == "headless":
 		printerr("capture skipped: active renderer does not expose a framebuffer")
-	elif image.save_png(output_path) != OK:
-		_fail("could not save %s capture" % orientation)
 	else:
-		printerr("capture: %s" % ProjectSettings.globalize_path(output_path))
+		RenderingServer.force_draw()
+		var image := root.get_texture().get_image()
+		var output_path := "user://m4_%s.png" % orientation
+		if image == null:
+			printerr("capture skipped: active renderer does not expose a framebuffer")
+		elif image.save_png(output_path) != OK:
+			_fail("could not save %s capture" % orientation)
+		else:
+			printerr("capture: %s" % ProjectSettings.globalize_path(output_path))
 
 	printerr("PASS: responsive UI smoke" if _failures == 0 else "FAIL: %d responsive UI check(s)" % _failures)
 	shell.queue_free()
@@ -72,6 +80,14 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 				"portrait debug panel and %s do not overlap" % name
 			)
 
+
+func _validate_board_tiles(shell: Control, orientation: String) -> void:
+	var board: Control = shell.get("_regions").board
+	var tile_layer: Control = board.get("_tile_layer")
+	var tile_layer_rect := Rect2(Vector2.ZERO, tile_layer.size)
+	for button in board.get("_tile_buttons").values():
+		var tile_rect := Rect2(button.position, button.size)
+		_check(tile_layer_rect.encloses(tile_rect), "%s %s stays inside board bounds" % [orientation, button.name])
 
 func _check(condition: bool, message: String) -> void:
 	if condition:
