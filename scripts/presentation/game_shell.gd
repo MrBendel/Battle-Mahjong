@@ -1,0 +1,116 @@
+extends Control
+
+const DebugPanelScript := preload("res://scripts/ui/debug_panel.gd")
+const DeterministicRngScript := preload("res://scripts/simulation/deterministic_rng.gd")
+const START_SEED := 92817361
+
+var _rng: RefCounted = DeterministicRngScript.new(START_SEED)
+var _regions: Dictionary = {}
+var _debug_panel: PanelContainer
+
+func _ready() -> void:
+	_build_shell()
+	_apply_layout()
+	get_viewport().size_changed.connect(_apply_layout)
+
+
+func _build_shell() -> void:
+	_regions.board = _make_region("Board", "future tile playfield", Color(0.10, 0.16, 0.18, 1.0))
+	_regions.momentum = _make_region("Momentum", "meter and multiplier", Color(0.18, 0.13, 0.22, 1.0))
+	_regions.tray = _make_region("Tray", "four unresolved slots", Color(0.19, 0.17, 0.10, 1.0))
+	_regions.consumables = _make_region("Consumables", "player-triggered tools", Color(0.11, 0.17, 0.13, 1.0))
+	_regions.character = _make_region("Character / FX", "decorative reaction space", Color(0.17, 0.11, 0.13, 1.0))
+
+	for region in _regions.values():
+		add_child(region)
+
+	_debug_panel = DebugPanelScript.new()
+	add_child(_debug_panel)
+
+
+func _make_region(title: String, subtitle: String, color: Color) -> PanelContainer:
+	var panel := PanelContainer.new()
+	panel.name = title.replace(" / ", "_").replace(" ", "_")
+
+	var style := StyleBoxFlat.new()
+	style.bg_color = color
+	style.border_color = color.lightened(0.45)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(8)
+	style.content_margin_left = 12
+	style.content_margin_right = 12
+	style.content_margin_top = 12
+	style.content_margin_bottom = 12
+	panel.add_theme_stylebox_override("panel", style)
+
+	var label := Label.new()
+	label.text = "%s\n%s" % [title, subtitle]
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.add_theme_font_size_override("font_size", 22)
+	panel.add_child(label)
+
+	return panel
+
+
+func _apply_layout() -> void:
+	var viewport_size := get_viewport_rect().size
+	var viewport_i := Vector2i(int(viewport_size.x), int(viewport_size.y))
+	var orientation := "Landscape" if viewport_size.x >= viewport_size.y else "Portrait"
+
+	if orientation == "Landscape":
+		_apply_landscape_layout(viewport_size)
+	else:
+		_apply_portrait_layout(viewport_size)
+
+	_place_debug_panel(viewport_size)
+	_debug_panel.call("set_info", _rng.call("get_seed"), viewport_i, orientation)
+
+
+func _apply_landscape_layout(size: Vector2) -> void:
+	var margin := 16.0
+	var gap := 12.0
+	var left_width: float = clampf(size.x * 0.20, 220.0, 320.0)
+	var right_width: float = clampf(size.x * 0.22, 240.0, 360.0)
+	var tray_height: float = clampf(size.y * 0.16, 88.0, 128.0)
+	var board_left: float = margin + left_width + gap
+	var board_width: float = size.x - board_left - right_width - gap - margin
+	var board_height: float = size.y - tray_height - gap - margin * 2.0
+
+	_place(_regions.momentum, Rect2(margin, margin, left_width, 96.0))
+	_place(_regions.consumables, Rect2(margin, margin + 96.0 + gap, left_width, size.y - margin * 2.0 - 96.0 - gap))
+	_place(_regions.board, Rect2(board_left, margin, board_width, board_height))
+	_place(_regions.tray, Rect2(board_left, margin + board_height + gap, board_width, tray_height))
+	_place(_regions.character, Rect2(board_left + board_width + gap, margin, right_width, size.y - margin * 2.0))
+
+
+func _apply_portrait_layout(size: Vector2) -> void:
+	var margin := 14.0
+	var gap := 10.0
+	var usable_width := size.x - margin * 2.0
+	var momentum_height := 64.0
+	var board_height: float = clampf(size.y * 0.46, 260.0, size.y * 0.56)
+	var tray_height := 86.0
+	var consumables_height := 72.0
+	var character_top: float = margin + momentum_height + gap + board_height + gap + tray_height + gap + consumables_height + gap
+	var character_height: float = maxf(72.0, size.y - character_top - margin)
+
+	_place(_regions.momentum, Rect2(margin, margin, usable_width, momentum_height))
+	_place(_regions.board, Rect2(margin, margin + momentum_height + gap, usable_width, board_height))
+	_place(_regions.tray, Rect2(margin, margin + momentum_height + gap + board_height + gap, usable_width, tray_height))
+	_place(_regions.consumables, Rect2(margin, margin + momentum_height + gap + board_height + gap + tray_height + gap, usable_width, consumables_height))
+	_place(_regions.character, Rect2(margin, character_top, usable_width, character_height))
+
+
+func _place(control: Control, rect: Rect2) -> void:
+	control.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	control.position = rect.position
+	control.size = rect.size
+
+
+func _place_debug_panel(size: Vector2) -> void:
+	var panel_size := Vector2(220.0, 92.0)
+	_debug_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_debug_panel.position = Vector2(max(12.0, size.x - panel_size.x - 18.0), 18.0)
+	_debug_panel.size = panel_size
