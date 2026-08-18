@@ -386,6 +386,10 @@ func _run_generator_solver_tests() -> void:
 	_check(portrait_stack.call("validation_errors").is_empty(), "portrait stack geometry validates")
 	_check_equal(96, staggered.positions.size(), "staggered layout contains 96 positions")
 	_check_equal(96, portrait_stack.positions.size(), "portrait stack contains 96 positions")
+	var portrait_layer_counts := {0: 0, 1: 0, 2: 0, 3: 0}
+	for position in portrait_stack.positions:
+		portrait_layer_counts[position.z] += 1
+	_check_equal({0: 42, 1: 31, 2: 17, 3: 6}, portrait_layer_counts, "portrait stack preserves authored layer counts plus one balancing cap")
 	_check(not classic.call("has_partial_overlap"), "classic layout remains fully aligned")
 	_check(staggered.call("has_partial_overlap"), "staggered layout includes half-tile higher-layer overlap")
 	_check(portrait_stack.call("has_partial_overlap"), "portrait stack includes irregular half-tile overlap")

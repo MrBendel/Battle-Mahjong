@@ -41,26 +41,33 @@ func _layered_positions(x_offsets: Array, y_offsets: Array) -> Array:
 
 func _portrait_stack_positions() -> Array:
 	var positions: Array = []
-	_add_row(positions, 0, 0, [0, 2, 4, 6, 8, 10])
-	_add_row(positions, 2, 0, [0, 2, 4, 6, 8, 10, 12])
-	_add_row(positions, 4, 0, [0, 2, 4, 6, 8, 10, 12])
-	_add_row(positions, 6, 0, [0, 2, 4, 8, 10, 12])
-	_add_row(positions, 8, 0, [0, 2, 4, 8, 10, 12])
-	_add_row(positions, 10, 0, [0, 2, 4, 6, 8, 10, 12])
-	_add_row(positions, 12, 0, [0, 2, 4, 6, 8, 10, 12])
-	_add_row(positions, 14, 0, [2, 4, 6, 8, 10, 12])
+	for y in range(0, 13, 2):
+		_add_row(positions, y, 0, [0, 2, 4, 6, 8, 10])
 
-	_add_row(positions, 1, 1, [1, 3, 5, 7, 9])
-	_add_row(positions, 4, 1, [1, 3, 5, 7, 9, 11])
-	_add_row(positions, 7, 1, [0, 2, 4, 6, 8, 10, 12])
-	_add_row(positions, 10, 1, [0, 2, 4, 6, 8, 10, 12])
-	_add_row(positions, 13, 1, [1, 3, 5, 7, 9])
+	_add_row(positions, 0, 1, [1, 3, 7, 9])
+	_add_row(positions, 1, 1, [5])
+	_add_row(positions, 2, 1, [1, 3, 7, 9])
+	_add_row(positions, 3, 1, [5])
+	_add_row(positions, 5, 1, [0, 2, 4, 6, 8, 10])
+	_add_row(positions, 7, 1, [1, 3, 5, 7, 9])
+	_add_row(positions, 9, 1, [5])
+	_add_row(positions, 10, 1, [1, 3, 7, 9])
+	_add_row(positions, 11, 1, [5])
+	_add_row(positions, 12, 1, [1, 3, 7, 9])
 
-	_add_row(positions, 2, 2, [2, 10])
-	_add_row(positions, 5, 2, [1, 5, 7, 11])
-	_add_row(positions, 9, 2, [1, 5, 7, 11])
-	_add_row(positions, 12, 2, [2, 10])
-	_add_row(positions, 7, 3, [3, 9])
+	_add_row(positions, 0, 2, [2, 8])
+	_add_row(positions, 1, 2, [5])
+	_add_row(positions, 4, 2, [3, 7])
+	_add_row(positions, 5, 2, [1, 9])
+	_add_row(positions, 6, 2, [3, 5, 7])
+	_add_row(positions, 8, 2, [5])
+	_add_row(positions, 10, 2, [2, 4, 6, 8])
+	_add_row(positions, 12, 2, [2, 8])
+
+	_add_row(positions, 2, 3, [3])
+	_add_row(positions, 5, 3, [2, 8])
+	_add_row(positions, 6, 3, [4, 6])
+	_add_row(positions, 10, 3, [7])
 	return positions
 
 

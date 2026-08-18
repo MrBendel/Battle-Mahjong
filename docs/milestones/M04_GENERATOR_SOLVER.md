@@ -47,7 +47,7 @@ The same layer counts with upper layers offset by one grid unit on selected axes
 
 ### `portrait_stack_96`
 
-A tall, irregular layout inspired by the dense silhouette of commercial mobile mahjong boards. It uses a clipped and notched 52-tile foundation, five offset middle bands, isolated cap clusters, and a two-tile peak. It is the default playable M4 layout.
+A tall, irregular layout transcribed from a hand-authored half-tile grid based on a commercial mobile mahjong board. Its four layers contain `42 / 31 / 17 / 6` tiles. The sixth top-layer tile balances the 95 positions visible in the reference map so the layout supports 48 matching pairs. It is the default playable M4 layout.
 
 ## Non-Goals
 
