@@ -6,6 +6,12 @@ Core visual goal:
 
 The board itself should be disciplined and easy to read. The feedback layer should be exuberant.
 
+## Production Contract
+
+The detailed requirements, asset contracts, production batches, dependencies, and acceptance criteria for the first major art-production milestone are defined in [M07 - Art Foundation And First Visual Slice](milestones/M07_ART_FOUNDATION.md).
+
+This document remains the high-level visual direction. The milestone document is the production plan and should be updated when implementation establishes concrete dimensions, formats, budgets, or pipeline constraints.
+
 ## Reference Energy
 
 - late-90s / 2000s Japanese arcade games
@@ -120,10 +126,16 @@ Tile skins should be cosmetic, not mechanically advantageous. Collecting, unlock
 - Large character illustrations should remain separate transparent assets.
 - High-resolution source artwork should be kept separately from optimized runtime assets.
 
+Status: Initial M7 Direction
+
+- The first visual slice will separate source masters from runtime exports.
+- Default and Neon skins will share canonical tile geometry and logical face identifiers.
+- Small repeated assets will use atlases where validation confirms they are appropriate.
+
 Status: Open Question
 
 - Exact tile dimensions and safe-area rules.
-- Exact runtime asset pipeline.
+- Exact source formats, runtime export settings, and repository or large-file storage policy.
 - Final character art style.
 
 ## Audio Direction
