@@ -7,7 +7,7 @@ Goal: generate deterministic games on varied layered layouts while proving that 
 ## Scope
 
 - first-class board layout data independent from tile identities
-- aligned and staggered 96-tile layout templates
+- aligned, staggered, and portrait-stack 96-tile layout templates
 - partial higher-layer overlap through half-tile coordinate offsets
 - deterministic assignment of matching faces to a legal removal plan
 - generated solution certificates
@@ -20,7 +20,7 @@ Goal: generate deterministic games on varied layered layouts while proving that 
 - The same seed and layout produce the same game definition.
 - Every generated reference game includes a complete legal solution certificate.
 - The independent solver can find and replay a winning route for each M4 layout.
-- The Godot shell displays the staggered layout in portrait and landscape without changing simulation geometry.
+- The Godot shell displays the portrait-stack layout in portrait and landscape without changing simulation geometry.
 - Existing imperfect simulation policies remain deterministic.
 
 ## Initial Decisions
@@ -43,7 +43,11 @@ The original aligned three-layer `48 + 32 + 16` geometry. It remains available a
 
 ### `staggered_96`
 
-The same layer counts with upper layers offset by one grid unit on selected axes. This creates visible half-tile cover relationships and is the default playable M4 layout.
+The same layer counts with upper layers offset by one grid unit on selected axes. This creates visible half-tile cover relationships.
+
+### `portrait_stack_96`
+
+A tall, irregular layout inspired by the dense silhouette of commercial mobile mahjong boards. It uses a clipped and notched 52-tile foundation, five offset middle bands, isolated cap clusters, and a two-tile peak. It is the default playable M4 layout.
 
 ## Non-Goals
 

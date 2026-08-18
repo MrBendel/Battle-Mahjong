@@ -126,9 +126,10 @@ func _layout_tiles() -> void:
 	for tile in _game.board.tiles:
 		max_depth = maxi(max_depth, tile.position.z)
 	var depth_extent := Vector2(float(max_depth) * 4.0, float(max_depth) * 5.0)
+	var control_allowance := Vector2(12.0, 12.0)
 	var tile_width: float = minf(
-		(area.size.x - depth_extent.x) / grid_width,
-		(area.size.y - depth_extent.y) / (grid_height * TILE_ASPECT)
+		(area.size.x - depth_extent.x - control_allowance.x) / grid_width,
+		(area.size.y - depth_extent.y - control_allowance.y) / (grid_height * TILE_ASPECT)
 	)
 	var tile_size := Vector2(maxf(16.0, tile_width), maxf(20.0, tile_width * TILE_ASPECT))
 	var board_size := Vector2(tile_size.x * grid_width, tile_size.y * grid_height)

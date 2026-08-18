@@ -71,7 +71,7 @@ Fast look-ahead play feels meaningfully different from slow stop-and-search play
 Implement:
 
 - first-class layout geometry independent from tile faces
-- aligned and staggered 96-tile templates
+- aligned, staggered, and portrait-stack 96-tile templates
 - deterministic solvable deal generation
 - generated solution certificates
 - independent solution search and transactional replay validation
@@ -79,7 +79,7 @@ Implement:
 
 Success criteria:
 
-Every generated reference game has a verified legal solution, and the playable shell exercises staggered partial overlap in portrait and landscape.
+Every generated reference game has a verified legal solution, and the playable shell exercises an irregular portrait-stack layout with partial overlap in both orientations.
 
 Detailed contract: [M04 Generator + Solver](milestones/M04_GENERATOR_SOLVER.md)
 

@@ -49,6 +49,7 @@ func _search(active: Array, path: Array[String]) -> bool:
 	for tile in active:
 		if _selectability.call("is_selectable", tile, active):
 			selectable.append(tile)
+	selectable.sort_custom(_tile_precedes)
 
 	var candidates: Array = []
 	for first_index in range(selectable.size()):
@@ -69,6 +70,14 @@ func _search(active: Array, path: Array[String]) -> bool:
 		path.resize(path.size() - 2)
 
 	return false
+
+
+func _tile_precedes(first: Variant, second: Variant) -> bool:
+	if first.position.z != second.position.z:
+		return first.position.z > second.position.z
+	if first.position.y != second.position.y:
+		return first.position.y < second.position.y
+	return first.position.x < second.position.x
 
 
 func _state_key(active: Array) -> String:

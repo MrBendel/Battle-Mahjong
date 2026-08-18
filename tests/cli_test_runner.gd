@@ -342,6 +342,7 @@ func _run_reference_game_tests() -> void:
 	_log(" - 96-tile reference game")
 	var factory = ReferenceGameFactoryScript.new()
 	var definition = factory.call("create_definition", 92817361)
+	_check_equal(BoardLayoutCatalogScript.PORTRAIT_STACK_96, definition.configuration.layout_id, "reference game uses portrait stack by default")
 	var identity_counts := {}
 	for tile in definition.tiles:
 		var identity: String = tile.face.logical_id()
@@ -362,13 +363,11 @@ func _run_reference_game_tests() -> void:
 	_check_equal(definition.rules_version, parsed_definition.rules_version, "definition preserves rules version")
 
 	var game = GameStateScript.new(definition)
+	var reference_solution: Array[String] = GameSolverScript.new().call("find_pair_solution", definition)
 	var removed_pairs := 0
-	while not game.board.call("active_tiles").is_empty():
-		var pair: Array = _find_selectable_pair(game.board)
-		if pair.is_empty():
-			break
-		game.call("select_tile", pair[0].id)
-		if game.call("select_tile", pair[1].id) != GameStateScript.PAIR_RESOLVED:
+	for index in range(0, reference_solution.size(), 2):
+		game.call("select_tile", reference_solution[index])
+		if game.call("select_tile", reference_solution[index + 1]) != GameStateScript.PAIR_RESOLVED:
 			break
 		removed_pairs += 1
 	_check_equal(ReferenceGameFactoryScript.PAIR_COUNT, removed_pairs, "reference game clears through legal transactional pairs")
@@ -381,11 +380,15 @@ func _run_generator_solver_tests() -> void:
 	var catalog := BoardLayoutCatalogScript.new()
 	var classic: Variant = catalog.call("get_layout", BoardLayoutCatalogScript.CLASSIC_96)
 	var staggered: Variant = catalog.call("get_layout", BoardLayoutCatalogScript.STAGGERED_96)
+	var portrait_stack: Variant = catalog.call("get_layout", BoardLayoutCatalogScript.PORTRAIT_STACK_96)
 	_check(classic.call("validation_errors").is_empty(), "classic layout geometry validates")
 	_check(staggered.call("validation_errors").is_empty(), "staggered layout geometry validates")
+	_check(portrait_stack.call("validation_errors").is_empty(), "portrait stack geometry validates")
 	_check_equal(96, staggered.positions.size(), "staggered layout contains 96 positions")
+	_check_equal(96, portrait_stack.positions.size(), "portrait stack contains 96 positions")
 	_check(not classic.call("has_partial_overlap"), "classic layout remains fully aligned")
 	_check(staggered.call("has_partial_overlap"), "staggered layout includes half-tile higher-layer overlap")
+	_check(portrait_stack.call("has_partial_overlap"), "portrait stack includes irregular half-tile overlap")
 
 	var invalid_layout := BoardLayoutScript.new("invalid", [
 		BoardPositionScript.new(0, 0, 0),
@@ -444,16 +447,6 @@ func _deal_signature(definition: Variant) -> String:
 	for tile in definition.tiles:
 		identities.append(tile.face.logical_id())
 	return "|".join(identities)
-
-
-func _find_selectable_pair(board: Variant) -> Array:
-	var first_by_identity := {}
-	for tile in board.call("selectable_tiles"):
-		var identity: String = tile.face.logical_id()
-		if first_by_identity.has(identity):
-			return [first_by_identity[identity], tile]
-		first_by_identity[identity] = tile
-	return []
 
 
 func _check(condition: bool, message: String) -> void:
