@@ -86,8 +86,11 @@ Current boundaries:
 - `scripts/simulation/`: deterministic gameplay-facing utilities that can run without presentation.
 - `scripts/presentation/`: screen composition, responsive layout, and visual placeholders.
 - `scripts/ui/`: debug and interface controls.
+- `tests/`: command-line simulation tests that can run headlessly.
 
 Do not add deeper structure until an implementation milestone needs it.
+
+Current simulation scripts are consumed through explicit `preload()` references instead of global `class_name` registration. This keeps cold-start command-line tests predictable.
 
 ## Determinism
 

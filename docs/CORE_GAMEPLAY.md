@@ -25,8 +25,23 @@ The tray is intentionally more permissive than traditional mahjong solitaire and
 
 Status: Open Question
 
-- Exact failure timing when the fourth unresolved tile enters the tray.
 - Whether some modes or modifiers adjust base tray capacity.
+
+## Reference Simulation Profile
+
+Status: Decided for the initial headless simulation baseline
+
+Analysis of the reference game established this starting profile:
+
+- 96 physical tiles.
+- 48 removable pairs.
+- 24 logical tile identities.
+- 4 copies of each identity.
+- 4 tray slots.
+- Matching tray tiles resolve immediately.
+- Reaching 4 unresolved tray tiles ends the run.
+
+The reference layout generator uses three layers and a seeded identity assignment. It guarantees at least one pair-aware clear route so simulation failures indicate policy or rules behavior rather than an accidentally impossible deal.
 
 ## Momentum
 
