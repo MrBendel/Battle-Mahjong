@@ -84,8 +84,9 @@ func refresh() -> void:
 
 	for tile in _game.board.tiles:
 		var button: Button = _tile_buttons[tile.id]
-		button.visible = not tile.removed
-		if tile.removed:
+		var active: bool = _game.board.call("is_tile_active", tile.id)
+		button.visible = active
+		if not active:
 			continue
 
 		var selectable: bool = selectable_ids.has(tile.id) and _game.status == "playing"

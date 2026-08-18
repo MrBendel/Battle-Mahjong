@@ -1,8 +1,8 @@
 # Game Transaction Timeline
 
-Status: Proposed
+Status: Implemented Foundation
 
-This document proposes the authoritative mutation model for Battle Mahjong. It is intentionally a design contract, not an implementation claim.
+This document defines the authoritative mutation model for Battle Mahjong. The M2 simulation uses this foundation; networking, durable persistence, replay UI, snapshots, and M3 timing remain future work.
 
 ## Goals
 
@@ -41,7 +41,7 @@ GameStore
   transactions_since(revision) -> transactions
 ```
 
-- Presentation submits commands and renders read-only snapshots.
+- Presentation submits commands and renders read-only projections or snapshots.
 - Gameplay systems may validate commands and build proposed transactions, but cannot mutate stored state directly.
 - The store validates revision, applies all changes, verifies invariants and hashes, then appends the transaction.
 - Failed validation leaves both state and timeline unchanged.
@@ -107,12 +107,11 @@ GameCommand
 Initial command types:
 
 - `SELECT_TILE { tile_id }`
-- `UNDO { target_transaction_id }`
-- `RESTART`
+- `UNDO {}`; the current M2 policy resolves the latest eligible transaction during validation.
 
 `expected_revision` provides optimistic concurrency control. A future authority rejects or rebases commands submitted against stale state.
 
-Restart normally creates a new game record with the same definition rather than erasing the existing timeline.
+Restart creates a new game record with the same definition rather than erasing or extending the existing timeline. The current shell creates this record in memory; durable linkage between restarted records remains future work.
 
 ## Transactions
 
@@ -122,6 +121,7 @@ A transaction is the authoritative result of validating one command:
 GameTransaction
   schema_version
   transaction_id
+  definition_hash
   revision
   actor_id
   command_id
@@ -135,6 +135,7 @@ GameTransaction
 ```
 
 - `revision` is monotonic within a game record.
+- `definition_hash` binds the transaction to exact seed, configuration, tile identities, and geometry.
 - `logical_tick` orders deterministic rules. Wall-clock time must not decide gameplay outcomes.
 - `playback_time_ms` is presentation metadata used to reproduce pacing.
 - `reverts_transaction_id` is present only for a compensating Undo transaction.
@@ -226,6 +227,7 @@ Seeking can replay from revision zero initially. Periodic verified snapshots may
 A replay is valid only when:
 
 - schema and rules versions are supported;
+- the game definition hash matches every transaction;
 - transaction revisions and IDs are ordered correctly;
 - every transaction validates against the preceding state;
 - previous and next state hashes match; and
@@ -236,6 +238,8 @@ A replay is valid only when:
 Future gameplay randomness must be consumed while building a transaction. The resulting transaction records the RNG state transition and all chosen outcomes.
 
 Replaying an accepted transaction does not reroll randomness. Re-simulating commands may rerun the deterministic RNG and verify that it produces the recorded transaction.
+
+The current state records the game seed as its initial RNG state. No implemented M2 command consumes gameplay randomness, so `RngStateChanged` is defined but not yet emitted.
 
 ## Future Synchronous Replication
 
@@ -251,23 +255,26 @@ A minimal authoritative flow would be:
 
 Client prediction and rollback can reuse reversible changes, but should not be implemented until a networking milestone requires them.
 
-## Proposed Implementation Sequence
+## Implemented Foundation
 
-Before M3 introduces time-dependent momentum:
+Completed before M3 introduces time-dependent momentum:
 
-1. Introduce serializable `GameDefinition`, `GameStateData`, `GameCommand`, and `GameTransaction` data models.
-2. Implement one reducer that applies and reverses typed changes.
-3. Move `SELECT_TILE` validation and mutation construction into a command processor.
-4. Replace direct M2 Undo mutation with an appended compensating transaction.
-5. Make board and tray views refresh from the materialized state only.
-6. Add round-trip, replay, reverse-apply, hash-divergence, and same-seed determinism tests.
+1. Serializable `GameDefinition`, `GameStateData`, `GameCommand`, `GameChange`, and `GameTransaction` models.
+2. One atomic reducer that applies and reverses typed changes.
+3. A command processor that validates `SELECT_TILE` and `UNDO` intent and builds transactions.
+4. A single-writer `GameStore` for local commands and externally supplied transactions.
+5. Compensating M2 Undo transactions that preserve append-only history.
+6. Read-only board and tray projections over normalized tile zones.
+7. JSON round-trip, replay, reverse-apply, stale revision, atomic rejection, hash-divergence, snapshot isolation, and same-seed tests.
+
+Current serialization uses JSON-compatible dictionaries. State hashes use SHA-256 over a canonical ordered state string. Local command and transaction IDs are deterministic revision-based IDs within one game record.
 
 Do not add networking, persistence services, prediction, or replay UI as part of this refactor.
 
-## Open Decisions
+## Remaining Decisions
 
-- Serialization format and canonical state hashing algorithm.
-- Transaction and command ID format.
+- Durable replay container and migration format beyond the current JSON-compatible dictionaries.
+- Globally unique transaction and command ID format for persisted or networked games.
 - Snapshot interval and storage format.
 - Whether `playback_time_ms` records active gameplay time or wall time.
 - Whether any future mode permits rewinding resolved-pair transactions.

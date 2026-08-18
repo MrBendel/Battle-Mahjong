@@ -11,7 +11,8 @@ const RANDOM := "random"
 const DEFAULT_ATTENTION_LIMIT := 10
 
 func run(seed: int, policy: String = PAIR_AWARE, policy_config: Dictionary = {}) -> Dictionary:
-	var game = GameStateScript.new(ReferenceGameFactoryScript.new().call("create_board", seed))
+	var definition: Variant = ReferenceGameFactoryScript.new().call("create_definition", seed)
+	var game = GameStateScript.new(definition)
 	var policy_rng = DeterministicRngScript.new(seed + 104729)
 	var effective_policy_config := policy_config.duplicate()
 	var attention_limit := maxi(1, int(policy_config.get("attention_limit", DEFAULT_ATTENTION_LIMIT)))
@@ -127,9 +128,7 @@ func _sample_tiles(tiles: Array, limit: int, rng: Variant) -> Array:
 
 
 func _reveal_score(game: Variant, candidate: Variant, selectable_ids: Dictionary) -> int:
-	candidate.removed = true
-	var after: Array = game.board.call("selectable_tiles")
-	candidate.removed = false
+	var after: Array = game.board.call("selectable_tiles_without", candidate.id)
 
 	var score := 0
 	for revealed in after:

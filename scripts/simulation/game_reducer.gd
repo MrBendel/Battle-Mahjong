@@ -1,0 +1,120 @@
+extends RefCounted
+
+const GameChangeScript := preload("res://scripts/simulation/game_change.gd")
+const GameStateDataScript := preload("res://scripts/simulation/game_state_data.gd")
+const COUNTERS := ["selection_count", "resolved_pair_count", "max_tray_occupancy"]
+
+
+func apply_forward(definition: Variant, state: Variant, transaction: Variant) -> Variant:
+	if transaction.definition_hash != definition.definition_hash():
+		return null
+	if transaction.revision != state.revision + 1:
+		return null
+	if not transaction.previous_state_hash.is_empty() and transaction.previous_state_hash != state.state_hash():
+		return null
+
+	var candidate: Variant = state.duplicate_data()
+	for change in transaction.changes:
+		if not _apply_change(candidate, change, false):
+			return null
+
+	candidate.revision = transaction.revision
+	if not _is_valid(definition, candidate):
+		return null
+	if not transaction.next_state_hash.is_empty() and transaction.next_state_hash != candidate.state_hash():
+		return null
+	return candidate
+
+
+func apply_reverse(definition: Variant, state: Variant, transaction: Variant) -> Variant:
+	if transaction.definition_hash != definition.definition_hash():
+		return null
+	if state.revision != transaction.revision:
+		return null
+	if not transaction.next_state_hash.is_empty() and transaction.next_state_hash != state.state_hash():
+		return null
+
+	var candidate: Variant = state.duplicate_data()
+	for index in range(transaction.changes.size() - 1, -1, -1):
+		if not _apply_change(candidate, transaction.changes[index], true):
+			return null
+
+	candidate.revision = transaction.revision - 1
+	if not _is_valid(definition, candidate):
+		return null
+	if not transaction.previous_state_hash.is_empty() and transaction.previous_state_hash != candidate.state_hash():
+		return null
+	return candidate
+
+
+func _apply_change(state: Variant, change: Variant, reverse: bool) -> bool:
+	var expected: Variant = change.after if reverse else change.before
+	var replacement: Variant = change.before if reverse else change.after
+	match change.type:
+		GameChangeScript.TILE_ZONE:
+			if state.tile_zones.get(change.target) != expected:
+				return false
+			state.tile_zones[change.target] = replacement
+		GameChangeScript.TRAY:
+			if state.tray_tile_ids != expected:
+				return false
+			state.tray_tile_ids.assign(replacement)
+		GameChangeScript.COUNTER:
+			if change.target not in COUNTERS:
+				return false
+			if state.get(change.target) != expected:
+				return false
+			state.set(change.target, replacement)
+		GameChangeScript.STATUS:
+			if state.status != expected:
+				return false
+			state.status = replacement
+		GameChangeScript.RNG_STATE:
+			if state.rng_state != expected:
+				return false
+			state.rng_state = replacement
+		_:
+			return false
+	return true
+
+
+func _is_valid(definition: Variant, state: Variant) -> bool:
+	if state.status not in [GameStateDataScript.PLAYING, GameStateDataScript.WON, GameStateDataScript.LOST]:
+		return false
+	if state.selection_count < 0 or state.resolved_pair_count < 0 or state.max_tray_occupancy < 0:
+		return false
+	if state.tray_tile_ids.size() > definition.tray_capacity():
+		return false
+	if state.max_tray_occupancy < state.tray_tile_ids.size():
+		return false
+
+	var tray_ids := {}
+	for tile_id in state.tray_tile_ids:
+		if tray_ids.has(tile_id) or state.tile_zones.get(tile_id) != GameStateDataScript.ZONE_TRAY:
+			return false
+		tray_ids[tile_id] = true
+
+	var board_count := 0
+	var resolved_count := 0
+	for tile in definition.tiles:
+		var zone: Variant = state.tile_zones.get(tile.id)
+		if zone not in [GameStateDataScript.ZONE_BOARD, GameStateDataScript.ZONE_TRAY, GameStateDataScript.ZONE_RESOLVED]:
+			return false
+		if (zone == GameStateDataScript.ZONE_TRAY) != tray_ids.has(tile.id):
+			return false
+		if zone == GameStateDataScript.ZONE_BOARD:
+			board_count += 1
+		elif zone == GameStateDataScript.ZONE_RESOLVED:
+			resolved_count += 1
+
+	if state.tile_zones.size() != definition.tiles.size():
+		return false
+	if resolved_count != state.resolved_pair_count * 2:
+		return false
+	if state.selection_count != resolved_count + state.tray_tile_ids.size():
+		return false
+	if state.status == GameStateDataScript.WON and (board_count != 0 or not state.tray_tile_ids.is_empty()):
+		return false
+	if state.status == GameStateDataScript.LOST and state.tray_tile_ids.size() != definition.tray_capacity():
+		return false
+	return true

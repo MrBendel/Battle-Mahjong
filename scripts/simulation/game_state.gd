@@ -1,66 +1,77 @@
 extends RefCounted
 
+const BoardStateScript := preload("res://scripts/simulation/board_state.gd")
+const GameCommandScript := preload("res://scripts/simulation/game_command.gd")
+const GameCommandProcessorScript := preload("res://scripts/simulation/game_command_processor.gd")
+const GameStateDataScript := preload("res://scripts/simulation/game_state_data.gd")
+const GameStoreScript := preload("res://scripts/simulation/game_store.gd")
 const TrayStateScript := preload("res://scripts/simulation/tray_state.gd")
 
-const PLAYING := "playing"
-const WON := "won"
-const LOST := "lost"
+const PLAYING := GameStateDataScript.PLAYING
+const WON := GameStateDataScript.WON
+const LOST := GameStateDataScript.LOST
 
-const SELECTED := "selected"
-const PAIR_RESOLVED := "pair_resolved"
-const INVALID_SELECTION := "invalid_selection"
-const GAME_OVER := "game_over"
-const UNDONE := "undone"
-const NOTHING_TO_UNDO := "nothing_to_undo"
+const SELECTED := GameCommandProcessorScript.SELECTED
+const PAIR_RESOLVED := GameCommandProcessorScript.PAIR_RESOLVED
+const INVALID_SELECTION := GameCommandProcessorScript.INVALID_SELECTION
+const GAME_OVER := GameCommandProcessorScript.GAME_OVER
+const UNDONE := GameCommandProcessorScript.UNDONE
+const NOTHING_TO_UNDO := GameCommandProcessorScript.NOTHING_TO_UNDO
 const BASE_TRAY_CAPACITY := 4
 
+var definition: Variant
 var board: Variant
 var tray: Variant
-var status := PLAYING
-var selection_count := 0
-var max_tray_occupancy := 0
+var store: Variant
 
-func _init(initial_board: Variant, tray_capacity: int = BASE_TRAY_CAPACITY) -> void:
-	board = initial_board
-	tray = TrayStateScript.new(tray_capacity)
+var status: String:
+	get:
+		return _state.status
+
+var selection_count: int:
+	get:
+		return _state.selection_count
+
+var max_tray_occupancy: int:
+	get:
+		return _state.max_tray_occupancy
+
+var revision: int:
+	get:
+		return _state.revision
+
+var _state: Variant
+
+
+func _init(game_definition: Variant) -> void:
+	definition = game_definition
+	_state = GameStateDataScript.new(definition)
+	store = GameStoreScript.new(definition, _state)
+	board = BoardStateScript.new(definition, _state)
+	tray = TrayStateScript.new(definition, _state)
 
 
 func select_tile(tile_id: String) -> String:
-	if status != PLAYING:
-		return GAME_OVER
-
-	var tile: Variant = board.call("take_tile", tile_id)
-	if tile == null:
-		return INVALID_SELECTION
-
-	selection_count += 1
-	var tray_result: String = tray.call("add_tile", tile)
-	max_tray_occupancy = maxi(max_tray_occupancy, tray.tiles.size())
-
-	if tray_result == TrayStateScript.FAILED:
-		status = LOST
-		return GAME_OVER
-
-	if board.call("active_tiles").is_empty() and tray.tiles.is_empty():
-		status = WON
-
-	if tray_result == TrayStateScript.MATCHED:
-		return PAIR_RESOLVED
-
-	return SELECTED
+	var command := GameCommandScript.new(GameCommandScript.SELECT_TILE, {"tile_id": tile_id}, revision)
+	return store.call("submit_command", command).result
 
 
 func can_undo() -> bool:
-	return status == PLAYING and not tray.tiles.is_empty()
+	return status == PLAYING and not _state.tray_tile_ids.is_empty()
 
 
 func undo_last_unmatched() -> String:
-	if not can_undo():
-		return NOTHING_TO_UNDO
+	var command := GameCommandScript.new(GameCommandScript.UNDO, {}, revision)
+	return store.call("submit_command", command).result
 
-	var tile: Variant = tray.call("take_last_tile")
-	if tile == null or not board.call("restore_tile", tile.id):
-		return NOTHING_TO_UNDO
 
-	selection_count -= 1
-	return UNDONE
+func current_snapshot() -> Variant:
+	return store.call("current_state")
+
+
+func transactions() -> Array:
+	return store.call("transactions")
+
+
+func apply_transaction(transaction: Variant) -> Dictionary:
+	return store.call("apply_transaction", transaction)
