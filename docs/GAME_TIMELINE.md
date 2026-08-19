@@ -2,7 +2,7 @@
 
 Status: Implemented Foundation
 
-This document defines the authoritative mutation model for Battle Mahjong. The M2 simulation uses this foundation; networking, durable persistence, replay UI, snapshots, and M3 timing remain future work.
+This document defines the authoritative mutation model for Battle Mahjong. The M2 simulation uses this foundation; M9 owns durable game-record persistence, while replay UI, networking, and optimized snapshots remain later work.
 
 ## Goals
 
@@ -227,10 +227,12 @@ The current policy only permits undoing the latest selected tile that still rema
 
 ## Replay
 
-A replay record contains:
+The durable M9 `GameRecord` is the ownership envelope around the replay payload. Profiles reference game records by ID; they do not embed definitions or transaction timelines. See [Player Profile And Cross-Game State](PLAYER_PROFILE.md).
+
+A replay payload within a `GameRecord` contains:
 
 ```text
-GameReplay
+GameReplayPayload
   game_id
   definition
   transactions
@@ -294,9 +296,9 @@ Do not add networking, persistence services, prediction, or replay UI as part of
 
 ## Remaining Decisions
 
-- Durable replay container and migration format beyond the current JSON-compatible dictionaries.
-- Globally unique transaction and command ID format for persisted or networked games.
+- Durable M9 game-record format and migration strategy beyond the current JSON-compatible dictionaries.
+- Globally unique game, result, transaction, and command ID formats for persisted or networked records.
 - Snapshot interval and storage format.
 - How active gameplay time pauses around menus, interruptions, and app suspension.
 - Whether any future mode permits rewinding resolved-pair transactions.
-- How restart links related game records.
+- Retention and player-facing grouping policy for restart chains linked by `parent_game_id`.

@@ -22,6 +22,8 @@ Project-level instructions for Codex working on Battle Mahjong.
 - Build debug tooling when it materially helps verify deterministic gameplay.
 - Prefer simple, testable architecture over premature framework-building.
 - Do not implement networking, monetization, accounts, or backend systems until their milestones.
+- Keep `PlayerProfile`, durable `GameRecord`, and active `GameStore` ownership separate. Snapshot gameplay-affecting profile choices into `GameDefinition` before play; never read mutable profile state during a run.
+- Apply verified game results to profiles atomically and idempotently. Do not implement profile persistence before M9.
 - Update docs when implementation reveals a real design constraint or when an explicit design decision changes.
 - Do not silently reinterpret unresolved design questions as finalized requirements.
 - Model gameplay mutations as transactions applied to game state and recorded in the game timeline.
@@ -43,10 +45,11 @@ Project-level instructions for Codex working on Battle Mahjong.
 - M5 uses a configurable three-slot modifier loadout and gives reference games a level-0 `2.0x` starter Score Multiplier tile. Persistent collection and leveling remain deferred.
 - M6 snapshots Hint, Undo, Delete Pair, and Shuffle quantities into each game definition. Delete Pair targets visible tiles independently from ordinary movement selectability; Shuffle preserves an almost-full tray and constructs a verified deterministic route. Persistent consumable ownership remains deferred.
 - M7 Batch A is in progress. The first tile-art contract uses an extensible manifest with a required 34-face traditional baseline, separate SVG masters and PNG runtime exports, and a presentation-only mapping for the current 24 abstract identities.
+- Cross-game state boundaries are documented in `docs/PLAYER_PROFILE.md`. M9 will implement local profiles and a durable game library before replay presentation, game modes, backend work, or progression.
 
 ## Current Boundary
 
-M7 Art Foundation is the current requested scope. Keep art identity and presentation independent from gameplay matching, and do not begin M8 or later milestones. Do not change the 24-identity reference deal composition as part of visual production without an explicit gameplay decision.
+M7 Art Foundation is the current implementation scope. Keep art identity and presentation independent from gameplay matching, and do not begin M8 or later implementation. The M9 cross-game architecture is documented for planning only; profile and game-library code remains deferred. Do not change the 24-identity reference deal composition as part of visual production without an explicit gameplay decision.
 
 ## Validation
 
@@ -65,5 +68,6 @@ For documentation-only changes, `git diff --check` is sufficient unless the docu
 - `docs/ROADMAP.md`: milestone order, status, and scope.
 - `docs/LAYOUT_AUTHORING.md`: authored and generated board-layout workflow.
 - `docs/TILE_ART_PIPELINE.md`: canonical tile geometry, identity, source/export, and skin-manifest contract.
+- `docs/PLAYER_PROFILE.md`: profile, game-record, result-application, and future account boundaries.
 - `docs/ART_DIRECTION.md`: canonical visual direction.
 - `docs/milestones/`: detailed milestone requirements and definitions of done.

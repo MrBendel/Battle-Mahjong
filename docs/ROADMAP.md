@@ -131,7 +131,10 @@ Detailed contracts: [M07 Art Foundation](milestones/M07_ART_FOUNDATION.md) and [
 Later milestones are recorded here to preserve ordering. Detailed implementation contracts remain deferred unless linked below.
 
 - M8 Art Expansion + Cosmetics - additional skins, characters, backgrounds, and visual breadth built on the M7 contracts
-- M9 Replays + Ghosts
-- M10 Game Modes
-- M11 Backend + Async Battle
-- M12 Progression + Collection
+- [M9 Local Profile + Game Library](milestones/M09_LOCAL_PROFILE_GAME_LIBRARY.md) - local profile persistence, durable deterministic game records, resume, history, and idempotent result application
+- M10 Replays + Ghosts - playback and ghost presentation built on the durable M9 game library
+- M11 Game Modes
+- M12 Backend + Async Battle
+- M13 Progression + Collection
+
+M9 was inserted before replay presentation because profiles and durable game records are the persistence boundary those later features consume. The former M9 through M12 placeholders move one position later; their scope is otherwise unchanged.
