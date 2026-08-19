@@ -35,13 +35,34 @@ func _run() -> void:
 	)
 	var attached_tile_id: String = str(live_game.definition.modifier_attachments.keys()[0])
 	var attached_button: Button = shell.get("_regions").board.get("_tile_buttons")[attached_tile_id]
-	_check("×" in attached_button.text, "starter modifier has a visible placeholder marker on its physical tile")
+	var modifier_label: Label = attached_button.get_node("Modifier")
+	_check("×" in modifier_label.text and modifier_label.visible, "starter modifier remains a separate visible tile overlay")
+	var representative_button: Button = null
+	for tile in live_game.board.tiles:
+		if tile.face.logical_id() == "reference_01":
+			representative_button = shell.get("_regions").board.get("_tile_buttons")[tile.id]
+			break
+	_check(representative_button != null, "reference game contains the representative Bamboo face")
+	if representative_button != null:
+		var face_art: TextureRect = representative_button.get_node("FaceArt")
+		_check(face_art.texture != null and face_art.visible, "representative Default face renders as a layered runtime asset")
+	var visible_blocked_tile_id := ""
+	for tile in live_game.board.tiles:
+		if live_game.board.call("is_tile_visible", tile.id) and not live_game.board.call("is_tile_selectable", tile.id):
+			visible_blocked_tile_id = tile.id
+			break
+	_check(not visible_blocked_tile_id.is_empty(), "reference layout contains a visible tile blocked from normal movement")
+	if not visible_blocked_tile_id.is_empty():
+		shell.call("_on_delete_pair_requested")
+		var target_button: Button = shell.get("_regions").board.get("_tile_buttons")[visible_blocked_tile_id]
+		_check(not target_button.disabled, "Delete Pair mode enables visible tiles blocked from normal movement")
 
 	var orientation := "portrait" if root.size.x < root.size.y else "landscape"
 	shell.call("_apply_layout")
 	await process_frame
 	_validate_regions(shell, orientation)
 	_validate_board_tiles(shell, orientation)
+	_validate_consumables(shell, orientation)
 	if DisplayServer.get_name() == "headless":
 		printerr("capture skipped: active renderer does not expose a framebuffer")
 	else:
@@ -97,9 +118,47 @@ func _validate_board_tiles(shell: Control, orientation: String) -> void:
 	var board: Control = shell.get("_regions").board
 	var tile_layer: Control = board.get("_tile_layer")
 	var tile_layer_rect := Rect2(Vector2.ZERO, tile_layer.size)
+	var minimum_tile_size := Vector2(INF, INF)
+	var board_footprint := Rect2()
+	var has_visible_tile := false
 	for button in board.get("_tile_buttons").values():
 		var tile_rect := Rect2(button.position, button.size)
 		_check(tile_layer_rect.encloses(tile_rect), "%s %s stays inside board bounds" % [orientation, button.name])
+		minimum_tile_size.x = minf(minimum_tile_size.x, button.size.x)
+		minimum_tile_size.y = minf(minimum_tile_size.y, button.size.y)
+		if button.visible:
+			board_footprint = tile_rect if not has_visible_tile else board_footprint.merge(tile_rect)
+			has_visible_tile = true
+	_check(
+		minimum_tile_size.x >= 32.0 and minimum_tile_size.y >= 40.0,
+		"%s tiles preserve the M7 minimum footprint (%s)" % [orientation, minimum_tile_size]
+	)
+	_check(has_visible_tile, "%s board renders visible tiles" % orientation)
+	_check(
+		board_footprint.size.y > board_footprint.size.x,
+		"%s preserves the portrait-authored board footprint (%s)" % [orientation, board_footprint.size]
+	)
+
+
+func _validate_consumables(shell: Control, orientation: String) -> void:
+	var consumables: Control = shell.get("_regions").consumables
+	var panel_rect := Rect2(Vector2.ZERO, consumables.size)
+	var controls: Array[Control] = []
+	for button in consumables.get("_buttons").values():
+		controls.append(button)
+	var notice: Label = consumables.get("_notice")
+	if notice.visible:
+		controls.append(notice)
+	for control in controls:
+		_check(panel_rect.encloses(Rect2(control.position, control.size)), "%s consumable control stays inside its panel" % orientation)
+	for first_index in range(controls.size()):
+		for second_index in range(first_index + 1, controls.size()):
+			_check(
+				not Rect2(controls[first_index].position, controls[first_index].size).intersects(
+					Rect2(controls[second_index].position, controls[second_index].size)
+				),
+				"%s consumable controls do not overlap" % orientation
+			)
 
 func _check(condition: bool, message: String) -> void:
 	if condition:

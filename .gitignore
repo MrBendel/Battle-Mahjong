@@ -1,2 +1,5 @@
 .godot/
 /videos/
+*.import
+/.codex-remote-attachments/
+/.codex-state/

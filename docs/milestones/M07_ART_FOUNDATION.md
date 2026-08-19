@@ -1,8 +1,18 @@
 # M07 - Art Foundation And First Visual Slice
 
-Status: Planned
+Status: In Progress - Batch A contract proof implemented
 
 Goal: establish the visual asset system and produce the minimum artwork required to transform the functional prototype into the first recognizable version of Battle Mahjong.
+
+The first title treatment is tracked at `game-assets/art/title_logo.png`. It establishes the energetic brush-lettered brand direction for project descriptions and review material; responsive in-game title placement remains later M7 presentation work.
+
+## Current Review Captures
+
+These generated smoke-test captures show the Batch A contract proof rather than final visual polish. Delete Pair is armed in both images, demonstrating that visible blocked tiles receive a distinct targetable state while the portrait-authored board geometry remains unchanged.
+
+| Phone Portrait | Landscape |
+| --- | --- |
+| ![M7 phone portrait contract proof](../images/m7-gameplay-portrait.png) | ![M7 landscape contract proof](../images/m7-gameplay-landscape.png) |
 
 This is the first major art-production milestone. It is not final visual polish.
 
@@ -82,6 +92,8 @@ The Default skin should cover the complete intended gameplay vocabulary:
 - Dragons: Red, Green, White.
 
 Flowers and seasons may be added later if gameplay requires them.
+
+The 34 traditional identities are the initial guaranteed vocabulary, not a permanent maximum. The implemented skin manifest accepts additional explicitly defined identities so later flowers, seasons, or Battle Mahjong-specific faces can use the same rendering contract.
 
 Every face must map to a stable logical identifier shared by all skins. Tile identity and matching rules must remain independent from cosmetic artwork.
 
@@ -396,6 +408,8 @@ Artwork must support:
 - tablet;
 - wider desktop and development viewports.
 
+The gameplay board retains its portrait-authored geometry in every viewport. Landscape layouts reflow the surrounding HUD and decorative presentation around that same uniformly scaled board; they do not rotate, transpose, stretch, or rearrange map slots.
+
 Visual priority, highest first:
 
 1. Tiles.
@@ -550,7 +564,9 @@ Goal: switch Default to Neon without changing gameplay code.
 
 ### Gameplay Vocabulary
 
-The current reference simulation uses 24 abstract placeholder identities. This milestone targets the intended 34-face mahjong vocabulary. M4 and later gameplay work must finalize how the full vocabulary maps into board composition before M7 integration. Art may produce the complete vocabulary without changing gameplay rules during this documentation task.
+The current reference simulation uses 24 abstract placeholder identities. This milestone targets the intended 34-face mahjong baseline. Batch A now provides a presentation-only mapping from the 24 reference identities to a preview subset without changing gameplay rules, state hashes, or replay behavior. Final deal composition using the canonical vocabulary remains a separate gameplay decision.
+
+Implemented geometry, formats, naming, export ownership, and current proof limitations are recorded in [Tile Art Pipeline](../TILE_ART_PIPELINE.md).
 
 ### Multiplier Range
 

@@ -81,7 +81,7 @@ Implement:
 
 Success criteria:
 
-Every generated reference game has a verified legal solution, and the playable shell exercises an irregular portrait-stack layout with partial overlap in both orientations.
+Every generated reference game has a verified legal solution, and the playable shell exercises an irregular portrait-stack layout with partial overlap in both orientations. Board geometry is authored portrait-first and remains unchanged in landscape while the surrounding shell reflows.
 
 Detailed contract: [M04 Generator + Solver](milestones/M04_GENERATOR_SOLVER.md)
 
@@ -108,7 +108,7 @@ Implement:
 - definition-bound per-run quantities for Hint, Undo, Delete Pair, and Shuffle
 - atomic successful-use consumption and no-consumption rejection
 - tray-prioritized deterministic Hint suggestions
-- selectable assisted pair deletion without score or momentum
+- visible assisted pair deletion, including normally immovable tiles, without score or momentum
 - tray-aware deterministic Shuffle with verified recovery routes
 - responsive controls, counts, highlights, and failure notices
 
@@ -118,11 +118,18 @@ An almost-full tray can be recovered through a deterministic, replay-safe Shuffl
 
 Detailed contract: [M06 Consumables](milestones/M06_CONSUMABLES.md)
 
+## M7 - Art Foundation And First Visual Slice
+
+Status: In progress. The Batch A tile geometry, extensible 34-face manifest, source/runtime export path, and representative Default-family assets are implemented as a contract proof.
+
+Next production work completes the Default face set and core tile states before expanding into system artwork, FX, character/background work, and the Neon skin proof.
+
+Detailed contracts: [M07 Art Foundation](milestones/M07_ART_FOUNDATION.md) and [Tile Art Pipeline](TILE_ART_PIPELINE.md)
+
 ## Later Milestones
 
 Later milestones are recorded here to preserve ordering. Detailed implementation contracts remain deferred unless linked below.
 
-- [M7 Art Foundation And First Visual Slice](milestones/M07_ART_FOUNDATION.md) - canonical tile system, first production-ready visual slice, reusable arcade/anime feedback, and Default-to-Neon skin proof. This consolidates the former M7 feedback and foundational M8 art placeholders.
 - M8 Art Expansion + Cosmetics - additional skins, characters, backgrounds, and visual breadth built on the M7 contracts
 - M9 Replays + Ghosts
 - M10 Game Modes

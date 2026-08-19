@@ -18,6 +18,7 @@ Project-level instructions for Codex working on Battle Mahjong.
 - Avoid hard-coding tuning values; expose them through configuration.
 - Keep tile identity independent from cosmetic tile skin.
 - Preserve portrait and landscape support.
+- Author gameplay maps portrait-first. Landscape may reflow the shell around the same board, but must not rotate, transpose, stretch, or rearrange layout slots.
 - Build debug tooling when it materially helps verify deterministic gameplay.
 - Prefer simple, testable architecture over premature framework-building.
 - Do not implement networking, monetization, accounts, or backend systems until their milestones.
@@ -32,7 +33,7 @@ Project-level instructions for Codex working on Battle Mahjong.
 ## Current State
 
 - Milestones M0 through M6 are implemented.
-- The playable reference board uses the authored `portrait_stack_96` layout with 96 tiles.
+- The playable reference board uses the portrait-authored `portrait_stack_96` layout with 96 tiles and preserves that geometry in every viewport orientation.
 - The current reference identity composition is 24 identities with four copies each. The complete 34-face art vocabulary remains a separate unresolved production decision.
 - Authored layouts live in `configuration/layouts/` and are discovered automatically.
 - Procedural layout requirements live in `configuration/layout_requirements/`.
@@ -40,11 +41,12 @@ Project-level instructions for Codex working on Battle Mahjong.
 - Game definitions record layout identity, revision, and content hash for deterministic replay validation.
 - The M4 solver proves pair-only removal routes. Tray-aware routes that require temporarily holding unmatched tiles are deferred.
 - M5 uses a configurable three-slot modifier loadout and gives reference games a level-0 `2.0x` starter Score Multiplier tile. Persistent collection and leveling remain deferred.
-- M6 snapshots Hint, Undo, Delete Pair, and Shuffle quantities into each game definition. Shuffle preserves an almost-full tray and constructs a verified deterministic route; persistent consumable ownership remains deferred.
+- M6 snapshots Hint, Undo, Delete Pair, and Shuffle quantities into each game definition. Delete Pair targets visible tiles independently from ordinary movement selectability; Shuffle preserves an almost-full tray and constructs a verified deterministic route. Persistent consumable ownership remains deferred.
+- M7 Batch A is in progress. The first tile-art contract uses an extensible manifest with a required 34-face traditional baseline, separate SVG masters and PNG runtime exports, and a presentation-only mapping for the current 24 abstract identities.
 
 ## Current Boundary
 
-M6 Consumables is the current completed scope. Do not begin M7 or any later gameplay milestone until explicitly requested. M7 Art Foundation currently defines documentation and production requirements only; do not add production art as incidental work.
+M7 Art Foundation is the current requested scope. Keep art identity and presentation independent from gameplay matching, and do not begin M8 or later milestones. Do not change the 24-identity reference deal composition as part of visual production without an explicit gameplay decision.
 
 ## Validation
 
@@ -62,5 +64,6 @@ For documentation-only changes, `git diff --check` is sufficient unless the docu
 
 - `docs/ROADMAP.md`: milestone order, status, and scope.
 - `docs/LAYOUT_AUTHORING.md`: authored and generated board-layout workflow.
+- `docs/TILE_ART_PIPELINE.md`: canonical tile geometry, identity, source/export, and skin-manifest contract.
 - `docs/ART_DIRECTION.md`: canonical visual direction.
 - `docs/milestones/`: detailed milestone requirements and definitions of done.

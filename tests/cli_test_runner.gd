@@ -28,6 +28,7 @@ const ProceduralLayoutGeneratorScript := preload("res://scripts/simulation/proce
 const ModifierLoadoutScript := preload("res://scripts/simulation/modifier_loadout.gd")
 const ModifierRulesScript := preload("res://scripts/simulation/modifier_rules.gd")
 const ModifierTuningScript := preload("res://scripts/configuration/modifier_tuning.gd")
+const TileSkinScript := preload("res://scripts/presentation/tile_skin.gd")
 
 var _failures := 0
 var _assertions := 0
@@ -36,6 +37,7 @@ var _assertions := 0
 func _init() -> void:
 	_log("Running Battle Mahjong simulation tests")
 	_run_tile_matcher_tests()
+	_run_tile_skin_contract_tests()
 	_run_board_selectability_tests()
 	_run_board_projection_tests()
 	_run_fixed_layout_tests()
@@ -67,6 +69,28 @@ func _run_tile_matcher_tests() -> void:
 	_check(matcher.call("faces_match", bamboo_1_a, bamboo_1_b), "bamboo_1 matches bamboo_1")
 	_check(not matcher.call("faces_match", bamboo_1_a, bamboo_2), "bamboo_1 does not match bamboo_2")
 	_check(matcher.call("faces_match", east_a, east_b), "east matches east")
+	_check_equal("east", east_a.logical_id(), "wind uses the canonical skin identifier")
+	_check_equal("red_dragon", TileFaceScript.new(TileFaceScript.FAMILY_DRAGON, TileFaceScript.DRAGON_RED).logical_id(), "dragon uses the canonical skin identifier")
+
+
+func _run_tile_skin_contract_tests() -> void:
+	_log(" - M7 tile skin contract")
+	var skin := TileSkinScript.new()
+	_check(skin.call("validation_errors").is_empty(), "Default tile skin manifest validates")
+	_check_equal(34, skin.canonical_face_ids.size(), "canonical production vocabulary contains 34 identities")
+	_check_equal(34, _unique_strings(skin.canonical_face_ids).size(), "canonical production identities are unique")
+	_check(skin.call("has_face_id", "bamboo_9"), "skin includes full Bamboo vocabulary")
+	_check(skin.call("has_face_id", "dots_9"), "skin includes full Dots vocabulary")
+	_check(skin.call("has_face_id", "characters_9"), "skin includes full Characters vocabulary")
+	_check(skin.call("has_face_id", "north"), "skin includes all Winds")
+	_check(skin.call("has_face_id", "white_dragon"), "skin includes all Dragons")
+	_check_equal(Vector2i(512, 640), Vector2i(skin.geometry.source_size[0], skin.geometry.source_size[1]), "skin records canonical source geometry")
+	_check_equal(Vector2i(32, 40), Vector2i(skin.geometry.minimum_runtime_size[0], skin.geometry.minimum_runtime_size[1]), "skin records minimum runtime footprint")
+	_check_equal(24, skin.reference_preview_mapping.size(), "current abstract deal has an explicit visual preview map")
+	_check_equal("bamboo_1", skin.call("presentation_id", TileFaceScript.new("reference", "01")), "reference mapping does not change simulation identity")
+	for face_id in ["bamboo_1", "dots_5", "characters_9", "east", "red_dragon"]:
+		var definition: Dictionary = skin.faces[face_id]
+		_check(ResourceLoader.exists(str(definition.asset)), "%s representative runtime asset exists" % face_id)
 
 
 func _run_board_selectability_tests() -> void:
@@ -76,13 +100,19 @@ func _run_board_selectability_tests() -> void:
 	var covered = TileInstanceScript.new("covered", face, BoardPositionScript.new(0, 0, 0))
 	var cover = TileInstanceScript.new("cover", face, BoardPositionScript.new(0, 0, 1))
 	_check(not selectability.call("is_selectable", covered, [covered, cover]), "tile with another tile above is blocked")
+	_check(not selectability.call("is_visible", covered, [covered, cover]), "exact higher tile fully hides lower tile")
 	var partial_cover = TileInstanceScript.new("partial_cover", face, BoardPositionScript.new(1, 1, 1))
 	_check(not selectability.call("is_selectable", covered, [covered, partial_cover]), "half-offset higher tile blocks by partial footprint overlap")
+	_check(selectability.call("is_visible", covered, [covered, partial_cover]), "partially covered tile remains visible")
+	var left_half_cover = TileInstanceScript.new("left_half_cover", face, BoardPositionScript.new(-1, 0, 1))
+	var right_half_cover = TileInstanceScript.new("right_half_cover", face, BoardPositionScript.new(1, 0, 1))
+	_check(not selectability.call("is_visible", covered, [covered, left_half_cover, right_half_cover]), "multiple higher tiles can collectively hide a tile")
 
 	var middle = TileInstanceScript.new("middle", face, BoardPositionScript.new(2, 0, 0))
 	var left = TileInstanceScript.new("left", face, BoardPositionScript.new(0, 0, 0))
 	var right = TileInstanceScript.new("right", face, BoardPositionScript.new(4, 0, 0))
 	_check(not selectability.call("is_selectable", middle, [left, middle, right]), "tile with both horizontal sides blocked is blocked")
+	_check(selectability.call("is_visible", middle, [left, middle, right]), "side-blocked tile remains visible")
 	_check(selectability.call("is_selectable", left, [left, middle]), "tile with one horizontal side free is selectable")
 
 
@@ -550,6 +580,35 @@ func _run_consumable_tests() -> void:
 	_check_equal(1, delete_game.call("consumable_count", "undo"), "Undo blocked by Delete Pair consumes no charge")
 	_check_equal(["a_1"], _tile_ids(delete_game.tray.tiles), "Delete Pair leaves the committed tray tile in place")
 
+	var obstructed_face := TileFaceScript.new("consumable", "obstructed")
+	var obstructed_tiles := [
+		TileInstanceScript.new("left_blocker", face_b, BoardPositionScript.new(0, 0, 0)),
+		TileInstanceScript.new("obstructed_a", obstructed_face, BoardPositionScript.new(2, 0, 0)),
+		TileInstanceScript.new("right_blocker", face_c, BoardPositionScript.new(4, 0, 0)),
+		TileInstanceScript.new("obstructed_b", obstructed_face, BoardPositionScript.new(10, 0, 0)),
+		TileInstanceScript.new("partial_upper", face_d, BoardPositionScript.new(11, 1, 1)),
+	]
+	var obstructed_game := GameStateScript.new(_definition(obstructed_tiles))
+	_check(not obstructed_game.board.call("is_tile_selectable", "obstructed_a"), "side-blocked Delete Pair target is not normally movable")
+	_check(not obstructed_game.board.call("is_tile_selectable", "obstructed_b"), "partially covered Delete Pair mate is not normally movable")
+	_check(obstructed_game.board.call("is_tile_visible", "obstructed_a"), "side-blocked Delete Pair target remains visible")
+	_check(obstructed_game.board.call("is_tile_visible", "obstructed_b"), "partially covered Delete Pair mate remains visible")
+	_check_equal(GameStateScript.PAIR_DELETED, obstructed_game.call("delete_pair", "obstructed_a"), "Delete Pair removes a visible pair that normal selection cannot move")
+	_check(not obstructed_game.board.call("is_tile_active", "obstructed_a"), "Delete Pair resolves the obstructed target")
+	_check(not obstructed_game.board.call("is_tile_active", "obstructed_b"), "Delete Pair resolves the obstructed visible mate")
+
+	var hidden_face := TileFaceScript.new("consumable", "hidden")
+	var hidden_tiles := [
+		TileInstanceScript.new("hidden_target", hidden_face, BoardPositionScript.new(0, 0, 0)),
+		TileInstanceScript.new("exact_cover", face_b, BoardPositionScript.new(0, 0, 1)),
+		TileInstanceScript.new("visible_mate", hidden_face, BoardPositionScript.new(6, 0, 0)),
+	]
+	var hidden_game := GameStateScript.new(_definition(hidden_tiles))
+	_check(not hidden_game.board.call("is_tile_visible", "hidden_target"), "fully covered tile is not a Delete Pair target")
+	_check_equal(GameStateScript.NO_DELETABLE_PAIR, hidden_game.call("delete_pair", "hidden_target"), "Delete Pair rejects a fully covered target")
+	_check_equal(0, hidden_game.revision, "hidden Delete Pair rejection appends no transaction")
+	_check_equal(1, hidden_game.call("consumable_count", "delete_pair"), "hidden Delete Pair rejection consumes no charge")
+
 	var shuffle_game := GameStateScript.new(definition)
 	shuffle_game.call("select_tile", "a_1")
 	shuffle_game.call("select_tile", "b_1")
@@ -627,6 +686,8 @@ func _run_generator_solver_tests() -> void:
 	_check(portrait_stack.call("validation_errors").is_empty(), "portrait stack geometry validates")
 	_check_equal(96, staggered.positions.size(), "staggered layout contains 96 positions")
 	_check_equal(96, portrait_stack.positions.size(), "portrait stack contains 96 positions")
+	var portrait_footprint := _layout_grid_footprint(portrait_stack)
+	_check(portrait_footprint.y > portrait_footprint.x, "default gameplay layout has a portrait-authored footprint")
 	var portrait_layer_counts := {0: 0, 1: 0, 2: 0, 3: 0}
 	for position in portrait_stack.positions:
 		portrait_layer_counts[position.z] += 1
@@ -753,6 +814,13 @@ func _deal_signature(definition: Variant) -> String:
 	return "|".join(identities)
 
 
+func _unique_strings(values: Array[String]) -> Dictionary:
+	var unique := {}
+	for value in values:
+		unique[value] = true
+	return unique
+
+
 func _tile_ids(tiles: Array) -> Array[String]:
 	var ids: Array[String] = []
 	for tile in tiles:
@@ -765,6 +833,20 @@ func _layout_layer_counts(layout: Variant) -> Dictionary:
 	for position in layout.positions:
 		counts[position.z] = counts.get(position.z, 0) + 1
 	return counts
+
+
+func _layout_grid_footprint(layout: Variant) -> Vector2i:
+	var positions: Array = layout.positions
+	var minimum_x: int = positions[0].x
+	var maximum_x: int = positions[0].x
+	var minimum_y: int = positions[0].y
+	var maximum_y: int = positions[0].y
+	for position in positions:
+		minimum_x = mini(minimum_x, position.x)
+		maximum_x = maxi(maximum_x, position.x)
+		minimum_y = mini(minimum_y, position.y)
+		maximum_y = maxi(maximum_y, position.y)
+	return Vector2i(maximum_x - minimum_x + 2, maximum_y - minimum_y + 2)
 
 
 func _is_horizontally_symmetric(layout: Variant) -> bool:

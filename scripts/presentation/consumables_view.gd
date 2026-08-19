@@ -77,6 +77,7 @@ func _layout() -> void:
 		return
 	_notice.size = Vector2(maxf(100.0, size.x - 24.0), 46.0)
 	var vertical := size.y > 180.0
+	_notice.visible = vertical
 	var types := ["hint", "delete_pair", "shuffle"]
 	if vertical:
 		var button_height := 42.0

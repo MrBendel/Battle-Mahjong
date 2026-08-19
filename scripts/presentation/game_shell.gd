@@ -99,6 +99,7 @@ func _on_tile_selected(tile_id: String) -> void:
 	var result: String
 	if _delete_pair_armed:
 		_delete_pair_armed = false
+		_regions.board.call("set_delete_pair_armed", false)
 		result = _game.call("delete_pair", tile_id, _playback_time_ms())
 		if result == GameStateScript.NO_DELETABLE_PAIR:
 			_regions.consumables.call("show_notice", "That tile has no available matching pair.")
@@ -126,11 +127,13 @@ func _on_hint_requested() -> void:
 
 func _on_delete_pair_requested() -> void:
 	_delete_pair_armed = true
-	_regions.consumables.call("show_notice", "Choose an available tile to delete its matching pair.")
+	_regions.board.call("set_delete_pair_armed", true)
+	_regions.consumables.call("show_notice", "Choose any visible tile to delete its visible matching pair.")
 
 
 func _on_shuffle_requested() -> void:
 	_delete_pair_armed = false
+	_regions.board.call("set_delete_pair_armed", false)
 	var result: String = _game.call("shuffle", _playback_time_ms())
 	if result == GameStateScript.SHUFFLED:
 		_regions.consumables.call("show_notice", "Board shuffled; tray tiles were preserved.")
@@ -147,6 +150,7 @@ func _on_restart_requested() -> void:
 	_regions.momentum.call("set_game_state", _game)
 	_regions.consumables.call("set_game_state", _game)
 	_delete_pair_armed = false
+	_regions.board.call("set_delete_pair_armed", false)
 
 
 func _refresh_game_views() -> void:
@@ -234,12 +238,17 @@ func _apply_portrait_layout(size: Vector2) -> void:
 	var usable_width := size.x - margin * 2.0
 	var momentum_height := 64.0
 	var debug_height := 120.0
-	var board_height: float = clampf(size.y * 0.39, 260.0, size.y * 0.46)
 	var tray_height := 86.0
 	var consumables_height := 90.0
 	var board_top: float = margin + momentum_height + gap + debug_height + gap
+	var minimum_character_height := 72.0
+	var reserved_after_board := gap + tray_height + gap + consumables_height + gap + minimum_character_height + margin
+	var board_height: float = minf(
+		clampf(size.y * 0.43, 260.0, size.y * 0.46),
+		maxf(260.0, size.y - board_top - reserved_after_board)
+	)
 	var character_top: float = board_top + board_height + gap + tray_height + gap + consumables_height + gap
-	var character_height: float = maxf(72.0, size.y - character_top - margin)
+	var character_height: float = maxf(minimum_character_height, size.y - character_top - margin)
 
 	_place(_regions.momentum, Rect2(margin, margin, usable_width, momentum_height))
 	_place(_regions.board, Rect2(margin, board_top, usable_width, board_height))
