@@ -164,6 +164,7 @@ Status: Initial Implementation
 - Headless simulation defaults remain available when no valid authoring resource is supplied.
 - Modifier tuning is authored in `configuration/default_modifier_tuning.tres`, copied into each game definition, and represented with deterministic integer values.
 - Future player inventory/progression code supplies a plain modifier loadout snapshot; simulation does not depend on accounts or persistence.
+- Cross-game ownership, start-game snapshots, durable game records, and idempotent completion results are defined in `PLAYER_PROFILE.md`. Their local implementation is deferred to M9.
 
 Status: Open Question
 
@@ -188,3 +189,4 @@ This verifies that the Godot project and main scene launch without script parse 
 - backend systems
 - ranked services
 - permanent progression implementation
+- local profile and game-library persistence before M9

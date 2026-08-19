@@ -21,6 +21,7 @@ Read these documents before implementing:
 - [docs/SYSTEMS.md](docs/SYSTEMS.md)
 - [docs/ROADMAP.md](docs/ROADMAP.md)
 - [docs/ART_DIRECTION.md](docs/ART_DIRECTION.md)
+- [docs/PLAYER_PROFILE.md](docs/PLAYER_PROFILE.md)
 - [docs/TECH_NOTES.md](docs/TECH_NOTES.md)
 
 ## Current Status
