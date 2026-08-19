@@ -44,6 +44,7 @@ func _init() -> void:
 	_run_momentum_tuning_tests()
 	_run_momentum_tests()
 	_run_modifier_tests()
+	_run_consumable_tests()
 	_run_generator_solver_tests()
 	_run_reference_game_tests()
 	_run_simulation_tests()
@@ -141,6 +142,30 @@ func _run_tray_and_game_tests() -> void:
 	_check(undo_game.board.call("is_tile_active", "undo"), "Undo restores tile zone to board")
 	_check_equal(0, undo_game.tray.tiles.size(), "Undo removes tile from tray projection")
 	_check_equal(2, undo_game.revision, "Undo advances authoritative revision")
+
+	var barrier_face := TileFaceScript.new("test", "barrier_pair")
+	var barrier_tiles := [
+		TileInstanceScript.new("held_before_pair", TileFaceScript.new("test", "held"), BoardPositionScript.new(0, 0, 0)),
+		TileInstanceScript.new("held_mate", TileFaceScript.new("test", "held"), BoardPositionScript.new(4, 0, 0)),
+		TileInstanceScript.new("pair_first", barrier_face, BoardPositionScript.new(8, 0, 0)),
+		TileInstanceScript.new("pair_second", barrier_face, BoardPositionScript.new(12, 0, 0)),
+		TileInstanceScript.new("selected_after_pair", TileFaceScript.new("test", "after"), BoardPositionScript.new(16, 0, 0)),
+		TileInstanceScript.new("after_mate", TileFaceScript.new("test", "after"), BoardPositionScript.new(20, 0, 0)),
+	]
+	var barrier_game = GameStateScript.new(_definition(barrier_tiles))
+	barrier_game.call("select_tile", "held_before_pair")
+	barrier_game.call("select_tile", "pair_first")
+	_check_equal(GameStateScript.PAIR_RESOLVED, barrier_game.call("select_tile", "pair_second"), "intervening pair resolves")
+	var barrier_revision: int = barrier_game.revision
+	_check(not barrier_game.call("can_undo"), "resolved pair clears prior Undo eligibility")
+	_check_equal(GameStateScript.NOTHING_TO_UNDO, barrier_game.call("undo_last_unmatched"), "Undo cannot cross a resolved pair")
+	_check_equal(barrier_revision, barrier_game.revision, "blocked Undo appends no transaction")
+	_check_equal(1, barrier_game.call("consumable_count", "undo"), "blocked Undo consumes no charge")
+	_check_equal(["held_before_pair"], _tile_ids(barrier_game.tray.tiles), "tile selected before pair remains in tray")
+	barrier_game.call("select_tile", "selected_after_pair")
+	_check(barrier_game.call("can_undo"), "new unmatched selection establishes fresh Undo eligibility")
+	_check_equal(GameStateScript.UNDONE, barrier_game.call("undo_last_unmatched"), "Undo returns selection made after pair barrier")
+	_check_equal(["held_before_pair"], _tile_ids(barrier_game.tray.tiles), "fresh Undo leaves older tray tile committed")
 
 	var loss_tiles: Array = []
 	for index in range(GameStateScript.BASE_TRAY_CAPACITY):
@@ -250,7 +275,7 @@ func _run_momentum_tests() -> void:
 		TileInstanceScript.new("fourth", second_face, BoardPositionScript.new(12, 0, 0)),
 	])
 	var configuration: Dictionary = definition.configuration
-	_check_equal(3, definition.rules_version, "modifier-aware scoring uses rules version 3")
+	_check_equal(4, definition.rules_version, "consumables use rules version 4")
 	_check_equal(1, MomentumRulesScript.multiplier_for(19999, configuration), "momentum below first threshold stays x1")
 	_check_equal(2, MomentumRulesScript.multiplier_for(20000, configuration), "first threshold enters x2")
 	_check(
@@ -467,6 +492,93 @@ func _run_modifier_tests() -> void:
 	_check_equal(placed_a.definition_hash(), parsed_definition.definition_hash(), "modifier definition replay hash survives serialization")
 
 
+func _run_consumable_tests() -> void:
+	_log(" - deterministic M6 consumables")
+	var face_a := TileFaceScript.new("consumable", "a")
+	var face_b := TileFaceScript.new("consumable", "b")
+	var face_c := TileFaceScript.new("consumable", "c")
+	var face_d := TileFaceScript.new("consumable", "d")
+	var tiles := [
+		TileInstanceScript.new("a_1", face_a, BoardPositionScript.new(0, 0, 0)),
+		TileInstanceScript.new("b_1", face_b, BoardPositionScript.new(4, 0, 0)),
+		TileInstanceScript.new("c_1", face_c, BoardPositionScript.new(8, 0, 0)),
+		TileInstanceScript.new("d_1", face_d, BoardPositionScript.new(12, 0, 0)),
+		TileInstanceScript.new("a_2", face_a, BoardPositionScript.new(16, 0, 0)),
+		TileInstanceScript.new("b_2", face_b, BoardPositionScript.new(20, 0, 0)),
+		TileInstanceScript.new("c_2", face_c, BoardPositionScript.new(24, 0, 0)),
+		TileInstanceScript.new("d_2", face_d, BoardPositionScript.new(28, 0, 0)),
+	]
+	var definition: Variant = _definition(tiles)
+	_check_equal({"hint": 1, "undo": 1, "delete_pair": 1, "shuffle": 1}, definition.consumable_inventory, "new run snapshots starter consumable quantities")
+	var parsed: Variant = GameDefinitionScript.from_dict(JSON.parse_string(JSON.stringify(definition.to_dict())))
+	_check_equal(definition.consumable_inventory, parsed.consumable_inventory, "consumable inventory round-trips with definition")
+	_check_equal(definition.definition_hash(), parsed.definition_hash(), "consumables participate in replay definition identity")
+
+	var hint_game := GameStateScript.new(definition)
+	hint_game.call("select_tile", "a_1")
+	_check_equal(GameStateScript.HINTED, hint_game.call("request_hint"), "Hint finds a selectable mate for a tray tile first")
+	_check_equal(["a_1", "a_2"], hint_game.call("hinted_tile_ids"), "Hint records the tray-to-board suggestion deterministically")
+	_check_equal(0, hint_game.call("consumable_count", "hint"), "successful Hint consumes exactly one Hint")
+	_check_equal(1, hint_game.call("consumable_count", "undo"), "Hint never consumes Undo")
+	hint_game.call("select_tile", "a_2")
+	_check(hint_game.call("hinted_tile_ids").is_empty(), "next accepted action clears the transient Hint")
+
+	var no_pair_tiles := [
+		TileInstanceScript.new("only_a", face_a, BoardPositionScript.new(0, 0, 0)),
+		TileInstanceScript.new("only_b", face_b, BoardPositionScript.new(4, 0, 0)),
+	]
+	var no_pair_game := GameStateScript.new(_definition(no_pair_tiles))
+	no_pair_game.call("select_tile", "only_a")
+	var revision_before_hint: int = no_pair_game.revision
+	_check_equal(GameStateScript.NO_HINT_AVAILABLE, no_pair_game.call("request_hint"), "Hint reports when no available pair exists")
+	_check_equal(revision_before_hint, no_pair_game.revision, "failed Hint records no transaction")
+	_check_equal(1, no_pair_game.call("consumable_count", "hint"), "failed Hint consumes no Hint")
+	_check_equal(1, no_pair_game.call("consumable_count", "undo"), "failed Hint consumes no Undo")
+
+	var delete_game := GameStateScript.new(definition)
+	delete_game.call("select_tile", "a_1")
+	_check_equal(GameStateScript.PAIR_DELETED, delete_game.call("delete_pair", "d_2"), "Delete Pair removes a selectable matching pair")
+	var delete_snapshot: Variant = delete_game.call("current_snapshot")
+	_check_equal(0, delete_snapshot.score, "Delete Pair awards no score")
+	_check_equal(0, delete_snapshot.momentum_units, "Delete Pair awards no momentum")
+	_check_equal(1, delete_snapshot.resolved_pair_count, "Delete Pair advances resolved pair state")
+	_check_equal(0, delete_game.call("consumable_count", "delete_pair"), "successful Delete Pair consumes one charge")
+	var revision_after_delete: int = delete_game.revision
+	_check(not delete_game.call("can_undo"), "Delete Pair clears prior Undo eligibility")
+	_check_equal(GameStateScript.NOTHING_TO_UNDO, delete_game.call("undo_last_unmatched"), "Undo cannot cross a Delete Pair transaction")
+	_check_equal(revision_after_delete, delete_game.revision, "Undo blocked by Delete Pair appends no transaction")
+	_check_equal(1, delete_game.call("consumable_count", "undo"), "Undo blocked by Delete Pair consumes no charge")
+	_check_equal(["a_1"], _tile_ids(delete_game.tray.tiles), "Delete Pair leaves the committed tray tile in place")
+
+	var shuffle_game := GameStateScript.new(definition)
+	shuffle_game.call("select_tile", "a_1")
+	shuffle_game.call("select_tile", "b_1")
+	shuffle_game.call("select_tile", "c_1")
+	var tray_before: Array = shuffle_game.call("current_snapshot").tray_tile_ids
+	_check_equal(3, tray_before.size(), "Shuffle scenario starts with an almost-full tray")
+	_check_equal(GameStateScript.SHUFFLED, shuffle_game.call("shuffle"), "Shuffle works with three unresolved tray tiles")
+	_check_equal(tray_before, shuffle_game.call("current_snapshot").tray_tile_ids, "Shuffle preserves tray contents and order")
+	_check_equal(0, shuffle_game.call("consumable_count", "shuffle"), "successful Shuffle consumes exactly one charge")
+	_check(shuffle_game.call("current_snapshot").rng_state != definition.seed, "Shuffle advances deterministic RNG state")
+	var repeat_game := GameStateScript.new(definition)
+	for tile_id in ["a_1", "b_1", "c_1"]:
+		repeat_game.call("select_tile", tile_id)
+	repeat_game.call("shuffle")
+	_check_equal(shuffle_game.call("current_snapshot").tile_slot_ids, repeat_game.call("current_snapshot").tile_slot_ids, "same state and seed produce the same Shuffle")
+	_check_equal(shuffle_game.call("current_snapshot").state_hash(), repeat_game.call("current_snapshot").state_hash(), "deterministic Shuffle reproduces the authoritative state hash")
+	var two_tile_tray_game := GameStateScript.new(definition)
+	two_tile_tray_game.call("select_tile", "a_1")
+	two_tile_tray_game.call("select_tile", "b_1")
+	_check_equal(GameStateScript.SHUFFLED, two_tile_tray_game.call("shuffle"), "Shuffle also works with two unresolved tray tiles")
+
+	var undo_game := GameStateScript.new(definition)
+	undo_game.call("select_tile", "a_1")
+	undo_game.call("undo_last_unmatched")
+	_check_equal(0, undo_game.call("consumable_count", "undo"), "successful Undo consumes its own charge")
+	undo_game.call("select_tile", "a_1")
+	_check_equal(GameStateScript.CONSUMABLE_UNAVAILABLE, undo_game.call("undo_last_unmatched"), "Undo rejects when its run quantity is exhausted")
+
+
 func _run_reference_game_tests() -> void:
 	_log(" - 96-tile reference game")
 	var factory = ReferenceGameFactoryScript.new()
@@ -639,6 +751,13 @@ func _deal_signature(definition: Variant) -> String:
 	for tile in definition.tiles:
 		identities.append(tile.face.logical_id())
 	return "|".join(identities)
+
+
+func _tile_ids(tiles: Array) -> Array[String]:
+	var ids: Array[String] = []
+	for tile in tiles:
+		ids.append(tile.id)
+	return ids
 
 
 func _layout_layer_counts(layout: Variant) -> Dictionary:

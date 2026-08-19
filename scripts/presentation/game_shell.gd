@@ -10,6 +10,7 @@ const ReferenceGameFactoryScript := preload("res://scripts/simulation/reference_
 const BoardLayoutCatalogScript := preload("res://scripts/simulation/board_layout_catalog.gd")
 const MomentumTuningScript := preload("res://scripts/configuration/momentum_tuning.gd")
 const ModifierTuningScript := preload("res://scripts/configuration/modifier_tuning.gd")
+const ConsumablesViewScript := preload("res://scripts/presentation/consumables_view.gd")
 const START_SEED := 92817361
 
 @export var momentum_tuning: Resource
@@ -21,6 +22,7 @@ var _regions: Dictionary = {}
 var _debug_panel: PanelContainer
 var _game: Variant
 var _game_started_at_ms := 0
+var _delete_pair_armed := false
 
 func _ready() -> void:
 	_build_shell()
@@ -34,7 +36,7 @@ func _build_shell() -> void:
 	_regions.board = BoardViewScript.new(_game)
 	_regions.momentum = MomentumViewScript.new(_game)
 	_regions.tray = TrayViewScript.new(_game)
-	_regions.consumables = _make_region("Consumables", "player-triggered tools", Color(0.11, 0.17, 0.13, 1.0))
+	_regions.consumables = ConsumablesViewScript.new(_game)
 	_regions.character = _make_region("Character / FX", "decorative reaction space", Color(0.17, 0.11, 0.13, 1.0))
 
 	for region in _regions.values():
@@ -43,6 +45,9 @@ func _build_shell() -> void:
 	_regions.board.tile_selected.connect(_on_tile_selected)
 	_regions.tray.undo_requested.connect(_on_undo_requested)
 	_regions.tray.restart_requested.connect(_on_restart_requested)
+	_regions.consumables.hint_requested.connect(_on_hint_requested)
+	_regions.consumables.delete_pair_requested.connect(_on_delete_pair_requested)
+	_regions.consumables.shuffle_requested.connect(_on_shuffle_requested)
 
 	_debug_panel = DebugPanelScript.new()
 	add_child(_debug_panel)
@@ -91,7 +96,14 @@ func _create_game() -> Variant:
 
 
 func _on_tile_selected(tile_id: String) -> void:
-	var result: String = _game.call("select_tile", tile_id, _playback_time_ms())
+	var result: String
+	if _delete_pair_armed:
+		_delete_pair_armed = false
+		result = _game.call("delete_pair", tile_id, _playback_time_ms())
+		if result == GameStateScript.NO_DELETABLE_PAIR:
+			_regions.consumables.call("show_notice", "That tile has no available matching pair.")
+	else:
+		result = _game.call("select_tile", tile_id, _playback_time_ms())
 	_refresh_game_views()
 	if result == GameStateScript.PAIR_RESOLVED:
 		var transaction: Variant = _game.call("last_transaction")
@@ -103,18 +115,45 @@ func _on_undo_requested() -> void:
 	_refresh_game_views()
 
 
+func _on_hint_requested() -> void:
+	var result: String = _game.call("request_hint", _playback_time_ms())
+	if result == GameStateScript.NO_HINT_AVAILABLE:
+		_regions.consumables.call("show_notice", "No pair is available. Try another move or Shuffle.")
+	else:
+		_regions.consumables.call("show_notice", "Suggested pair highlighted.")
+	_refresh_game_views()
+
+
+func _on_delete_pair_requested() -> void:
+	_delete_pair_armed = true
+	_regions.consumables.call("show_notice", "Choose an available tile to delete its matching pair.")
+
+
+func _on_shuffle_requested() -> void:
+	_delete_pair_armed = false
+	var result: String = _game.call("shuffle", _playback_time_ms())
+	if result == GameStateScript.SHUFFLED:
+		_regions.consumables.call("show_notice", "Board shuffled; tray tiles were preserved.")
+	else:
+		_regions.consumables.call("show_notice", "Shuffle is unavailable for this position.")
+	_refresh_game_views()
+
+
 func _on_restart_requested() -> void:
 	_game = _create_game()
 	_game_started_at_ms = Time.get_ticks_msec()
 	_regions.board.call("set_game_state", _game)
 	_regions.tray.call("set_game_state", _game)
 	_regions.momentum.call("set_game_state", _game)
+	_regions.consumables.call("set_game_state", _game)
+	_delete_pair_armed = false
 
 
 func _refresh_game_views() -> void:
 	_regions.board.call("refresh")
 	_regions.tray.call("refresh")
 	_regions.momentum.call("refresh", _playback_time_ms())
+	_regions.consumables.call("refresh")
 
 
 func _process(_delta: float) -> void:

@@ -51,6 +51,7 @@ func refresh() -> void:
 		label.add_theme_color_override("font_color", Color("202625") if occupied else Color("68716f"))
 
 	_undo_button.disabled = not _game.call("can_undo")
+	_undo_button.text = "Undo (%d)" % _game.call("consumable_count", "undo")
 	match _game.status:
 		"won":
 			_status_label.text = "Victory - %d pairs" % _game.tray.resolved_pair_count

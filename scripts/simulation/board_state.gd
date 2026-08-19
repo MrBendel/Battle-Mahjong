@@ -2,6 +2,7 @@ extends RefCounted
 
 const BoardSelectabilityScript := preload("res://scripts/simulation/board_selectability.gd")
 const GameStateDataScript := preload("res://scripts/simulation/game_state_data.gd")
+const TileInstanceScript := preload("res://scripts/simulation/tile_instance.gd")
 
 var tiles: Array
 var _definition: Variant
@@ -12,11 +13,23 @@ var _selectability := BoardSelectabilityScript.new()
 func _init(definition: Variant, state: Variant) -> void:
 	_definition = definition
 	_state = state
-	tiles = definition.tiles
+	tiles = []
+	for physical_tile in definition.tiles:
+		var slot_id: String = str(state.tile_slot_ids.get(physical_tile.id, physical_tile.id))
+		if slot_id == physical_tile.id:
+			tiles.append(physical_tile)
+			continue
+		var slot_tile: Variant = definition.get_tile(slot_id)
+		tiles.append(TileInstanceScript.new(physical_tile.id, physical_tile.face, slot_tile.position))
 
 
 func get_tile(tile_id: String) -> Variant:
-	return _definition.get_tile(tile_id)
+	if _state.tile_slot_ids.get(tile_id) == tile_id:
+		return _definition.get_tile(tile_id)
+	for tile in tiles:
+		if tile.id == tile_id:
+			return tile
+	return null
 
 
 func active_tiles() -> Array:

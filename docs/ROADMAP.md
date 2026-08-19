@@ -101,11 +101,27 @@ An equipped modifier loadout is reproduced from the game definition, activates d
 
 Detailed contract: [M05 Modifiers](milestones/M05_MODIFIERS.md)
 
+## M6 - Consumables
+
+Implement:
+
+- definition-bound per-run quantities for Hint, Undo, Delete Pair, and Shuffle
+- atomic successful-use consumption and no-consumption rejection
+- tray-prioritized deterministic Hint suggestions
+- selectable assisted pair deletion without score or momentum
+- tray-aware deterministic Shuffle with verified recovery routes
+- responsive controls, counts, highlights, and failure notices
+
+Success criteria:
+
+An almost-full tray can be recovered through a deterministic, replay-safe Shuffle; Hint reports when no pair is available without consuming Hint or Undo; and all consumable actions remain transactional and reproducible.
+
+Detailed contract: [M06 Consumables](milestones/M06_CONSUMABLES.md)
+
 ## Later Milestones
 
 Later milestones are recorded here to preserve ordering. Detailed implementation contracts remain deferred unless linked below.
 
-- M6 Consumables
 - [M7 Art Foundation And First Visual Slice](milestones/M07_ART_FOUNDATION.md) - canonical tile system, first production-ready visual slice, reusable arcade/anime feedback, and Default-to-Neon skin proof. This consolidates the former M7 feedback and foundational M8 art placeholders.
 - M8 Art Expansion + Cosmetics - additional skins, characters, backgrounds, and visual breadth built on the M7 contracts
 - M9 Replays + Ghosts

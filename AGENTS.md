@@ -31,7 +31,7 @@ Project-level instructions for Codex working on Battle Mahjong.
 
 ## Current State
 
-- Milestones M0 through M5 are implemented.
+- Milestones M0 through M6 are implemented.
 - The playable reference board uses the authored `portrait_stack_96` layout with 96 tiles.
 - The current reference identity composition is 24 identities with four copies each. The complete 34-face art vocabulary remains a separate unresolved production decision.
 - Authored layouts live in `configuration/layouts/` and are discovered automatically.
@@ -40,10 +40,11 @@ Project-level instructions for Codex working on Battle Mahjong.
 - Game definitions record layout identity, revision, and content hash for deterministic replay validation.
 - The M4 solver proves pair-only removal routes. Tray-aware routes that require temporarily holding unmatched tiles are deferred.
 - M5 uses a configurable three-slot modifier loadout and gives reference games a level-0 `2.0x` starter Score Multiplier tile. Persistent collection and leveling remain deferred.
+- M6 snapshots Hint, Undo, Delete Pair, and Shuffle quantities into each game definition. Shuffle preserves an almost-full tray and constructs a verified deterministic route; persistent consumable ownership remains deferred.
 
 ## Current Boundary
 
-M5 Modifiers is the current completed scope. M6 Consumables is next, but do not begin M6 or any later gameplay milestone until explicitly requested. M7 Art Foundation currently defines documentation and production requirements only; do not add production art as incidental work.
+M6 Consumables is the current completed scope. Do not begin M7 or any later gameplay milestone until explicitly requested. M7 Art Foundation currently defines documentation and production requirements only; do not add production art as incidental work.
 
 ## Validation
 

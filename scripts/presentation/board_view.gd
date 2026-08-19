@@ -77,6 +77,9 @@ func _rebuild_tiles() -> void:
 func refresh() -> void:
 	var active_count: int = _game.board.call("active_tiles").size()
 	var selectable_ids := {}
+	var hinted_ids := {}
+	for hinted_tile_id in _game.call("hinted_tile_ids"):
+		hinted_ids[hinted_tile_id] = true
 	for tile in _game.board.call("selectable_tiles"):
 		selectable_ids[tile.id] = true
 
@@ -91,11 +94,14 @@ func refresh() -> void:
 		button.disabled = not selectable
 		button.modulate = Color.WHITE if selectable else Color(0.58, 0.61, 0.60)
 		_apply_tile_style(button, tile.face.value)
+		if hinted_ids.has(tile.id):
+			button.add_theme_stylebox_override("normal", _tile_style(_face_color(tile.face.value).lightened(0.12), Color("ffd166"), 5, Vector2(0.0, 3.0)))
 
 	if active_count == 0:
 		_status_label.text = "Board cleared"
 	else:
 		_status_label.text = "%d tiles  |  %d free" % [active_count, selectable_ids.size()]
+	_layout_tiles()
 
 
 func _on_tile_pressed(tile_id: String) -> void:
@@ -209,6 +215,12 @@ func _apply_tile_style(button: Button, value: String) -> void:
 	button.add_theme_color_override("font_hover_color", Color("111615"))
 	button.add_theme_color_override("font_pressed_color", Color("111615"))
 	button.add_theme_color_override("font_disabled_color", Color("59615f"))
+
+
+func _face_color(value: String) -> Color:
+	var identity := int(value) - 1
+	var colors := [Color("d8ead6"), Color("f0d7d2"), Color("d4e3f2"), Color("f1e1b8")]
+	return colors[identity / 6]
 
 
 func _tile_style(face_color: Color, border_color: Color, border_width: int, shadow_offset: Vector2) -> StyleBoxFlat:

@@ -8,6 +8,9 @@ const GameTransactionScript := preload("res://scripts/simulation/game_transactio
 const MomentumRulesScript := preload("res://scripts/simulation/momentum_rules.gd")
 const ModifierLoadoutScript := preload("res://scripts/simulation/modifier_loadout.gd")
 const ModifierRulesScript := preload("res://scripts/simulation/modifier_rules.gd")
+const ConsumableInventoryScript := preload("res://scripts/simulation/consumable_inventory.gd")
+const DeterministicRngScript := preload("res://scripts/simulation/deterministic_rng.gd")
+const TrayAwareShufflePlannerScript := preload("res://scripts/simulation/tray_aware_shuffle_planner.gd")
 
 const SELECTED := "selected"
 const PAIR_RESOLVED := "pair_resolved"
@@ -16,6 +19,12 @@ const GAME_OVER := "game_over"
 const EXTRA_LIFE_USED := "extra_life_used"
 const UNDONE := "undone"
 const NOTHING_TO_UNDO := "nothing_to_undo"
+const HINTED := "hinted"
+const NO_HINT_AVAILABLE := "no_hint_available"
+const PAIR_DELETED := "pair_deleted"
+const NO_DELETABLE_PAIR := "no_deletable_pair"
+const SHUFFLED := "shuffled"
+const CONSUMABLE_UNAVAILABLE := "consumable_unavailable"
 const STALE_COMMAND := "stale_command"
 const STALE_TIME := "stale_time"
 const UNKNOWN_COMMAND := "unknown_command"
@@ -32,8 +41,22 @@ func build_transaction(command: Variant, definition: Variant, state: Variant, ti
 			return _build_select(command, definition, state)
 		GameCommandScript.UNDO:
 			return _build_undo(command, definition, state, timeline)
+		GameCommandScript.HINT:
+			return _build_hint(command, definition, state)
+		GameCommandScript.DELETE_PAIR:
+			return _build_delete_pair(command, definition, state)
+		GameCommandScript.SHUFFLE:
+			return _build_shuffle(command, definition, state)
 		_:
 			return {"result": UNKNOWN_COMMAND}
+
+
+func can_undo(state: Variant, timeline: Array) -> bool:
+	if state.status != GameStateDataScript.PLAYING \
+			or state.tray_tile_ids.is_empty() \
+			or _consumable_count(state, ConsumableInventoryScript.UNDO) <= 0:
+		return false
+	return _find_selection_transaction(timeline, state.tray_tile_ids[-1]) != null
 
 
 func _build_select(command: Variant, definition: Variant, state: Variant) -> Dictionary:
@@ -47,6 +70,7 @@ func _build_select(command: Variant, definition: Variant, state: Variant) -> Dic
 
 	var changes: Array = []
 	var momentum_after_decay := _append_clock_changes(command, definition, state, changes)
+	_append_clear_hint(changes, state)
 	var telemetry := {
 		"selection_interval_ms": command.playback_time_ms - state.last_selection_time_ms,
 		"momentum_before": state.momentum_units,
@@ -194,6 +218,8 @@ func _build_select(command: Variant, definition: Variant, state: Variant) -> Dic
 
 
 func _build_undo(command: Variant, definition: Variant, state: Variant, timeline: Array) -> Dictionary:
+	if _consumable_count(state, ConsumableInventoryScript.UNDO) <= 0:
+		return {"result": CONSUMABLE_UNAVAILABLE}
 	if state.status != GameStateDataScript.PLAYING or state.tray_tile_ids.is_empty():
 		return {"result": NOTHING_TO_UNDO}
 
@@ -209,6 +235,8 @@ func _build_undo(command: Variant, definition: Variant, state: Variant, timeline
 	tray_after.pop_back()
 	var changes: Array = []
 	_append_clock_changes(command, definition, state, changes)
+	_append_clear_hint(changes, state)
+	_append_consumable_use(changes, state, ConsumableInventoryScript.UNDO)
 	changes.append_array([
 		GameChangeScript.new(GameChangeScript.TILE_ZONE, tile_id, GameStateDataScript.ZONE_TRAY, GameStateDataScript.ZONE_BOARD),
 		GameChangeScript.new(GameChangeScript.TRAY, "tray_tile_ids", tray_before, tray_after),
@@ -217,6 +245,234 @@ func _build_undo(command: Variant, definition: Variant, state: Variant, timeline
 	var transaction := GameTransactionScript.new(command, changes, UNDONE, target_transaction.transaction_id)
 	transaction.definition_hash = target_transaction.definition_hash
 	return {"result": UNDONE, "transaction": transaction}
+
+
+func _build_hint(command: Variant, definition: Variant, state: Variant) -> Dictionary:
+	if state.status != GameStateDataScript.PLAYING:
+		return {"result": GAME_OVER}
+	if _consumable_count(state, ConsumableInventoryScript.HINT) <= 0:
+		return {"result": CONSUMABLE_UNAVAILABLE}
+	var board := BoardStateScript.new(definition, state)
+	var selectable: Array = board.call("selectable_tiles")
+	selectable.sort_custom(func(first: Variant, second: Variant) -> bool: return first.id < second.id)
+	var hinted: Array[String] = []
+	for held_tile_id in state.tray_tile_ids:
+		var held_tile: Variant = definition.get_tile(held_tile_id)
+		for tile in selectable:
+			if tile.face.equals(held_tile.face):
+				hinted.assign([held_tile_id, tile.id])
+				break
+		if not hinted.is_empty():
+			break
+	if hinted.is_empty():
+		for first_index in range(selectable.size()):
+			for second_index in range(first_index + 1, selectable.size()):
+				if selectable[first_index].face.equals(selectable[second_index].face):
+					hinted.assign([selectable[first_index].id, selectable[second_index].id])
+					break
+			if not hinted.is_empty():
+				break
+	if hinted.is_empty():
+		return {"result": NO_HINT_AVAILABLE}
+	var changes: Array = []
+	_append_clock_changes(command, definition, state, changes)
+	_append_consumable_use(changes, state, ConsumableInventoryScript.HINT)
+	changes.append(GameChangeScript.new(GameChangeScript.HINT, "hinted_tile_ids", state.hinted_tile_ids, hinted))
+	var transaction := GameTransactionScript.new(command, changes, HINTED)
+	transaction.definition_hash = definition.definition_hash()
+	transaction.telemetry = {"hinted_tile_ids": hinted.duplicate()}
+	return {"result": HINTED, "transaction": transaction}
+
+
+func _build_delete_pair(command: Variant, definition: Variant, state: Variant) -> Dictionary:
+	if state.status != GameStateDataScript.PLAYING:
+		return {"result": GAME_OVER}
+	if _consumable_count(state, ConsumableInventoryScript.DELETE_PAIR) <= 0:
+		return {"result": CONSUMABLE_UNAVAILABLE}
+	var tile_id: String = str(command.payload.get("tile_id", ""))
+	var board := BoardStateScript.new(definition, state)
+	if not board.call("is_tile_selectable", tile_id):
+		return {"result": NO_DELETABLE_PAIR}
+	var tile: Variant = board.call("get_tile", tile_id)
+	var selectable: Array = board.call("selectable_tiles")
+	selectable.sort_custom(func(first: Variant, second: Variant) -> bool: return first.id < second.id)
+	var partner_id := ""
+	for candidate in selectable:
+		if candidate.id != tile_id and candidate.face.equals(tile.face):
+			partner_id = candidate.id
+			break
+	if partner_id.is_empty():
+		return {"result": NO_DELETABLE_PAIR}
+
+	var changes: Array = []
+	_append_clock_changes(command, definition, state, changes)
+	_append_clear_hint(changes, state)
+	_append_consumable_use(changes, state, ConsumableInventoryScript.DELETE_PAIR)
+	changes.append(GameChangeScript.new(GameChangeScript.TILE_ZONE, tile_id, GameStateDataScript.ZONE_BOARD, GameStateDataScript.ZONE_RESOLVED))
+	changes.append(GameChangeScript.new(GameChangeScript.TILE_ZONE, partner_id, GameStateDataScript.ZONE_BOARD, GameStateDataScript.ZONE_RESOLVED))
+	changes.append(GameChangeScript.new(GameChangeScript.COUNTER, "resolved_pair_count", state.resolved_pair_count, state.resolved_pair_count + 1))
+	changes.append(GameChangeScript.new(GameChangeScript.COUNTER, "selection_count", state.selection_count, state.selection_count + 2))
+	var modifier_values := _modifier_values_after_pair(definition, state, [tile_id, partner_id], command.playback_time_ms)
+	var tray_bonus_pairs_after: int = int(modifier_values.tray_bonus_pairs_remaining)
+	var tray_bonus_capacity_after: int = int(modifier_values.tray_bonus_capacity)
+	if tray_bonus_pairs_after > 0 and not bool(modifier_values.tray_bonus_triggered):
+		tray_bonus_pairs_after -= 1
+		if tray_bonus_pairs_after == 0:
+			tray_bonus_capacity_after = 0
+	_append_counter_change(changes, "extra_life_charges", state.extra_life_charges, int(modifier_values.extra_life_charges))
+	_append_counter_change(changes, "cold_snap_until_ms", state.cold_snap_until_ms, int(modifier_values.cold_snap_until_ms))
+	_append_counter_change(changes, "score_multiplier_until_ms", state.score_multiplier_until_ms, int(modifier_values.score_multiplier_until_ms))
+	_append_counter_change(changes, "score_multiplier_basis_points", state.score_multiplier_basis_points, int(modifier_values.score_multiplier_basis_points))
+	_append_counter_change(changes, "tray_bonus_capacity", state.tray_bonus_capacity, tray_bonus_capacity_after)
+	_append_counter_change(changes, "tray_bonus_pairs_remaining", state.tray_bonus_pairs_remaining, tray_bonus_pairs_after)
+	_append_counter_change(changes, "modifier_activation_count", state.modifier_activation_count, int(modifier_values.modifier_activation_count))
+	if _board_tile_count_after(state, changes) == 0 and state.tray_tile_ids.is_empty():
+		changes.append(GameChangeScript.new(GameChangeScript.STATUS, "status", state.status, GameStateDataScript.WON))
+	var transaction := GameTransactionScript.new(command, changes, PAIR_DELETED)
+	transaction.definition_hash = definition.definition_hash()
+	transaction.telemetry = {
+		"assisted_pair": true,
+		"deleted_tile_ids": [tile_id, partner_id],
+		"modifiers_triggered": modifier_values.triggered_modifiers,
+	}
+	return {"result": PAIR_DELETED, "transaction": transaction}
+
+
+func _modifier_values_after_pair(definition: Variant, state: Variant, tile_ids: Array, playback_time_ms: int) -> Dictionary:
+	var values := {
+		"extra_life_charges": state.extra_life_charges,
+		"cold_snap_until_ms": state.cold_snap_until_ms,
+		"score_multiplier_until_ms": state.score_multiplier_until_ms,
+		"score_multiplier_basis_points": state.score_multiplier_basis_points,
+		"tray_bonus_capacity": state.tray_bonus_capacity,
+		"tray_bonus_pairs_remaining": state.tray_bonus_pairs_remaining,
+		"tray_bonus_triggered": false,
+		"modifier_activation_count": state.modifier_activation_count,
+		"triggered_modifiers": [],
+	}
+	tile_ids.sort()
+	for resolved_tile_id in tile_ids:
+		var modifier: Dictionary = definition.modifier_for_tile(resolved_tile_id)
+		if modifier.is_empty():
+			continue
+		var effect: Dictionary = ModifierRulesScript.effect_for(modifier, definition.configuration)
+		var trigger := modifier.duplicate(true)
+		trigger["tile_id"] = resolved_tile_id
+		trigger["effect"] = effect.duplicate(true)
+		values.triggered_modifiers.append(trigger)
+		match str(modifier.type):
+			ModifierLoadoutScript.EXTRA_LIFE:
+				values.extra_life_charges = int(values.extra_life_charges) + int(effect.charges)
+			ModifierLoadoutScript.COLD_SNAP:
+				values.cold_snap_until_ms = maxi(int(values.cold_snap_until_ms), playback_time_ms) + int(effect.duration_ms)
+			ModifierLoadoutScript.SCORE_MULTIPLIER:
+				values.score_multiplier_basis_points = int(effect.basis_points)
+				values.score_multiplier_until_ms = maxi(int(values.score_multiplier_until_ms), playback_time_ms) + int(effect.duration_ms)
+			ModifierLoadoutScript.TRAY_PLUS_ONE:
+				values.tray_bonus_capacity = 1
+				values.tray_bonus_pairs_remaining = int(effect.pair_duration)
+				values.tray_bonus_triggered = true
+	values.modifier_activation_count = state.modifier_activation_count + values.triggered_modifiers.size()
+	return values
+
+
+func _build_shuffle(command: Variant, definition: Variant, state: Variant) -> Dictionary:
+	if state.status != GameStateDataScript.PLAYING:
+		return {"result": GAME_OVER}
+	if _consumable_count(state, ConsumableInventoryScript.SHUFFLE) <= 0:
+		return {"result": CONSUMABLE_UNAVAILABLE}
+	if state.tray_tile_ids.size() >= ModifierRulesScript.effective_tray_capacity(definition, state):
+		return {"result": GAME_OVER}
+	var plan: Dictionary = TrayAwareShufflePlannerScript.new().call("build_slot_plan", definition, state)
+	if plan.is_empty():
+		return {"result": NO_HINT_AVAILABLE}
+	var available_by_face: Dictionary = {}
+	for physical_tile in definition.tiles:
+		if state.tile_zones[physical_tile.id] != GameStateDataScript.ZONE_BOARD:
+			continue
+		var key := _face_key(physical_tile)
+		if not available_by_face.has(key):
+			available_by_face[key] = []
+		available_by_face[key].append(physical_tile.id)
+	for key in available_by_face:
+		available_by_face[key].sort()
+
+	var mapping_after: Dictionary = state.tile_slot_ids.duplicate(true)
+	var route: Array[String] = []
+	var tray_slots: Array = plan.tray_slots
+	for index in state.tray_tile_ids.size():
+		var held_tile: Variant = definition.get_tile(state.tray_tile_ids[index])
+		var key := _face_key(held_tile)
+		var matching_ids: Array = available_by_face.get(key, [])
+		if matching_ids.is_empty():
+			return {"result": NO_HINT_AVAILABLE}
+		var physical_id: String = str(matching_ids.pop_front())
+		mapping_after[physical_id] = str(tray_slots[index])
+		route.append(physical_id)
+
+	var groups: Array = []
+	for key in available_by_face:
+		var ids: Array = available_by_face[key]
+		if ids.size() % 2 != 0:
+			return {"result": NO_HINT_AVAILABLE}
+		for index in range(0, ids.size(), 2):
+			groups.append([ids[index], ids[index + 1]])
+	var pair_slots: Array = plan.pair_slots
+	if groups.size() != pair_slots.size():
+		return {"result": NO_HINT_AVAILABLE}
+	var rng := DeterministicRngScript.new(state.rng_state)
+	rng.call("next_int")
+	for index in range(groups.size() - 1, 0, -1):
+		var swap_index: int = rng.call("range_int", 0, index)
+		var temporary: Variant = groups[index]
+		groups[index] = groups[swap_index]
+		groups[swap_index] = temporary
+	for index in groups.size():
+		var group: Array = groups[index]
+		var slots: Array = pair_slots[index]
+		mapping_after[str(group[0])] = str(slots[0])
+		mapping_after[str(group[1])] = str(slots[1])
+		route.append(str(group[0]))
+		route.append(str(group[1]))
+
+	var candidate: Variant = state.duplicate_data()
+	candidate.tile_slot_ids = mapping_after.duplicate(true)
+	var solver_script: Script = load("res://scripts/simulation/game_solver.gd")
+	var verification: Dictionary = solver_script.new().call("verify_state_route", definition, candidate, route)
+	if not bool(verification.get("valid", false)):
+		return {"result": NO_HINT_AVAILABLE}
+	var changes: Array = []
+	_append_clock_changes(command, definition, state, changes)
+	_append_clear_hint(changes, state)
+	_append_consumable_use(changes, state, ConsumableInventoryScript.SHUFFLE)
+	for tile_id in mapping_after:
+		if state.tile_slot_ids[tile_id] != mapping_after[tile_id]:
+			changes.append(GameChangeScript.new(GameChangeScript.TILE_SLOT, tile_id, state.tile_slot_ids[tile_id], mapping_after[tile_id]))
+	if rng.call("get_state") != state.rng_state:
+		changes.append(GameChangeScript.new(GameChangeScript.RNG_STATE, "rng_state", state.rng_state, rng.call("get_state")))
+	var transaction := GameTransactionScript.new(command, changes, SHUFFLED)
+	transaction.definition_hash = definition.definition_hash()
+	transaction.telemetry = {"tray_tile_count": state.tray_tile_ids.size(), "verified_route_length": route.size()}
+	return {"result": SHUFFLED, "transaction": transaction}
+
+
+func _face_key(tile: Variant) -> String:
+	return "%s\u001f%s" % [tile.face.family, tile.face.value]
+
+
+func _append_clear_hint(changes: Array, state: Variant) -> void:
+	if not state.hinted_tile_ids.is_empty():
+		changes.append(GameChangeScript.new(GameChangeScript.HINT, "hinted_tile_ids", state.hinted_tile_ids, []))
+
+
+func _consumable_count(state: Variant, consumable_type: String) -> int:
+	return int(state.consumable_counts.get(consumable_type, 0))
+
+
+func _append_consumable_use(changes: Array, state: Variant, consumable_type: String) -> void:
+	var after: Dictionary = state.consumable_counts.duplicate(true)
+	after[consumable_type] = int(after[consumable_type]) - 1
+	changes.append(GameChangeScript.new(GameChangeScript.CONSUMABLES, "consumable_counts", state.consumable_counts, after))
 
 
 func _append_clock_changes(command: Variant, definition: Variant, state: Variant, changes: Array) -> int:
@@ -274,6 +530,8 @@ func _append_counter_change(changes: Array, target: String, before: int, after: 
 func _find_selection_transaction(timeline: Array, tile_id: String) -> Variant:
 	for index in range(timeline.size() - 1, -1, -1):
 		var transaction: Variant = timeline[index]
+		if _resolves_pair(transaction):
+			return null
 		if transaction.command_type != GameCommandScript.SELECT_TILE:
 			continue
 		for change in transaction.changes:
@@ -282,3 +540,12 @@ func _find_selection_transaction(timeline: Array, tile_id: String) -> Variant:
 					and change.after == GameStateDataScript.ZONE_TRAY:
 				return transaction
 	return null
+
+
+func _resolves_pair(transaction: Variant) -> bool:
+	for change in transaction.changes:
+		if change.type == GameChangeScript.COUNTER \
+				and change.target == "resolved_pair_count" \
+				and int(change.after) > int(change.before):
+			return true
+	return false

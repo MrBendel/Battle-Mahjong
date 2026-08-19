@@ -73,9 +73,9 @@ Consumables are separate from modifiers. They are deliberate player-controlled a
 
 Reveal or highlight a currently available pair.
 
-Status: Open Question
+Status: Implemented M6 baseline
 
-- Whether Hint affects score, momentum, ranking, or replay category.
+Hint prioritizes a selectable mate for an unresolved tray tile, then a selectable board pair. It awards no score or momentum. If no pair is available, it reports that state and consumes neither Hint nor Undo. Ranked/replay categorization remains deferred.
 
 ### Undo
 
@@ -91,19 +91,17 @@ Potential upgrades:
 - return several tray tiles
 - briefly protect momentum
 
-Status: Open Question
+Status: Implemented M6 baseline
 
-- Exact undo history depth.
-- Whether Undo can affect tiles involved in already resolved pairs.
+Undo returns only the latest unresolved tray tile selected after the most recent resolved pair, appends a compensating transaction, and consumes one Undo on success. Resolving a pair clears prior Undo eligibility; a later unmatched selection starts a fresh Undo window. Undo cannot reverse or cross a resolved pair.
 
 ### Delete Pair
 
 Select a tile and automatically remove it together with a valid matching tile.
 
-Status: Open Question
+Status: Implemented M6 baseline
 
-- How the matching tile is selected.
-- Whether Delete Pair can target blocked tiles.
+The target and its match must both be selectable. The lowest-ID selectable match is chosen deterministically. Assisted removal triggers attached modifiers but awards no score or momentum.
 
 ### Shuffle
 
@@ -119,10 +117,9 @@ The shuffle system should:
 - validate solvability
 - preferably create useful immediate moves
 
-Status: Open Question
+Status: Implemented M6 baseline
 
-- Exact solvability validation method.
-- Whether shuffle is allowed in ranked Battle.
+Shuffle supports zero through one-less-than-capacity tray tiles, including an almost-full tray. It preserves tray order and occupied geometry, assigns immediate mates for tray identities, constructs the remaining pairs, and verifies the route through normal transactions before consuming the charge. Ranked Battle policy remains deferred.
 
 ## Board Generation
 
