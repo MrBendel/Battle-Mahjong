@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="328" height="400" viewBox="0 0 328 400">
+  <g stroke-linecap="round" stroke-linejoin="round">
+
+    <g transform="translate(76 72) rotate(-7)">
+      <rect x="-15" y="-31" width="30" height="62" rx="11" fill="#168a67" stroke="#163f4a" stroke-width="6"/>
+      <path d="M-12 -7 H12 M-12 14 H12" stroke="#8dd05c" stroke-width="7"/>
+    </g>
+    <g transform="translate(164 72) rotate(7)">
+      <rect x="-15" y="-31" width="30" height="62" rx="11" fill="#1676a8" stroke="#163f4a" stroke-width="6"/>
+      <path d="M-12 -7 H12 M-12 14 H12" stroke="#8dd05c" stroke-width="7"/>
+    </g>
+    <g transform="translate(252 72) rotate(-7)">
+      <rect x="-15" y="-31" width="30" height="62" rx="11" fill="#168a67" stroke="#163f4a" stroke-width="6"/>
+      <path d="M-12 -7 H12 M-12 14 H12" stroke="#8dd05c" stroke-width="7"/>
+    </g>
+    <g transform="translate(76 200) rotate(7)">
+      <rect x="-15" y="-31" width="30" height="62" rx="11" fill="#168a67" stroke="#163f4a" stroke-width="6"/>
+      <path d="M-12 -7 H12 M-12 14 H12" stroke="#8dd05c" stroke-width="7"/>
+    </g>
+    <g transform="translate(164 200) rotate(-7)">
+      <rect x="-15" y="-31" width="30" height="62" rx="11" fill="#1676a8" stroke="#163f4a" stroke-width="6"/>
+      <path d="M-12 -7 H12 M-12 14 H12" stroke="#8dd05c" stroke-width="7"/>
+    </g>
+    <g transform="translate(252 200) rotate(7)">
+      <rect x="-15" y="-31" width="30" height="62" rx="11" fill="#168a67" stroke="#163f4a" stroke-width="6"/>
+      <path d="M-12 -7 H12 M-12 14 H12" stroke="#8dd05c" stroke-width="7"/>
+    </g>
+    <g transform="translate(76 328) rotate(-7)">
+      <rect x="-15" y="-31" width="30" height="62" rx="11" fill="#168a67" stroke="#163f4a" stroke-width="6"/>
+      <path d="M-12 -7 H12 M-12 14 H12" stroke="#8dd05c" stroke-width="7"/>
+    </g>
+    <g transform="translate(164 328) rotate(7)">
+      <rect x="-15" y="-31" width="30" height="62" rx="11" fill="#1676a8" stroke="#163f4a" stroke-width="6"/>
+      <path d="M-12 -7 H12 M-12 14 H12" stroke="#8dd05c" stroke-width="7"/>
+    </g>
+    <g transform="translate(252 328) rotate(-7)">
+      <rect x="-15" y="-31" width="30" height="62" rx="11" fill="#168a67" stroke="#163f4a" stroke-width="6"/>
+      <path d="M-12 -7 H12 M-12 14 H12" stroke="#8dd05c" stroke-width="7"/>
+    </g>
+    <path d="M36 34 L72 26 M270 366 L298 354 M36 362 L58 350" stroke="#168a67" stroke-width="9" opacity="0.7"/>
+  </g>
+</svg>

@@ -29,14 +29,14 @@ Read these documents before implementing:
 - Engine choice: Godot 4.6.3 stable.
 - Primary language: GDScript.
 - Completed gameplay scope: M0 through M6.
-- Current milestone: M7 Art Foundation, Batch A contract proof.
+- Current milestone: M7 Art Foundation, Batch A visual slice.
 - Simulation and presentation remain separate.
 - Gameplay randomness uses seeded deterministic RNG.
 
 ## Current Visual Slice
 
-M7 Batch A currently proves responsive portrait-first board geometry, layered face artwork, independent modifier overlays, and visible-tile targeting for Delete Pair. Placeholder text remains while the complete Default face set is produced.
+M7 Batch A currently includes the complete 34-face Default candidate set, responsive portrait-first board geometry, shared board/tray skin rendering, independent modifier overlays, darkened blocked tiles, blocked-tap feedback, board-to-tray selection motion, transaction-driven pair removal, and the first brush-arcade gameplay background.
 
-| Phone Portrait | Landscape |
-| --- | --- |
-| ![M7 gameplay shell in phone portrait](docs/images/m7-gameplay-portrait.png) | ![M7 gameplay shell in landscape](docs/images/m7-gameplay-landscape.png) |
+| Compact Phone | Phone Portrait | Landscape |
+| --- | --- | --- |
+| ![M7 gameplay shell at 375 by 667](docs/images/m7-gameplay-small-phone.png) | ![M7 gameplay shell in phone portrait](docs/images/m7-gameplay-portrait.png) | ![M7 gameplay shell in landscape](docs/images/m7-gameplay-landscape.png) |

@@ -18,6 +18,9 @@ var _status_label: Label
 var _tile_layer: Control
 var _tile_skin: Variant
 var _delete_pair_armed := false
+var _audio_player: AudioStreamPlayer
+var _audio_playback: Variant
+var _negative_feedback_count := 0
 
 
 func _init(game_state: Variant, tile_skin: Variant = null) -> void:
@@ -66,6 +69,18 @@ func _build() -> void:
 	_tile_layer = Control.new()
 	_tile_layer.mouse_filter = Control.MOUSE_FILTER_PASS
 	add_child(_tile_layer)
+
+	if DisplayServer.get_name() == "headless":
+		return
+	var generator := AudioStreamGenerator.new()
+	generator.mix_rate = 22050.0
+	generator.buffer_length = 0.2
+	_audio_player = AudioStreamPlayer.new()
+	_audio_player.stream = generator
+	_audio_player.volume_db = -11.0
+	add_child(_audio_player)
+	_audio_player.play()
+	_audio_playback = _audio_player.get_stream_playback()
 
 
 func _rebuild_tiles() -> void:
@@ -131,9 +146,11 @@ func refresh() -> void:
 		var selectable: bool = (_delete_pair_armed and visible_ids.has(tile.id) \
 			or not _delete_pair_armed and selectable_ids.has(tile.id)) \
 			and _game.status == "playing"
-		button.disabled = not selectable
-		button.modulate = Color.WHITE if selectable else Color(0.58, 0.61, 0.60)
-		_apply_tile_style(button)
+		button.disabled = _game.status != "playing"
+		button.set_meta("targetable", selectable)
+		button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if selectable else Control.CURSOR_FORBIDDEN
+		button.modulate = Color.WHITE if selectable else Color(0.72, 0.73, 0.70)
+		_apply_tile_style(button, selectable)
 		if _delete_pair_armed and selectable:
 			button.add_theme_stylebox_override("normal", _tile_style(Color("fff8e8"), Color("ef496f"), 4, Vector2(0.0, 3.0)))
 		var texture: Texture2D = _tile_skin.texture_for_face(tile.face)
@@ -157,10 +174,89 @@ func refresh() -> void:
 func _on_tile_pressed(tile_id: String) -> void:
 	var targetable: bool = _game.board.call("is_tile_visible", tile_id) if _delete_pair_armed \
 		else _game.board.call("is_tile_selectable", tile_id)
-	if _game.status != "playing" or not targetable:
+	if _game.status != "playing":
+		return
+	if not targetable:
+		_play_negative_feedback(tile_id)
 		return
 
 	tile_selected.emit(tile_id)
+
+
+func create_tile_preview(tile_id: String) -> Control:
+	var button: Button = _tile_buttons.get(tile_id)
+	if button == null or not button.visible:
+		return null
+	var preview := Panel.new()
+	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	preview.modulate = Color.WHITE
+	preview.add_theme_stylebox_override("panel", button.get_theme_stylebox("normal").duplicate())
+	var source_art: TextureRect = _face_art[tile_id]
+	if source_art.texture != null:
+		var face_art := TextureRect.new()
+		face_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		face_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		face_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		face_art.set_anchors_preset(Control.PRESET_FULL_RECT)
+		var safe_area: Array = _tile_skin.geometry.get("face_safe_area", [92, 104, 328, 400])
+		var source_size: Array = _tile_skin.geometry.get("source_size", [512, 640])
+		face_art.anchor_left = float(safe_area[0]) / float(source_size[0])
+		face_art.anchor_top = float(safe_area[1]) / float(source_size[1])
+		face_art.anchor_right = float(safe_area[0] + safe_area[2]) / float(source_size[0])
+		face_art.anchor_bottom = float(safe_area[1] + safe_area[3]) / float(source_size[1])
+		preview.add_child(face_art)
+		face_art.texture = source_art.texture
+	var source_modifier: Label = _modifier_labels[tile_id]
+	if source_modifier.visible:
+		var modifier := Label.new()
+		modifier.text = source_modifier.text
+		modifier.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		modifier.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		modifier.anchor_left = 0.68
+		modifier.anchor_top = 0.02
+		modifier.anchor_right = 0.98
+		modifier.anchor_bottom = 0.25
+		modifier.add_theme_color_override("font_color", Color("fff7cf"))
+		preview.add_child(modifier)
+	return preview
+
+
+func tile_global_rect(tile_id: String) -> Rect2:
+	var button: Button = _tile_buttons.get(tile_id)
+	return Rect2() if button == null else button.get_global_rect()
+
+
+func negative_feedback_count() -> int:
+	return _negative_feedback_count
+
+
+func _play_negative_feedback(tile_id: String) -> void:
+	var button: Button = _tile_buttons.get(tile_id)
+	if button == null:
+		return
+	_negative_feedback_count += 1
+	var origin := button.position
+	var distance := clampf(button.size.x * 0.11, 3.0, 7.0)
+	var tween := create_tween().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tween.tween_property(button, "position:x", origin.x - distance, 0.045)
+	tween.tween_property(button, "position:x", origin.x + distance, 0.07)
+	tween.tween_property(button, "position:x", origin.x - distance * 0.5, 0.055)
+	tween.tween_property(button, "position:x", origin.x, 0.045)
+	_play_negative_tone()
+
+
+func _play_negative_tone() -> void:
+	if _audio_playback == null:
+		return
+	var frames := PackedVector2Array()
+	var frame_count := 2425
+	for frame in range(frame_count):
+		var progress := float(frame) / float(frame_count)
+		var frequency := lerpf(190.0, 105.0, progress)
+		var envelope := (1.0 - progress) * 0.18
+		var sample := sin(TAU * frequency * float(frame) / 22050.0) * envelope
+		frames.append(Vector2(sample, sample))
+	_audio_playback.push_buffer(frames)
 
 
 func _layout_tiles() -> void:
@@ -259,15 +355,18 @@ func _tile_tooltip(tile: Variant) -> String:
 	return "%s | %s level %d" % [label, str(modifier.type).replace("_", " ").capitalize(), int(modifier.level)]
 
 
-func _apply_tile_style(button: Button) -> void:
-	var face_color := Color("fffdf4")
-	var border_color := Color("35636b")
-	var border_width := 2
-
-	button.add_theme_stylebox_override("normal", _tile_style(face_color, border_color, border_width, Vector2(0.0, 3.0)))
-	button.add_theme_stylebox_override("hover", _tile_style(Color("ffffff"), Color("57d8b0"), 3, Vector2(0.0, 3.0)))
-	button.add_theme_stylebox_override("pressed", _tile_style(Color("e6f2e7"), Color("ef496f"), 4, Vector2(0.0, 1.0)))
-	button.add_theme_stylebox_override("disabled", _tile_style(Color("c8c9be"), Color("4b5554"), 2, Vector2(0.0, 2.0)))
+func _apply_tile_style(button: Button, selectable: bool) -> void:
+	var normal := _tile_style(Color("fffdf4"), Color("35636b"), 2, Vector2(0.0, 4.0))
+	var hover := _tile_style(Color("ffffff"), Color("57d8b0"), 3, Vector2(0.0, 4.0))
+	var pressed := _tile_style(Color("e6f2e7"), Color("ef496f"), 4, Vector2(0.0, 1.0))
+	if not selectable:
+		normal = _tile_style(Color("a7a99f"), Color("3d4746"), 2, Vector2(0.0, 3.0))
+		hover = normal
+		pressed = normal
+	button.add_theme_stylebox_override("normal", normal)
+	button.add_theme_stylebox_override("hover", hover)
+	button.add_theme_stylebox_override("pressed", pressed)
+	button.add_theme_stylebox_override("disabled", _tile_style(Color("8f9189"), Color("394140"), 2, Vector2(0.0, 2.0)))
 	button.add_theme_color_override("font_color", Color("202625"))
 	button.add_theme_color_override("font_hover_color", Color("111615"))
 	button.add_theme_color_override("font_pressed_color", Color("111615"))

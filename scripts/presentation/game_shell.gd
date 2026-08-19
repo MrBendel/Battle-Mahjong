@@ -11,6 +11,11 @@ const BoardLayoutCatalogScript := preload("res://scripts/simulation/board_layout
 const MomentumTuningScript := preload("res://scripts/configuration/momentum_tuning.gd")
 const ModifierTuningScript := preload("res://scripts/configuration/modifier_tuning.gd")
 const ConsumablesViewScript := preload("res://scripts/presentation/consumables_view.gd")
+const TileSkinScript := preload("res://scripts/presentation/tile_skin.gd")
+const PairMatchFxScript := preload("res://scripts/presentation/pair_match_fx.gd")
+const GameChangeScript := preload("res://scripts/simulation/game_change.gd")
+const GameStateDataScript := preload("res://scripts/simulation/game_state_data.gd")
+const GAMEPLAY_BACKGROUND := preload("res://game-assets/backgrounds/gameplay_brush_arcade.png")
 const START_SEED := 92817361
 
 @export var momentum_tuning: Resource
@@ -23,6 +28,12 @@ var _debug_panel: PanelContainer
 var _game: Variant
 var _game_started_at_ms := 0
 var _delete_pair_armed := false
+var _tile_skin: Variant
+var _tile_motion_count := 0
+var _last_tile_motion_target := Rect2()
+var _pair_feedback_count := 0
+var _last_pair_feedback_position := Vector2()
+var _gameplay_background: TextureRect
 
 func _ready() -> void:
 	_build_shell()
@@ -31,11 +42,13 @@ func _ready() -> void:
 
 
 func _build_shell() -> void:
+	_build_gameplay_background()
 	_game = _create_game()
+	_tile_skin = TileSkinScript.new()
 	_game_started_at_ms = Time.get_ticks_msec()
-	_regions.board = BoardViewScript.new(_game)
+	_regions.board = BoardViewScript.new(_game, _tile_skin)
 	_regions.momentum = MomentumViewScript.new(_game)
-	_regions.tray = TrayViewScript.new(_game)
+	_regions.tray = TrayViewScript.new(_game, _tile_skin)
 	_regions.consumables = ConsumablesViewScript.new(_game)
 	_regions.character = _make_region("Character / FX", "decorative reaction space", Color(0.17, 0.11, 0.13, 1.0))
 
@@ -51,6 +64,24 @@ func _build_shell() -> void:
 
 	_debug_panel = DebugPanelScript.new()
 	add_child(_debug_panel)
+
+
+func _build_gameplay_background() -> void:
+	_gameplay_background = TextureRect.new()
+	_gameplay_background.name = "GameplayBackground"
+	_gameplay_background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_gameplay_background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_gameplay_background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_gameplay_background.texture = GAMEPLAY_BACKGROUND
+	_gameplay_background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_gameplay_background)
+
+	var wash := ColorRect.new()
+	wash.name = "GameplayBackgroundWash"
+	wash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	wash.color = Color(0.01, 0.025, 0.025, 0.24)
+	wash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(wash)
 
 
 func _create_game() -> Variant:
@@ -97,15 +128,41 @@ func _create_game() -> Variant:
 
 func _on_tile_selected(tile_id: String) -> void:
 	var result: String
+	var tile_preview: Control = null
+	var matching_preview: Control = null
+	var source_rect := Rect2()
+	var target_rect := Rect2()
 	if _delete_pair_armed:
 		_delete_pair_armed = false
 		_regions.board.call("set_delete_pair_armed", false)
 		result = _game.call("delete_pair", tile_id, _playback_time_ms())
 		if result == GameStateScript.NO_DELETABLE_PAIR:
 			_regions.consumables.call("show_notice", "That tile has no available matching pair.")
+		elif result == GameStateScript.PAIR_DELETED:
+			var transaction: Variant = _game.call("last_transaction")
+			var removal_visuals := _capture_board_visuals(_resolved_tile_ids(transaction))
+			_refresh_game_views()
+			_play_board_pair_removal(removal_visuals)
+			return
 	else:
+		var matching_index := _matching_tray_index(tile_id)
+		tile_preview = _regions.board.call("create_tile_preview", tile_id)
+		source_rect = _regions.board.call("tile_global_rect", tile_id)
+		var target_index: int = matching_index if matching_index >= 0 else mini(_game.tray.tiles.size(), 3)
+		target_rect = _regions.tray.call("slot_global_rect", target_index)
+		if matching_index >= 0:
+			matching_preview = _regions.tray.call("create_tile_preview", matching_index)
 		result = _game.call("select_tile", tile_id, _playback_time_ms())
 	_refresh_game_views()
+	if tile_preview != null and result != GameStateScript.INVALID_SELECTION:
+		if result == GameStateScript.PAIR_RESOLVED:
+			_play_pair_to_tray(tile_preview, matching_preview, source_rect, target_rect)
+		else:
+			_play_tile_to_tray(tile_preview, source_rect, target_rect)
+	elif tile_preview != null:
+		tile_preview.queue_free()
+	if matching_preview != null and result != GameStateScript.PAIR_RESOLVED:
+		matching_preview.queue_free()
 	if result == GameStateScript.PAIR_RESOLVED:
 		var transaction: Variant = _game.call("last_transaction")
 		_regions.momentum.call("play_pair_feedback", int(transaction.telemetry.resulting_multiplier))
@@ -160,6 +217,124 @@ func _refresh_game_views() -> void:
 	_regions.consumables.call("refresh")
 
 
+func _play_tile_to_tray(preview: Control, source_rect: Rect2, target_rect: Rect2) -> void:
+	add_child(preview)
+	preview.position = _global_to_local(source_rect.position)
+	preview.size = source_rect.size
+	preview.pivot_offset = preview.size * 0.5
+	preview.z_index = 1000
+	var target_position: Vector2 = _global_to_local(target_rect.position)
+	var target_size := target_rect.size
+	_tile_motion_count += 1
+	_last_tile_motion_target = target_rect
+	var tween := create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
+	tween.set_parallel(true)
+	tween.tween_property(preview, "position", target_position, 0.18)
+	tween.tween_property(preview, "size", target_size, 0.18)
+	tween.tween_property(preview, "rotation", deg_to_rad(-3.0), 0.09)
+	tween.chain().tween_property(preview, "modulate:a", 0.0, 0.06)
+	tween.finished.connect(preview.queue_free)
+
+
+func _play_pair_to_tray(incoming: Control, held: Control, source_rect: Rect2, target_rect: Rect2) -> void:
+	add_child(incoming)
+	incoming.position = _global_to_local(source_rect.position)
+	incoming.size = source_rect.size
+	incoming.pivot_offset = incoming.size * 0.5
+	incoming.z_index = 1000
+	if held != null:
+		add_child(held)
+		held.position = _global_to_local(target_rect.position)
+		held.size = target_rect.size
+		held.pivot_offset = held.size * 0.5
+		held.z_index = 999
+	_tile_motion_count += 1
+	_last_tile_motion_target = target_rect
+	var target_position := _global_to_local(target_rect.position)
+	var tween := create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.set_parallel(true)
+	tween.tween_property(incoming, "position", target_position, 0.15)
+	tween.tween_property(incoming, "size", target_rect.size, 0.15)
+	tween.tween_property(incoming, "rotation", deg_to_rad(4.0), 0.15)
+	tween.finished.connect(_play_pair_pop.bind([incoming, held], target_rect.get_center()))
+
+
+func _play_board_pair_removal(visuals: Array) -> void:
+	if visuals.is_empty():
+		return
+	var center := Vector2()
+	for visual in visuals:
+		var preview: Control = visual.preview
+		var rect: Rect2 = visual.rect
+		add_child(preview)
+		preview.position = _global_to_local(rect.position)
+		preview.size = rect.size
+		preview.pivot_offset = preview.size * 0.5
+		preview.z_index = 1000
+		center += rect.get_center()
+	center /= float(visuals.size())
+	_play_pair_pop(visuals.map(func(visual: Dictionary) -> Variant: return visual.preview), center)
+
+
+func _play_pair_pop(previews: Array, global_center: Vector2) -> void:
+	_pair_feedback_count += 1
+	_last_pair_feedback_position = global_center
+	_spawn_match_burst(global_center)
+	for preview in previews:
+		if preview == null or not is_instance_valid(preview):
+			continue
+		var tween := create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tween.set_parallel(true)
+		tween.tween_property(preview, "scale", Vector2(1.18, 1.18), 0.08)
+		tween.tween_property(preview, "rotation", 0.0, 0.08)
+		tween.chain().set_parallel(true)
+		tween.tween_property(preview, "scale", Vector2(0.72, 0.72), 0.13)
+		tween.tween_property(preview, "modulate:a", 0.0, 0.13)
+		tween.finished.connect(preview.queue_free)
+
+
+func _spawn_match_burst(global_center: Vector2) -> void:
+	var burst: Control = PairMatchFxScript.new()
+	add_child(burst)
+	burst.position = _global_to_local(global_center) - burst.size * 0.5
+	burst.z_index = 1001
+
+
+func _matching_tray_index(tile_id: String) -> int:
+	var tile: Variant = _game.definition.get_tile(tile_id)
+	if tile == null:
+		return -1
+	for index in range(_game.tray.tiles.size()):
+		var held: Variant = _game.tray.tiles[index]
+		if held.face.family == tile.face.family and held.face.value == tile.face.value:
+			return index
+	return -1
+
+
+func _resolved_tile_ids(transaction: Variant) -> Array[String]:
+	var resolved: Array[String] = []
+	for change in transaction.changes:
+		if change.type == GameChangeScript.TILE_ZONE and change.after == GameStateDataScript.ZONE_RESOLVED:
+			resolved.append(change.target)
+	return resolved
+
+
+func _capture_board_visuals(tile_ids: Array[String]) -> Array:
+	var visuals: Array = []
+	for tile_id in tile_ids:
+		var preview: Control = _regions.board.call("create_tile_preview", tile_id)
+		if preview != null:
+			visuals.append({
+				"preview": preview,
+				"rect": _regions.board.call("tile_global_rect", tile_id),
+			})
+	return visuals
+
+
+func _global_to_local(point: Vector2) -> Vector2:
+	return get_global_transform_with_canvas().affine_inverse() * point
+
+
 func _process(_delta: float) -> void:
 	if _game != null and _regions.has("momentum"):
 		_regions.momentum.call("refresh", _playback_time_ms())
@@ -200,8 +375,13 @@ func _apply_layout() -> void:
 	var viewport_i := Vector2i(int(viewport_size.x), int(viewport_size.y))
 	var orientation := "Landscape" if viewport_size.x >= viewport_size.y else "Portrait"
 
+	for region in _regions.values():
+		region.visible = true
+	_debug_panel.visible = true
 	if orientation == "Landscape":
 		_apply_landscape_layout(viewport_size)
+	elif viewport_size.y < 800.0:
+		_apply_compact_portrait_layout(viewport_size)
 	else:
 		_apply_portrait_layout(viewport_size)
 
@@ -255,6 +435,23 @@ func _apply_portrait_layout(size: Vector2) -> void:
 	_place(_regions.tray, Rect2(margin, board_top + board_height + gap, usable_width, tray_height))
 	_place(_regions.consumables, Rect2(margin, board_top + board_height + gap + tray_height + gap, usable_width, consumables_height))
 	_place(_regions.character, Rect2(margin, character_top, usable_width, character_height))
+
+
+func _apply_compact_portrait_layout(size: Vector2) -> void:
+	var margin := 10.0
+	var gap := 8.0
+	var usable_width := size.x - margin * 2.0
+	var momentum_height := 58.0
+	var tray_height := 76.0
+	var consumables_height := 82.0
+	var board_top := margin + momentum_height + gap
+	var board_height := size.y - board_top - gap - tray_height - gap - consumables_height - margin
+	_place(_regions.momentum, Rect2(margin, margin, usable_width, momentum_height))
+	_place(_regions.board, Rect2(margin, board_top, usable_width, board_height))
+	_place(_regions.tray, Rect2(margin, board_top + board_height + gap, usable_width, tray_height))
+	_place(_regions.consumables, Rect2(margin, board_top + board_height + gap + tray_height + gap, usable_width, consumables_height))
+	_regions.character.visible = false
+	_debug_panel.visible = false
 
 
 func _place(control: Control, rect: Rect2) -> void:

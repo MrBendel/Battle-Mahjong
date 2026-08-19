@@ -1,6 +1,6 @@
 # Tile Art Pipeline
 
-Status: M7 Batch A contract proof
+Status: M7 Batch A complete Default face candidate set
 
 This document defines the first implemented tile-art contract. It separates gameplay identity, cosmetic presentation, source masters, and runtime exports.
 
@@ -56,7 +56,9 @@ Rules:
 - Alpha is straight, not premultiplied.
 - File names are stable logical face IDs such as `bamboo_1.svg` and `red_dragon.svg`.
 - Runtime PNG files are generated outputs and must not be edited directly.
+- Run `godot --headless --path . --script res://scripts/tools/generate_default_tile_faces.gd` to regenerate the brush-arcade Default SVG candidate set.
 - Run `godot --headless --path . --script res://scripts/tools/export_tile_art.gd` after changing tile SVG masters.
+- Run `godot --headless --editor --path . --quit` after export on a fresh checkout so Godot imports every runtime PNG before headless tests.
 - Small vector masters and runtime exports remain in Git. Large character, background, audio, and layered-painting storage remains an M7 production decision.
 
 The proof uses individual PNG files so framing and import behavior are easy to inspect. Build atlases after the complete Default face set exists; do not make atlas coordinates part of gameplay identity.
@@ -69,12 +71,22 @@ The loader requires the initial 34 IDs but does not reject additional face defin
 
 Missing face art intentionally falls back to live text during production. A skin is not production-complete until every identity used by a game definition has artwork and both text fallback and placeholder mappings are disabled for release.
 
-## Current Proof Assets
+## Current Default Assets
 
-The first pass includes representative Default artwork for `bamboo_1`, `dots_5`, `characters_9`, `east`, `red_dragon`, and the ceramic tile base. These samples validate every face family and the export/import/layering pipeline. They do not complete M7 Batch A.
+The Default candidate set contains all 34 Bamboo, Dots, Characters, Winds, and Dragons as editable SVG masters and runtime PNG exports. The treatment preserves familiar family and count structure while using heavy rounded strokes, loose registration, bright arcade color, and brush accents.
+
+The board and tray consume the same skin manifest. Blocked tiles are darkened without changing their face asset. A blocked tap produces a short horizontal rejection motion and generated negative tone without submitting a gameplay command. Successful ordinary selections commit immediately, then animate a presentation-only duplicate into the next tray slot. A committed pair converges on the matching tray slot and composes the reusable `PairMatchFx` burst; Delete Pair composes the same removal primitive over its resolved board tiles.
+
+These are production candidates with replaceable masters, not final approval of every glyph. Gameplay still uses the existing 24 abstract identities through the presentation-only map.
 
 ## Validation
 
-Automated checks cover all 34 required IDs and uniqueness, canonical honor naming, all 24 temporary mappings, geometry values, representative runtime assets, independent face/modifier layers, and board containment in portrait and landscape.
+Automated checks cover all 34 required IDs and runtime assets, uniqueness, canonical honor naming, all 24 temporary mappings, geometry values, independent face/modifier layers, board-to-tray motion targeting, blocked-tap isolation, transaction-gated pair feedback, shared Delete Pair removal feedback, responsive background coverage, and board containment in landscape, phone portrait, and `375 x 667` compact portrait.
 
-Visual review at `32 x 40` remains required for every completed Default and Neon face before M7 can be considered done.
+The compact-phone board currently holds the minimum contract at approximately `33 x 42`. Continued visual review at `32 x 40` remains required for Default refinements and every Neon face before M7 can be considered done.
+
+## Gameplay Background
+
+The first gameplay-background source master lives at `art-source/backgrounds/gameplay_brush_arcade.png`; its generation prompt and export contract live beside it. The downsampled runtime export lives at `game-assets/backgrounds/gameplay_brush_arcade.png`.
+
+Presentation uses an aspect-covered center crop plus a subtle dark wash. The center remains low-noise beneath the board while the outer brushwork can crop aggressively or disappear on compact viewports. Background imagery is cosmetic and has no simulation dependency.

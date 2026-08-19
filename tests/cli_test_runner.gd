@@ -88,9 +88,9 @@ func _run_tile_skin_contract_tests() -> void:
 	_check_equal(Vector2i(32, 40), Vector2i(skin.geometry.minimum_runtime_size[0], skin.geometry.minimum_runtime_size[1]), "skin records minimum runtime footprint")
 	_check_equal(24, skin.reference_preview_mapping.size(), "current abstract deal has an explicit visual preview map")
 	_check_equal("bamboo_1", skin.call("presentation_id", TileFaceScript.new("reference", "01")), "reference mapping does not change simulation identity")
-	for face_id in ["bamboo_1", "dots_5", "characters_9", "east", "red_dragon"]:
+	for face_id in skin.canonical_face_ids:
 		var definition: Dictionary = skin.faces[face_id]
-		_check(ResourceLoader.exists(str(definition.asset)), "%s representative runtime asset exists" % face_id)
+		_check(ResourceLoader.exists(str(definition.get("asset", ""))), "%s Default runtime asset exists" % face_id)
 
 
 func _run_board_selectability_tests() -> void:

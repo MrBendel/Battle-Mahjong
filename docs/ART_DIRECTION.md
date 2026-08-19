@@ -134,6 +134,11 @@ Status: Initial M7 Direction
 - Small repeated assets will use atlases where validation confirms they are appropriate.
 - The implemented Batch A proof uses `512 x 640` SVG masters, `256 x 320` PNG exports, a `328 x 400` face safe area, and independent modifier overlays. See [Tile Art Pipeline](TILE_ART_PIPELINE.md).
 - The 34 traditional identities are the required first vocabulary, not a permanent maximum.
+- The complete Default candidate set uses recognizable family/count structure with heavy rounded strokes, bright arcade color, loose brush accents, and chunky ceramic presentation.
+- Normally unselectable tiles darken. Rejected taps wiggle horizontally with a negative tone; accepted selections animate into their tray slot.
+- A committed pair converges on its tray slot and composes a reusable radial impact burst; Delete Pair uses the same removal primitive directly on the board. These effects never delay or mutate simulation.
+- The first gameplay background uses a calm charcoal and ink-green center with crimson, cyan, and warm-yellow dry-brush energy at the perimeter. It is aspect-covered and center-cropped so the portrait master also supports landscape.
+- Compact portrait support is validated at `375 x 667`; decorative character and debug regions disappear before gameplay regions shrink below their contract.
 
 Status: Open Question
 
