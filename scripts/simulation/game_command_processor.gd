@@ -291,13 +291,13 @@ func _build_delete_pair(command: Variant, definition: Variant, state: Variant) -
 		return {"result": CONSUMABLE_UNAVAILABLE}
 	var tile_id: String = str(command.payload.get("tile_id", ""))
 	var board := BoardStateScript.new(definition, state)
-	if not board.call("is_tile_selectable", tile_id):
+	if not board.call("is_tile_visible", tile_id):
 		return {"result": NO_DELETABLE_PAIR}
 	var tile: Variant = board.call("get_tile", tile_id)
-	var selectable: Array = board.call("selectable_tiles")
-	selectable.sort_custom(func(first: Variant, second: Variant) -> bool: return first.id < second.id)
+	var visible: Array = board.call("visible_tiles")
+	visible.sort_custom(func(first: Variant, second: Variant) -> bool: return first.id < second.id)
 	var partner_id := ""
-	for candidate in selectable:
+	for candidate in visible:
 		if candidate.id != tile_id and candidate.face.equals(tile.face):
 			partner_id = candidate.id
 			break

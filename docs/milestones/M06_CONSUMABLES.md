@@ -29,7 +29,9 @@ Undo retains the existing append-only compensation behavior and now requires an 
 
 ## Delete Pair
 
-The player arms Delete Pair and selects a currently selectable board tile. The simulation removes it with the lowest-ID currently selectable matching physical tile. A successful assisted pair:
+The player arms Delete Pair and selects any visible board tile, including a partially covered or side-blocked tile that cannot be moved normally. The simulation removes it with the lowest-ID visible matching physical tile. Visibility means at least part of the tile's footprint is not covered by higher active tiles; one or more higher tiles may collectively make a tile fully hidden.
+
+A successful assisted pair:
 
 - consumes one Delete Pair;
 - increments selection and resolved-pair counters;
@@ -37,7 +39,7 @@ The player arms Delete Pair and selects a currently selectable board tile. The s
 - advances pair-based Tray +1 duration; and
 - awards no score or momentum.
 
-Blocked tiles and targets without a selectable mate are rejected without consumption.
+Fully hidden tiles and targets without a visible mate are rejected without consumption. Ordinary movement selectability does not constrain Delete Pair.
 
 ## Tray-Aware Shuffle
 

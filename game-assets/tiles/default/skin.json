@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "id": "default",
+  "display_name": "Default Ceramic",
+  "geometry": {
+    "source_size": [512, 640],
+    "runtime_size": [256, 320],
+    "face_safe_area": [92, 104, 328, 400],
+    "modifier_bounds": [384, 32, 96, 96],
+    "atlas_padding": 8,
+    "minimum_runtime_size": [32, 40]
+  },
+  "canonical_face_ids": [
+    "bamboo_1", "bamboo_2", "bamboo_3", "bamboo_4", "bamboo_5", "bamboo_6", "bamboo_7", "bamboo_8", "bamboo_9",
+    "dots_1", "dots_2", "dots_3", "dots_4", "dots_5", "dots_6", "dots_7", "dots_8", "dots_9",
+    "characters_1", "characters_2", "characters_3", "characters_4", "characters_5", "characters_6", "characters_7", "characters_8", "characters_9",
+    "east", "south", "west", "north", "red_dragon", "green_dragon", "white_dragon"
+  ],
+  "faces": {
+    "bamboo_1": {"label": "BAM\n1", "asset": "res://game-assets/tiles/default/faces/bamboo_1.png"},
+    "bamboo_2": {"label": "BAM\n2"},
+    "bamboo_3": {"label": "BAM\n3"},
+    "bamboo_4": {"label": "BAM\n4"},
+    "bamboo_5": {"label": "BAM\n5"},
+    "bamboo_6": {"label": "BAM\n6"},
+    "bamboo_7": {"label": "BAM\n7"},
+    "bamboo_8": {"label": "BAM\n8"},
+    "bamboo_9": {"label": "BAM\n9"},
+    "dots_1": {"label": "DOT\n1"},
+    "dots_2": {"label": "DOT\n2"},
+    "dots_3": {"label": "DOT\n3"},
+    "dots_4": {"label": "DOT\n4"},
+    "dots_5": {"label": "DOT\n5", "asset": "res://game-assets/tiles/default/faces/dots_5.png"},
+    "dots_6": {"label": "DOT\n6"},
+    "dots_7": {"label": "DOT\n7"},
+    "dots_8": {"label": "DOT\n8"},
+    "dots_9": {"label": "DOT\n9"},
+    "characters_1": {"label": "CHR\n1"},
+    "characters_2": {"label": "CHR\n2"},
+    "characters_3": {"label": "CHR\n3"},
+    "characters_4": {"label": "CHR\n4"},
+    "characters_5": {"label": "CHR\n5"},
+    "characters_6": {"label": "CHR\n6"},
+    "characters_7": {"label": "CHR\n7"},
+    "characters_8": {"label": "CHR\n8"},
+    "characters_9": {"label": "CHR\n9", "asset": "res://game-assets/tiles/default/faces/characters_9.png"},
+    "east": {"label": "EAST", "asset": "res://game-assets/tiles/default/faces/east.png"},
+    "south": {"label": "SOUTH"},
+    "west": {"label": "WEST"},
+    "north": {"label": "NORTH"},
+    "red_dragon": {"label": "RED", "asset": "res://game-assets/tiles/default/faces/red_dragon.png"},
+    "green_dragon": {"label": "GREEN"},
+    "white_dragon": {"label": "WHITE"}
+  },
+  "reference_preview_mapping": {
+    "reference_01": "bamboo_1", "reference_02": "bamboo_2", "reference_03": "bamboo_3", "reference_04": "bamboo_4", "reference_05": "bamboo_5", "reference_06": "bamboo_6",
+    "reference_07": "dots_1", "reference_08": "dots_2", "reference_09": "dots_3", "reference_10": "dots_4", "reference_11": "dots_5", "reference_12": "dots_6",
+    "reference_13": "characters_1", "reference_14": "characters_2", "reference_15": "characters_3", "reference_16": "characters_4", "reference_17": "characters_5", "reference_18": "characters_6",
+    "reference_19": "east", "reference_20": "south", "reference_21": "west", "reference_22": "north", "reference_23": "red_dragon", "reference_24": "green_dragon"
+  }
+}

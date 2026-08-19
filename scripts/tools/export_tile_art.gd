@@ -1,0 +1,47 @@
+extends SceneTree
+
+const SOURCE_ROOT := "res://art-source/tiles"
+const RUNTIME_ROOT := "res://game-assets/tiles"
+const RUNTIME_SCALE := 0.5
+
+
+func _init() -> void:
+	var failures := _export_directory(SOURCE_ROOT)
+	if failures == 0:
+		printerr("Exported tile SVG masters to runtime PNG assets.")
+	else:
+		printerr("Failed to export %d tile asset(s)." % failures)
+	quit(1 if failures > 0 else 0)
+
+
+func _export_directory(source_directory: String) -> int:
+	var failures := 0
+	for directory_name in DirAccess.get_directories_at(source_directory):
+		failures += _export_directory(source_directory.path_join(directory_name))
+	for file_name in DirAccess.get_files_at(source_directory):
+		if file_name.get_extension().to_lower() != "svg":
+			continue
+		var source_path := source_directory.path_join(file_name)
+		var relative_path := source_path.trim_prefix(SOURCE_ROOT + "/")
+		var output_path := RUNTIME_ROOT.path_join(relative_path.get_basename() + ".png")
+		if not _export_svg(source_path, output_path):
+			failures += 1
+	return failures
+
+
+func _export_svg(source_path: String, output_path: String) -> bool:
+	var image := Image.new()
+	var error := image.load_svg_from_string(FileAccess.get_file_as_string(source_path), RUNTIME_SCALE)
+	if error != OK:
+		push_error("Could not rasterize %s: %s" % [source_path, error_string(error)])
+		return false
+	var absolute_directory := ProjectSettings.globalize_path(output_path.get_base_dir())
+	if DirAccess.make_dir_recursive_absolute(absolute_directory) != OK:
+		push_error("Could not create runtime asset directory: %s" % output_path.get_base_dir())
+		return false
+	error = image.save_png(output_path)
+	if error != OK:
+		push_error("Could not write %s: %s" % [output_path, error_string(error)])
+		return false
+	printerr("%s -> %s" % [source_path, output_path])
+	return true

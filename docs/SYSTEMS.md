@@ -101,7 +101,7 @@ Select a tile and automatically remove it together with a valid matching tile.
 
 Status: Implemented M6 baseline
 
-The target and its match must both be selectable. The lowest-ID selectable match is chosen deterministically. Assisted removal triggers attached modifiers but awards no score or momentum.
+The target and its match must both be visible, but neither needs to satisfy ordinary movement selectability. Side-blocked and partially covered tiles are valid; a tile whose complete footprint is covered by one or more higher tiles is not. The lowest-ID visible match is chosen deterministically. Assisted removal triggers attached modifiers but awards no score or momentum.
 
 ### Shuffle
 

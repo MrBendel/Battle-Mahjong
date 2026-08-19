@@ -40,6 +40,15 @@ func selectable_tiles() -> Array:
 	return _selectable_tiles_from(active_tiles())
 
 
+func visible_tiles() -> Array:
+	var active := active_tiles()
+	var visible: Array = []
+	for tile in active:
+		if _selectability.call("is_visible", tile, active):
+			visible.append(tile)
+	return visible
+
+
 func selectable_tiles_without(tile_id: String) -> Array:
 	return _selectable_tiles_from(_active_tiles_excluding(tile_id))
 
@@ -51,6 +60,11 @@ func is_tile_active(tile_id: String) -> bool:
 func is_tile_selectable(tile_id: String) -> bool:
 	var tile: Variant = get_tile(tile_id)
 	return tile != null and _selectability.call("is_selectable", tile, active_tiles())
+
+
+func is_tile_visible(tile_id: String) -> bool:
+	var tile: Variant = get_tile(tile_id)
+	return tile != null and _selectability.call("is_visible", tile, active_tiles())
 
 
 func _active_tiles_excluding(excluded_tile_id: String) -> Array:

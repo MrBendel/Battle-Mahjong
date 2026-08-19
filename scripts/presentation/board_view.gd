@@ -1,6 +1,8 @@
 extends Control
 class_name BoardView
 
+const TileSkinScript := preload("res://scripts/presentation/tile_skin.gd")
+
 signal tile_selected(tile_id: String)
 
 const TILE_ASPECT := 1.26
@@ -9,13 +11,18 @@ const BOARD_MARGIN := 14.0
 
 var _game: Variant
 var _tile_buttons: Dictionary = {}
+var _face_art: Dictionary = {}
+var _modifier_labels: Dictionary = {}
 var _title_label: Label
 var _status_label: Label
 var _tile_layer: Control
+var _tile_skin: Variant
+var _delete_pair_armed := false
 
 
-func _init(game_state: Variant) -> void:
+func _init(game_state: Variant, tile_skin: Variant = null) -> void:
 	_game = game_state
+	_tile_skin = TileSkinScript.new() if tile_skin == null else tile_skin
 
 
 func _ready() -> void:
@@ -27,8 +34,14 @@ func _ready() -> void:
 
 func set_game_state(game_state: Variant) -> void:
 	_game = game_state
+	_delete_pair_armed = false
 	_rebuild_tiles()
 	_layout_tiles()
+
+
+func set_delete_pair_armed(armed: bool) -> void:
+	_delete_pair_armed = armed
+	refresh()
 
 
 func _build() -> void:
@@ -59,17 +72,39 @@ func _rebuild_tiles() -> void:
 	for button in _tile_buttons.values():
 		button.queue_free()
 	_tile_buttons.clear()
+	_face_art.clear()
+	_modifier_labels.clear()
 
 	for tile in _game.board.tiles:
 		var button := Button.new()
 		button.name = tile.id
-		button.text = _tile_label(tile)
 		button.tooltip_text = _tile_tooltip(tile)
 		button.focus_mode = Control.FOCUS_NONE
 		button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		button.pressed.connect(_on_tile_pressed.bind(tile.id))
+
+		var face_art := TextureRect.new()
+		face_art.name = "FaceArt"
+		face_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		face_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		face_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		button.add_child(face_art)
+
+		var modifier_label := Label.new()
+		modifier_label.name = "Modifier"
+		modifier_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		modifier_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		modifier_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		modifier_label.add_theme_color_override("font_color", Color("fff7cf"))
+		modifier_label.add_theme_color_override("font_shadow_color", Color("17343b"))
+		modifier_label.add_theme_constant_override("shadow_offset_x", 1)
+		modifier_label.add_theme_constant_override("shadow_offset_y", 1)
+		button.add_child(modifier_label)
+
 		_tile_layer.add_child(button)
 		_tile_buttons[tile.id] = button
+		_face_art[tile.id] = face_art
+		_modifier_labels[tile.id] = modifier_label
 
 	refresh()
 
@@ -77,11 +112,14 @@ func _rebuild_tiles() -> void:
 func refresh() -> void:
 	var active_count: int = _game.board.call("active_tiles").size()
 	var selectable_ids := {}
+	var visible_ids := {}
 	var hinted_ids := {}
 	for hinted_tile_id in _game.call("hinted_tile_ids"):
 		hinted_ids[hinted_tile_id] = true
 	for tile in _game.board.call("selectable_tiles"):
 		selectable_ids[tile.id] = true
+	for tile in _game.board.call("visible_tiles"):
+		visible_ids[tile.id] = true
 
 	for tile in _game.board.tiles:
 		var button: Button = _tile_buttons[tile.id]
@@ -90,12 +128,24 @@ func refresh() -> void:
 		if not active:
 			continue
 
-		var selectable: bool = selectable_ids.has(tile.id) and _game.status == "playing"
+		var selectable: bool = (_delete_pair_armed and visible_ids.has(tile.id) \
+			or not _delete_pair_armed and selectable_ids.has(tile.id)) \
+			and _game.status == "playing"
 		button.disabled = not selectable
 		button.modulate = Color.WHITE if selectable else Color(0.58, 0.61, 0.60)
-		_apply_tile_style(button, tile.face.value)
+		_apply_tile_style(button)
+		if _delete_pair_armed and selectable:
+			button.add_theme_stylebox_override("normal", _tile_style(Color("fff8e8"), Color("ef496f"), 4, Vector2(0.0, 3.0)))
+		var texture: Texture2D = _tile_skin.texture_for_face(tile.face)
+		var face_art: TextureRect = _face_art[tile.id]
+		face_art.texture = texture
+		face_art.visible = texture != null
+		button.text = "" if texture != null else _tile_label(tile)
+		var modifier_label: Label = _modifier_labels[tile.id]
+		modifier_label.text = _modifier_symbol(tile)
+		modifier_label.visible = not modifier_label.text.is_empty()
 		if hinted_ids.has(tile.id):
-			button.add_theme_stylebox_override("normal", _tile_style(_face_color(tile.face.value).lightened(0.12), Color("ffd166"), 5, Vector2(0.0, 3.0)))
+			button.add_theme_stylebox_override("normal", _tile_style(Color("fffdf4"), Color("ffd166"), 5, Vector2(0.0, 3.0)))
 
 	if active_count == 0:
 		_status_label.text = "Board cleared"
@@ -105,7 +155,9 @@ func refresh() -> void:
 
 
 func _on_tile_pressed(tile_id: String) -> void:
-	if _game.status != "playing" or not _game.board.call("is_tile_selectable", tile_id):
+	var targetable: bool = _game.board.call("is_tile_visible", tile_id) if _delete_pair_armed \
+		else _game.board.call("is_tile_selectable", tile_id)
+	if _game.status != "playing" or not targetable:
 		return
 
 	tile_selected.emit(tile_id)
@@ -151,6 +203,21 @@ func _layout_tiles() -> void:
 		button.size = tile_size - Vector2(3.0, 3.0)
 		button.z_index = tile.position.z * 100 + int(tile.position.y)
 		button.add_theme_font_size_override("font_size", clampi(int(tile_size.x * 0.25), 10, 18))
+		var safe_area: Array = _tile_skin.geometry.get("face_safe_area", [92, 104, 328, 400])
+		var source_size: Array = _tile_skin.geometry.get("source_size", [512, 640])
+		var face_art: TextureRect = _face_art[tile.id]
+		face_art.position = Vector2(
+			float(safe_area[0]) / float(source_size[0]) * button.size.x,
+			float(safe_area[1]) / float(source_size[1]) * button.size.y
+		)
+		face_art.size = Vector2(
+			float(safe_area[2]) / float(source_size[0]) * button.size.x,
+			float(safe_area[3]) / float(source_size[1]) * button.size.y
+		)
+		var modifier_label: Label = _modifier_labels[tile.id]
+		modifier_label.position = Vector2(button.size.x * 0.68, button.size.y * 0.02)
+		modifier_label.size = Vector2(button.size.x * 0.30, button.size.y * 0.23)
+		modifier_label.add_theme_font_size_override("font_size", clampi(int(tile_size.x * 0.19), 8, 15))
 
 
 func _grid_bounds() -> Rect2i:
@@ -167,62 +234,44 @@ func _grid_bounds() -> Rect2i:
 	return Rect2i(minimum, maximum - minimum)
 
 
-func _face_label(value: String) -> String:
-	var identity := int(value) - 1
-	var families := ["BAM", "DOT", "CHR", "HON"]
-	return "%s\n%d" % [families[identity / 6], identity % 6 + 1]
-
-
 func _tile_label(tile: Variant) -> String:
-	var label := _face_label(tile.face.value)
+	return _tile_skin.label_for_face(tile.face)
+
+
+func _modifier_symbol(tile: Variant) -> String:
 	var modifier: Dictionary = _game.definition.modifier_for_tile(tile.id)
 	if modifier.is_empty():
-		return label
+		return ""
 	var symbols := {
 		"extra_life": "♥",
 		"cold_snap": "❄",
 		"score_multiplier": "×",
 		"tray_plus_one": "+1",
 	}
-	return "%s\n%s L%d" % [label.replace("\n", " "), symbols.get(modifier.type, "★"), int(modifier.level)]
+	return "%s%d" % [symbols.get(modifier.type, "★"), int(modifier.level)]
 
 
 func _tile_tooltip(tile: Variant) -> String:
-	var label := _face_label(tile.face.value).replace("\n", " ")
+	var label: String = _tile_skin.label_for_face(tile.face).replace("\n", " ")
 	var modifier: Dictionary = _game.definition.modifier_for_tile(tile.id)
 	if modifier.is_empty():
 		return label
 	return "%s | %s level %d" % [label, str(modifier.type).replace("_", " ").capitalize(), int(modifier.level)]
 
 
-func _apply_tile_style(button: Button, value: String) -> void:
-	var identity := int(value) - 1
-	var face_colors := [
-		Color("d8ead6"),
-		Color("f0d7d2"),
-		Color("d4e3f2"),
-		Color("f1e1b8"),
-	]
-	var face_color: Color = face_colors[identity / 6]
-	var border_color := Color("6c7775")
+func _apply_tile_style(button: Button) -> void:
+	var face_color := Color("fffdf4")
+	var border_color := Color("35636b")
 	var border_width := 2
 
 	button.add_theme_stylebox_override("normal", _tile_style(face_color, border_color, border_width, Vector2(0.0, 3.0)))
-	button.add_theme_stylebox_override("hover", _tile_style(face_color.lightened(0.08), Color("e8f2ef"), 3, Vector2(0.0, 3.0)))
-	button.add_theme_stylebox_override("pressed", _tile_style(face_color.darkened(0.08), Color("56d6a5"), 4, Vector2(0.0, 1.0)))
-	button.add_theme_stylebox_override("disabled", _tile_style(face_color.darkened(0.18), Color("4b5554"), 2, Vector2(0.0, 2.0)))
+	button.add_theme_stylebox_override("hover", _tile_style(Color("ffffff"), Color("57d8b0"), 3, Vector2(0.0, 3.0)))
+	button.add_theme_stylebox_override("pressed", _tile_style(Color("e6f2e7"), Color("ef496f"), 4, Vector2(0.0, 1.0)))
+	button.add_theme_stylebox_override("disabled", _tile_style(Color("c8c9be"), Color("4b5554"), 2, Vector2(0.0, 2.0)))
 	button.add_theme_color_override("font_color", Color("202625"))
 	button.add_theme_color_override("font_hover_color", Color("111615"))
 	button.add_theme_color_override("font_pressed_color", Color("111615"))
 	button.add_theme_color_override("font_disabled_color", Color("59615f"))
-
-
-func _face_color(value: String) -> Color:
-	var identity := int(value) - 1
-	var colors := [Color("d8ead6"), Color("f0d7d2"), Color("d4e3f2"), Color("f1e1b8")]
-	return colors[identity / 6]
-
-
 func _tile_style(face_color: Color, border_color: Color, border_width: int, shadow_offset: Vector2) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = face_color

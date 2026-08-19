@@ -39,6 +39,7 @@ Goal: generate deterministic games on varied layered layouts while proving that 
 - The independent solver searches legal selectable matching pairs. It currently proves pair-only solutions and does not require temporary unmatched tray holdings.
 - The perfect-information `pair_aware` simulator follows a solver result. `bounded_attention` and `random` remain behavioral heuristics rather than solvability proofs.
 - Layout ID, revision, and geometry hash are included in game configuration and therefore in the definition hash and replay contract.
+- Gameplay layouts are authored portrait-first. Responsive presentation may uniformly scale the board, but landscape does not rotate, transpose, stretch, or rearrange its slots.
 
 Authoring and generation workflow: [Board Layout Authoring](../LAYOUT_AUTHORING.md)
 

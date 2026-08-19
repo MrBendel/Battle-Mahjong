@@ -24,6 +24,8 @@ func _init(face_family: String, face_value: String) -> void:
 
 
 func logical_id() -> String:
+	if family == FAMILY_WIND or family == FAMILY_DRAGON:
+		return value
 	return "%s_%s" % [family, value]
 
 

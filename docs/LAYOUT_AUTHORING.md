@@ -2,6 +2,17 @@
 
 Battle Mahjong uses the same normalized board-layout model for hand-authored and procedurally generated geometry.
 
+## Orientation Contract
+
+Production board layouts are authored portrait-first because phone portrait is the primary gameplay format. Layout coordinates are authoritative gameplay data and do not change with the viewport.
+
+- Portrait and landscape render the same slots in the same relative positions.
+- Landscape may rearrange the tray, momentum, consumables, character, and decorative regions around the board.
+- The board may scale uniformly to fit its allocated region, but it must not rotate, transpose, stretch, or reflow its slots.
+- New authored and generated production layouts should have a portrait footprint unless a later design decision explicitly introduces another layout class.
+
+This keeps slot IDs, selectability, transactions, solution certificates, and replays identical across orientations. Presentation is responsible for fitting the portrait board into the available shell.
+
 ## Coordinate Model
 
 - Each tile occupies `2x2` integer grid units.

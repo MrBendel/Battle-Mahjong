@@ -128,13 +128,15 @@ Tile skins should be cosmetic, not mechanically advantageous. Collecting, unlock
 
 Status: Initial M7 Direction
 
+- The first Battle Mahjong title logo uses bold brush lettering, a high-contrast black backing shape, hot-pink emphasis, and loose arcade star accents. The runtime/reference asset lives at `game-assets/art/title_logo.png`.
 - The first visual slice will separate source masters from runtime exports.
 - Default and Neon skins will share canonical tile geometry and logical face identifiers.
 - Small repeated assets will use atlases where validation confirms they are appropriate.
+- The implemented Batch A proof uses `512 x 640` SVG masters, `256 x 320` PNG exports, a `328 x 400` face safe area, and independent modifier overlays. See [Tile Art Pipeline](TILE_ART_PIPELINE.md).
+- The 34 traditional identities are the required first vocabulary, not a permanent maximum.
 
 Status: Open Question
 
-- Exact tile dimensions and safe-area rules.
 - Exact source formats, runtime export settings, and repository or large-file storage policy.
 - Final character art style.
 
