@@ -14,6 +14,10 @@ These generated smoke-test captures show the current Batch A candidate rather th
 | --- | --- | --- |
 | ![M7 compact-phone contract proof](../images/m7-gameplay-small-phone.png) | ![M7 phone portrait contract proof](../images/m7-gameplay-portrait.png) | ![M7 landscape contract proof](../images/m7-gameplay-landscape.png) |
 
+The first modal session menu is also represented in the current slice:
+
+![M7 pause menu in phone portrait](../images/m7-pause-menu.png)
+
 This is the first major art-production milestone. It is not final visual polish.
 
 ## Roadmap Alignment
@@ -124,6 +128,8 @@ Implemented interaction decisions:
 - a committed match converges on the occupied tray slot, removes both presentation duplicates, and emits one reusable radial impact burst;
 - Delete Pair composes the same removal burst over the two resolved board tiles;
 - the tray renders faces through the same cosmetic skin manifest as the board;
+- the four-slot tray remains directly above the board in portrait, compact portrait, and landscape layouts;
+- Undo lives with the consumable tools, while Restart lives in a top-right modal pause menu that freezes active gameplay time;
 - the title logo remains outside the active gameplay shell until title or menu presentation is designed.
 
 ## Tile Skins
