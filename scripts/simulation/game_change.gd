@@ -5,6 +5,9 @@ const TRAY := "tray"
 const COUNTER := "counter"
 const STATUS := "status"
 const RNG_STATE := "rng_state"
+const TILE_SLOT := "tile_slot"
+const CONSUMABLES := "consumables"
+const HINT := "hint"
 
 var type: String
 var target: String

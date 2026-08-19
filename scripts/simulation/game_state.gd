@@ -20,6 +20,12 @@ const GAME_OVER := GameCommandProcessorScript.GAME_OVER
 const EXTRA_LIFE_USED := GameCommandProcessorScript.EXTRA_LIFE_USED
 const UNDONE := GameCommandProcessorScript.UNDONE
 const NOTHING_TO_UNDO := GameCommandProcessorScript.NOTHING_TO_UNDO
+const HINTED := GameCommandProcessorScript.HINTED
+const NO_HINT_AVAILABLE := GameCommandProcessorScript.NO_HINT_AVAILABLE
+const PAIR_DELETED := GameCommandProcessorScript.PAIR_DELETED
+const NO_DELETABLE_PAIR := GameCommandProcessorScript.NO_DELETABLE_PAIR
+const SHUFFLED := GameCommandProcessorScript.SHUFFLED
+const CONSUMABLE_UNAVAILABLE := GameCommandProcessorScript.CONSUMABLE_UNAVAILABLE
 const BASE_TRAY_CAPACITY := 4
 
 var definition: Variant
@@ -77,13 +83,44 @@ func select_tile(tile_id: String, playback_time_ms: int = -1) -> String:
 
 
 func can_undo() -> bool:
-	return status == PLAYING and not _state.tray_tile_ids.is_empty()
+	return store.call("can_undo")
 
 
 func undo_last_unmatched(playback_time_ms: int = -1) -> String:
 	var effective_time := elapsed_time_ms if playback_time_ms < 0 else playback_time_ms
 	var command := GameCommandScript.new(GameCommandScript.UNDO, {}, revision, "", "local", effective_time)
 	return store.call("submit_command", command).result
+
+
+func request_hint(playback_time_ms: int = -1) -> String:
+	return _submit_consumable(GameCommandScript.HINT, {}, playback_time_ms)
+
+
+func delete_pair(tile_id: String, playback_time_ms: int = -1) -> String:
+	return _submit_consumable(GameCommandScript.DELETE_PAIR, {"tile_id": tile_id}, playback_time_ms)
+
+
+func shuffle(playback_time_ms: int = -1) -> String:
+	return _submit_consumable(GameCommandScript.SHUFFLE, {}, playback_time_ms)
+
+
+func consumable_count(consumable_type: String) -> int:
+	return int(_state.consumable_counts.get(consumable_type, 0))
+
+
+func hinted_tile_ids() -> Array[String]:
+	var ids: Array[String] = []
+	ids.assign(_state.hinted_tile_ids)
+	return ids
+
+
+func _submit_consumable(command_type: String, payload: Dictionary, playback_time_ms: int) -> String:
+	var effective_time := elapsed_time_ms if playback_time_ms < 0 else playback_time_ms
+	var command := GameCommandScript.new(command_type, payload, revision, "", "local", effective_time)
+	var result: String = store.call("submit_command", command).result
+	if result == SHUFFLED:
+		board = BoardStateScript.new(definition, _state)
+	return result
 
 
 func momentum_at(playback_time_ms: int) -> int:
@@ -115,4 +152,7 @@ func last_transaction() -> Variant:
 
 
 func apply_transaction(transaction: Variant) -> Dictionary:
-	return store.call("apply_transaction", transaction)
+	var result: Dictionary = store.call("apply_transaction", transaction)
+	if bool(result.get("accepted", false)):
+		board = BoardStateScript.new(definition, _state)
+	return result

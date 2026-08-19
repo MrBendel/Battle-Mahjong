@@ -223,7 +223,7 @@ Replay scrubbing and gameplay Undo are related but distinct operations.
 - Recorded history is never deleted or rewritten. Network peers see the same Undo fact and advance to the same new revision.
 - An Undo command must be validated against current state. It cannot blindly reverse an old tray snapshot after later transactions have changed unrelated tray entries.
 
-The current M2 policy only permits undoing the latest selected tile that still remains unresolved. Resolved-pair transactions are not undoable. Whether later game modes allow full transaction rewind remains an explicit future design question.
+The current policy only permits undoing the latest selected tile that still remains unresolved and was selected after the most recent resolved pair. Completing a pair commits all earlier selections: Undo cannot cross that transaction boundary, even when an older unmatched tile remains in the tray. A later unmatched selection establishes a fresh Undo opportunity. Resolved-pair transactions are not undoable. Whether later game modes allow full transaction rewind remains an explicit future design question.
 
 ## Replay
 
@@ -256,7 +256,7 @@ Future gameplay randomness must be consumed while building a transaction. The re
 
 Replaying an accepted transaction does not reroll randomness. Re-simulating commands may rerun the deterministic RNG and verify that it produces the recorded transaction.
 
-The current state records the game seed as its initial RNG state. No implemented command consumes gameplay randomness yet, so `RngStateChanged` is defined but not yet emitted.
+The current state records the game seed as its initial RNG state. M6 Shuffle consumes this deterministic stream while building its transaction and records the resulting `RngStateChanged` transition. Replay applies the recorded slot assignments and RNG state without rerolling.
 
 ## Future Synchronous Replication
 
@@ -274,7 +274,7 @@ Client prediction and rollback can reuse reversible changes, but should not be i
 
 ## Implemented Foundation
 
-Completed through M5:
+Completed through M6:
 
 1. Serializable `GameDefinition`, `GameStateData`, `GameCommand`, `GameChange`, and `GameTransaction` models.
 2. One atomic reducer that applies and reverses typed changes.
@@ -286,6 +286,7 @@ Completed through M5:
 8. Monotonic active-play timestamps, atomic momentum decay, score changes, and pair timing telemetry.
 9. Immutable modifier loadouts and deterministic physical-tile attachments in game definitions.
 10. Reversible modifier effect state, pair trigger telemetry, fixed-point score boosts, frozen decay, dynamic tray capacity, and atomic loss recovery.
+11. Definition-bound consumable quantities, transient Hint state, physical-tile slot remapping, and seeded tray-aware Shuffle transactions.
 
 Current serialization uses JSON-compatible dictionaries. State hashes use SHA-256 over a canonical ordered state string. Local command and transaction IDs are deterministic revision-based IDs within one game record.
 

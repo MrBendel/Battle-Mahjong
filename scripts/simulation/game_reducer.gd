@@ -3,6 +3,7 @@ extends RefCounted
 const GameChangeScript := preload("res://scripts/simulation/game_change.gd")
 const GameStateDataScript := preload("res://scripts/simulation/game_state_data.gd")
 const ModifierRulesScript := preload("res://scripts/simulation/modifier_rules.gd")
+const ConsumableInventoryScript := preload("res://scripts/simulation/consumable_inventory.gd")
 const COUNTERS := [
 	"selection_count",
 	"resolved_pair_count",
@@ -91,6 +92,18 @@ func _apply_change(state: Variant, change: Variant, reverse: bool) -> bool:
 			if state.rng_state != expected:
 				return false
 			state.rng_state = replacement
+		GameChangeScript.TILE_SLOT:
+			if state.tile_slot_ids.get(change.target) != expected:
+				return false
+			state.tile_slot_ids[change.target] = replacement
+		GameChangeScript.CONSUMABLES:
+			if state.consumable_counts != expected:
+				return false
+			state.consumable_counts = replacement.duplicate(true)
+		GameChangeScript.HINT:
+			if state.hinted_tile_ids != expected:
+				return false
+			state.hinted_tile_ids.assign(replacement)
 		_:
 			return false
 	return true
@@ -119,6 +132,11 @@ func _is_valid(definition: Variant, state: Variant) -> bool:
 		return false
 	if state.last_selection_time_ms > state.elapsed_time_ms or state.last_pair_time_ms > state.elapsed_time_ms:
 		return false
+	if state.consumable_counts.keys().size() != ConsumableInventoryScript.TYPES.size():
+		return false
+	for consumable_type in ConsumableInventoryScript.TYPES:
+		if not state.consumable_counts.has(consumable_type) or int(state.consumable_counts[consumable_type]) < 0:
+			return false
 	var effective_tray_capacity: int = ModifierRulesScript.effective_tray_capacity(definition, state)
 	if state.tray_tile_ids.size() > effective_tray_capacity:
 		return false
@@ -133,6 +151,7 @@ func _is_valid(definition: Variant, state: Variant) -> bool:
 
 	var board_count := 0
 	var resolved_count := 0
+	var slot_ids := {}
 	for tile in definition.tiles:
 		var zone: Variant = state.tile_zones.get(tile.id)
 		if zone not in [GameStateDataScript.ZONE_BOARD, GameStateDataScript.ZONE_TRAY, GameStateDataScript.ZONE_RESOLVED]:
@@ -143,9 +162,16 @@ func _is_valid(definition: Variant, state: Variant) -> bool:
 			board_count += 1
 		elif zone == GameStateDataScript.ZONE_RESOLVED:
 			resolved_count += 1
+		var slot_id: String = str(state.tile_slot_ids.get(tile.id, ""))
+		if definition.get_tile(slot_id) == null or slot_ids.has(slot_id):
+			return false
+		slot_ids[slot_id] = true
 
-	if state.tile_zones.size() != definition.tiles.size():
+	if state.tile_zones.size() != definition.tiles.size() or state.tile_slot_ids.size() != definition.tiles.size():
 		return false
+	for hinted_tile_id in state.hinted_tile_ids:
+		if definition.get_tile(hinted_tile_id) == null:
+			return false
 	if resolved_count != state.resolved_pair_count * 2:
 		return false
 	if state.selection_count != resolved_count + state.tray_tile_ids.size():

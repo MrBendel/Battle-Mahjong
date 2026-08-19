@@ -1,9 +1,10 @@
 extends RefCounted
 
 const GameConfigurationScript := preload("res://scripts/simulation/game_configuration.gd")
+const ConsumableInventoryScript := preload("res://scripts/simulation/consumable_inventory.gd")
 
-const SCHEMA_VERSION := 2
-const CURRENT_RULES_VERSION := 3
+const SCHEMA_VERSION := 3
+const CURRENT_RULES_VERSION := 4
 
 var seed: int
 var rules_version: int
@@ -11,6 +12,7 @@ var configuration: Dictionary
 var tiles: Array
 var modifier_loadout: Array
 var modifier_attachments: Dictionary
+var consumable_inventory: Dictionary
 var _tiles_by_id: Dictionary = {}
 var _definition_hash := ""
 
@@ -21,7 +23,8 @@ func _init(
 		game_configuration: Dictionary,
 		game_rules_version: int = CURRENT_RULES_VERSION,
 		game_modifier_loadout: Array = [],
-		game_modifier_attachments: Dictionary = {}
+		game_modifier_attachments: Dictionary = {},
+		game_consumable_inventory: Variant = null
 ) -> void:
 	seed = game_seed
 	rules_version = game_rules_version
@@ -38,6 +41,9 @@ func _init(
 		var modifier: Variant = game_modifier_attachments[tile_id]
 		if modifier is Dictionary:
 			modifier_attachments[str(tile_id)] = _normalize_modifier(modifier)
+	var inventory: Dictionary = ConsumableInventoryScript.starter() if game_consumable_inventory == null else game_consumable_inventory
+	var normalized_inventory: Dictionary = ConsumableInventoryScript.normalize(inventory)
+	consumable_inventory = normalized_inventory.inventory
 	for tile in tiles:
 		_tiles_by_id[tile.id] = tile
 
@@ -109,6 +115,7 @@ func to_dict() -> Dictionary:
 		"tiles": serialized_tiles,
 		"modifier_loadout": modifier_loadout.duplicate(true),
 		"modifier_attachments": modifier_attachments.duplicate(true),
+		"consumable_inventory": consumable_inventory.duplicate(true),
 	}
 
 
@@ -152,20 +159,24 @@ func definition_hash() -> String:
 			str(modifier.get("type", "")),
 			int(modifier.get("level", 0)),
 		])
-	_definition_hash = ("%d|%d|%s|%s|%s|%s" % [
+	var consumable_parts: Array[String] = []
+	for consumable_type in ConsumableInventoryScript.TYPES:
+		consumable_parts.append("%s=%d" % [consumable_type, int(consumable_inventory[consumable_type])])
+	_definition_hash = ("%d|%d|%s|%s|%s|%s|%s" % [
 		rules_version,
 		seed,
 		",".join(configuration_parts),
 		",".join(tile_parts),
 		",".join(loadout_parts),
 		",".join(attachment_parts),
+		",".join(consumable_parts),
 	]).sha256_text()
 	return _definition_hash
 
 
 static func from_dict(data: Dictionary) -> RefCounted:
 	var schema_version := int(data.get("schema_version", 0))
-	if schema_version not in [1, SCHEMA_VERSION]:
+	if schema_version not in [1, 2, SCHEMA_VERSION]:
 		return null
 	var position_script: Script = load("res://scripts/simulation/board_position.gd")
 	var face_script: Script = load("res://scripts/simulation/tile_face.gd")
@@ -185,5 +196,6 @@ static func from_dict(data: Dictionary) -> RefCounted:
 		data.get("configuration", {}),
 		int(data.get("rules_version", CURRENT_RULES_VERSION)),
 		data.get("modifier_loadout", []),
-		data.get("modifier_attachments", {})
+		data.get("modifier_attachments", {}),
+		data.get("consumable_inventory", null)
 	)

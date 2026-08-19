@@ -2,6 +2,8 @@ extends RefCounted
 
 const BoardSelectabilityScript := preload("res://scripts/simulation/board_selectability.gd")
 const GameStateScript := preload("res://scripts/simulation/game_state.gd")
+const GameCommandScript := preload("res://scripts/simulation/game_command.gd")
+const GameStoreScript := preload("res://scripts/simulation/game_store.gd")
 
 var _selectability := BoardSelectabilityScript.new()
 var _visited: Dictionary = {}
@@ -31,6 +33,25 @@ func verify_solution(definition: Variant, tile_ids: Array) -> Dictionary:
 			return {"valid": false, "reason": "tiles %d-%d do not resolve a legal pair" % [index, index + 1]}
 
 	return {"valid": game.status == GameStateScript.WON, "reason": "" if game.status == GameStateScript.WON else "solution did not win"}
+
+
+func verify_state_route(definition: Variant, initial_state: Variant, tile_ids: Array) -> Dictionary:
+	var state: Variant = initial_state.duplicate_data()
+	var store := GameStoreScript.new(definition, state)
+	for index in tile_ids.size():
+		var command := GameCommandScript.new(
+			GameCommandScript.SELECT_TILE,
+			{"tile_id": str(tile_ids[index])},
+			state.revision,
+			"verify_%06d" % index,
+			"solver",
+			state.elapsed_time_ms
+		)
+		var submitted: Dictionary = store.call("submit_command", command)
+		if not bool(submitted.accepted):
+			return {"valid": false, "reason": "route tile %d was rejected" % index}
+		state = store.call("current_state")
+	return {"valid": state.status == GameStateScript.WON, "reason": "" if state.status == GameStateScript.WON else "route did not win"}
 
 
 func _search(active: Array, path: Array[String]) -> bool:

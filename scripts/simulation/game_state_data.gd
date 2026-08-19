@@ -11,7 +11,10 @@ const ZONE_RESOLVED := "resolved"
 var revision := 0
 var status := PLAYING
 var tile_zones: Dictionary = {}
+var tile_slot_ids: Dictionary = {}
 var tray_tile_ids: Array[String] = []
+var consumable_counts: Dictionary = {}
+var hinted_tile_ids: Array[String] = []
 var selection_count := 0
 var resolved_pair_count := 0
 var max_tray_occupancy := 0
@@ -38,6 +41,8 @@ func _init(definition: Variant = null) -> void:
 	rng_state = definition.seed
 	for tile in definition.tiles:
 		tile_zones[tile.id] = ZONE_BOARD
+		tile_slot_ids[tile.id] = tile.id
+	consumable_counts = definition.consumable_inventory.duplicate(true)
 
 
 func duplicate_data() -> RefCounted:
@@ -45,7 +50,10 @@ func duplicate_data() -> RefCounted:
 	copy.revision = revision
 	copy.status = status
 	copy.tile_zones = tile_zones.duplicate(true)
+	copy.tile_slot_ids = tile_slot_ids.duplicate(true)
 	copy.tray_tile_ids.assign(tray_tile_ids)
+	copy.consumable_counts = consumable_counts.duplicate(true)
+	copy.hinted_tile_ids.assign(hinted_tile_ids)
 	copy.selection_count = selection_count
 	copy.resolved_pair_count = resolved_pair_count
 	copy.max_tray_occupancy = max_tray_occupancy
@@ -70,7 +78,10 @@ func assign_from(other: Variant) -> void:
 	revision = other.revision
 	status = other.status
 	tile_zones = other.tile_zones.duplicate(true)
+	tile_slot_ids = other.tile_slot_ids.duplicate(true)
 	tray_tile_ids.assign(other.tray_tile_ids)
+	consumable_counts = other.consumable_counts.duplicate(true)
+	hinted_tile_ids.assign(other.hinted_tile_ids)
 	selection_count = other.selection_count
 	resolved_pair_count = other.resolved_pair_count
 	max_tray_occupancy = other.max_tray_occupancy
@@ -94,14 +105,24 @@ func state_hash() -> String:
 	var tile_ids: Array = tile_zones.keys()
 	tile_ids.sort()
 	var zone_parts: Array[String] = []
+	var slot_parts: Array[String] = []
 	for tile_id in tile_ids:
 		zone_parts.append("%s=%s" % [tile_id, tile_zones[tile_id]])
+		slot_parts.append("%s=%s" % [tile_id, tile_slot_ids[tile_id]])
+	var consumable_keys: Array = consumable_counts.keys()
+	consumable_keys.sort()
+	var consumable_parts: Array[String] = []
+	for consumable_type in consumable_keys:
+		consumable_parts.append("%s=%d" % [consumable_type, int(consumable_counts[consumable_type])])
 
-	var canonical := "%d|%s|%s|%s|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d" % [
+	var canonical := "%d|%s|%s|%s|%s|%s|%s|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d" % [
 		revision,
 		status,
 		",".join(zone_parts),
+		",".join(slot_parts),
 		",".join(tray_tile_ids),
+		",".join(consumable_parts),
+		",".join(hinted_tile_ids),
 		selection_count,
 		resolved_pair_count,
 		max_tray_occupancy,
@@ -128,7 +149,10 @@ func to_dict() -> Dictionary:
 		"revision": revision,
 		"status": status,
 		"tile_zones": tile_zones.duplicate(true),
+		"tile_slot_ids": tile_slot_ids.duplicate(true),
 		"tray_tile_ids": tray_tile_ids.duplicate(),
+		"consumable_counts": consumable_counts.duplicate(true),
+		"hinted_tile_ids": hinted_tile_ids.duplicate(),
 		"selection_count": selection_count,
 		"resolved_pair_count": resolved_pair_count,
 		"max_tray_occupancy": max_tray_occupancy,

@@ -20,6 +20,10 @@ func get_seed() -> int:
 	return initial_seed
 
 
+func get_state() -> int:
+	return _state
+
+
 func next_int() -> int:
 	_state = int((int(_state) * _MULTIPLIER) % _MODULUS)
 	return _state

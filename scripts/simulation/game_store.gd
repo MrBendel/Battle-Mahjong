@@ -73,3 +73,7 @@ func last_transaction() -> Variant:
 	if _timeline.is_empty():
 		return null
 	return _timeline[-1].call("duplicate_transaction")
+
+
+func can_undo() -> bool:
+	return _processor.call("can_undo", _state, _timeline)
