@@ -22,6 +22,9 @@ func run(seed: int, policy: String = PAIR_AWARE, policy_config: Dictionary = {})
 	var game = GameStateScript.new(definition)
 	var perfect_solution: Array[String] = []
 	var solution_index := 0
+	var analyzed_pair_count := 0
+	var total_pair_difficulty := 0
+	var hardest_pair_difficulty := 0
 	if policy == PAIR_AWARE:
 		perfect_solution.assign(generated.solution)
 	var policy_rng = DeterministicRngScript.new(seed + 104729)
@@ -51,7 +54,15 @@ func run(seed: int, policy: String = PAIR_AWARE, policy_config: Dictionary = {})
 			break
 
 		var next_time: int = game.elapsed_time_ms + selection_interval_ms
-		game.call("select_tile", tile.id, next_time)
+		var selection_result: String = game.call("select_tile", tile.id, next_time)
+		if selection_result == GameStateScript.PAIR_RESOLVED:
+			var transaction: Variant = game.call("last_transaction")
+			var pair_opportunity: Dictionary = transaction.telemetry.get("resolved_pair_opportunity", {})
+			if pair_opportunity.has("score"):
+				var difficulty: int = int(pair_opportunity.score)
+				analyzed_pair_count += 1
+				total_pair_difficulty += difficulty
+				hardest_pair_difficulty = maxi(hardest_pair_difficulty, difficulty)
 
 	return {
 		"seed": seed,
@@ -67,6 +78,10 @@ func run(seed: int, policy: String = PAIR_AWARE, policy_config: Dictionary = {})
 		"momentum": game.call("momentum_at", game.elapsed_time_ms),
 		"multiplier": game.call("multiplier_at", game.elapsed_time_ms),
 		"max_multiplier": game.max_multiplier,
+		"max_combo": game.max_combo,
+		"analyzed_pair_count": analyzed_pair_count,
+		"average_pair_difficulty": 0 if analyzed_pair_count == 0 else int(total_pair_difficulty / analyzed_pair_count),
+		"hardest_pair_difficulty": hardest_pair_difficulty,
 		"elapsed_time_ms": game.elapsed_time_ms,
 	}
 

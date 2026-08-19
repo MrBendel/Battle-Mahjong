@@ -25,6 +25,9 @@ var elapsed_time_ms := 0
 var last_selection_time_ms := 0
 var last_pair_time_ms := 0
 var max_multiplier := 1
+var combo_count := 0
+var max_combo := 0
+var combo_expires_at_ms := 0
 var modifier_activation_count := 0
 var extra_life_charges := 0
 var cold_snap_until_ms := 0
@@ -64,6 +67,9 @@ func duplicate_data() -> RefCounted:
 	copy.last_selection_time_ms = last_selection_time_ms
 	copy.last_pair_time_ms = last_pair_time_ms
 	copy.max_multiplier = max_multiplier
+	copy.combo_count = combo_count
+	copy.max_combo = max_combo
+	copy.combo_expires_at_ms = combo_expires_at_ms
 	copy.modifier_activation_count = modifier_activation_count
 	copy.extra_life_charges = extra_life_charges
 	copy.cold_snap_until_ms = cold_snap_until_ms
@@ -92,6 +98,9 @@ func assign_from(other: Variant) -> void:
 	last_selection_time_ms = other.last_selection_time_ms
 	last_pair_time_ms = other.last_pair_time_ms
 	max_multiplier = other.max_multiplier
+	combo_count = other.combo_count
+	max_combo = other.max_combo
+	combo_expires_at_ms = other.combo_expires_at_ms
 	modifier_activation_count = other.modifier_activation_count
 	extra_life_charges = other.extra_life_charges
 	cold_snap_until_ms = other.cold_snap_until_ms
@@ -115,7 +124,7 @@ func state_hash() -> String:
 	for consumable_type in consumable_keys:
 		consumable_parts.append("%s=%d" % [consumable_type, int(consumable_counts[consumable_type])])
 
-	var canonical := "%d|%s|%s|%s|%s|%s|%s|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d" % [
+	var canonical := "%d|%s|%s|%s|%s|%s|%s|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d" % [
 		revision,
 		status,
 		",".join(zone_parts),
@@ -133,6 +142,9 @@ func state_hash() -> String:
 		last_selection_time_ms,
 		last_pair_time_ms,
 		max_multiplier,
+		combo_count,
+		max_combo,
+		combo_expires_at_ms,
 		modifier_activation_count,
 		extra_life_charges,
 		cold_snap_until_ms,
@@ -163,6 +175,9 @@ func to_dict() -> Dictionary:
 		"last_selection_time_ms": last_selection_time_ms,
 		"last_pair_time_ms": last_pair_time_ms,
 		"max_multiplier": max_multiplier,
+		"combo_count": combo_count,
+		"max_combo": max_combo,
+		"combo_expires_at_ms": combo_expires_at_ms,
 		"modifier_activation_count": modifier_activation_count,
 		"extra_life_charges": extra_life_charges,
 		"cold_snap_until_ms": cold_snap_until_ms,

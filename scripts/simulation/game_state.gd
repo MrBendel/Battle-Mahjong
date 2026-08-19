@@ -1,6 +1,8 @@
 extends RefCounted
 
 const BoardStateScript := preload("res://scripts/simulation/board_state.gd")
+const BoardOpportunityAnalysisScript := preload("res://scripts/simulation/board_opportunity_analysis.gd")
+const ComboRulesScript := preload("res://scripts/simulation/combo_rules.gd")
 const GameCommandScript := preload("res://scripts/simulation/game_command.gd")
 const GameCommandProcessorScript := preload("res://scripts/simulation/game_command_processor.gd")
 const GameStateDataScript := preload("res://scripts/simulation/game_state_data.gd")
@@ -26,6 +28,7 @@ const PAIR_DELETED := GameCommandProcessorScript.PAIR_DELETED
 const NO_DELETABLE_PAIR := GameCommandProcessorScript.NO_DELETABLE_PAIR
 const SHUFFLED := GameCommandProcessorScript.SHUFFLED
 const CONSUMABLE_UNAVAILABLE := GameCommandProcessorScript.CONSUMABLE_UNAVAILABLE
+const COMBO_BROKEN := GameCommandProcessorScript.COMBO_BROKEN
 const BASE_TRAY_CAPACITY := 4
 
 var definition: Variant
@@ -60,6 +63,10 @@ var elapsed_time_ms: int:
 var max_multiplier: int:
 	get:
 		return _state.max_multiplier
+
+var max_combo: int:
+	get:
+		return _state.max_combo
 
 var modifier_activation_count: int:
 	get:
@@ -104,6 +111,19 @@ func shuffle(playback_time_ms: int = -1) -> String:
 	return _submit_consumable(GameCommandScript.SHUFFLE, {}, playback_time_ms)
 
 
+func break_combo_for_locked_tile(tile_id: String, playback_time_ms: int = -1) -> String:
+	var effective_time := elapsed_time_ms if playback_time_ms < 0 else playback_time_ms
+	var command := GameCommandScript.new(
+		GameCommandScript.BREAK_COMBO,
+		{"tile_id": tile_id},
+		revision,
+		"",
+		"local",
+		effective_time
+	)
+	return store.call("submit_command", command).result
+
+
 func consumable_count(consumable_type: String) -> int:
 	return int(_state.consumable_counts.get(consumable_type, 0))
 
@@ -133,6 +153,18 @@ func momentum_at(playback_time_ms: int) -> int:
 
 func multiplier_at(playback_time_ms: int) -> int:
 	return MomentumRulesScript.multiplier_for(momentum_at(playback_time_ms), definition.configuration)
+
+
+func combo_at(playback_time_ms: int) -> int:
+	return ComboRulesScript.count_at(_state, playback_time_ms)
+
+
+func combo_remaining_ms_at(playback_time_ms: int) -> int:
+	return ComboRulesScript.remaining_ms_at(_state, playback_time_ms)
+
+
+func opportunity_analysis() -> Dictionary:
+	return BoardOpportunityAnalysisScript.new().call("analyze", definition, _state)
 
 
 func score_multiplier_basis_points_at(playback_time_ms: int) -> int:

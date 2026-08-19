@@ -61,10 +61,16 @@ Implement:
 - timing telemetry
 - score display
 - placeholder audiovisual feedback
+- deterministic Combo chains with a forgiving active-play timeout
+- transactional Combo breaks for locked-tile taps and successful consumable use
 
 Success criteria:
 
 Fast look-ahead play feels meaningfully different from slow stop-and-search play.
+
+The implemented Combo extension distinguishes confident uninterrupted play from raw speed: natural pairs extend the chain, ordinary unmatched tray selections preserve it, and timeout, locked-tile mistakes, or successful consumables break it. Pair-difficulty scoring and Combo rewards remain deferred pending telemetry and playtesting.
+
+Deterministic tile and pair opportunity analysis is implemented as telemetry only. It scores and ranks the selectable search space before every natural selection without changing rewards. Detailed contract: [Pair Difficulty Analysis](PAIR_DIFFICULTY.md).
 
 ## M4 - Generator + Solver
 

@@ -242,6 +242,7 @@ Required components and states:
 
 - momentum meter;
 - current multiplier;
+- current Combo and remaining Combo window;
 - meter fill;
 - visible decay;
 - momentum-gain animation;
@@ -259,6 +260,8 @@ Presentation intensity should increase with multiplier. The target art system sh
 - `x10+`: exceptional state.
 
 The meter and current multiplier must remain understandable even when peripheral effects become intense.
+
+Combo remains visually distinct from Momentum: Momentum communicates gradual pressure, while Combo communicates an intact or broken chain. The current live text readout is a functional placeholder; final Combo callouts and break treatment belong to the reusable FX and performance-callout work.
 
 ## FX Library
 

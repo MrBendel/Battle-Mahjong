@@ -11,6 +11,7 @@ static func create(tray_capacity: int = DEFAULT_TRAY_CAPACITY) -> Dictionary:
 		"momentum_thresholds": [0, 20000, 40000, 60000, 80000],
 		"momentum_decay_per_ms": [5, 7, 10, 14, 19],
 		"pair_base_score": 100,
+		"combo_window_ms": 7000,
 		"modifier_loadout_capacity": 3,
 		"modifier_extra_life_base_charges": 1,
 		"modifier_extra_life_charges_per_level": 1,
