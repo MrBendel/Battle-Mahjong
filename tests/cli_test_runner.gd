@@ -6,6 +6,7 @@ const TileInstanceScript := preload("res://scripts/simulation/tile_instance.gd")
 const TileMatcherScript := preload("res://scripts/simulation/tile_matcher.gd")
 const BoardSelectabilityScript := preload("res://scripts/simulation/board_selectability.gd")
 const BoardStateScript := preload("res://scripts/simulation/board_state.gd")
+const BoardOpportunityAnalysisScript := preload("res://scripts/simulation/board_opportunity_analysis.gd")
 const FixedLayoutsScript := preload("res://scripts/simulation/fixed_layouts.gd")
 const GameDefinitionScript := preload("res://scripts/simulation/game_definition.gd")
 const GameConfigurationScript := preload("res://scripts/simulation/game_configuration.gd")
@@ -45,6 +46,8 @@ func _init() -> void:
 	_run_transaction_timeline_tests()
 	_run_momentum_tuning_tests()
 	_run_momentum_tests()
+	_run_combo_tests()
+	_run_opportunity_analysis_tests()
 	_run_modifier_tests()
 	_run_consumable_tests()
 	_run_generator_solver_tests()
@@ -305,7 +308,7 @@ func _run_momentum_tests() -> void:
 		TileInstanceScript.new("fourth", second_face, BoardPositionScript.new(12, 0, 0)),
 	])
 	var configuration: Dictionary = definition.configuration
-	_check_equal(4, definition.rules_version, "consumables use rules version 4")
+	_check_equal(5, definition.rules_version, "Combo uses rules version 5")
 	_check_equal(1, MomentumRulesScript.multiplier_for(19999, configuration), "momentum below first threshold stays x1")
 	_check_equal(2, MomentumRulesScript.multiplier_for(20000, configuration), "first threshold enters x2")
 	_check(
@@ -385,6 +388,7 @@ func _run_momentum_tuning_tests() -> void:
 	custom_tuning.multiplier_thresholds.assign([0, 30000, 60000, 90000])
 	custom_tuning.decay_per_second.assign([4000, 6000, 9000, 13000])
 	custom_tuning.pair_base_score = 250
+	custom_tuning.combo_window_ms = 9000
 	_check(custom_tuning.call("validation_errors").is_empty(), "valid custom tuning passes validation")
 	var custom_overrides: Dictionary = custom_tuning.call("configuration_overrides")
 	var factory := ReferenceGameFactoryScript.new()
@@ -392,6 +396,7 @@ func _run_momentum_tuning_tests() -> void:
 	var custom_definition: Variant = factory.call("create_definition", 42, 4, custom_overrides)
 	_check_equal(120000, custom_definition.configuration.momentum_max, "factory applies Inspector maximum")
 	_check_equal(250, custom_definition.configuration.pair_base_score, "factory applies Inspector scoring")
+	_check_equal(9000, custom_definition.configuration.combo_window_ms, "factory applies Inspector Combo window")
 	_check(default_definition.definition_hash() != custom_definition.definition_hash(), "custom tuning changes definition hash")
 	custom_overrides.momentum_thresholds[1] = 1
 	_check_equal(30000, custom_tuning.multiplier_thresholds[1], "simulation override cannot mutate Inspector resource")
@@ -399,6 +404,154 @@ func _run_momentum_tuning_tests() -> void:
 	custom_tuning.multiplier_thresholds.assign([100, 50])
 	custom_tuning.decay_per_second.assign([4500])
 	_check(custom_tuning.call("validation_errors").size() >= 3, "invalid thresholds and decay report actionable errors")
+
+
+func _run_combo_tests() -> void:
+	_log(" - deterministic Combo chain")
+	var face_a := TileFaceScript.new("combo", "a")
+	var face_b := TileFaceScript.new("combo", "b")
+	var face_c := TileFaceScript.new("combo", "c")
+	var face_d := TileFaceScript.new("combo", "d")
+	var face_locked := TileFaceScript.new("combo", "locked")
+	var face_cover := TileFaceScript.new("combo", "cover")
+	var tiles := [
+		TileInstanceScript.new("a_1", face_a, BoardPositionScript.new(0, 0, 0)),
+		TileInstanceScript.new("a_2", face_a, BoardPositionScript.new(4, 0, 0)),
+		TileInstanceScript.new("b_1", face_b, BoardPositionScript.new(8, 0, 0)),
+		TileInstanceScript.new("b_2", face_b, BoardPositionScript.new(12, 0, 0)),
+		TileInstanceScript.new("c_1", face_c, BoardPositionScript.new(16, 0, 0)),
+		TileInstanceScript.new("c_2", face_c, BoardPositionScript.new(20, 0, 0)),
+		TileInstanceScript.new("d_1", face_d, BoardPositionScript.new(28, 0, 0)),
+		TileInstanceScript.new("d_2", face_d, BoardPositionScript.new(32, 0, 0)),
+		TileInstanceScript.new("locked", face_locked, BoardPositionScript.new(24, 0, 0)),
+		TileInstanceScript.new("cover", face_cover, BoardPositionScript.new(24, 0, 1)),
+	]
+	var definition: Variant = _definition(tiles)
+	_check_equal(7000, definition.configuration.combo_window_ms, "Combo window is definition-bound")
+
+	var game := GameStateScript.new(definition)
+	game.call("select_tile", "a_1", 100)
+	game.call("select_tile", "a_2", 200)
+	_check_equal(1, game.call("combo_at", 200), "first natural pair starts Combo at one")
+	_check_equal(7000, game.call("combo_remaining_ms_at", 200), "pair starts the full Combo window")
+	game.call("select_tile", "c_1", 300)
+	_check_equal(1, game.call("combo_at", 300), "ordinary unmatched tray selection preserves Combo")
+	game.call("select_tile", "b_1", 400)
+	game.call("select_tile", "b_2", 500)
+	game.call("select_tile", "c_2", 800)
+	_check_equal(3, game.call("combo_at", 800), "successive natural pairs extend Combo")
+	_check_equal(3, game.max_combo, "state records peak Combo")
+	var revision_before_break: int = game.revision
+	_check_equal(GameStateScript.COMBO_BROKEN, game.call("break_combo_for_locked_tile", "locked", 900), "locked tile tap breaks a live Combo")
+	_check_equal(revision_before_break + 1, game.revision, "locked tile break appends a transaction")
+	_check_equal(0, game.call("combo_at", 900), "locked tile break clears Combo")
+	var break_transaction: Variant = game.call("last_transaction")
+	_check_equal(GameCommandScript.BREAK_COMBO, break_transaction.command_type, "locked tile break has an explicit command type")
+	_check_equal("locked_tile_tap", break_transaction.telemetry.combo_break_reason, "locked tile break records its reason")
+	var revision_after_break: int = game.revision
+	_check_equal(GameStateScript.INVALID_SELECTION, game.call("break_combo_for_locked_tile", "locked", 950), "locked tap without a live Combo remains a no-op")
+	_check_equal(revision_after_break, game.revision, "no-op locked tap does not pollute the timeline")
+
+	var replica := GameStateScript.new(definition)
+	for transaction in game.call("transactions"):
+		_check(replica.call("apply_transaction", transaction).accepted, "Combo transaction replays")
+	_check_equal(game.call("current_snapshot").state_hash(), replica.call("current_snapshot").state_hash(), "Combo timeline replays to the authoritative hash")
+
+	var timeout_game := GameStateScript.new(definition)
+	timeout_game.call("select_tile", "a_1", 100)
+	timeout_game.call("select_tile", "a_2", 200)
+	timeout_game.call("select_tile", "b_1", 7100)
+	_check_equal(1, timeout_game.call("combo_at", 7199), "Combo remains live immediately before expiry")
+	timeout_game.call("select_tile", "b_2", 7200)
+	_check_equal(1, timeout_game.call("combo_at", 7200), "pair at expiry starts a new Combo")
+	_check_equal("timeout", timeout_game.call("last_transaction").telemetry.combo_break_reason, "expired chain records a timeout break")
+
+	var flat_definition: Variant = _definition(tiles.slice(0, 8))
+	var hint_game: Variant = _game_with_first_combo(flat_definition)
+	_check_equal(GameStateScript.HINTED, hint_game.call("request_hint", 300), "successful Hint is available during Combo")
+	_check_equal(0, hint_game.call("combo_at", 300), "Hint breaks Combo")
+	var undo_game: Variant = _game_with_first_combo(flat_definition)
+	undo_game.call("select_tile", "b_1", 300)
+	_check_equal(GameStateScript.UNDONE, undo_game.call("undo_last_unmatched", 400), "successful Undo is available during Combo")
+	_check_equal(0, undo_game.call("combo_at", 400), "Undo breaks Combo")
+	var delete_game: Variant = _game_with_first_combo(flat_definition)
+	_check_equal(GameStateScript.PAIR_DELETED, delete_game.call("delete_pair", "b_1", 300), "successful Delete Pair is available during Combo")
+	_check_equal(0, delete_game.call("combo_at", 300), "Delete Pair breaks Combo")
+	var shuffle_game: Variant = _game_with_first_combo(flat_definition)
+	_check_equal(GameStateScript.SHUFFLED, shuffle_game.call("shuffle", 300), "successful Shuffle is available during Combo")
+	_check_equal(0, shuffle_game.call("combo_at", 300), "Shuffle breaks Combo")
+
+
+func _run_opportunity_analysis_tests() -> void:
+	_log(" - deterministic tile and pair opportunity analysis")
+	var near_face := TileFaceScript.new("difficulty", "near")
+	var far_face := TileFaceScript.new("difficulty", "far")
+	var tiles := [
+		TileInstanceScript.new("near_1", near_face, BoardPositionScript.new(0, 0, 0)),
+		TileInstanceScript.new("near_2", near_face, BoardPositionScript.new(2, 0, 0)),
+		TileInstanceScript.new("far_1", far_face, BoardPositionScript.new(0, 10, 0)),
+		TileInstanceScript.new("far_2", far_face, BoardPositionScript.new(20, 10, 0)),
+	]
+	var definition: Variant = _definition(tiles)
+	var game := GameStateScript.new(definition)
+	var analysis: Dictionary = game.call("opportunity_analysis")
+	_check_equal(4, analysis.selectable_tile_count, "analysis scores every selectable tile")
+	_check_equal(2, analysis.available_pair_count, "analysis enumerates every selectable matching pair")
+	_check_equal("far_1|far_2", analysis.hardest_pair.id, "widely separated pair ranks as the harder opportunity")
+	_check_equal(1, analysis.hardest_pair.difficulty_rank, "hardest pair receives rank one")
+	_check_equal(10000, analysis.hardest_pair.difficulty_percentile_bps, "hardest pair receives the top deterministic percentile")
+	_check(int(analysis.hardest_pair.score) > int(analysis.easiest_pair.score), "pair score distinguishes spatial search difficulty")
+	var repeated_analysis: Dictionary = game.call("opportunity_analysis")
+	_check_equal(
+		JSON.stringify(analysis).sha256_text(),
+		JSON.stringify(repeated_analysis).sha256_text(),
+		"same board state reproduces identical opportunity scores"
+	)
+
+	var transposed_tiles := [
+		TileInstanceScript.new("near_1", near_face, BoardPositionScript.new(0, 0, 0)),
+		TileInstanceScript.new("near_2", near_face, BoardPositionScript.new(0, 2, 0)),
+		TileInstanceScript.new("far_1", far_face, BoardPositionScript.new(10, 0, 0)),
+		TileInstanceScript.new("far_2", far_face, BoardPositionScript.new(10, 20, 0)),
+	]
+	var transposed_game := GameStateScript.new(_definition(transposed_tiles))
+	var transposed: Dictionary = transposed_game.call("opportunity_analysis")
+	_check_equal(analysis.hardest_pair.score, transposed.hardest_pair.score, "difficulty is independent from portrait or landscape axis")
+	_check_equal(analysis.easiest_pair.score, transposed.easiest_pair.score, "axis transposition preserves pair ordering")
+
+	var score_before: int = game.score
+	game.call("select_tile", "far_1", 100)
+	var first_transaction: Variant = game.call("last_transaction")
+	_check_equal(0, first_transaction.telemetry.opportunity.board_revision, "selection records its pre-command board revision")
+	_check_equal("far_1", first_transaction.telemetry.opportunity.selected_tile.tile_id, "selection records the chosen tile opportunity")
+	_check_equal(1, first_transaction.telemetry.opportunity.selected_pair_options.size(), "selection preserves its available matching-pair observation")
+	game.call("select_tile", "far_2", 200)
+	var pair_transaction: Variant = game.call("last_transaction")
+	_check_equal("board_pair", pair_transaction.telemetry.resolved_pair_opportunity.source, "resolved pair links to its original board opportunity")
+	_check_equal("far_1|far_2", pair_transaction.telemetry.resolved_pair_opportunity.id, "resolved pair retains stable physical tile identity")
+	_check_equal(1, pair_transaction.telemetry.resolved_pair_opportunity.difficulty_rank, "resolved pair retains its original contextual rank")
+	_check_equal(score_before + 100, game.score, "difficulty telemetry does not change scoring yet")
+	var serialized: Variant = JSON.parse_string(JSON.stringify(pair_transaction.to_dict()))
+	var parsed: Variant = GameTransactionScript.from_dict(serialized)
+	_check_equal("board_pair", parsed.telemetry.resolved_pair_opportunity.source, "pair opportunity source round-trips through transaction JSON")
+	_check_equal(66, int(parsed.telemetry.resolved_pair_opportunity.score), "pair difficulty score round-trips through transaction JSON")
+	_check_equal(1, int(parsed.telemetry.resolved_pair_opportunity.difficulty_rank), "pair difficulty rank round-trips through transaction JSON")
+
+	var held_face := TileFaceScript.new("difficulty", "held")
+	var cover_face := TileFaceScript.new("difficulty", "cover")
+	var tray_completion_game := GameStateScript.new(_definition([
+		TileInstanceScript.new("held", held_face, BoardPositionScript.new(0, 0, 0)),
+		TileInstanceScript.new("held_mate", held_face, BoardPositionScript.new(8, 0, 0)),
+		TileInstanceScript.new("cover_1", cover_face, BoardPositionScript.new(8, 0, 1)),
+		TileInstanceScript.new("cover_2", cover_face, BoardPositionScript.new(12, 0, 1)),
+	]))
+	tray_completion_game.call("select_tile", "held", 100)
+	tray_completion_game.call("select_tile", "cover_1", 200)
+	tray_completion_game.call("select_tile", "cover_2", 300)
+	tray_completion_game.call("select_tile", "held_mate", 400)
+	var tray_completion: Dictionary = tray_completion_game.call("last_transaction").telemetry.resolved_pair_opportunity
+	_check_equal("tray_completion", tray_completion.source, "pair revealed after its mate was held is classified separately")
+	_check(not tray_completion.has("difficulty_rank"), "tray completion does not invent a historical board-pair rank")
 
 
 func _run_modifier_tests() -> void:
@@ -790,10 +943,24 @@ func _run_simulation_tests() -> void:
 	_check_equal(GameStateScript.WON, slow_result.status, "slow momentum simulation still clears the board")
 	_check(fast_result.score > slow_result.score, "fast play produces a higher score than slow play")
 	_check(fast_result.max_multiplier > slow_result.max_multiplier, "fast play reaches a higher multiplier tier")
+	_check_equal(48, fast_result.max_combo, "fast pair-aware play maintains Combo through the board")
+	_check_equal(48, slow_result.max_combo, "forgiving Combo window tolerates slower play than Momentum")
+	_check_equal(48, fast_result.analyzed_pair_count, "pair-aware simulation analyzes every resolved board pair")
+	_check(fast_result.average_pair_difficulty > 0, "simulation reports average selected-pair difficulty")
+	_check(fast_result.hardest_pair_difficulty >= fast_result.average_pair_difficulty, "simulation reports a valid hardest selected pair")
+	var hunting_result: Dictionary = simulator.call("run", 92817361, GameSimulatorScript.PAIR_AWARE, {"selection_interval_ms": 4000})
+	_check_equal(1, hunting_result.max_combo, "eight seconds between pairs breaks Combo hunting chains")
 
 
 func _definition(tiles: Array, tray_capacity: int = 4) -> Variant:
 	return GameDefinitionScript.new(1, tiles, {"tray_capacity": tray_capacity})
+
+
+func _game_with_first_combo(definition: Variant) -> Variant:
+	var game := GameStateScript.new(definition)
+	game.call("select_tile", "a_1", 100)
+	game.call("select_tile", "a_2", 200)
+	return game
 
 
 func _definition_with_modifiers(tiles: Array, loadout: Array, attachments: Dictionary) -> Variant:

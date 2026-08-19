@@ -4,6 +4,7 @@ class_name BoardView
 const TileSkinScript := preload("res://scripts/presentation/tile_skin.gd")
 
 signal tile_selected(tile_id: String)
+signal locked_tile_tapped(tile_id: String)
 
 const TILE_ASPECT := 1.26
 const HEADER_HEIGHT := 48.0
@@ -177,6 +178,8 @@ func _on_tile_pressed(tile_id: String) -> void:
 	if _game.status != "playing":
 		return
 	if not targetable:
+		if not _delete_pair_armed:
+			locked_tile_tapped.emit(tile_id)
 		_play_negative_feedback(tile_id)
 		return
 

@@ -6,6 +6,7 @@ var _style: StyleBoxFlat
 var _title: Label
 var _multiplier: Label
 var _score: Label
+var _combo: Label
 var _meter: ProgressBar
 var _audio_player: AudioStreamPlayer
 var _audio_playback: Variant
@@ -36,6 +37,9 @@ func refresh(playback_time_ms: int) -> void:
 	_meter.value = momentum
 	_multiplier.text = "x%d" % multiplier
 	_score.text = "Score  %d" % _game.score
+	var combo: int = _game.call("combo_at", playback_time_ms)
+	var remaining_ms: int = _game.call("combo_remaining_ms_at", playback_time_ms)
+	_combo.text = "Combo x%d  %.1fs" % [combo, float(remaining_ms) / 1000.0] if combo > 0 else "Combo ready"
 
 
 func play_pair_feedback(multiplier: int) -> void:
@@ -75,6 +79,12 @@ func _build() -> void:
 	_score.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	add_child(_score)
 
+	_combo = Label.new()
+	_combo.add_theme_font_size_override("font_size", 12)
+	_combo.add_theme_color_override("font_color", Color("ffd166"))
+	_combo.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	add_child(_combo)
+
 	_meter = ProgressBar.new()
 	_meter.show_percentage = false
 	_meter.add_theme_stylebox_override("background", _meter_style(Color("100d16")))
@@ -103,9 +113,11 @@ func _layout() -> void:
 	_title.size = Vector2(90.0, 24.0)
 	_multiplier.position = Vector2(96.0, 1.0 if compact else 5.0)
 	_multiplier.size = Vector2(58.0, 34.0)
-	_score.position = Vector2(154.0, 7.0 if compact else 12.0)
-	_score.size = Vector2(maxf(56.0, size.x - 164.0), 24.0)
-	_meter.position = Vector2(margin, 40.0 if compact else 55.0)
+	_score.position = Vector2(154.0, 5.0 if compact else 8.0)
+	_score.size = Vector2(maxf(56.0, size.x - 164.0), 20.0)
+	_combo.position = Vector2(154.0, 24.0 if compact else 30.0)
+	_combo.size = Vector2(maxf(56.0, size.x - 164.0), 18.0)
+	_meter.position = Vector2(margin, 44.0 if compact else 55.0)
 	_meter.size = Vector2(maxf(1.0, size.x - margin * 2.0), 12.0 if compact else 18.0)
 
 

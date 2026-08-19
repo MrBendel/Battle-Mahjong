@@ -38,6 +38,11 @@ func _run() -> void:
 		"main scene copies Inspector tuning into game definition"
 	)
 	_check_equal(
+		int(tuning.get("combo_window_ms")),
+		int(live_game.definition.configuration.combo_window_ms),
+		"main scene copies Combo timing into game definition"
+	)
+	_check_equal(
 		int(modifier_tuning.get("loadout_capacity")),
 		int(live_game.definition.configuration.modifier_loadout_capacity),
 		"main scene copies modifier tuning into game definition"
@@ -96,8 +101,7 @@ func _run() -> void:
 		await create_timer(0.35).timeout
 		_check_equal(pair_feedback_before + 1, shell.get("_pair_feedback_count"), "resolved pair emits one reusable match burst")
 		_check_equal(1, live_game.tray.resolved_pair_count, "match feedback follows a committed pair transaction")
-		shell.call("_on_restart_requested")
-		live_game = shell.get("_game")
+		_check_equal(1, live_game.call("combo_at", shell.call("_playback_time_ms")), "natural pair starts the live Combo readout")
 	var visible_blocked_tile_id := ""
 	for tile in live_game.board.tiles:
 		if live_game.board.call("is_tile_visible", tile.id) and not live_game.board.call("is_tile_selectable", tile.id):
@@ -111,7 +115,9 @@ func _run() -> void:
 		var target_button: Button = board.get("_tile_buttons")[visible_blocked_tile_id]
 		_check(target_button.modulate != Color.WHITE, "normally unselectable tile is visibly darkened")
 		board.call("_on_tile_pressed", visible_blocked_tile_id)
-		_check_equal(revision_before, live_game.revision, "blocked-tile feedback does not submit a gameplay command")
+		_check_equal(revision_before + 1, live_game.revision, "blocked-tile feedback records a live Combo break")
+		_check_equal(0, live_game.call("combo_at", shell.call("_playback_time_ms")), "blocked tile tap kills Combo")
+		_check_equal("locked_tile_tap", live_game.call("last_transaction").telemetry.combo_break_reason, "blocked tile break is replay telemetry")
 		_check_equal(negative_count + 1, board.call("negative_feedback_count"), "blocked tile tap starts negative feedback")
 		await create_timer(0.25).timeout
 		shell.call("_on_delete_pair_requested")
@@ -176,6 +182,10 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 	var viewport_rect := shell.get_viewport_rect()
 	var debug_panel: Control = shell.get("_debug_panel")
 	var pause_button: Button = shell.get("_pause_button")
+	var momentum: Control = regions.momentum
+	var combo_label: Label = momentum.get("_combo")
+	var momentum_meter: ProgressBar = momentum.get("_meter")
+	_check(not Rect2(combo_label.position, combo_label.size).intersects(Rect2(momentum_meter.position, momentum_meter.size)), "%s Combo readout does not cover Momentum meter" % orientation)
 	_check(viewport_rect.encloses(Rect2(pause_button.position, pause_button.size)), "%s pause button stays inside viewport" % orientation)
 	if debug_panel.visible:
 		_check(viewport_rect.encloses(Rect2(debug_panel.position, debug_panel.size)), "%s debug panel stays inside viewport" % orientation)

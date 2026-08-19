@@ -45,6 +45,8 @@ Project-level instructions for Codex working on Battle Mahjong.
 - M5 uses a configurable three-slot modifier loadout and gives reference games a level-0 `2.0x` starter Score Multiplier tile. Persistent collection and leveling remain deferred.
 - M6 snapshots Hint, Undo, Delete Pair, and Shuffle quantities into each game definition. Delete Pair targets visible tiles independently from ordinary movement selectability; Shuffle preserves an almost-full tray and constructs a verified deterministic route. Persistent consumable ownership remains deferred.
 - M7 Batch A has a complete visual-slice candidate. The Default set contains all 34 baseline faces as separate SVG masters and PNG runtime exports, with a presentation-only mapping for the current 24 abstract identities. Board and tray share the skin manifest; blocked rejection, board-to-tray motion, transaction-driven pair removal, and the brush-arcade background remain presentation-only.
+- The M3 scoring model now includes a definition-bound seven-second Combo window. Natural pairs extend Combo; ordinary unmatched selections preserve it; timeout, live locked-tile taps, and successful consumables break it through replay-safe transactions. Final Combo rewards remain deferred.
+- Deterministic tile and pair difficulty analysis runs before each accepted natural selection and records derived transaction telemetry. The provisional geometry-only formula is documented in `docs/PAIR_DIFFICULTY.md`; it must remain orientation- and skin-independent and must not affect rewards until playtest validation.
 - Cross-game state boundaries are documented in `docs/PLAYER_PROFILE.md`. M9 will implement local profiles and a durable game library before replay presentation, game modes, backend work, or progression.
 
 ## Current Boundary
@@ -72,5 +74,6 @@ For documentation-only changes, `git diff --check` is sufficient unless the docu
 - `docs/LAYOUT_AUTHORING.md`: authored and generated board-layout workflow.
 - `docs/TILE_ART_PIPELINE.md`: canonical tile geometry, identity, source/export, and skin-manifest contract.
 - `docs/PLAYER_PROFILE.md`: profile, game-record, result-application, and future account boundaries.
+- `docs/PAIR_DIFFICULTY.md`: deterministic opportunity scoring, ranking, telemetry, and tuning boundary.
 - `docs/ART_DIRECTION.md`: canonical visual direction.
 - `docs/milestones/`: detailed milestone requirements and definitions of done.

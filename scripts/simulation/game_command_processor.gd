@@ -1,10 +1,12 @@
 extends RefCounted
 
 const BoardStateScript := preload("res://scripts/simulation/board_state.gd")
+const BoardOpportunityAnalysisScript := preload("res://scripts/simulation/board_opportunity_analysis.gd")
 const GameChangeScript := preload("res://scripts/simulation/game_change.gd")
 const GameCommandScript := preload("res://scripts/simulation/game_command.gd")
 const GameStateDataScript := preload("res://scripts/simulation/game_state_data.gd")
 const GameTransactionScript := preload("res://scripts/simulation/game_transaction.gd")
+const ComboRulesScript := preload("res://scripts/simulation/combo_rules.gd")
 const MomentumRulesScript := preload("res://scripts/simulation/momentum_rules.gd")
 const ModifierLoadoutScript := preload("res://scripts/simulation/modifier_loadout.gd")
 const ModifierRulesScript := preload("res://scripts/simulation/modifier_rules.gd")
@@ -25,6 +27,7 @@ const PAIR_DELETED := "pair_deleted"
 const NO_DELETABLE_PAIR := "no_deletable_pair"
 const SHUFFLED := "shuffled"
 const CONSUMABLE_UNAVAILABLE := "consumable_unavailable"
+const COMBO_BROKEN := "combo_broken"
 const STALE_COMMAND := "stale_command"
 const STALE_TIME := "stale_time"
 const UNKNOWN_COMMAND := "unknown_command"
@@ -38,7 +41,7 @@ func build_transaction(command: Variant, definition: Variant, state: Variant, ti
 
 	match command.type:
 		GameCommandScript.SELECT_TILE:
-			return _build_select(command, definition, state)
+			return _build_select(command, definition, state, timeline)
 		GameCommandScript.UNDO:
 			return _build_undo(command, definition, state, timeline)
 		GameCommandScript.HINT:
@@ -47,6 +50,8 @@ func build_transaction(command: Variant, definition: Variant, state: Variant, ti
 			return _build_delete_pair(command, definition, state)
 		GameCommandScript.SHUFFLE:
 			return _build_shuffle(command, definition, state)
+		GameCommandScript.BREAK_COMBO:
+			return _build_break_combo(command, definition, state)
 		_:
 			return {"result": UNKNOWN_COMMAND}
 
@@ -59,7 +64,7 @@ func can_undo(state: Variant, timeline: Array) -> bool:
 	return _find_selection_transaction(timeline, state.tray_tile_ids[-1]) != null
 
 
-func _build_select(command: Variant, definition: Variant, state: Variant) -> Dictionary:
+func _build_select(command: Variant, definition: Variant, state: Variant, timeline: Array) -> Dictionary:
 	if state.status != GameStateDataScript.PLAYING:
 		return {"result": GAME_OVER}
 
@@ -67,15 +72,41 @@ func _build_select(command: Variant, definition: Variant, state: Variant) -> Dic
 	var board := BoardStateScript.new(definition, state)
 	if not board.call("is_tile_selectable", tile_id):
 		return {"result": INVALID_SELECTION}
+	var opportunity_analyzer := BoardOpportunityAnalysisScript.new()
+	var opportunity_analysis: Dictionary = opportunity_analyzer.call("analyze", definition, state)
+	var selected_tile_opportunity: Dictionary = opportunity_analyzer.call(
+		"tile_entry",
+		opportunity_analysis,
+		tile_id
+	)
+	var selected_pair_options: Array = opportunity_analyzer.call(
+		"pair_entries_for_tile",
+		opportunity_analysis,
+		tile_id
+	)
 
 	var changes: Array = []
 	var momentum_after_decay := _append_clock_changes(command, definition, state, changes)
 	_append_clear_hint(changes, state)
+	var combo_before: int = ComboRulesScript.count_at(state, command.playback_time_ms)
+	var combo_after := combo_before
+	var combo_expires_after: int = state.combo_expires_at_ms if combo_before > 0 else 0
+	var max_combo_after: int = state.max_combo
 	var telemetry := {
 		"selection_interval_ms": command.playback_time_ms - state.last_selection_time_ms,
 		"momentum_before": state.momentum_units,
 		"momentum_after_decay": momentum_after_decay,
+		"opportunity": {
+			"board_revision": state.revision,
+			"active_tile_count": opportunity_analysis.active_tile_count,
+			"selectable_tile_count": opportunity_analysis.selectable_tile_count,
+			"available_pair_count": opportunity_analysis.available_pair_count,
+			"selected_tile": selected_tile_opportunity,
+			"selected_pair_options": selected_pair_options,
+		},
 	}
+	if state.combo_count > 0 and combo_before == 0:
+		telemetry["combo_break_reason"] = "timeout"
 	if command.playback_time_ms != state.last_selection_time_ms:
 		changes.append(GameChangeScript.new(
 			GameChangeScript.COUNTER,
@@ -133,6 +164,9 @@ func _build_select(command: Variant, definition: Variant, state: Variant) -> Dic
 			/ ModifierRulesScript.BASIS_POINTS_ONE
 		)
 		changes.append(GameChangeScript.new(GameChangeScript.COUNTER, "score", state.score, state.score + score_gain))
+		combo_after = combo_before + 1
+		combo_expires_after = ComboRulesScript.expiry_after_pair(command.playback_time_ms, definition.configuration)
+		max_combo_after = maxi(state.max_combo, combo_after)
 		if command.playback_time_ms != state.last_pair_time_ms:
 			changes.append(GameChangeScript.new(
 				GameChangeScript.COUNTER,
@@ -149,7 +183,23 @@ func _build_select(command: Variant, definition: Variant, state: Variant) -> Dic
 			"score_modifier_basis_points": score_modifier_basis_points,
 			"resulting_multiplier": resulting_multiplier,
 			"score_gain": score_gain,
+			"combo_before": combo_before,
+			"combo_after": combo_after,
+			"combo_expires_at_ms": combo_expires_after,
 		})
+		var resolved_pair_opportunity := _find_recorded_pair_opportunity(
+			timeline,
+			matching_tile_id,
+			tile_id
+		)
+		if resolved_pair_opportunity.is_empty():
+			resolved_pair_opportunity = {
+				"source": "tray_completion",
+				"observed_revision": state.revision,
+				"held_tile_id": matching_tile_id,
+				"selected_tile": selected_tile_opportunity,
+			}
+		telemetry["resolved_pair_opportunity"] = resolved_pair_opportunity
 		if tray_bonus_pairs_remaining_after > 0:
 			tray_bonus_pairs_remaining_after -= 1
 			if tray_bonus_pairs_remaining_after == 0:
@@ -197,6 +247,7 @@ func _build_select(command: Variant, definition: Variant, state: Variant) -> Dic
 	_append_counter_change(changes, "tray_bonus_capacity", state.tray_bonus_capacity, tray_bonus_capacity_after)
 	_append_counter_change(changes, "tray_bonus_pairs_remaining", state.tray_bonus_pairs_remaining, tray_bonus_pairs_remaining_after)
 	_append_counter_change(changes, "modifier_activation_count", state.modifier_activation_count, modifier_activation_count_after)
+	_append_combo_state(changes, state, combo_after, max_combo_after, combo_expires_after)
 	var next_peak := maxi(state.max_tray_occupancy, tray_after.size())
 	if next_peak != state.max_tray_occupancy:
 		changes.append(GameChangeScript.new(GameChangeScript.COUNTER, "max_tray_occupancy", state.max_tray_occupancy, next_peak))
@@ -237,6 +288,7 @@ func _build_undo(command: Variant, definition: Variant, state: Variant, timeline
 	_append_clock_changes(command, definition, state, changes)
 	_append_clear_hint(changes, state)
 	_append_consumable_use(changes, state, ConsumableInventoryScript.UNDO)
+	var combo_telemetry := _append_combo_reset(changes, state, command.playback_time_ms, "undo")
 	changes.append_array([
 		GameChangeScript.new(GameChangeScript.TILE_ZONE, tile_id, GameStateDataScript.ZONE_TRAY, GameStateDataScript.ZONE_BOARD),
 		GameChangeScript.new(GameChangeScript.TRAY, "tray_tile_ids", tray_before, tray_after),
@@ -244,6 +296,7 @@ func _build_undo(command: Variant, definition: Variant, state: Variant, timeline
 	])
 	var transaction := GameTransactionScript.new(command, changes, UNDONE, target_transaction.transaction_id)
 	transaction.definition_hash = target_transaction.definition_hash
+	transaction.telemetry = combo_telemetry
 	return {"result": UNDONE, "transaction": transaction}
 
 
@@ -277,10 +330,12 @@ func _build_hint(command: Variant, definition: Variant, state: Variant) -> Dicti
 	var changes: Array = []
 	_append_clock_changes(command, definition, state, changes)
 	_append_consumable_use(changes, state, ConsumableInventoryScript.HINT)
+	var combo_telemetry := _append_combo_reset(changes, state, command.playback_time_ms, "hint")
 	changes.append(GameChangeScript.new(GameChangeScript.HINT, "hinted_tile_ids", state.hinted_tile_ids, hinted))
 	var transaction := GameTransactionScript.new(command, changes, HINTED)
 	transaction.definition_hash = definition.definition_hash()
 	transaction.telemetry = {"hinted_tile_ids": hinted.duplicate()}
+	transaction.telemetry.merge(combo_telemetry)
 	return {"result": HINTED, "transaction": transaction}
 
 
@@ -308,6 +363,7 @@ func _build_delete_pair(command: Variant, definition: Variant, state: Variant) -
 	_append_clock_changes(command, definition, state, changes)
 	_append_clear_hint(changes, state)
 	_append_consumable_use(changes, state, ConsumableInventoryScript.DELETE_PAIR)
+	var combo_telemetry := _append_combo_reset(changes, state, command.playback_time_ms, "delete_pair")
 	changes.append(GameChangeScript.new(GameChangeScript.TILE_ZONE, tile_id, GameStateDataScript.ZONE_BOARD, GameStateDataScript.ZONE_RESOLVED))
 	changes.append(GameChangeScript.new(GameChangeScript.TILE_ZONE, partner_id, GameStateDataScript.ZONE_BOARD, GameStateDataScript.ZONE_RESOLVED))
 	changes.append(GameChangeScript.new(GameChangeScript.COUNTER, "resolved_pair_count", state.resolved_pair_count, state.resolved_pair_count + 1))
@@ -335,6 +391,7 @@ func _build_delete_pair(command: Variant, definition: Variant, state: Variant) -
 		"deleted_tile_ids": [tile_id, partner_id],
 		"modifiers_triggered": modifier_values.triggered_modifiers,
 	}
+	transaction.telemetry.merge(combo_telemetry)
 	return {"result": PAIR_DELETED, "transaction": transaction}
 
 
@@ -445,6 +502,7 @@ func _build_shuffle(command: Variant, definition: Variant, state: Variant) -> Di
 	_append_clock_changes(command, definition, state, changes)
 	_append_clear_hint(changes, state)
 	_append_consumable_use(changes, state, ConsumableInventoryScript.SHUFFLE)
+	var combo_telemetry := _append_combo_reset(changes, state, command.playback_time_ms, "shuffle")
 	for tile_id in mapping_after:
 		if state.tile_slot_ids[tile_id] != mapping_after[tile_id]:
 			changes.append(GameChangeScript.new(GameChangeScript.TILE_SLOT, tile_id, state.tile_slot_ids[tile_id], mapping_after[tile_id]))
@@ -453,7 +511,33 @@ func _build_shuffle(command: Variant, definition: Variant, state: Variant) -> Di
 	var transaction := GameTransactionScript.new(command, changes, SHUFFLED)
 	transaction.definition_hash = definition.definition_hash()
 	transaction.telemetry = {"tray_tile_count": state.tray_tile_ids.size(), "verified_route_length": route.size()}
+	transaction.telemetry.merge(combo_telemetry)
 	return {"result": SHUFFLED, "transaction": transaction}
+
+
+func _build_break_combo(command: Variant, definition: Variant, state: Variant) -> Dictionary:
+	if state.status != GameStateDataScript.PLAYING:
+		return {"result": GAME_OVER}
+	var tile_id: String = str(command.payload.get("tile_id", ""))
+	var board := BoardStateScript.new(definition, state)
+	if not board.call("is_tile_active", tile_id) or board.call("is_tile_selectable", tile_id):
+		return {"result": INVALID_SELECTION}
+	var combo_before: int = ComboRulesScript.count_at(state, command.playback_time_ms)
+	if combo_before <= 0:
+		return {"result": INVALID_SELECTION}
+
+	var changes: Array = []
+	_append_clock_changes(command, definition, state, changes)
+	_append_combo_state(changes, state, 0, state.max_combo, 0)
+	var transaction := GameTransactionScript.new(command, changes, COMBO_BROKEN)
+	transaction.definition_hash = definition.definition_hash()
+	transaction.telemetry = {
+		"combo_before": combo_before,
+		"combo_after": 0,
+		"combo_break_reason": "locked_tile_tap",
+		"tile_id": tile_id,
+	}
+	return {"result": COMBO_BROKEN, "transaction": transaction}
 
 
 func _face_key(tile: Variant) -> String:
@@ -473,6 +557,16 @@ func _append_consumable_use(changes: Array, state: Variant, consumable_type: Str
 	var after: Dictionary = state.consumable_counts.duplicate(true)
 	after[consumable_type] = int(after[consumable_type]) - 1
 	changes.append(GameChangeScript.new(GameChangeScript.CONSUMABLES, "consumable_counts", state.consumable_counts, after))
+
+
+func _append_combo_reset(changes: Array, state: Variant, playback_time_ms: int, reason: String) -> Dictionary:
+	var combo_before: int = ComboRulesScript.count_at(state, playback_time_ms)
+	_append_combo_state(changes, state, 0, state.max_combo, 0)
+	return {
+		"combo_before": combo_before,
+		"combo_after": 0,
+		"combo_break_reason": reason,
+	}
 
 
 func _append_clock_changes(command: Variant, definition: Variant, state: Variant, changes: Array) -> int:
@@ -527,6 +621,18 @@ func _append_counter_change(changes: Array, target: String, before: int, after: 
 		changes.append(GameChangeScript.new(GameChangeScript.COUNTER, target, before, after))
 
 
+func _append_combo_state(
+		changes: Array,
+		state: Variant,
+		combo_after: int,
+		max_combo_after: int,
+		combo_expires_after: int
+) -> void:
+	_append_counter_change(changes, "combo_count", state.combo_count, combo_after)
+	_append_counter_change(changes, "max_combo", state.max_combo, max_combo_after)
+	_append_counter_change(changes, "combo_expires_at_ms", state.combo_expires_at_ms, combo_expires_after)
+
+
 func _find_selection_transaction(timeline: Array, tile_id: String) -> Variant:
 	for index in range(timeline.size() - 1, -1, -1):
 		var transaction: Variant = timeline[index]
@@ -540,6 +646,26 @@ func _find_selection_transaction(timeline: Array, tile_id: String) -> Variant:
 					and change.after == GameStateDataScript.ZONE_TRAY:
 				return transaction
 	return null
+
+
+func _find_recorded_pair_opportunity(timeline: Array, first_tile_id: String, second_tile_id: String) -> Dictionary:
+	var ids: Array[String] = [first_tile_id, second_tile_id]
+	ids.sort()
+	var pair_id := "%s|%s" % ids
+	for index in range(timeline.size() - 1, -1, -1):
+		var transaction: Variant = timeline[index]
+		var opportunity: Dictionary = transaction.telemetry.get("opportunity", {})
+		var selected_tile: Dictionary = opportunity.get("selected_tile", {})
+		if str(selected_tile.get("tile_id", "")) != first_tile_id:
+			continue
+		for pair_entry in opportunity.get("selected_pair_options", []):
+			if str(pair_entry.get("id", "")) != pair_id:
+				continue
+			var resolved: Dictionary = pair_entry.duplicate(true)
+			resolved["source"] = "board_pair"
+			resolved["observed_revision"] = int(opportunity.get("board_revision", transaction.revision - 1))
+			return resolved
+	return {}
 
 
 func _resolves_pair(transaction: Variant) -> bool:

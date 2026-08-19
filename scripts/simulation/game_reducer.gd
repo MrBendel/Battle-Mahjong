@@ -14,6 +14,9 @@ const COUNTERS := [
 	"last_selection_time_ms",
 	"last_pair_time_ms",
 	"max_multiplier",
+	"combo_count",
+	"max_combo",
+	"combo_expires_at_ms",
 	"modifier_activation_count",
 	"extra_life_charges",
 	"cold_snap_until_ms",
@@ -117,6 +120,10 @@ func _is_valid(definition: Variant, state: Variant) -> bool:
 	if state.momentum_units < 0 or state.momentum_units > int(definition.configuration.momentum_max):
 		return false
 	if state.score < 0 or state.elapsed_time_ms < 0 or state.max_multiplier < 1:
+		return false
+	if state.combo_count < 0 or state.max_combo < state.combo_count or state.combo_expires_at_ms < 0:
+		return false
+	if state.combo_count == 0 and state.combo_expires_at_ms != 0:
 		return false
 	if state.modifier_activation_count < 0 or state.extra_life_charges < 0:
 		return false

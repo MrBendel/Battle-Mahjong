@@ -23,6 +23,10 @@ func _run_policy(simulator: Variant, policy: String, policy_config: Dictionary =
 	var peak_tray := 0
 	var total_score := 0
 	var peak_multiplier := 1
+	var peak_combo := 0
+	var total_pair_difficulty := 0
+	var analyzed_pair_count := 0
+	var hardest_pair_difficulty := 0
 	var tray_peaks := {1: 0, 2: 0, 3: 0, 4: 0}
 
 	for seed in range(1, RUN_COUNT + 1):
@@ -38,9 +42,13 @@ func _run_policy(simulator: Variant, policy: String, policy_config: Dictionary =
 		peak_tray = maxi(peak_tray, result.max_tray)
 		total_score += result.score
 		peak_multiplier = maxi(peak_multiplier, result.max_multiplier)
+		peak_combo = maxi(peak_combo, result.max_combo)
+		total_pair_difficulty += int(result.average_pair_difficulty) * int(result.analyzed_pair_count)
+		analyzed_pair_count += int(result.analyzed_pair_count)
+		hardest_pair_difficulty = maxi(hardest_pair_difficulty, int(result.hardest_pair_difficulty))
 		tray_peaks[result.max_tray] = tray_peaks.get(result.max_tray, 0) + 1
 
-	printerr("%s config=%s: runs=%d wins=%d losses=%d stalled=%d avg_pairs=%.2f avg_selections=%.2f avg_score=%.2f peak_multiplier=x%d peak_tray=%d tray_peaks=%s" % [
+	printerr("%s config=%s: runs=%d wins=%d losses=%d stalled=%d avg_pairs=%.2f avg_selections=%.2f avg_score=%.2f peak_multiplier=x%d peak_combo=%d avg_pair_difficulty=%.2f hardest_pair=%d peak_tray=%d tray_peaks=%s" % [
 		policy,
 		str(policy_config),
 		RUN_COUNT,
@@ -51,6 +59,9 @@ func _run_policy(simulator: Variant, policy: String, policy_config: Dictionary =
 		float(total_selections) / RUN_COUNT,
 		float(total_score) / RUN_COUNT,
 		peak_multiplier,
+		peak_combo,
+		0.0 if analyzed_pair_count == 0 else float(total_pair_difficulty) / analyzed_pair_count,
+		hardest_pair_difficulty,
 		peak_tray,
 		str(tray_peaks),
 	])

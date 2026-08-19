@@ -5,6 +5,7 @@ const UNDO := "undo"
 const HINT := "hint"
 const DELETE_PAIR := "delete_pair"
 const SHUFFLE := "shuffle"
+const BREAK_COMBO := "break_combo"
 
 var command_id: String
 var actor_id: String

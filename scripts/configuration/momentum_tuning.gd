@@ -19,6 +19,10 @@ const GameConfigurationScript := preload("res://scripts/simulation/game_configur
 ## Points awarded per pair before applying the current multiplier.
 @export_range(1, 1000000, 1) var pair_base_score := 100
 
+@export_category("Combo")
+## Active-play time allowed between natural pair resolutions before Combo expires.
+@export_range(1000, 60000, 100) var combo_window_ms := 7000
+
 
 func configuration_overrides() -> Dictionary:
 	var decay_per_ms: Array[int] = []
@@ -30,6 +34,7 @@ func configuration_overrides() -> Dictionary:
 		"momentum_thresholds": multiplier_thresholds.duplicate(),
 		"momentum_decay_per_ms": decay_per_ms,
 		"pair_base_score": pair_base_score,
+		"combo_window_ms": combo_window_ms,
 	}
 
 
@@ -55,6 +60,8 @@ func validation_errors() -> Array[String]:
 			break
 	if pair_base_score <= 0:
 		errors.append("Pair base score must be positive.")
+	if combo_window_ms <= 0:
+		errors.append("Combo window must be positive.")
 	return errors
 
 
@@ -66,4 +73,5 @@ static func default_overrides() -> Dictionary:
 		"momentum_thresholds": configuration.momentum_thresholds.duplicate(),
 		"momentum_decay_per_ms": configuration.momentum_decay_per_ms.duplicate(),
 		"pair_base_score": configuration.pair_base_score,
+		"combo_window_ms": configuration.combo_window_ms,
 	}

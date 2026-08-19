@@ -61,6 +61,7 @@ func _build_shell() -> void:
 		add_child(region)
 
 	_regions.board.tile_selected.connect(_on_tile_selected)
+	_regions.board.locked_tile_tapped.connect(_on_locked_tile_tapped)
 	_regions.consumables.hint_requested.connect(_on_hint_requested)
 	_regions.consumables.delete_pair_requested.connect(_on_delete_pair_requested)
 	_regions.consumables.shuffle_requested.connect(_on_shuffle_requested)
@@ -190,6 +191,13 @@ func _on_tile_selected(tile_id: String) -> void:
 	if result == GameStateScript.PAIR_RESOLVED:
 		var transaction: Variant = _game.call("last_transaction")
 		_regions.momentum.call("play_pair_feedback", int(transaction.telemetry.resulting_multiplier))
+
+
+func _on_locked_tile_tapped(tile_id: String) -> void:
+	if _pause_started_at_ms >= 0:
+		return
+	_game.call("break_combo_for_locked_tile", tile_id, _playback_time_ms())
+	_regions.momentum.call("refresh", _playback_time_ms())
 
 
 func _on_undo_requested() -> void:
