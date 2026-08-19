@@ -13,6 +13,7 @@ const ModifierTuningScript := preload("res://scripts/configuration/modifier_tuni
 const ConsumablesViewScript := preload("res://scripts/presentation/consumables_view.gd")
 const TileSkinScript := preload("res://scripts/presentation/tile_skin.gd")
 const PairMatchFxScript := preload("res://scripts/presentation/pair_match_fx.gd")
+const PauseMenuScript := preload("res://scripts/presentation/pause_menu.gd")
 const GameChangeScript := preload("res://scripts/simulation/game_change.gd")
 const GameStateDataScript := preload("res://scripts/simulation/game_state_data.gd")
 const GAMEPLAY_BACKGROUND := preload("res://game-assets/backgrounds/gameplay_brush_arcade.png")
@@ -34,6 +35,10 @@ var _last_tile_motion_target := Rect2()
 var _pair_feedback_count := 0
 var _last_pair_feedback_position := Vector2()
 var _gameplay_background: TextureRect
+var _pause_button: Button
+var _pause_menu: Control
+var _pause_started_at_ms := -1
+var _paused_duration_ms := 0
 
 func _ready() -> void:
 	_build_shell()
@@ -56,14 +61,31 @@ func _build_shell() -> void:
 		add_child(region)
 
 	_regions.board.tile_selected.connect(_on_tile_selected)
-	_regions.tray.undo_requested.connect(_on_undo_requested)
-	_regions.tray.restart_requested.connect(_on_restart_requested)
 	_regions.consumables.hint_requested.connect(_on_hint_requested)
 	_regions.consumables.delete_pair_requested.connect(_on_delete_pair_requested)
 	_regions.consumables.shuffle_requested.connect(_on_shuffle_requested)
+	_regions.consumables.undo_requested.connect(_on_undo_requested)
 
 	_debug_panel = DebugPanelScript.new()
 	add_child(_debug_panel)
+	_build_pause_menu()
+
+
+func _build_pause_menu() -> void:
+	_pause_button = Button.new()
+	_pause_button.name = "PauseButton"
+	_pause_button.text = "Ⅱ"
+	_pause_button.tooltip_text = "Pause"
+	_pause_button.focus_mode = Control.FOCUS_NONE
+	_pause_button.z_index = 1500
+	_pause_button.pressed.connect(_on_pause_requested)
+	add_child(_pause_button)
+
+	_pause_menu = PauseMenuScript.new()
+	_pause_menu.visible = false
+	_pause_menu.resumed.connect(_on_resume_requested)
+	_pause_menu.restart_requested.connect(_on_restart_requested)
+	add_child(_pause_menu)
 
 
 func _build_gameplay_background() -> void:
@@ -127,6 +149,8 @@ func _create_game() -> Variant:
 
 
 func _on_tile_selected(tile_id: String) -> void:
+	if _pause_started_at_ms >= 0:
+		return
 	var result: String
 	var tile_preview: Control = null
 	var matching_preview: Control = null
@@ -169,11 +193,15 @@ func _on_tile_selected(tile_id: String) -> void:
 
 
 func _on_undo_requested() -> void:
+	if _pause_started_at_ms >= 0:
+		return
 	_game.call("undo_last_unmatched", _playback_time_ms())
 	_refresh_game_views()
 
 
 func _on_hint_requested() -> void:
+	if _pause_started_at_ms >= 0:
+		return
 	var result: String = _game.call("request_hint", _playback_time_ms())
 	if result == GameStateScript.NO_HINT_AVAILABLE:
 		_regions.consumables.call("show_notice", "No pair is available. Try another move or Shuffle.")
@@ -183,12 +211,16 @@ func _on_hint_requested() -> void:
 
 
 func _on_delete_pair_requested() -> void:
+	if _pause_started_at_ms >= 0:
+		return
 	_delete_pair_armed = true
 	_regions.board.call("set_delete_pair_armed", true)
 	_regions.consumables.call("show_notice", "Choose any visible tile to delete its visible matching pair.")
 
 
 func _on_shuffle_requested() -> void:
+	if _pause_started_at_ms >= 0:
+		return
 	_delete_pair_armed = false
 	_regions.board.call("set_delete_pair_armed", false)
 	var result: String = _game.call("shuffle", _playback_time_ms())
@@ -200,6 +232,12 @@ func _on_shuffle_requested() -> void:
 
 
 func _on_restart_requested() -> void:
+	_pause_started_at_ms = -1
+	_paused_duration_ms = 0
+	if _pause_menu != null:
+		_pause_menu.call("close")
+	if _pause_button != null:
+		_pause_button.visible = true
 	_game = _create_game()
 	_game_started_at_ms = Time.get_ticks_msec()
 	_regions.board.call("set_game_state", _game)
@@ -208,6 +246,32 @@ func _on_restart_requested() -> void:
 	_regions.consumables.call("set_game_state", _game)
 	_delete_pair_armed = false
 	_regions.board.call("set_delete_pair_armed", false)
+
+
+func _on_pause_requested() -> void:
+	if _pause_started_at_ms >= 0:
+		return
+	_pause_started_at_ms = Time.get_ticks_msec()
+	_pause_button.visible = false
+	_pause_menu.call("open")
+
+
+func _on_resume_requested() -> void:
+	if _pause_started_at_ms < 0:
+		return
+	_paused_duration_ms += Time.get_ticks_msec() - _pause_started_at_ms
+	_pause_started_at_ms = -1
+	_pause_menu.call("close")
+	_pause_button.visible = true
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+		if _pause_started_at_ms >= 0:
+			_on_resume_requested()
+		else:
+			_on_pause_requested()
+		get_viewport().set_input_as_handled()
 
 
 func _refresh_game_views() -> void:
@@ -336,12 +400,13 @@ func _global_to_local(point: Vector2) -> Vector2:
 
 
 func _process(_delta: float) -> void:
-	if _game != null and _regions.has("momentum"):
+	if _pause_started_at_ms < 0 and _game != null and _regions.has("momentum"):
 		_regions.momentum.call("refresh", _playback_time_ms())
 
 
 func _playback_time_ms() -> int:
-	return Time.get_ticks_msec() - _game_started_at_ms
+	var now: int = _pause_started_at_ms if _pause_started_at_ms >= 0 else Time.get_ticks_msec()
+	return now - _game_started_at_ms - _paused_duration_ms
 
 
 func _make_region(title: String, subtitle: String, color: Color) -> PanelContainer:
@@ -386,6 +451,7 @@ func _apply_layout() -> void:
 		_apply_portrait_layout(viewport_size)
 
 	_place_debug_panel(viewport_size, orientation)
+	_place_pause_button(viewport_size)
 	_debug_panel.call(
 		"set_info",
 		_rng.call("get_seed"),
@@ -407,8 +473,8 @@ func _apply_landscape_layout(size: Vector2) -> void:
 
 	_place(_regions.momentum, Rect2(margin, margin, left_width, 96.0))
 	_place(_regions.consumables, Rect2(margin, margin + 96.0 + gap, left_width, size.y - margin * 2.0 - 96.0 - gap))
-	_place(_regions.board, Rect2(board_left, margin, board_width, board_height))
-	_place(_regions.tray, Rect2(board_left, margin + board_height + gap, board_width, tray_height))
+	_place(_regions.tray, Rect2(board_left, margin, board_width, tray_height))
+	_place(_regions.board, Rect2(board_left, margin + tray_height + gap, board_width, board_height))
 	_place(_regions.character, Rect2(board_left + board_width + gap, margin, right_width, size.y - margin * 2.0))
 
 
@@ -420,20 +486,21 @@ func _apply_portrait_layout(size: Vector2) -> void:
 	var debug_height := 120.0
 	var tray_height := 86.0
 	var consumables_height := 90.0
-	var board_top: float = margin + momentum_height + gap + debug_height + gap
+	var tray_top: float = margin + momentum_height + gap + debug_height + gap
+	var board_top: float = tray_top + tray_height + gap
 	var minimum_character_height := 72.0
-	var reserved_after_board := gap + tray_height + gap + consumables_height + gap + minimum_character_height + margin
+	var reserved_after_board := gap + consumables_height + gap + minimum_character_height + margin
 	var board_height: float = minf(
 		clampf(size.y * 0.43, 260.0, size.y * 0.46),
 		maxf(260.0, size.y - board_top - reserved_after_board)
 	)
-	var character_top: float = board_top + board_height + gap + tray_height + gap + consumables_height + gap
+	var character_top: float = board_top + board_height + gap + consumables_height + gap
 	var character_height: float = maxf(minimum_character_height, size.y - character_top - margin)
 
-	_place(_regions.momentum, Rect2(margin, margin, usable_width, momentum_height))
+	_place(_regions.momentum, Rect2(margin, margin, usable_width - 52.0, momentum_height))
+	_place(_regions.tray, Rect2(margin, tray_top, usable_width, tray_height))
 	_place(_regions.board, Rect2(margin, board_top, usable_width, board_height))
-	_place(_regions.tray, Rect2(margin, board_top + board_height + gap, usable_width, tray_height))
-	_place(_regions.consumables, Rect2(margin, board_top + board_height + gap + tray_height + gap, usable_width, consumables_height))
+	_place(_regions.consumables, Rect2(margin, board_top + board_height + gap, usable_width, consumables_height))
 	_place(_regions.character, Rect2(margin, character_top, usable_width, character_height))
 
 
@@ -444,12 +511,13 @@ func _apply_compact_portrait_layout(size: Vector2) -> void:
 	var momentum_height := 58.0
 	var tray_height := 76.0
 	var consumables_height := 82.0
-	var board_top := margin + momentum_height + gap
-	var board_height := size.y - board_top - gap - tray_height - gap - consumables_height - margin
-	_place(_regions.momentum, Rect2(margin, margin, usable_width, momentum_height))
+	var tray_top := margin + momentum_height + gap
+	var board_top := tray_top + tray_height + gap
+	var board_height := size.y - board_top - gap - consumables_height - margin
+	_place(_regions.momentum, Rect2(margin, margin, usable_width - 50.0, momentum_height))
+	_place(_regions.tray, Rect2(margin, tray_top, usable_width, tray_height))
 	_place(_regions.board, Rect2(margin, board_top, usable_width, board_height))
-	_place(_regions.tray, Rect2(margin, board_top + board_height + gap, usable_width, tray_height))
-	_place(_regions.consumables, Rect2(margin, board_top + board_height + gap + tray_height + gap, usable_width, consumables_height))
+	_place(_regions.consumables, Rect2(margin, board_top + board_height + gap, usable_width, consumables_height))
 	_regions.character.visible = false
 	_debug_panel.visible = false
 
@@ -462,7 +530,7 @@ func _place(control: Control, rect: Rect2) -> void:
 
 func _place_debug_panel(size: Vector2, orientation: String) -> void:
 	var panel_size := Vector2(220.0, 104.0)
-	var panel_position := Vector2(max(12.0, size.x - panel_size.x - 18.0), 18.0)
+	var panel_position := Vector2(max(12.0, size.x - panel_size.x - 18.0), 70.0)
 	if orientation == "Portrait":
 		panel_size.x = size.x - 28.0
 		panel_size.y = 120.0
@@ -470,3 +538,9 @@ func _place_debug_panel(size: Vector2, orientation: String) -> void:
 	_debug_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	_debug_panel.position = panel_position
 	_debug_panel.size = panel_size
+
+
+func _place_pause_button(size: Vector2) -> void:
+	_pause_button.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_pause_button.position = Vector2(size.x - 54.0, 14.0)
+	_pause_button.size = Vector2(40.0, 40.0)

@@ -4,6 +4,7 @@ class_name ConsumablesView
 signal hint_requested
 signal delete_pair_requested
 signal shuffle_requested
+signal undo_requested
 
 var _game: Variant
 var _buttons: Dictionary = {}
@@ -38,6 +39,7 @@ func _ready() -> void:
 	_add_button("hint", "Hint", func() -> void: hint_requested.emit())
 	_add_button("delete_pair", "Delete Pair", func() -> void: delete_pair_requested.emit())
 	_add_button("shuffle", "Shuffle", func() -> void: shuffle_requested.emit())
+	_add_button("undo", "Undo", func() -> void: undo_requested.emit())
 	resized.connect(_layout)
 	refresh()
 	_layout()
@@ -54,8 +56,13 @@ func refresh() -> void:
 		return
 	for consumable_type in _buttons:
 		var button: Button = _buttons[consumable_type]
-		button.text = "%s (%d)" % [button.get_meta("label"), _game.call("consumable_count", consumable_type)]
-		button.disabled = _game.status != "playing" or _game.call("consumable_count", consumable_type) <= 0
+		var label: String = str(button.get_meta("label"))
+		if size.y <= 180.0 and consumable_type == "delete_pair":
+			label = "Delete"
+		button.text = "%s (%d)" % [label, _game.call("consumable_count", consumable_type)]
+		button.disabled = _game.status != "playing" \
+			or _game.call("consumable_count", consumable_type) <= 0 \
+			or consumable_type == "undo" and not _game.call("can_undo")
 
 
 func show_notice(message: String) -> void:
@@ -79,7 +86,7 @@ func _layout() -> void:
 	_notice.size = Vector2(maxf(100.0, size.x - 24.0), 46.0)
 	var vertical := size.y > 180.0
 	_notice.visible = vertical
-	var types := ["hint", "delete_pair", "shuffle"]
+	var types := ["hint", "delete_pair", "shuffle", "undo"]
 	if vertical:
 		var button_height := 42.0
 		var button_top := maxf(96.0, _notice.position.y + _notice.get_combined_minimum_size().y + 8.0)
@@ -88,17 +95,12 @@ func _layout() -> void:
 			_buttons[types[index]].size = Vector2(maxf(80.0, size.x - 24.0), button_height)
 	else:
 		var gap := 8.0
-		var available_width := maxf(210.0, size.x - 24.0 - gap * 2.0)
-		var minimum_widths: Array[float] = []
-		var minimum_total := 0.0
-		for type in types:
-			var minimum_width := maxf(70.0, _buttons[type].get_combined_minimum_size().x)
-			minimum_widths.append(minimum_width)
-			minimum_total += minimum_width
-		var shared_extra := maxf(0.0, available_width - minimum_total) / float(types.size())
+		var available_width := maxf(240.0, size.x - 24.0 - gap * float(types.size() - 1))
+		var button_width := available_width / float(types.size())
 		var button_x := 12.0
 		for index in types.size():
-			var button_width := minimum_widths[index] + shared_extra
 			_buttons[types[index]].position = Vector2(button_x, maxf(42.0, size.y - 44.0))
 			_buttons[types[index]].size = Vector2(button_width, 36.0)
+			_buttons[types[index]].add_theme_font_size_override("font_size", 14)
 			button_x += button_width + gap
+	refresh()

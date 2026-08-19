@@ -3,9 +3,6 @@ class_name TrayView
 
 const TileSkinScript := preload("res://scripts/presentation/tile_skin.gd")
 
-signal undo_requested
-signal restart_requested
-
 const SLOT_COUNT := 4
 const HEADER_HEIGHT := 32.0
 const MARGIN := 10.0
@@ -16,8 +13,6 @@ var _status_label: Label
 var _slots: Array[PanelContainer] = []
 var _slot_labels: Array[Label] = []
 var _slot_art: Array[TextureRect] = []
-var _undo_button: Button
-var _restart_button: Button
 var _tile_skin: Variant
 
 
@@ -62,8 +57,6 @@ func refresh() -> void:
 
 		label.add_theme_color_override("font_color", Color("202625") if occupied else Color("68716f"))
 
-	_undo_button.disabled = not _game.call("can_undo")
-	_undo_button.text = "Undo (%d)" % _game.call("consumable_count", "undo")
 	match _game.status:
 		"won":
 			_status_label.text = "Victory - %d pairs" % _game.tray.resolved_pair_count
@@ -113,21 +106,6 @@ func _build() -> void:
 		_slot_labels.append(label)
 		_slot_art.append(face_art)
 
-	_undo_button = Button.new()
-	_undo_button.text = "Undo"
-	_undo_button.tooltip_text = "Return the latest unresolved tile"
-	_undo_button.focus_mode = Control.FOCUS_NONE
-	_undo_button.pressed.connect(func() -> void: undo_requested.emit())
-	add_child(_undo_button)
-
-	_restart_button = Button.new()
-	_restart_button.text = "Restart"
-	_restart_button.tooltip_text = "Restart this seeded deal"
-	_restart_button.focus_mode = Control.FOCUS_NONE
-	_restart_button.pressed.connect(func() -> void: restart_requested.emit())
-	add_child(_restart_button)
-
-
 func _layout() -> void:
 	if _slots.is_empty():
 		return
@@ -135,10 +113,7 @@ func _layout() -> void:
 	_status_label.size = Vector2(maxf(80.0, size.x - 80.0 - MARGIN), 24.0)
 	var body_y := HEADER_HEIGHT
 	var body_height := maxf(34.0, size.y - body_y - MARGIN)
-	var undo_width := 58.0
-	var restart_width := 70.0
-	var controls_width := undo_width + restart_width + GAP
-	var slots_width := maxf(120.0, size.x - MARGIN * 2.0 - controls_width - GAP)
+	var slots_width := maxf(120.0, size.x - MARGIN * 2.0)
 	var slot_width := (slots_width - GAP * (SLOT_COUNT - 1)) / SLOT_COUNT
 
 	for index in range(SLOT_COUNT):
@@ -146,12 +121,6 @@ func _layout() -> void:
 		_slots[index].size = Vector2(slot_width, body_height)
 		_slot_art[index].position = Vector2(4.0, 3.0)
 		_slot_art[index].size = Vector2(maxf(1.0, slot_width - 8.0), maxf(1.0, body_height - 6.0))
-
-	var controls_x := MARGIN + slots_width + GAP
-	_undo_button.position = Vector2(controls_x, body_y)
-	_undo_button.size = Vector2(undo_width, body_height)
-	_restart_button.position = Vector2(controls_x + undo_width + GAP, body_y)
-	_restart_button.size = Vector2(restart_width, body_height)
 
 func slot_global_rect(index: int) -> Rect2:
 	if index < 0 or index >= _slots.size():

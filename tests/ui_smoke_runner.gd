@@ -68,8 +68,24 @@ func _run() -> void:
 		var first_slot_art: TextureRect = shell.get("_regions").tray.get("_slot_art")[0]
 		_check(first_slot_art.visible and first_slot_art.texture != null, "tray uses the selected face artwork")
 		await create_timer(0.25).timeout
-		shell.call("_on_restart_requested")
+		var paused_time: int = shell.call("_playback_time_ms")
+		shell.call("_on_pause_requested")
+		_check(shell.get("_pause_menu").visible, "pause button opens the first modal menu")
+		_check(not shell.get("_pause_button").visible, "pause button yields focus to the open menu")
+		await create_timer(0.05).timeout
+		_check_equal(paused_time, shell.call("_playback_time_ms"), "pause menu freezes active gameplay time")
+		shell.get("_pause_menu").emit_signal("resumed")
+		_check(not shell.get("_pause_menu").visible, "Resume closes the pause menu")
+		_check(shell.get("_pause_button").visible, "Resume restores the pause button")
+		await create_timer(0.02).timeout
+		_check(shell.call("_playback_time_ms") > paused_time, "Resume restarts active gameplay time")
+		shell.call("_on_pause_requested")
+		shell.get("_pause_menu").emit_signal("restart_requested")
+		await process_frame
 		live_game = shell.get("_game")
+		_check_equal(0, live_game.revision, "pause-menu Restart creates a fresh game")
+		_check(not shell.get("_pause_menu").visible, "Restart closes the pause menu")
+		_check(shell.get("_pause_button").visible, "Restart restores the pause button")
 	var selectable_pair := _find_selectable_pair(live_game)
 	_check_equal(2, selectable_pair.size(), "reference game exposes a legal pair for match-feedback validation")
 	if selectable_pair.size() == 2:
@@ -129,13 +145,17 @@ func _run() -> void:
 	if not capture_tile_id.is_empty():
 		shell.call("_on_tile_selected", capture_tile_id)
 		await create_timer(0.25).timeout
+	if OS.get_cmdline_user_args().has("--pause-menu"):
+		shell.call("_on_pause_requested")
+		await process_frame
 	await process_frame
 	if DisplayServer.get_name() == "headless":
 		printerr("capture skipped: active renderer does not expose a framebuffer")
 	else:
 		RenderingServer.force_draw()
 		var image := root.get_texture().get_image()
-		var capture_name := "small-phone" if OS.get_cmdline_user_args().has("--small-phone") else orientation
+		var capture_name := "pause-menu" if OS.get_cmdline_user_args().has("--pause-menu") \
+			else "small-phone" if OS.get_cmdline_user_args().has("--small-phone") else orientation
 		var output_path := "user://m7_%s.png" % capture_name
 		if image == null:
 			printerr("capture skipped: active renderer does not expose a framebuffer")
@@ -155,6 +175,8 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 	var regions: Dictionary = shell.get("_regions")
 	var viewport_rect := shell.get_viewport_rect()
 	var debug_panel: Control = shell.get("_debug_panel")
+	var pause_button: Button = shell.get("_pause_button")
+	_check(viewport_rect.encloses(Rect2(pause_button.position, pause_button.size)), "%s pause button stays inside viewport" % orientation)
 	if debug_panel.visible:
 		_check(viewport_rect.encloses(Rect2(debug_panel.position, debug_panel.size)), "%s debug panel stays inside viewport" % orientation)
 	var names: Array = []
@@ -168,6 +190,17 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 			viewport_rect.encloses(region_rect),
 			"%s %s stays inside viewport (%s in %s)" % [orientation, name, region_rect, viewport_rect]
 		)
+
+	var tray: Control = regions.tray
+	var board: Control = regions.board
+	_check(
+		tray.position.y + tray.size.y <= board.position.y,
+		"%s tray stays above the game board" % orientation
+	)
+	_check(
+		not Rect2(pause_button.position, pause_button.size).intersects(Rect2(regions.momentum.position, regions.momentum.size)),
+		"%s pause button does not cover Momentum" % orientation
+	)
 
 	for first_index in range(names.size()):
 		for second_index in range(first_index + 1, names.size()):
@@ -215,9 +248,10 @@ func _validate_board_tiles(shell: Control, orientation: String) -> void:
 
 func _validate_consumables(shell: Control, orientation: String) -> void:
 	var consumables: Control = shell.get("_regions").consumables
+	var buttons: Dictionary = consumables.get("_buttons")
 	var panel_rect := Rect2(Vector2.ZERO, consumables.size)
 	var controls: Array[Control] = []
-	for button in consumables.get("_buttons").values():
+	for button in buttons.values():
 		controls.append(button)
 	var notice: Label = consumables.get("_notice")
 	if notice.visible:
@@ -238,6 +272,17 @@ func _validate_consumables(shell: Control, orientation: String) -> void:
 					second_rect,
 				]
 			)
+	_check(buttons.has("undo"), "%s consumables own Undo" % orientation)
+	for consumable_type in buttons:
+		if consumable_type != "undo":
+			if consumables.size.y <= 180.0:
+				_check(buttons.undo.position.x > buttons[consumable_type].position.x, "%s Undo stays rightmost" % orientation)
+			else:
+				_check(buttons.undo.position.y > buttons[consumable_type].position.y, "%s Undo stays last in the tool stack" % orientation)
+	var tray_has_command_button := false
+	for child in shell.get("_regions").tray.get_children():
+		tray_has_command_button = tray_has_command_button or child is Button
+	_check(not tray_has_command_button, "%s tray contains no command buttons" % orientation)
 
 
 func _find_selectable_pair(game: Variant) -> Array[String]:
