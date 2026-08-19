@@ -120,9 +120,9 @@ Detailed contract: [M06 Consumables](milestones/M06_CONSUMABLES.md)
 
 ## M7 - Art Foundation And First Visual Slice
 
-Status: In progress. The Batch A tile geometry, extensible 34-face manifest, source/runtime export path, and representative Default-family assets are implemented as a contract proof.
+Status: In progress. The Batch A visual-slice candidate is implemented: canonical tile geometry, an extensible 34-face manifest, the complete Default face set, source/runtime exports, responsive board and tray rendering, selection/rejection motion, transaction-driven pair removal, and the first production-style gameplay background.
 
-Next production work completes the Default face set and core tile states before expanding into system artwork, FX, character/background work, and the Neon skin proof.
+Next production work moves into Batch B system artwork for modifiers, consumables, momentum, and multiplier before broader FX, character work, and the Neon skin proof.
 
 Detailed contracts: [M07 Art Foundation](milestones/M07_ART_FOUNDATION.md) and [Tile Art Pipeline](TILE_ART_PIPELINE.md)
 

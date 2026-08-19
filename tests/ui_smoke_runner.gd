@@ -9,12 +9,21 @@ func _init() -> void:
 
 func _run() -> void:
 	var requested_size := Vector2i(1280, 720)
-	if OS.get_cmdline_user_args().has("--portrait"):
+	if OS.get_cmdline_user_args().has("--small-phone"):
+		requested_size = Vector2i(375, 667)
+	elif OS.get_cmdline_user_args().has("--portrait"):
 		requested_size = Vector2i(430, 932)
 	root.size = requested_size
 	var shell: Control = load("res://scenes/main.tscn").instantiate()
 	root.add_child(shell)
 	await process_frame
+	var gameplay_background: TextureRect = shell.get("_gameplay_background")
+	_check(gameplay_background != null and gameplay_background.texture != null, "gameplay shell renders the M7 background asset")
+	_check_equal(
+		TextureRect.STRETCH_KEEP_ASPECT_COVERED,
+		gameplay_background.stretch_mode,
+		"gameplay background covers responsive viewports without distortion"
+	)
 	var tuning: Resource = shell.get("momentum_tuning")
 	var modifier_tuning: Resource = shell.get("modifier_tuning")
 	_check(tuning != null, "main scene exposes a MomentumTuning resource")
@@ -46,6 +55,33 @@ func _run() -> void:
 	if representative_button != null:
 		var face_art: TextureRect = representative_button.get_node("FaceArt")
 		_check(face_art.texture != null and face_art.visible, "representative Default face renders as a layered runtime asset")
+	var selectable_tile_id := ""
+	for tile in live_game.board.call("selectable_tiles"):
+		selectable_tile_id = tile.id
+		break
+	_check(not selectable_tile_id.is_empty(), "reference game starts with an animatable selectable tile")
+	if not selectable_tile_id.is_empty():
+		var expected_target: Rect2 = shell.get("_regions").tray.call("slot_global_rect", 0)
+		shell.call("_on_tile_selected", selectable_tile_id)
+		_check_equal(1, shell.get("_tile_motion_count"), "ordinary selection starts one board-to-tray animation")
+		_check_equal(expected_target, shell.get("_last_tile_motion_target"), "selection animation targets the next tray slot")
+		var first_slot_art: TextureRect = shell.get("_regions").tray.get("_slot_art")[0]
+		_check(first_slot_art.visible and first_slot_art.texture != null, "tray uses the selected face artwork")
+		await create_timer(0.25).timeout
+		shell.call("_on_restart_requested")
+		live_game = shell.get("_game")
+	var selectable_pair := _find_selectable_pair(live_game)
+	_check_equal(2, selectable_pair.size(), "reference game exposes a legal pair for match-feedback validation")
+	if selectable_pair.size() == 2:
+		shell.call("_on_tile_selected", selectable_pair[0])
+		await create_timer(0.25).timeout
+		var pair_feedback_before: int = shell.get("_pair_feedback_count")
+		shell.call("_on_tile_selected", selectable_pair[1])
+		await create_timer(0.35).timeout
+		_check_equal(pair_feedback_before + 1, shell.get("_pair_feedback_count"), "resolved pair emits one reusable match burst")
+		_check_equal(1, live_game.tray.resolved_pair_count, "match feedback follows a committed pair transaction")
+		shell.call("_on_restart_requested")
+		live_game = shell.get("_game")
 	var visible_blocked_tile_id := ""
 	for tile in live_game.board.tiles:
 		if live_game.board.call("is_tile_visible", tile.id) and not live_game.board.call("is_tile_selectable", tile.id):
@@ -53,9 +89,30 @@ func _run() -> void:
 			break
 	_check(not visible_blocked_tile_id.is_empty(), "reference layout contains a visible tile blocked from normal movement")
 	if not visible_blocked_tile_id.is_empty():
+		var board: Control = shell.get("_regions").board
+		var negative_count: int = board.call("negative_feedback_count")
+		var revision_before: int = live_game.revision
+		var target_button: Button = board.get("_tile_buttons")[visible_blocked_tile_id]
+		_check(target_button.modulate != Color.WHITE, "normally unselectable tile is visibly darkened")
+		board.call("_on_tile_pressed", visible_blocked_tile_id)
+		_check_equal(revision_before, live_game.revision, "blocked-tile feedback does not submit a gameplay command")
+		_check_equal(negative_count + 1, board.call("negative_feedback_count"), "blocked tile tap starts negative feedback")
+		await create_timer(0.25).timeout
 		shell.call("_on_delete_pair_requested")
-		var target_button: Button = shell.get("_regions").board.get("_tile_buttons")[visible_blocked_tile_id]
 		_check(not target_button.disabled, "Delete Pair mode enables visible tiles blocked from normal movement")
+		_check_equal(Color.WHITE, target_button.modulate, "Delete Pair target returns to full color")
+
+	shell.call("_on_restart_requested")
+	live_game = shell.get("_game")
+	var deletable_pair := _find_visible_pair(live_game)
+	_check_equal(2, deletable_pair.size(), "reference game exposes a visible pair for Delete Pair feedback")
+	if deletable_pair.size() == 2:
+		var delete_feedback_before: int = shell.get("_pair_feedback_count")
+		shell.call("_on_delete_pair_requested")
+		shell.call("_on_tile_selected", deletable_pair[0])
+		await create_timer(0.25).timeout
+		_check_equal(delete_feedback_before + 1, shell.get("_pair_feedback_count"), "Delete Pair composes the shared removal burst")
+		_check_equal(1, live_game.tray.resolved_pair_count, "Delete Pair feedback follows a committed transaction")
 
 	var orientation := "portrait" if root.size.x < root.size.y else "landscape"
 	shell.call("_apply_layout")
@@ -63,12 +120,23 @@ func _run() -> void:
 	_validate_regions(shell, orientation)
 	_validate_board_tiles(shell, orientation)
 	_validate_consumables(shell, orientation)
+	shell.set("_delete_pair_armed", false)
+	shell.get("_regions").board.call("set_delete_pair_armed", false)
+	var capture_tile_id := ""
+	for tile in live_game.board.call("selectable_tiles"):
+		capture_tile_id = tile.id
+		break
+	if not capture_tile_id.is_empty():
+		shell.call("_on_tile_selected", capture_tile_id)
+		await create_timer(0.25).timeout
+	await process_frame
 	if DisplayServer.get_name() == "headless":
 		printerr("capture skipped: active renderer does not expose a framebuffer")
 	else:
 		RenderingServer.force_draw()
 		var image := root.get_texture().get_image()
-		var output_path := "user://m4_%s.png" % orientation
+		var capture_name := "small-phone" if OS.get_cmdline_user_args().has("--small-phone") else orientation
+		var output_path := "user://m7_%s.png" % capture_name
 		if image == null:
 			printerr("capture skipped: active renderer does not expose a framebuffer")
 		elif image.save_png(output_path) != OK:
@@ -79,6 +147,7 @@ func _run() -> void:
 	printerr("PASS: responsive UI smoke" if _failures == 0 else "FAIL: %d responsive UI check(s)" % _failures)
 	shell.queue_free()
 	await process_frame
+	await create_timer(0.1).timeout
 	quit(1 if _failures > 0 else 0)
 
 
@@ -86,8 +155,12 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 	var regions: Dictionary = shell.get("_regions")
 	var viewport_rect := shell.get_viewport_rect()
 	var debug_panel: Control = shell.get("_debug_panel")
-	_check(viewport_rect.encloses(Rect2(debug_panel.position, debug_panel.size)), "%s debug panel stays inside viewport" % orientation)
-	var names: Array = regions.keys()
+	if debug_panel.visible:
+		_check(viewport_rect.encloses(Rect2(debug_panel.position, debug_panel.size)), "%s debug panel stays inside viewport" % orientation)
+	var names: Array = []
+	for name in regions:
+		if regions[name].visible:
+			names.append(name)
 	for name in names:
 		var region: Control = regions[name]
 		var region_rect := Rect2(region.position, region.size)
@@ -105,7 +178,7 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 				"%s %s and %s do not overlap" % [orientation, names[first_index], names[second_index]]
 			)
 
-	if orientation == "portrait":
+	if orientation == "portrait" and debug_panel.visible:
 		for name in names:
 			var region: Control = regions[name]
 			_check(
@@ -153,12 +226,37 @@ func _validate_consumables(shell: Control, orientation: String) -> void:
 		_check(panel_rect.encloses(Rect2(control.position, control.size)), "%s consumable control stays inside its panel" % orientation)
 	for first_index in range(controls.size()):
 		for second_index in range(first_index + 1, controls.size()):
+			var first_rect := Rect2(controls[first_index].position, controls[first_index].size)
+			var second_rect := Rect2(controls[second_index].position, controls[second_index].size)
 			_check(
-				not Rect2(controls[first_index].position, controls[first_index].size).intersects(
-					Rect2(controls[second_index].position, controls[second_index].size)
-				),
-				"%s consumable controls do not overlap" % orientation
+				not first_rect.intersects(second_rect),
+				"%s consumable controls do not overlap (%s %s, %s %s)" % [
+					orientation,
+					controls[first_index].name,
+					first_rect,
+					controls[second_index].name,
+					second_rect,
+				]
 			)
+
+
+func _find_selectable_pair(game: Variant) -> Array[String]:
+	for first in game.board.call("selectable_tiles"):
+		for second in game.board.call("selectable_tiles_without", first.id):
+			if first.face.family == second.face.family and first.face.value == second.face.value:
+				return [first.id, second.id]
+	return []
+
+
+func _find_visible_pair(game: Variant) -> Array[String]:
+	var visible: Array = game.board.call("visible_tiles")
+	for first_index in range(visible.size()):
+		for second_index in range(first_index + 1, visible.size()):
+			var first: Variant = visible[first_index]
+			var second: Variant = visible[second_index]
+			if first.face.family == second.face.family and first.face.value == second.face.value:
+				return [first.id, second.id]
+	return []
 
 func _check(condition: bool, message: String) -> void:
 	if condition:

@@ -81,6 +81,8 @@ func _build() -> void:
 	_meter.add_theme_stylebox_override("fill", _meter_style(Color("cf596d")))
 	add_child(_meter)
 
+	if DisplayServer.get_name() == "headless":
+		return
 	var generator := AudioStreamGenerator.new()
 	generator.mix_rate = 22050.0
 	generator.buffer_length = 0.2

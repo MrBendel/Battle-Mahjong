@@ -61,6 +61,7 @@ func refresh() -> void:
 func show_notice(message: String) -> void:
 	if _notice != null:
 		_notice.text = message
+		_layout()
 
 
 func _add_button(consumable_type: String, label: String, callback: Callable) -> void:
@@ -81,12 +82,23 @@ func _layout() -> void:
 	var types := ["hint", "delete_pair", "shuffle"]
 	if vertical:
 		var button_height := 42.0
+		var button_top := maxf(96.0, _notice.position.y + _notice.get_combined_minimum_size().y + 8.0)
 		for index in types.size():
-			_buttons[types[index]].position = Vector2(12.0, 88.0 + index * 50.0)
+			_buttons[types[index]].position = Vector2(12.0, button_top + index * 50.0)
 			_buttons[types[index]].size = Vector2(maxf(80.0, size.x - 24.0), button_height)
 	else:
 		var gap := 8.0
-		var button_width := maxf(70.0, (size.x - 24.0 - gap * 2.0) / 3.0)
+		var available_width := maxf(210.0, size.x - 24.0 - gap * 2.0)
+		var minimum_widths: Array[float] = []
+		var minimum_total := 0.0
+		for type in types:
+			var minimum_width := maxf(70.0, _buttons[type].get_combined_minimum_size().x)
+			minimum_widths.append(minimum_width)
+			minimum_total += minimum_width
+		var shared_extra := maxf(0.0, available_width - minimum_total) / float(types.size())
+		var button_x := 12.0
 		for index in types.size():
-			_buttons[types[index]].position = Vector2(12.0 + index * (button_width + gap), maxf(42.0, size.y - 44.0))
+			var button_width := minimum_widths[index] + shared_extra
+			_buttons[types[index]].position = Vector2(button_x, maxf(42.0, size.y - 44.0))
 			_buttons[types[index]].size = Vector2(button_width, 36.0)
+			button_x += button_width + gap

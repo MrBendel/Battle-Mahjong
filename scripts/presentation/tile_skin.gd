@@ -50,7 +50,10 @@ func label_for_face(face: Variant) -> String:
 
 
 func texture_for_face(face: Variant) -> Texture2D:
-	var face_id := presentation_id(face)
+	return texture_for_id(presentation_id(face))
+
+
+func texture_for_id(face_id: String) -> Texture2D:
 	if _textures.has(face_id):
 		return _textures[face_id]
 	var definition: Dictionary = faces.get(face_id, {})

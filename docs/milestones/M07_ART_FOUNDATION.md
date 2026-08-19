@@ -1,6 +1,6 @@
 # M07 - Art Foundation And First Visual Slice
 
-Status: In Progress - Batch A contract proof implemented
+Status: In Progress - Batch A visual-slice candidate implemented
 
 Goal: establish the visual asset system and produce the minimum artwork required to transform the functional prototype into the first recognizable version of Battle Mahjong.
 
@@ -8,11 +8,11 @@ The first title treatment is tracked at `game-assets/art/title_logo.png`. It est
 
 ## Current Review Captures
 
-These generated smoke-test captures show the Batch A contract proof rather than final visual polish. Delete Pair is armed in both images, demonstrating that visible blocked tiles receive a distinct targetable state while the portrait-authored board geometry remains unchanged.
+These generated smoke-test captures show the current Batch A candidate rather than final visual polish. The portrait-authored board geometry remains unchanged across orientations, blocked tiles use a reusable darkened state, every visible face is supplied by the shared skin manifest, and the aspect-covered background keeps its visual energy outside the board.
 
-| Phone Portrait | Landscape |
-| --- | --- |
-| ![M7 phone portrait contract proof](../images/m7-gameplay-portrait.png) | ![M7 landscape contract proof](../images/m7-gameplay-landscape.png) |
+| Compact Phone | Phone Portrait | Landscape |
+| --- | --- | --- |
+| ![M7 compact-phone contract proof](../images/m7-gameplay-small-phone.png) | ![M7 phone portrait contract proof](../images/m7-gameplay-portrait.png) | ![M7 landscape contract proof](../images/m7-gameplay-landscape.png) |
 
 This is the first major art-production milestone. It is not final visual polish.
 
@@ -115,6 +115,16 @@ The rendering system must support:
 - Temporarily enhanced.
 
 Prefer reusable rendering, material, shader, animation, and FX treatments for interaction states instead of separate artwork for every face/state combination.
+
+Implemented interaction decisions:
+
+- blocked tiles are darkened but remain legible;
+- tapping a normally unselectable visible tile produces a short horizontal rejection wiggle and generated negative tone without changing simulation state;
+- successful selection commits immediately and animates a presentation-only tile duplicate into the next tray slot;
+- a committed match converges on the occupied tray slot, removes both presentation duplicates, and emits one reusable radial impact burst;
+- Delete Pair composes the same removal burst over the two resolved board tiles;
+- the tray renders faces through the same cosmetic skin manifest as the board;
+- the title logo remains outside the active gameplay shell until title or menu presentation is designed.
 
 ## Tile Skins
 
@@ -399,6 +409,13 @@ It must:
 
 Screen edges may carry substantially more personality than the area directly beneath the board.
 
+Implemented background decision:
+
+- the first source master is a `1024 x 1536` portrait raster with a calm charcoal and ink-green center and dry-brush color around the perimeter;
+- the runtime export is `768 x 1152` and uses an aspect-covered center crop in every viewport;
+- a subtle dark wash keeps panel gaps and exposed background from competing with tile faces;
+- the source prompt and export notes live at `art-source/backgrounds/gameplay_brush_arcade.prompt.md`.
+
 ## Responsive Requirements
 
 Artwork must support:
@@ -506,6 +523,8 @@ Produce:
 - gameplay background.
 
 Goal: make the existing prototype immediately readable and visually coherent.
+
+Current status: complete candidate proof. Final approval remains part of M7 review rather than a claim of final polish.
 
 ### Batch B - Core Systems
 
