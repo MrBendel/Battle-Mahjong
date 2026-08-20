@@ -4,7 +4,8 @@ const GameConfigurationScript := preload("res://scripts/simulation/game_configur
 const ConsumableInventoryScript := preload("res://scripts/simulation/consumable_inventory.gd")
 
 const SCHEMA_VERSION := 3
-const CURRENT_RULES_VERSION := 6
+const CURRENT_RULES_VERSION := 8
+const LEGACY_COMBO_WINDOW_MS := 7000
 
 var seed: int
 var rules_version: int
@@ -31,6 +32,13 @@ func _init(
 	tiles = tile_definitions.duplicate()
 	configuration = GameConfigurationScript.create()
 	configuration.merge(game_configuration, true)
+	if rules_version < 7:
+		configuration.erase("momentum_selection_gain")
+	if rules_version < 8:
+		if not configuration.has("combo_window_ms"):
+			configuration["combo_window_ms"] = LEGACY_COMBO_WINDOW_MS
+	else:
+		configuration.erase("combo_window_ms")
 	_normalize_configuration_numbers()
 	modifier_loadout = []
 	for modifier in game_modifier_loadout:
@@ -73,6 +81,7 @@ func _normalize_configuration_numbers() -> void:
 		"tray_capacity",
 		"momentum_max",
 		"momentum_pair_gain",
+		"momentum_selection_gain",
 		"pair_base_score",
 		"combo_window_ms",
 		"difficulty_notable_min_score",

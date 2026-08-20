@@ -34,3 +34,14 @@ static func add_pair_gain(momentum_units: int, configuration: Dictionary) -> int
 		int(configuration.momentum_max),
 		momentum_units + int(configuration.momentum_pair_gain)
 	)
+
+
+static func add_selection_gain(momentum_units: int, configuration: Dictionary) -> int:
+	return mini(
+		int(configuration.momentum_max),
+		momentum_units + int(configuration.momentum_selection_gain)
+	)
+
+
+static func remove_selection_gain(momentum_units: int, selection_gain: int) -> int:
+	return maxi(0, momentum_units - maxi(0, selection_gain))

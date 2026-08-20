@@ -38,8 +38,7 @@ func refresh(playback_time_ms: int) -> void:
 	_multiplier.text = "x%d" % multiplier
 	_score.text = "Score  %d" % _game.score
 	var combo: int = _game.call("combo_at", playback_time_ms)
-	var remaining_ms: int = _game.call("combo_remaining_ms_at", playback_time_ms)
-	_combo.text = "Combo x%d  %.1fs" % [combo, float(remaining_ms) / 1000.0] if combo > 0 else "Combo ready"
+	_combo.text = "Combo x%d" % combo if combo > 0 else "Combo ready"
 
 
 func play_pair_feedback(multiplier: int) -> void:

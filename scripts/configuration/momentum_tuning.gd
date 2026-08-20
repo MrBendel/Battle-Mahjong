@@ -8,6 +8,8 @@ const GameConfigurationScript := preload("res://scripts/simulation/game_configur
 @export_range(1, 1000000, 1) var maximum := 100000
 ## Momentum added after a pair scores, building the multiplier for the next pair.
 @export_range(1, 1000000, 1) var pair_gain := 30000
+## Small Momentum reward for each accepted natural tile selection.
+@export_range(0, 1000000, 1) var selection_gain := 2500
 ## Inclusive lower bounds for x1, x2, and subsequent multiplier tiers. Must start at 0.
 @export var multiplier_thresholds: Array[int] = [0, 20000, 40000, 60000, 80000]
 
@@ -18,10 +20,6 @@ const GameConfigurationScript := preload("res://scripts/simulation/game_configur
 @export_category("Scoring")
 ## Points awarded per pair before applying the current multiplier.
 @export_range(1, 1000000, 1) var pair_base_score := 100
-
-@export_category("Combo")
-## Active-play time allowed between natural pair resolutions before Combo expires.
-@export_range(1000, 60000, 100) var combo_window_ms := 7000
 
 @export_category("Pair Difficulty Rewards")
 ## Minimum absolute pair score for a GREAT recognition event.
@@ -45,10 +43,10 @@ func configuration_overrides() -> Dictionary:
 	return {
 		"momentum_max": maximum,
 		"momentum_pair_gain": pair_gain,
+		"momentum_selection_gain": selection_gain,
 		"momentum_thresholds": multiplier_thresholds.duplicate(),
 		"momentum_decay_per_ms": decay_per_ms,
 		"pair_base_score": pair_base_score,
-		"combo_window_ms": combo_window_ms,
 		"difficulty_notable_min_score": difficulty_notable_min_score,
 		"difficulty_notable_min_percentile_basis_points": difficulty_notable_min_percentile_basis_points,
 		"difficulty_notable_bonus_basis_points": difficulty_notable_bonus_basis_points,
@@ -64,6 +62,8 @@ func validation_errors() -> Array[String]:
 		errors.append("Maximum must be positive.")
 	if pair_gain <= 0 or pair_gain > maximum:
 		errors.append("Pair gain must be positive and no greater than Maximum.")
+	if selection_gain < 0 or selection_gain > maximum:
+		errors.append("Selection gain cannot be negative or greater than Maximum.")
 	if multiplier_thresholds.is_empty() or multiplier_thresholds[0] != 0:
 		errors.append("Multiplier thresholds must start at 0 for x1.")
 	for index in range(1, multiplier_thresholds.size()):
@@ -80,8 +80,6 @@ func validation_errors() -> Array[String]:
 			break
 	if pair_base_score <= 0:
 		errors.append("Pair base score must be positive.")
-	if combo_window_ms <= 0:
-		errors.append("Combo window must be positive.")
 	if difficulty_notable_min_score < 0 or difficulty_exceptional_min_score < 0:
 		errors.append("Pair difficulty score thresholds cannot be negative.")
 	if difficulty_exceptional_min_score < difficulty_notable_min_score:
@@ -105,10 +103,10 @@ static func default_overrides() -> Dictionary:
 	return {
 		"momentum_max": configuration.momentum_max,
 		"momentum_pair_gain": configuration.momentum_pair_gain,
+		"momentum_selection_gain": configuration.momentum_selection_gain,
 		"momentum_thresholds": configuration.momentum_thresholds.duplicate(),
 		"momentum_decay_per_ms": configuration.momentum_decay_per_ms.duplicate(),
 		"pair_base_score": configuration.pair_base_score,
-		"combo_window_ms": configuration.combo_window_ms,
 		"difficulty_notable_min_score": configuration.difficulty_notable_min_score,
 		"difficulty_notable_min_percentile_basis_points": configuration.difficulty_notable_min_percentile_basis_points,
 		"difficulty_notable_bonus_basis_points": configuration.difficulty_notable_bonus_basis_points,

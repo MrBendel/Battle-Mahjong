@@ -195,6 +195,7 @@ func _run_tray_and_game_tests() -> void:
 	_check_equal(GameStateScript.UNDONE, undo_game.call("undo_last_unmatched"), "Undo commits compensation")
 	_check(undo_game.board.call("is_tile_active", "undo"), "Undo restores tile zone to board")
 	_check_equal(0, undo_game.tray.tiles.size(), "Undo removes tile from tray projection")
+	_check_equal(0, undo_game.call("current_snapshot").momentum_units, "Undo removes the compensated selection momentum")
 	_check_equal(2, undo_game.revision, "Undo advances authoritative revision")
 
 	var barrier_face := TileFaceScript.new("test", "barrier_pair")
@@ -329,7 +330,7 @@ func _run_momentum_tests() -> void:
 		TileInstanceScript.new("fourth", second_face, BoardPositionScript.new(12, 0, 0)),
 	])
 	var configuration: Dictionary = definition.configuration
-	_check_equal(6, definition.rules_version, "difficulty rewards use rules version 6")
+	_check_equal(8, definition.rules_version, "mistake-driven Combo uses rules version 8")
 	_check_equal(1, MomentumRulesScript.multiplier_for(19999, configuration), "momentum below first threshold stays x1")
 	_check_equal(2, MomentumRulesScript.multiplier_for(20000, configuration), "first threshold enters x2")
 	_check(
@@ -337,17 +338,26 @@ func _run_momentum_tests() -> void:
 			> 30000 - MomentumRulesScript.decay(30000, 100, configuration),
 		"higher tiers lose more momentum over the same interval"
 	)
+	var legacy_definition := GameDefinitionScript.new(1, definition.tiles, configuration, 6)
+	var legacy_game := GameStateScript.new(legacy_definition)
+	legacy_game.call("select_tile", "first", 100)
+	_check_equal(0, legacy_game.call("current_snapshot").momentum_units, "rules version 6 preserves pre-selection-gain behavior")
+	_check(not legacy_definition.configuration.has("momentum_selection_gain"), "legacy definition identity excludes the newer tuning field")
 
 	var game = GameStateScript.new(definition)
+	_check_equal(GameStateScript.INVALID_SELECTION, game.call("select_tile", "missing", 50), "rejected selection awards no momentum")
+	_check_equal(0, game.call("current_snapshot").momentum_units, "rejected selection leaves momentum unchanged")
 	_check_equal(GameStateScript.SELECTED, game.call("select_tile", "first", 100), "timestamped first selection is accepted")
+	_check_equal(2500, game.call("current_snapshot").momentum_units, "accepted selection adds configured momentum")
+	_check_equal(2500, game.call("last_transaction").telemetry.momentum_selection_gain, "selection telemetry records its actual gain")
 	_check_equal(GameStateScript.PAIR_RESOLVED, game.call("select_tile", "second", 200), "timestamped pair resolves")
 	var snapshot: Variant = game.call("current_snapshot")
-	_check_equal(30000, snapshot.momentum_units, "pair adds configured momentum")
-	_check_equal(100, snapshot.score, "first pair scores at x1 before its momentum gain")
+	_check_equal(34500, snapshot.momentum_units, "pair includes both selection bumps and configured pair momentum")
+	_check_equal(100, snapshot.score, "completing selection does not increase its own pair multiplier")
 	_check_equal(200, snapshot.elapsed_time_ms, "accepted command materializes gameplay time")
 	_check_equal(2, snapshot.max_multiplier, "state records peak multiplier")
-	_check_equal(24400, game.call("momentum_at", 1000), "presentation preview applies deterministic decay")
-	_check_equal(30000, game.call("current_snapshot").momentum_units, "momentum preview does not mutate authoritative state")
+	_check_equal(28900, game.call("momentum_at", 1000), "presentation preview applies deterministic decay")
+	_check_equal(34500, game.call("current_snapshot").momentum_units, "momentum preview does not mutate authoritative state")
 
 	var pair_transaction: Variant = game.call("transactions")[-1]
 	_check_equal(200, pair_transaction.playback_time_ms, "transaction records command playback time")
@@ -381,7 +391,7 @@ func _run_momentum_tests() -> void:
 	_check_equal(GameStateScript.PAIR_RESOLVED, game.call("select_tile", "fourth", 400), "consistent second pair resolves")
 	var second_pair_transaction: Variant = game.call("last_transaction")
 	_check_equal(2, second_pair_transaction.telemetry.score_multiplier, "consistent second pair earns x2")
-	_check_equal(3, second_pair_transaction.telemetry.resulting_multiplier, "consistent second pair builds x3 for the next pair")
+	_check_equal(4, second_pair_transaction.telemetry.resulting_multiplier, "consistent selections and pair build x4 for the next pair")
 	_check_equal(300, game.score, "gradual x1 then x2 awards accumulate")
 
 	var slow_game = GameStateScript.new(definition)
@@ -400,24 +410,25 @@ func _run_momentum_tuning_tests() -> void:
 	_check(default_tuning.call("validation_errors").is_empty(), "default MomentumTuning resource validates")
 	var default_overrides: Dictionary = default_tuning.call("configuration_overrides")
 	_check_equal(100000, default_overrides.momentum_max, "Inspector maximum maps to simulation configuration")
+	_check_equal(2500, default_overrides.momentum_selection_gain, "Inspector selection gain maps to simulation configuration")
 	_check_equal([5, 7, 10, 14, 19], default_overrides.momentum_decay_per_ms, "per-second Inspector decay converts exactly")
 	_check_equal(MomentumTuningScript.default_overrides(), default_overrides, "Inspector defaults match headless simulation defaults")
 
 	var custom_tuning: Variant = MomentumTuningScript.new()
 	custom_tuning.maximum = 120000
 	custom_tuning.pair_gain = 15000
+	custom_tuning.selection_gain = 1250
 	custom_tuning.multiplier_thresholds.assign([0, 30000, 60000, 90000])
 	custom_tuning.decay_per_second.assign([4000, 6000, 9000, 13000])
 	custom_tuning.pair_base_score = 250
-	custom_tuning.combo_window_ms = 9000
 	_check(custom_tuning.call("validation_errors").is_empty(), "valid custom tuning passes validation")
 	var custom_overrides: Dictionary = custom_tuning.call("configuration_overrides")
 	var factory := ReferenceGameFactoryScript.new()
 	var default_definition: Variant = factory.call("create_definition", 42)
 	var custom_definition: Variant = factory.call("create_definition", 42, 4, custom_overrides)
 	_check_equal(120000, custom_definition.configuration.momentum_max, "factory applies Inspector maximum")
+	_check_equal(1250, custom_definition.configuration.momentum_selection_gain, "factory applies Inspector selection gain")
 	_check_equal(250, custom_definition.configuration.pair_base_score, "factory applies Inspector scoring")
-	_check_equal(9000, custom_definition.configuration.combo_window_ms, "factory applies Inspector Combo window")
 	_check_equal(160, custom_definition.configuration.difficulty_notable_min_score, "factory applies Inspector difficulty thresholds")
 	_check(default_definition.definition_hash() != custom_definition.definition_hash(), "custom tuning changes definition hash")
 	custom_overrides.momentum_thresholds[1] = 1
@@ -449,13 +460,13 @@ func _run_combo_tests() -> void:
 		TileInstanceScript.new("cover", face_cover, BoardPositionScript.new(24, 0, 1)),
 	]
 	var definition: Variant = _definition(tiles)
-	_check_equal(7000, definition.configuration.combo_window_ms, "Combo window is definition-bound")
+	_check(not definition.configuration.has("combo_window_ms"), "current definitions have no Combo timeout tuning")
 
 	var game := GameStateScript.new(definition)
 	game.call("select_tile", "a_1", 100)
 	game.call("select_tile", "a_2", 200)
 	_check_equal(1, game.call("combo_at", 200), "first natural pair starts Combo at one")
-	_check_equal(7000, game.call("combo_remaining_ms_at", 200), "pair starts the full Combo window")
+	_check_equal(0, game.call("combo_remaining_ms_at", 200), "current Combo has no countdown")
 	game.call("select_tile", "c_1", 300)
 	_check_equal(1, game.call("combo_at", 300), "ordinary unmatched tray selection preserves Combo")
 	game.call("select_tile", "b_1", 400)
@@ -479,14 +490,23 @@ func _run_combo_tests() -> void:
 		_check(replica.call("apply_transaction", transaction).accepted, "Combo transaction replays")
 	_check_equal(game.call("current_snapshot").state_hash(), replica.call("current_snapshot").state_hash(), "Combo timeline replays to the authoritative hash")
 
-	var timeout_game := GameStateScript.new(definition)
-	timeout_game.call("select_tile", "a_1", 100)
-	timeout_game.call("select_tile", "a_2", 200)
-	timeout_game.call("select_tile", "b_1", 7100)
-	_check_equal(1, timeout_game.call("combo_at", 7199), "Combo remains live immediately before expiry")
-	timeout_game.call("select_tile", "b_2", 7200)
-	_check_equal(1, timeout_game.call("combo_at", 7200), "pair at expiry starts a new Combo")
-	_check_equal("timeout", timeout_game.call("last_transaction").telemetry.combo_break_reason, "expired chain records a timeout break")
+	var patient_game := GameStateScript.new(definition)
+	patient_game.call("select_tile", "a_1", 100)
+	patient_game.call("select_tile", "a_2", 200)
+	patient_game.call("select_tile", "b_1", 7100)
+	patient_game.call("select_tile", "b_2", 7200)
+	_check_equal(2, patient_game.call("combo_at", 7200), "waiting for a pair does not break current Combo")
+	_check(not patient_game.call("last_transaction").telemetry.has("combo_break_reason"), "patient pair records no timeout break")
+
+	var legacy_definition := GameDefinitionScript.new(1, tiles, {}, 7)
+	var legacy_game := GameStateScript.new(legacy_definition)
+	legacy_game.call("select_tile", "a_1", 100)
+	legacy_game.call("select_tile", "a_2", 200)
+	legacy_game.call("select_tile", "b_1", 7100)
+	_check_equal(1, legacy_game.call("combo_at", 7199), "rules version 7 retains its recorded Combo window")
+	legacy_game.call("select_tile", "b_2", 7200)
+	_check_equal(1, legacy_game.call("combo_at", 7200), "legacy pair at expiry starts a new Combo")
+	_check_equal("timeout", legacy_game.call("last_transaction").telemetry.combo_break_reason, "legacy timeout remains replay-compatible")
 
 	var flat_definition: Variant = _definition(tiles.slice(0, 8))
 	var hint_game: Variant = _game_with_first_combo(flat_definition)
@@ -673,7 +693,7 @@ func _run_modifier_tests() -> void:
 	cold_game.call("select_tile", "boost_b", 200)
 	cold_game.call("select_tile", "normal_a", 5000)
 	cold_game.call("select_tile", "normal_b", 6000)
-	_check_equal(30000, cold_game.call("last_transaction").telemetry.momentum_after_decay, "Cold Snap freezes committed momentum decay")
+	_check_equal(37000, cold_game.call("last_transaction").telemetry.momentum_after_decay, "Cold Snap freezes committed selection momentum decay")
 
 	var tray_modifier := {"modifier_id": "tray", "type": ModifierLoadoutScript.TRAY_PLUS_ONE, "level": 0}
 	var tray_definition: Variant = _definition_with_modifiers(
@@ -772,10 +792,11 @@ func _run_consumable_tests() -> void:
 
 	var delete_game := GameStateScript.new(definition)
 	delete_game.call("select_tile", "a_1")
+	var momentum_before_delete: int = delete_game.call("current_snapshot").momentum_units
 	_check_equal(GameStateScript.PAIR_DELETED, delete_game.call("delete_pair", "d_2"), "Delete Pair removes a selectable matching pair")
 	var delete_snapshot: Variant = delete_game.call("current_snapshot")
 	_check_equal(0, delete_snapshot.score, "Delete Pair awards no score")
-	_check_equal(0, delete_snapshot.momentum_units, "Delete Pair awards no momentum")
+	_check_equal(momentum_before_delete, delete_snapshot.momentum_units, "Delete Pair awards no additional momentum")
 	_check_equal(1, delete_snapshot.resolved_pair_count, "Delete Pair advances resolved pair state")
 	_check_equal(0, delete_game.call("consumable_count", "delete_pair"), "successful Delete Pair consumes one charge")
 	var revision_after_delete: int = delete_game.revision
@@ -996,7 +1017,7 @@ func _run_simulation_tests() -> void:
 	_check(fast_result.score > slow_result.score, "fast play produces a higher score than slow play")
 	_check(fast_result.max_multiplier > slow_result.max_multiplier, "fast play reaches a higher multiplier tier")
 	_check_equal(48, fast_result.max_combo, "fast pair-aware play maintains Combo through the board")
-	_check_equal(48, slow_result.max_combo, "forgiving Combo window tolerates slower play than Momentum")
+	_check_equal(48, slow_result.max_combo, "Combo chain remains independent from Momentum speed")
 	_check_equal(48, fast_result.analyzed_pair_count, "pair-aware simulation analyzes every resolved board pair")
 	_check(fast_result.average_pair_difficulty > 0, "simulation reports average selected-pair difficulty")
 	_check(fast_result.hardest_pair_difficulty >= fast_result.average_pair_difficulty, "simulation reports a valid hardest selected pair")
@@ -1008,7 +1029,7 @@ func _run_simulation_tests() -> void:
 		"simulation reports every difficulty reward by tier"
 	)
 	var hunting_result: Dictionary = simulator.call("run", 92817361, GameSimulatorScript.PAIR_AWARE, {"selection_interval_ms": 4000})
-	_check_equal(1, hunting_result.max_combo, "eight seconds between pairs breaks Combo hunting chains")
+	_check_equal(48, hunting_result.max_combo, "waiting to hunt for pairs no longer breaks Combo")
 
 
 func _definition(tiles: Array, tray_capacity: int = 4) -> Variant:
