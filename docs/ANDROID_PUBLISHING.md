@@ -80,3 +80,30 @@ powershell -ExecutionPolicy Bypass -File scripts/publish_internal.ps1 `
 ```
 
 Google Play rejects a version code that has already been uploaded.
+
+## GitHub Actions PR Hashtag Trigger
+
+You can automatically trigger a build and publish to Google Play Internal testing directly from any Pull Request by including `#deploy-playstore` or `#build-and-deploy` in either:
+- The **Pull Request Description** (when opening, updating, or editing a PR), or
+- A **Pull Request Comment**.
+
+The workflow (`.github/workflows/deploy_playstore_hashtag.yml`):
+1. Reacts with `🚀` to your PR or comment.
+2. Checks out the PR code.
+3. Sets up Godot 4.6.3 and Android SDK.
+4. Runs the core test suite (`res://tests/cli_test_runner.gd`).
+5. Decodes the release keystore and sets a monotonic 2020-epoch version code.
+6. Exports a signed release bundle (`.aab`).
+7. Uploads to the Google Play Internal testing track.
+8. Posts a status comment back on the PR with version details.
+
+### Required GitHub Repository Secrets
+
+Configure the following secrets in GitHub Repository Settings (`Settings > Secrets and variables > Actions`):
+
+- `PLAY_STORE_JSON_KEY`: Plaintext content of `secrets/battle-mahjong-7b9090be6d44.json`.
+- `ANDROID_KEYSTORE_BASE64`: Base64 encoded string of `secrets/battle-mahjong-upload.keystore` (e.g. `[Convert]::ToBase64String([IO.File]::ReadAllBytes('secrets/battle-mahjong-upload.keystore'))`).
+- `ANDROID_KEYSTORE_ALIAS`: Keystore key alias from `secrets/android-upload.env`.
+- `ANDROID_KEYSTORE_PASSWORD`: Keystore password from `secrets/android-upload.env`.
+
+
