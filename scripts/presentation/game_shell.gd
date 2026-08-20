@@ -607,39 +607,69 @@ func _apply_layout() -> void:
 	)
 
 
+func _get_safe_area_insets() -> Rect2:
+	var safe_rect := DisplayServer.get_display_safe_area()
+	var screen_size := DisplayServer.screen_get_size()
+	if safe_rect.size == Vector2i.ZERO or screen_size == Vector2i.ZERO:
+		return Rect2()
+	var viewport_size := get_viewport_rect().size
+	var scale_x := viewport_size.x / float(screen_size.x)
+	var scale_y := viewport_size.y / float(screen_size.y)
+
+	var left := maxf(0.0, float(safe_rect.position.x) * scale_x)
+	var top := maxf(0.0, float(safe_rect.position.y) * scale_y)
+	var right := maxf(0.0, float(screen_size.x - (safe_rect.position.x + safe_rect.size.x)) * scale_x)
+	var bottom := maxf(0.0, float(screen_size.y - (safe_rect.position.y + safe_rect.size.y)) * scale_y)
+
+	return Rect2(left, top, right, bottom)
+
+
 func _apply_landscape_layout(size: Vector2) -> void:
+	var insets := _get_safe_area_insets()
 	var margin := 16.0
 	var gap := 12.0
+	var left_margin := margin + insets.position.x
+	var right_margin := margin + insets.size.x
+	var usable_width := size.x - left_margin - right_margin
 	var banner_offset := 0.0
 	if _update_banner != null and _update_banner.visible:
 		var banner_height := 44.0
-		_place(_update_banner, Rect2(margin, margin, size.x - margin * 2.0, banner_height))
+		_place(_update_banner, Rect2(left_margin, margin + insets.position.y, usable_width, banner_height))
 		banner_offset = banner_height + gap
-	var top_start := margin + banner_offset
-	var left_width: float = clampf(size.x * 0.20, 220.0, 320.0)
-	var right_width: float = clampf(size.x * 0.22, 240.0, 360.0)
-	var tray_height: float = clampf((size.y - banner_offset) * 0.16, 88.0, 128.0)
-	var board_left: float = margin + left_width + gap
-	var board_width: float = size.x - board_left - right_width - gap - margin
-	var board_height: float = size.y - top_start - tray_height - gap - margin
+	var top_start := margin + insets.position.y + banner_offset
+	var bottom_limit := size.y - margin - insets.size.y
+	var usable_height := bottom_limit - top_start
 
-	_place(_regions.momentum, Rect2(margin, top_start, left_width, 96.0))
-	_place(_regions.consumables, Rect2(margin, top_start + 96.0 + gap, left_width, size.y - top_start - 96.0 - gap - margin))
+	var left_width: float = clampf(usable_width * 0.20, 220.0, 320.0)
+	var right_width: float = clampf(usable_width * 0.22, 240.0, 360.0)
+	var tray_height: float = clampf(usable_height * 0.16, 88.0, 128.0)
+	var board_left: float = left_margin + left_width + gap
+	var board_width: float = size.x - board_left - right_width - gap - right_margin
+	var board_height: float = usable_height - tray_height - gap
+
+	_place(_regions.momentum, Rect2(left_margin, top_start, left_width, 96.0))
+	_place(_regions.consumables, Rect2(left_margin, top_start + 96.0 + gap, left_width, usable_height - 96.0 - gap))
 	_place(_regions.tray, Rect2(board_left, top_start, board_width, tray_height))
 	_place(_regions.board, Rect2(board_left, top_start + tray_height + gap, board_width, board_height))
-	_place(_regions.character, Rect2(board_left + board_width + gap, top_start, right_width, size.y - top_start - margin))
+	_place(_regions.character, Rect2(board_left + board_width + gap, top_start, right_width, usable_height))
 
 
 func _apply_portrait_layout(size: Vector2) -> void:
+	var insets := _get_safe_area_insets()
 	var margin := 14.0
 	var gap := 10.0
-	var usable_width := size.x - margin * 2.0
+	var left_margin := margin + insets.position.x
+	var right_margin := margin + insets.size.x
+	var usable_width := size.x - left_margin - right_margin
 	var banner_offset := 0.0
 	if _update_banner != null and _update_banner.visible:
 		var banner_height := 44.0
-		_place(_update_banner, Rect2(margin, margin, usable_width, banner_height))
+		_place(_update_banner, Rect2(left_margin, margin + insets.position.y, usable_width, banner_height))
 		banner_offset = banner_height + gap
-	var top_start := margin + banner_offset
+	var top_start := margin + insets.position.y + banner_offset
+	var bottom_limit := size.y - margin - insets.size.y
+	var usable_height := bottom_limit - top_start
+
 	var momentum_height := 64.0
 	var debug_height := 120.0
 	var tray_height := 86.0
@@ -647,41 +677,45 @@ func _apply_portrait_layout(size: Vector2) -> void:
 	var tray_top: float = top_start + momentum_height + gap + debug_height + gap
 	var board_top: float = tray_top + tray_height + gap
 	var minimum_character_height := 72.0
-	var reserved_after_board := gap + consumables_height + gap + minimum_character_height + margin
+	var reserved_after_board := gap + consumables_height + gap + minimum_character_height
 	var board_height: float = minf(
-		clampf(size.y * 0.43, 260.0, size.y * 0.46),
-		maxf(260.0, size.y - board_top - reserved_after_board)
+		clampf(usable_height * 0.43, 260.0, usable_height * 0.46),
+		maxf(260.0, bottom_limit - board_top - reserved_after_board)
 	)
 	var character_top: float = board_top + board_height + gap + consumables_height + gap
-	var character_height: float = maxf(minimum_character_height, size.y - character_top - margin)
+	var character_height: float = maxf(minimum_character_height, bottom_limit - character_top)
 
-	_place(_regions.momentum, Rect2(margin, top_start, usable_width - 52.0, momentum_height))
-	_place(_regions.tray, Rect2(margin, tray_top, usable_width, tray_height))
-	_place(_regions.board, Rect2(margin, board_top, usable_width, board_height))
-	_place(_regions.consumables, Rect2(margin, board_top + board_height + gap, usable_width, consumables_height))
-	_place(_regions.character, Rect2(margin, character_top, usable_width, character_height))
+	_place(_regions.momentum, Rect2(left_margin, top_start, usable_width - 52.0, momentum_height))
+	_place(_regions.tray, Rect2(left_margin, tray_top, usable_width, tray_height))
+	_place(_regions.board, Rect2(left_margin, board_top, usable_width, board_height))
+	_place(_regions.consumables, Rect2(left_margin, board_top + board_height + gap, usable_width, consumables_height))
+	_place(_regions.character, Rect2(left_margin, character_top, usable_width, character_height))
 
 
 func _apply_compact_portrait_layout(size: Vector2) -> void:
+	var insets := _get_safe_area_insets()
 	var margin := 10.0
 	var gap := 8.0
-	var usable_width := size.x - margin * 2.0
+	var left_margin := margin + insets.position.x
+	var right_margin := margin + insets.size.x
+	var usable_width := size.x - left_margin - right_margin
 	var banner_offset := 0.0
 	if _update_banner != null and _update_banner.visible:
 		var banner_height := 40.0
-		_place(_update_banner, Rect2(margin, margin, usable_width, banner_height))
+		_place(_update_banner, Rect2(left_margin, margin + insets.position.y, usable_width, banner_height))
 		banner_offset = banner_height + gap
-	var top_start := margin + banner_offset
+	var top_start := margin + insets.position.y + banner_offset
+	var bottom_limit := size.y - margin - insets.size.y
 	var momentum_height := 58.0
 	var tray_height := 76.0
 	var consumables_height := 82.0
 	var tray_top := top_start + momentum_height + gap
 	var board_top := tray_top + tray_height + gap
-	var board_height := size.y - board_top - gap - consumables_height - margin
-	_place(_regions.momentum, Rect2(margin, top_start, usable_width - 50.0, momentum_height))
-	_place(_regions.tray, Rect2(margin, tray_top, usable_width, tray_height))
-	_place(_regions.board, Rect2(margin, board_top, usable_width, board_height))
-	_place(_regions.consumables, Rect2(margin, board_top + board_height + gap, usable_width, consumables_height))
+	var board_height := bottom_limit - board_top - gap - consumables_height
+	_place(_regions.momentum, Rect2(left_margin, top_start, usable_width - 50.0, momentum_height))
+	_place(_regions.tray, Rect2(left_margin, tray_top, usable_width, tray_height))
+	_place(_regions.board, Rect2(left_margin, board_top, usable_width, board_height))
+	_place(_regions.consumables, Rect2(left_margin, board_top + board_height + gap, usable_width, consumables_height))
 	_regions.character.visible = false
 	_debug_panel.visible = false
 
@@ -693,24 +727,29 @@ func _place(control: Control, rect: Rect2) -> void:
 
 
 func _place_debug_panel(size: Vector2, orientation: String) -> void:
+	var insets := _get_safe_area_insets()
 	var panel_size := Vector2(220.0, 104.0)
 	var banner_y_offset := 0.0
 	if _update_banner != null and _update_banner.visible:
 		banner_y_offset = 54.0
-	var panel_position := Vector2(max(12.0, size.x - panel_size.x - 18.0), 70.0 + banner_y_offset)
+	var panel_position := Vector2(
+		max(12.0 + insets.position.x, size.x - insets.size.x - panel_size.x - 18.0),
+		70.0 + insets.position.y + banner_y_offset
+	)
 	if orientation == "Portrait":
-		panel_size.x = size.x - 28.0
+		panel_size.x = size.x - (14.0 + insets.position.x) - (14.0 + insets.size.x)
 		panel_size.y = 120.0
-		panel_position = Vector2(14.0, 88.0 + banner_y_offset)
+		panel_position = Vector2(14.0 + insets.position.x, 88.0 + insets.position.y + banner_y_offset)
 	_debug_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	_debug_panel.position = panel_position
 	_debug_panel.size = panel_size
 
 
 func _place_pause_button(size: Vector2) -> void:
+	var insets := _get_safe_area_insets()
 	var banner_y_offset := 0.0
 	if _update_banner != null and _update_banner.visible:
 		banner_y_offset = 54.0
 	_pause_button.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	_pause_button.position = Vector2(size.x - 54.0, 14.0 + banner_y_offset)
+	_pause_button.position = Vector2(size.x - 54.0 - insets.size.x, 14.0 + insets.position.y + banner_y_offset)
 	_pause_button.size = Vector2(40.0, 40.0)

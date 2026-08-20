@@ -64,8 +64,15 @@ func close() -> void:
 func _layout() -> void:
 	if _panel == null:
 		return
-	var panel_size := Vector2(minf(260.0, maxf(220.0, size.x - 28.0)), 174.0)
-	_panel.position = Vector2(maxf(14.0, size.x - panel_size.x - 14.0), 14.0)
+	var safe_top := 0.0
+	var safe_rect := DisplayServer.get_display_safe_area()
+	var screen_size := DisplayServer.screen_get_size()
+	if safe_rect.size != Vector2i.ZERO and screen_size != Vector2i.ZERO:
+		safe_top = maxf(0.0, float(safe_rect.position.y) * (size.y / float(screen_size.y)))
+
+	var panel_size := Vector2(minf(280.0, maxf(220.0, size.x - 28.0)), 174.0)
+	var top_pos := maxf(14.0 + safe_top, (size.y - panel_size.y) * 0.4)
+	_panel.position = Vector2((size.x - panel_size.x) * 0.5, top_pos)
 	_panel.size = panel_size
 
 
