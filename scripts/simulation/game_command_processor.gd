@@ -88,6 +88,18 @@ func _build_select(command: Variant, definition: Variant, state: Variant, timeli
 
 	var changes: Array = []
 	var momentum_after_decay := _append_clock_changes(command, definition, state, changes)
+	var momentum_after_selection := momentum_after_decay
+	if definition.rules_version >= 7:
+		momentum_after_selection = MomentumRulesScript.add_selection_gain(
+			momentum_after_decay,
+			definition.configuration
+		)
+	_append_counter_change(
+		changes,
+		"momentum_units",
+		momentum_after_decay,
+		momentum_after_selection
+	)
 	_append_clear_hint(changes, state)
 	var combo_before: int = ComboRulesScript.count_at(state, command.playback_time_ms)
 	var combo_after := combo_before
@@ -97,6 +109,8 @@ func _build_select(command: Variant, definition: Variant, state: Variant, timeli
 		"selection_interval_ms": command.playback_time_ms - state.last_selection_time_ms,
 		"momentum_before": state.momentum_units,
 		"momentum_after_decay": momentum_after_decay,
+		"momentum_after_selection": momentum_after_selection,
+		"momentum_selection_gain": momentum_after_selection - momentum_after_decay,
 		"opportunity": {
 			"board_revision": state.revision,
 			"active_tile_count": opportunity_analysis.active_tile_count,
@@ -129,6 +143,7 @@ func _build_select(command: Variant, definition: Variant, state: Variant, timeli
 	var tray_bonus_capacity_after: int = state.tray_bonus_capacity
 	var tray_bonus_pairs_remaining_after: int = state.tray_bonus_pairs_remaining
 	var modifier_activation_count_after: int = state.modifier_activation_count
+	var momentum_after_command := momentum_after_selection
 	var triggered_modifiers: Array = []
 
 	if matching_tile_id.is_empty():
@@ -156,8 +171,9 @@ func _build_select(command: Variant, definition: Variant, state: Variant, timeli
 		changes.append(GameChangeScript.new(GameChangeScript.TILE_ZONE, matching_tile_id, GameStateDataScript.ZONE_TRAY, GameStateDataScript.ZONE_RESOLVED))
 		changes.append(GameChangeScript.new(GameChangeScript.COUNTER, "resolved_pair_count", state.resolved_pair_count, state.resolved_pair_count + 1))
 		var score_multiplier: int = MomentumRulesScript.multiplier_for(momentum_after_decay, definition.configuration)
-		var momentum_after_gain: int = MomentumRulesScript.add_pair_gain(momentum_after_decay, definition.configuration)
-		changes.append(GameChangeScript.new(GameChangeScript.COUNTER, "momentum_units", momentum_after_decay, momentum_after_gain))
+		var momentum_after_gain: int = MomentumRulesScript.add_pair_gain(momentum_after_selection, definition.configuration)
+		changes.append(GameChangeScript.new(GameChangeScript.COUNTER, "momentum_units", momentum_after_selection, momentum_after_gain))
+		momentum_after_command = momentum_after_gain
 		var resulting_multiplier: int = MomentumRulesScript.multiplier_for(momentum_after_gain, definition.configuration)
 		var score_modifier_basis_points := ModifierRulesScript.active_score_basis_points(state, command.playback_time_ms)
 		var resolved_pair_opportunity := _find_recorded_pair_opportunity(
@@ -187,7 +203,12 @@ func _build_select(command: Variant, definition: Variant, state: Variant, timeli
 		var score_gain: int = score_gain_before_difficulty + difficulty_bonus_score
 		changes.append(GameChangeScript.new(GameChangeScript.COUNTER, "score", state.score, state.score + score_gain))
 		combo_after = combo_before + 1
-		combo_expires_after = ComboRulesScript.expiry_after_pair(command.playback_time_ms, definition.configuration)
+		combo_expires_after = 0
+		if definition.rules_version < 8:
+			combo_expires_after = ComboRulesScript.expiry_after_pair(
+				command.playback_time_ms,
+				definition.configuration
+			)
 		max_combo_after = maxi(state.max_combo, combo_after)
 		if command.playback_time_ms != state.last_pair_time_ms:
 			changes.append(GameChangeScript.new(
@@ -196,8 +217,6 @@ func _build_select(command: Variant, definition: Variant, state: Variant, timeli
 				state.last_pair_time_ms,
 				command.playback_time_ms
 			))
-		if resulting_multiplier > state.max_multiplier:
-			changes.append(GameChangeScript.new(GameChangeScript.COUNTER, "max_multiplier", state.max_multiplier, resulting_multiplier))
 		telemetry.merge({
 			"pair_interval_ms": command.playback_time_ms - state.last_pair_time_ms,
 			"momentum_after_gain": momentum_after_gain,
@@ -263,6 +282,17 @@ func _build_select(command: Variant, definition: Variant, state: Variant, timeli
 	_append_counter_change(changes, "tray_bonus_pairs_remaining", state.tray_bonus_pairs_remaining, tray_bonus_pairs_remaining_after)
 	_append_counter_change(changes, "modifier_activation_count", state.modifier_activation_count, modifier_activation_count_after)
 	_append_combo_state(changes, state, combo_after, max_combo_after, combo_expires_after)
+	var resulting_momentum_multiplier := MomentumRulesScript.multiplier_for(
+		momentum_after_command,
+		definition.configuration
+	)
+	if resulting_momentum_multiplier > state.max_multiplier:
+		changes.append(GameChangeScript.new(
+			GameChangeScript.COUNTER,
+			"max_multiplier",
+			state.max_multiplier,
+			resulting_momentum_multiplier
+		))
 	var next_peak := maxi(state.max_tray_occupancy, tray_after.size())
 	if next_peak != state.max_tray_occupancy:
 		changes.append(GameChangeScript.new(GameChangeScript.COUNTER, "max_tray_occupancy", state.max_tray_occupancy, next_peak))
@@ -300,10 +330,14 @@ func _build_undo(command: Variant, definition: Variant, state: Variant, timeline
 	tray_after.assign(tray_before)
 	tray_after.pop_back()
 	var changes: Array = []
-	_append_clock_changes(command, definition, state, changes)
+	var momentum_after_decay := _append_clock_changes(command, definition, state, changes)
 	_append_clear_hint(changes, state)
 	_append_consumable_use(changes, state, ConsumableInventoryScript.UNDO)
 	var combo_telemetry := _append_combo_reset(changes, state, command.playback_time_ms, "undo")
+	var selection_gain := int(target_transaction.telemetry.get("momentum_selection_gain", 0))
+	var momentum_after_undo := MomentumRulesScript.remove_selection_gain(momentum_after_decay, selection_gain)
+	_append_counter_change(changes, "momentum_units", momentum_after_decay, momentum_after_undo)
+	combo_telemetry["momentum_selection_gain_reverted"] = momentum_after_decay - momentum_after_undo
 	changes.append_array([
 		GameChangeScript.new(GameChangeScript.TILE_ZONE, tile_id, GameStateDataScript.ZONE_TRAY, GameStateDataScript.ZONE_BOARD),
 		GameChangeScript.new(GameChangeScript.TRAY, "tray_tile_ids", tray_before, tray_after),

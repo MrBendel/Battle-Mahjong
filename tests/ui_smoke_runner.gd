@@ -40,9 +40,9 @@ func _run() -> void:
 		"main scene copies Inspector tuning into game definition"
 	)
 	_check_equal(
-		int(tuning.get("combo_window_ms")),
-		int(live_game.definition.configuration.combo_window_ms),
-		"main scene copies Combo timing into game definition"
+		int(tuning.get("selection_gain")),
+		int(live_game.definition.configuration.momentum_selection_gain),
+		"main scene copies selection gain into game definition"
 	)
 	_check_equal(
 		int(modifier_tuning.get("loadout_capacity")),
@@ -72,6 +72,11 @@ func _run() -> void:
 		var expected_target: Rect2 = shell.get("_regions").tray.call("slot_global_rect", 0)
 		shell.call("_on_tile_selected", selectable_tile_id)
 		_check_equal(1, shell.get("_tile_motion_count"), "ordinary selection starts one board-to-tray animation")
+		_check_equal(
+			int(tuning.get("selection_gain")),
+			live_game.call("current_snapshot").momentum_units,
+			"ordinary selection immediately bumps live Momentum"
+		)
 		_check_equal(expected_target, shell.get("_last_tile_motion_target"), "selection animation targets the next tray slot")
 		_check_equal(1, live_game.tray.tiles.size(), "ordinary transfer commits tray occupancy immediately")
 		var first_slot_art: TextureRect = shell.get("_regions").tray.get("_slot_art")[0]
@@ -81,6 +86,7 @@ func _run() -> void:
 		var landed_undo_before: int = shell.get("_undo_motion_count")
 		shell.call("_on_undo_requested")
 		_check_equal(landed_undo_before + 1, shell.get("_undo_motion_count"), "landed tray tile animates back on Undo")
+		_check_equal(0, live_game.call("current_snapshot").momentum_units, "Undo removes the returned tile's Momentum bump")
 		_check_equal(original_board_rect, shell.get("_last_undo_motion_target"), "landed Undo returns to the original board position")
 		await create_timer(0.32).timeout
 		_check(shell.get("_regions").board.get("_tile_buttons")[selectable_tile_id].visible, "landed Undo reveals the restored board tile on arrival")

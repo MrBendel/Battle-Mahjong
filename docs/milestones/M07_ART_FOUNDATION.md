@@ -245,7 +245,7 @@ Required components and states:
 
 - momentum meter;
 - current multiplier;
-- current Combo and remaining Combo window;
+- current Combo chain;
 - meter fill;
 - visible decay;
 - momentum-gain animation;
