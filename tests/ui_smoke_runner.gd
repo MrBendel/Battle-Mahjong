@@ -190,6 +190,21 @@ func _run() -> void:
 	_validate_regions(shell, orientation)
 	_validate_board_tiles(shell, orientation)
 	_validate_consumables(shell, orientation)
+
+	shell.call("_on_update_available", "0.2.0-smoke.1", "https://play.google.com/apps/internaltest/4701554282456194202", false)
+	await process_frame
+	var banner: Control = shell.get("_update_banner")
+	_check(banner != null and banner.visible, "%s update banner displays on available update" % orientation)
+	if banner != null and banner.visible:
+		_check(shell.get_viewport_rect().encloses(Rect2(banner.position, banner.size)), "%s update banner stays inside viewport" % orientation)
+		_check(
+			not Rect2(banner.position, banner.size).intersects(Rect2(shell.get("_pause_button").position, shell.get("_pause_button").size)),
+			"%s update banner does not cover pause button" % orientation
+		)
+		banner.call("_on_dismiss_pressed")
+		_check(not banner.visible, "%s update banner hides on dismiss" % orientation)
+		await process_frame
+
 	shell.set("_delete_pair_armed", false)
 	shell.get("_regions").board.call("set_delete_pair_armed", false)
 	if OS.get_cmdline_user_args().has("--callout-capture"):

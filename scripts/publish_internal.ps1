@@ -128,8 +128,15 @@ try {
         )
     }
 
-    $presetBackup = [IO.File]::ReadAllBytes($PresetFile)
-    try {
+        $versionJsonPath = Join-Path $RepoRoot "version.json"
+        $versionJsonObject = [ordered]@{
+            latest_version_code = $VersionCode
+            latest_version_name = $VersionName
+            min_version_code = 0
+            store_url = "https://play.google.com/apps/internaltest/4701554282456194202"
+        }
+        $versionJsonObject | ConvertTo-Json | Set-Content -Path $versionJsonPath -Encoding UTF8
+
         Invoke-Godot -Arguments @(
             "--headless", "--path", ".",
             "--script", "res://scripts/tools/set_android_export_version.gd",
