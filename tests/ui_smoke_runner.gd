@@ -10,9 +10,11 @@ func _init() -> void:
 
 
 func _run() -> void:
-	var requested_size := Vector2i(1280, 720)
+	var requested_size := Vector2i(720, 1280)
 	if OS.get_cmdline_user_args().has("--small-phone"):
 		requested_size = Vector2i(375, 667)
+	elif OS.get_cmdline_user_args().has("--landscape"):
+		requested_size = Vector2i(1280, 720)
 	elif OS.get_cmdline_user_args().has("--portrait"):
 		requested_size = Vector2i(430, 932)
 	root.size = requested_size
