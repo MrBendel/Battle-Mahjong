@@ -25,6 +25,9 @@ func run(seed: int, policy: String = PAIR_AWARE, policy_config: Dictionary = {})
 	var analyzed_pair_count := 0
 	var total_pair_difficulty := 0
 	var hardest_pair_difficulty := 0
+	var difficulty_reward_count := 0
+	var difficulty_bonus_score := 0
+	var difficulty_reward_tiers := {"notable": 0, "exceptional": 0}
 	if policy == PAIR_AWARE:
 		perfect_solution.assign(generated.solution)
 	var policy_rng = DeterministicRngScript.new(seed + 104729)
@@ -63,6 +66,13 @@ func run(seed: int, policy: String = PAIR_AWARE, policy_config: Dictionary = {})
 				analyzed_pair_count += 1
 				total_pair_difficulty += difficulty
 				hardest_pair_difficulty = maxi(hardest_pair_difficulty, difficulty)
+			var difficulty_reward: Dictionary = transaction.telemetry.get("difficulty_reward", {})
+			if not difficulty_reward.is_empty():
+				difficulty_reward_count += 1
+				difficulty_bonus_score += int(difficulty_reward.get("bonus_score", 0))
+				var tier := str(difficulty_reward.get("tier", ""))
+				if difficulty_reward_tiers.has(tier):
+					difficulty_reward_tiers[tier] += 1
 
 	return {
 		"seed": seed,
@@ -82,6 +92,9 @@ func run(seed: int, policy: String = PAIR_AWARE, policy_config: Dictionary = {})
 		"analyzed_pair_count": analyzed_pair_count,
 		"average_pair_difficulty": 0 if analyzed_pair_count == 0 else int(total_pair_difficulty / analyzed_pair_count),
 		"hardest_pair_difficulty": hardest_pair_difficulty,
+		"difficulty_reward_count": difficulty_reward_count,
+		"difficulty_bonus_score": difficulty_bonus_score,
+		"difficulty_reward_tiers": difficulty_reward_tiers,
 		"elapsed_time_ms": game.elapsed_time_ms,
 	}
 

@@ -68,9 +68,9 @@ Success criteria:
 
 Fast look-ahead play feels meaningfully different from slow stop-and-search play.
 
-The implemented Combo extension distinguishes confident uninterrupted play from raw speed: natural pairs extend the chain, ordinary unmatched tray selections preserve it, and timeout, locked-tile mistakes, or successful consumables break it. Pair-difficulty scoring and Combo rewards remain deferred pending telemetry and playtesting.
+The implemented Combo extension distinguishes confident uninterrupted play from raw speed: natural pairs extend the chain, ordinary unmatched tray selections preserve it, and timeout, locked-tile mistakes, or successful consumables break it. Combo does not directly multiply score; its first purpose is performance recognition and future presentation intensity.
 
-Deterministic tile and pair opportunity analysis is implemented as telemetry only. It scores and ranks the selectable search space before every natural selection without changing rewards. Detailed contract: [Pair Difficulty Analysis](PAIR_DIFFICULTY.md).
+Deterministic tile and pair opportunity analysis scores and ranks the selectable search space before every natural selection. Qualified hard board pairs receive configurable score bonuses and live-text performance callouts; tray completions remain ineligible. Detailed contract: [Pair Difficulty Analysis](PAIR_DIFFICULTY.md).
 
 ## M4 - Generator + Solver
 

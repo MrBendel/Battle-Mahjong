@@ -1,12 +1,12 @@
 # Pair Difficulty Analysis
 
-Status: Implemented as provisional telemetry; no rewards are attached.
+Status: Implemented with provisional deterministic recognition tiers and score rewards.
 
 ## Purpose
 
 Battle Mahjong evaluates the visual-search opportunity before every accepted natural tile selection. The analysis is deterministic simulation data derived from the current board revision. It never reads viewport coordinates, orientation, tile artwork, animation, or wall-clock time.
 
-The first implementation exists to collect comparable playtest and simulation data before difficulty tiers or rewards are designed.
+The analysis remains provisional and produces comparable playtest and simulation data. Qualified board-pair opportunities now also drive a deliberately small first reward slice so perceived difficulty and reward frequency can be tested together.
 
 ## Tile Score
 
@@ -44,15 +44,34 @@ Each accepted natural selection records:
 
 When a natural pair resolves, telemetry links it to the pair opportunity observed before its first tile was selected. If the mate was not a selectable board pair at that time, the event is labeled `tray_completion` and records the currently selected tile observation without inventing a contextual pair rank.
 
-The analysis is derived telemetry. It does not drive reduction, state hashes, legal moves, score, Momentum, Combo, or rewards.
+The analysis remains derived data and does not affect legal moves, Momentum, Combo, or tile state. The recorded opportunity may drive score through the rules below; the resulting score mutation remains an ordinary transaction change and therefore participates in state hashes and replay.
+
+## Recognition And Score Rewards
+
+Only opportunities recorded with `source: board_pair` are eligible. Tray completions and consumable removals never receive board-difficulty rewards. A pair must satisfy both the absolute score and contextual percentile threshold, preventing the last remaining pair from qualifying merely because it ranks first in a tiny search space.
+
+Default tiers:
+
+- `notable`: score at least `160` and percentile at least `7500`; emits `great` and adds 25 percent;
+- `exceptional`: score at least `220` and percentile at least `9000`; emits `eagle_eyes` and adds 50 percent.
+
+The exceptional tier is evaluated first. Thresholds and bonus basis points are exposed through the `MomentumTuning` Inspector resource and copied into the immutable game definition.
+
+The score before difficulty is the normal pair award after Momentum and active score-modifier multiplication. Difficulty adds:
+
+`floor(score_before_difficulty * bonus_basis_points / 10000)`
+
+Transaction telemetry records the tier, stable callout key, observed difficulty, contextual percentile, bonus basis points, and awarded bonus score. Presentation consumes the callout key from the committed transaction and never re-evaluates difficulty.
 
 ## Validation And Tuning
 
 The CLI simulation runner reports analyzed pair count, average selected-pair difficulty, and hardest selected-pair difficulty by policy. Tests verify deterministic ranking, axis-transposition invariance, transaction serialization, and unchanged scoring.
 
-Before rewards are attached, playtest data should answer:
+Playtest and simulation data should answer:
 
 - whether high-ranked pairs are consistently perceived as harder by players;
 - which components correlate poorly with human judgment;
 - whether rankings remain useful at early, middle, and late board states; and
-- whether tray completions need a separate difficulty model.
+- whether tray completions need a separate difficulty model;
+- whether the default tiers trigger often enough to feel special without becoming noisy; and
+- whether 25 and 50 percent bonuses remain proportional at high Momentum multipliers.

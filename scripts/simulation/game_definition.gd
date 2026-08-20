@@ -4,7 +4,7 @@ const GameConfigurationScript := preload("res://scripts/simulation/game_configur
 const ConsumableInventoryScript := preload("res://scripts/simulation/consumable_inventory.gd")
 
 const SCHEMA_VERSION := 3
-const CURRENT_RULES_VERSION := 5
+const CURRENT_RULES_VERSION := 6
 
 var seed: int
 var rules_version: int
@@ -75,6 +75,12 @@ func _normalize_configuration_numbers() -> void:
 		"momentum_pair_gain",
 		"pair_base_score",
 		"combo_window_ms",
+		"difficulty_notable_min_score",
+		"difficulty_notable_min_percentile_basis_points",
+		"difficulty_notable_bonus_basis_points",
+		"difficulty_exceptional_min_score",
+		"difficulty_exceptional_min_percentile_basis_points",
+		"difficulty_exceptional_bonus_basis_points",
 		"layout_revision",
 		"modifier_loadout_capacity",
 		"modifier_extra_life_base_charges",

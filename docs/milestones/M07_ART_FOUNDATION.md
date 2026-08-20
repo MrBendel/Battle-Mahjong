@@ -124,8 +124,11 @@ Implemented interaction decisions:
 
 - blocked tiles are darkened but remain legible;
 - tapping a normally unselectable visible tile produces a short horizontal rejection wiggle and generated negative tone without changing simulation state;
-- successful selection commits immediately and animates a presentation-only tile duplicate into the next tray slot;
-- a committed match converges on the occupied tray slot, removes both presentation duplicates, and emits one reusable radial impact burst;
+- successful selection commits immediately and animates a presentation-only tile duplicate into the next tray slot without changing its board footprint;
+- Undo commits immediately and returns the last tray tile visual to its restored board position; an in-flight selection visual is reversed instead of duplicated;
+- tray slots and occupied tray tiles use the board's current rendered tile size, ceramic body, face safe area, shadow, and modifier badge;
+- a committed match sends the incoming duplicate to the next open visual slot, holds briefly so the landing reads, collides it with the captured tray duplicate, then removes both through the shared pop and radial impact burst;
+- match staging is presentation-only: the resolved pair leaves authoritative tray data immediately and never temporarily occupies the visual destination slot in simulation;
 - Delete Pair composes the same removal burst over the two resolved board tiles;
 - the tray renders faces through the same cosmetic skin manifest as the board;
 - the four-slot tray remains directly above the board in portrait, compact portrait, and landscape layouts;
@@ -302,9 +305,11 @@ Provide immediate tactile feedback. Potential ingredients include:
 
 ### Move To Tray
 
-The selected tile must visibly move into its tray slot. The animation must never be slow enough to interfere with rapid play.
+The selected tile must visibly move into its tray slot at the same size used on the board. The destination's persistent tile is suppressed until arrival so the moving tile is not duplicated. The animation must never be slow enough to interfere with rapid play.
 
 ### Pair Match
+
+The incoming match first visits the next open visual tray slot and pauses for a short landing beat. It and the captured matching tray tile then collide at their midpoint before the shared removal pop. Simulation resolves the pair atomically before this sequence begins, so rapid input cannot mistake animation-only occupancy for tray data.
 
 Matching should feel exceptionally satisfying. Potential ingredients include:
 
@@ -374,6 +379,8 @@ The art system must define:
 Do not render every phrase as a unique bitmap. Prefer live text composed with reusable FX so callouts support localization, accessibility changes, and future announcer packs.
 
 Visual callouts and announcer audio should eventually respond to the same gameplay event.
+
+The first functional callout slice uses live `GREAT!` and `EAGLE EYES!` text driven by stable difficulty-reward keys in committed transaction telemetry. It establishes the event contract and responsive placement; final typography, reusable impact treatment, and announcer audio remain production work.
 
 ## Character Art
 

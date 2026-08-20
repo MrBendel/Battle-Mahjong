@@ -23,6 +23,20 @@ const GameConfigurationScript := preload("res://scripts/simulation/game_configur
 ## Active-play time allowed between natural pair resolutions before Combo expires.
 @export_range(1000, 60000, 100) var combo_window_ms := 7000
 
+@export_category("Pair Difficulty Rewards")
+## Minimum absolute pair score for a GREAT recognition event.
+@export_range(0, 1000, 1) var difficulty_notable_min_score := 160
+## Minimum contextual percentile for GREAT, expressed as 0..10000 basis points.
+@export_range(0, 10000, 100) var difficulty_notable_min_percentile_basis_points := 7500
+## Additional score percentage for GREAT, expressed as basis points (2500 = 25%).
+@export_range(0, 10000, 100) var difficulty_notable_bonus_basis_points := 2500
+## Minimum absolute pair score for an EAGLE EYES recognition event.
+@export_range(0, 1000, 1) var difficulty_exceptional_min_score := 220
+## Minimum contextual percentile for EAGLE EYES, expressed as 0..10000 basis points.
+@export_range(0, 10000, 100) var difficulty_exceptional_min_percentile_basis_points := 9000
+## Additional score percentage for EAGLE EYES, expressed as basis points (5000 = 50%).
+@export_range(0, 20000, 100) var difficulty_exceptional_bonus_basis_points := 5000
+
 
 func configuration_overrides() -> Dictionary:
 	var decay_per_ms: Array[int] = []
@@ -35,6 +49,12 @@ func configuration_overrides() -> Dictionary:
 		"momentum_decay_per_ms": decay_per_ms,
 		"pair_base_score": pair_base_score,
 		"combo_window_ms": combo_window_ms,
+		"difficulty_notable_min_score": difficulty_notable_min_score,
+		"difficulty_notable_min_percentile_basis_points": difficulty_notable_min_percentile_basis_points,
+		"difficulty_notable_bonus_basis_points": difficulty_notable_bonus_basis_points,
+		"difficulty_exceptional_min_score": difficulty_exceptional_min_score,
+		"difficulty_exceptional_min_percentile_basis_points": difficulty_exceptional_min_percentile_basis_points,
+		"difficulty_exceptional_bonus_basis_points": difficulty_exceptional_bonus_basis_points,
 	}
 
 
@@ -62,6 +82,21 @@ func validation_errors() -> Array[String]:
 		errors.append("Pair base score must be positive.")
 	if combo_window_ms <= 0:
 		errors.append("Combo window must be positive.")
+	if difficulty_notable_min_score < 0 or difficulty_exceptional_min_score < 0:
+		errors.append("Pair difficulty score thresholds cannot be negative.")
+	if difficulty_exceptional_min_score < difficulty_notable_min_score:
+		errors.append("Exceptional difficulty score must be at least the notable threshold.")
+	if difficulty_notable_min_percentile_basis_points < 0 \
+			or difficulty_notable_min_percentile_basis_points > 10000 \
+			or difficulty_exceptional_min_percentile_basis_points < 0 \
+			or difficulty_exceptional_min_percentile_basis_points > 10000:
+		errors.append("Pair difficulty percentiles must be between 0 and 10000.")
+	if difficulty_exceptional_min_percentile_basis_points \
+			< difficulty_notable_min_percentile_basis_points:
+		errors.append("Exceptional difficulty percentile must be at least the notable threshold.")
+	if difficulty_notable_bonus_basis_points < 0 \
+			or difficulty_exceptional_bonus_basis_points < difficulty_notable_bonus_basis_points:
+		errors.append("Difficulty bonuses must be non-negative and exceptional cannot be lower than notable.")
 	return errors
 
 
@@ -74,4 +109,10 @@ static func default_overrides() -> Dictionary:
 		"momentum_decay_per_ms": configuration.momentum_decay_per_ms.duplicate(),
 		"pair_base_score": configuration.pair_base_score,
 		"combo_window_ms": configuration.combo_window_ms,
+		"difficulty_notable_min_score": configuration.difficulty_notable_min_score,
+		"difficulty_notable_min_percentile_basis_points": configuration.difficulty_notable_min_percentile_basis_points,
+		"difficulty_notable_bonus_basis_points": configuration.difficulty_notable_bonus_basis_points,
+		"difficulty_exceptional_min_score": configuration.difficulty_exceptional_min_score,
+		"difficulty_exceptional_min_percentile_basis_points": configuration.difficulty_exceptional_min_percentile_basis_points,
+		"difficulty_exceptional_bonus_basis_points": configuration.difficulty_exceptional_bonus_basis_points,
 	}

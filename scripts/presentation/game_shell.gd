@@ -13,11 +13,13 @@ const ModifierTuningScript := preload("res://scripts/configuration/modifier_tuni
 const ConsumablesViewScript := preload("res://scripts/presentation/consumables_view.gd")
 const TileSkinScript := preload("res://scripts/presentation/tile_skin.gd")
 const PairMatchFxScript := preload("res://scripts/presentation/pair_match_fx.gd")
+const PerformanceCalloutScript := preload("res://scripts/presentation/performance_callout_view.gd")
 const PauseMenuScript := preload("res://scripts/presentation/pause_menu.gd")
 const GameChangeScript := preload("res://scripts/simulation/game_change.gd")
 const GameStateDataScript := preload("res://scripts/simulation/game_state_data.gd")
 const GAMEPLAY_BACKGROUND := preload("res://game-assets/backgrounds/gameplay_brush_arcade.png")
 const START_SEED := 92817361
+const PAIR_LANDING_HOLD_SECONDS := 0.12
 
 @export var momentum_tuning: Resource
 @export var modifier_tuning: Resource
@@ -34,11 +36,18 @@ var _tile_motion_count := 0
 var _last_tile_motion_target := Rect2()
 var _pair_feedback_count := 0
 var _last_pair_feedback_position := Vector2()
+var _pair_collision_count := 0
+var _last_pair_collision_position := Vector2()
+var _undo_motion_count := 0
+var _last_undo_motion_target := Rect2()
+var _tile_transfer_previews := {}
+var _tile_transfer_tweens := {}
 var _gameplay_background: TextureRect
 var _pause_button: Button
 var _pause_menu: Control
 var _pause_started_at_ms := -1
 var _paused_duration_ms := 0
+var _performance_callout: Control
 
 func _ready() -> void:
 	_build_shell()
@@ -59,6 +68,8 @@ func _build_shell() -> void:
 
 	for region in _regions.values():
 		add_child(region)
+	_performance_callout = PerformanceCalloutScript.new()
+	add_child(_performance_callout)
 
 	_regions.board.tile_selected.connect(_on_tile_selected)
 	_regions.board.locked_tile_tapped.connect(_on_locked_tile_tapped)
@@ -157,6 +168,7 @@ func _on_tile_selected(tile_id: String) -> void:
 	var matching_preview: Control = null
 	var source_rect := Rect2()
 	var target_rect := Rect2()
+	var matching_source_rect := Rect2()
 	if _delete_pair_armed:
 		_delete_pair_armed = false
 		_regions.board.call("set_delete_pair_armed", false)
@@ -173,17 +185,20 @@ func _on_tile_selected(tile_id: String) -> void:
 		var matching_index := _matching_tray_index(tile_id)
 		tile_preview = _regions.board.call("create_tile_preview", tile_id)
 		source_rect = _regions.board.call("tile_global_rect", tile_id)
-		var target_index: int = matching_index if matching_index >= 0 else mini(_game.tray.tiles.size(), 3)
+		var target_index: int = mini(_game.tray.tiles.size(), 3)
 		target_rect = _regions.tray.call("slot_global_rect", target_index)
 		if matching_index >= 0:
 			matching_preview = _regions.tray.call("create_tile_preview", matching_index)
+			matching_source_rect = _regions.tray.call("slot_global_rect", matching_index)
 		result = _game.call("select_tile", tile_id, _playback_time_ms())
+		if _tray_contains_tile(tile_id):
+			_regions.tray.call("suppress_tile", tile_id)
 	_refresh_game_views()
 	if tile_preview != null and result != GameStateScript.INVALID_SELECTION:
 		if result == GameStateScript.PAIR_RESOLVED:
-			_play_pair_to_tray(tile_preview, matching_preview, source_rect, target_rect)
+			_play_pair_to_tray(tile_preview, matching_preview, source_rect, target_rect, matching_source_rect)
 		else:
-			_play_tile_to_tray(tile_preview, source_rect, target_rect)
+			_play_tile_to_tray(tile_preview, source_rect, target_rect, tile_id)
 	elif tile_preview != null:
 		tile_preview.queue_free()
 	if matching_preview != null and result != GameStateScript.PAIR_RESOLVED:
@@ -191,6 +206,8 @@ func _on_tile_selected(tile_id: String) -> void:
 	if result == GameStateScript.PAIR_RESOLVED:
 		var transaction: Variant = _game.call("last_transaction")
 		_regions.momentum.call("play_pair_feedback", int(transaction.telemetry.resulting_multiplier))
+		if transaction.telemetry.has("difficulty_reward"):
+			_performance_callout.call("play_reward", transaction.telemetry.difficulty_reward)
 
 
 func _on_locked_tile_tapped(tile_id: String) -> void:
@@ -203,8 +220,26 @@ func _on_locked_tile_tapped(tile_id: String) -> void:
 func _on_undo_requested() -> void:
 	if _pause_started_at_ms >= 0:
 		return
-	_game.call("undo_last_unmatched", _playback_time_ms())
+	var tray_index: int = _game.tray.tiles.size() - 1
+	var tile_id := ""
+	var preview: Control = null
+	var source_rect := Rect2()
+	if tray_index >= 0:
+		tile_id = _game.tray.tiles[tray_index].id
+		preview = _take_active_tile_transfer(tile_id)
+		if preview != null:
+			source_rect = preview.get_global_rect()
+		else:
+			preview = _regions.tray.call("create_tile_preview", tray_index)
+			source_rect = _regions.tray.call("slot_global_rect", tray_index)
+	var result: String = _game.call("undo_last_unmatched", _playback_time_ms())
 	_refresh_game_views()
+	if result == GameStateScript.UNDONE and preview != null:
+		var target_rect: Rect2 = _regions.board.call("tile_global_rect", tile_id)
+		_regions.board.call("suppress_tile", tile_id)
+		_play_undo_to_board(preview, source_rect, target_rect, tile_id)
+	elif preview != null:
+		preview.queue_free()
 
 
 func _on_hint_requested() -> void:
@@ -252,6 +287,7 @@ func _on_restart_requested() -> void:
 	_regions.tray.call("set_game_state", _game)
 	_regions.momentum.call("set_game_state", _game)
 	_regions.consumables.call("set_game_state", _game)
+	_performance_callout.call("reset")
 	_delete_pair_armed = false
 	_regions.board.call("set_delete_pair_armed", false)
 
@@ -289,26 +325,78 @@ func _refresh_game_views() -> void:
 	_regions.consumables.call("refresh")
 
 
-func _play_tile_to_tray(preview: Control, source_rect: Rect2, target_rect: Rect2) -> void:
+func _play_tile_to_tray(preview: Control, source_rect: Rect2, target_rect: Rect2, tile_id: String) -> void:
 	add_child(preview)
 	preview.position = _global_to_local(source_rect.position)
 	preview.size = source_rect.size
 	preview.pivot_offset = preview.size * 0.5
 	preview.z_index = 1000
-	var target_position: Vector2 = _global_to_local(target_rect.position)
-	var target_size := target_rect.size
+	var target_position: Vector2 = _global_to_local(target_rect.get_center()) - preview.size * 0.5
 	_tile_motion_count += 1
 	_last_tile_motion_target = target_rect
 	var tween := create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
+	_tile_transfer_previews[tile_id] = preview
+	_tile_transfer_tweens[tile_id] = tween
 	tween.set_parallel(true)
 	tween.tween_property(preview, "position", target_position, 0.18)
-	tween.tween_property(preview, "size", target_size, 0.18)
 	tween.tween_property(preview, "rotation", deg_to_rad(-3.0), 0.09)
 	tween.chain().tween_property(preview, "modulate:a", 0.0, 0.06)
-	tween.finished.connect(preview.queue_free)
+	tween.finished.connect(_finish_tile_to_tray.bind(preview, tile_id))
 
 
-func _play_pair_to_tray(incoming: Control, held: Control, source_rect: Rect2, target_rect: Rect2) -> void:
+func _finish_tile_to_tray(preview: Control, tile_id: String) -> void:
+	_tile_transfer_previews.erase(tile_id)
+	_tile_transfer_tweens.erase(tile_id)
+	if is_instance_valid(preview):
+		preview.queue_free()
+	_regions.tray.call("reveal_tile", tile_id)
+
+
+func _take_active_tile_transfer(tile_id: String) -> Control:
+	var preview: Control = _tile_transfer_previews.get(tile_id)
+	if preview == null:
+		return null
+	var tween: Tween = _tile_transfer_tweens.get(tile_id)
+	if tween != null and tween.is_valid():
+		tween.kill()
+	_tile_transfer_previews.erase(tile_id)
+	_tile_transfer_tweens.erase(tile_id)
+	_regions.tray.call("reveal_tile", tile_id)
+	return preview
+
+
+func _play_undo_to_board(preview: Control, source_rect: Rect2, target_rect: Rect2, tile_id: String) -> void:
+	if preview.get_parent() == null:
+		add_child(preview)
+	preview.position = _global_to_local(source_rect.position)
+	preview.size = source_rect.size
+	preview.pivot_offset = preview.size * 0.5
+	preview.modulate = Color.WHITE
+	preview.z_index = 1000
+	var target_position := _global_to_local(target_rect.get_center()) - preview.size * 0.5
+	_undo_motion_count += 1
+	_last_undo_motion_target = target_rect
+	var tween := create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
+	tween.set_parallel(true)
+	tween.tween_property(preview, "position", target_position, 0.18)
+	tween.tween_property(preview, "rotation", deg_to_rad(3.0), 0.09)
+	tween.chain().tween_property(preview, "rotation", 0.0, 0.09)
+	tween.finished.connect(_finish_undo_to_board.bind(preview, tile_id))
+
+
+func _finish_undo_to_board(preview: Control, tile_id: String) -> void:
+	if is_instance_valid(preview):
+		preview.queue_free()
+	_regions.board.call("reveal_tile", tile_id)
+
+
+func _play_pair_to_tray(
+		incoming: Control,
+		held: Control,
+		source_rect: Rect2,
+		target_rect: Rect2,
+		held_source_rect: Rect2
+) -> void:
 	add_child(incoming)
 	incoming.position = _global_to_local(source_rect.position)
 	incoming.size = source_rect.size
@@ -316,19 +404,39 @@ func _play_pair_to_tray(incoming: Control, held: Control, source_rect: Rect2, ta
 	incoming.z_index = 1000
 	if held != null:
 		add_child(held)
-		held.position = _global_to_local(target_rect.position)
-		held.size = target_rect.size
+		held.position = _global_to_local(held_source_rect.position)
+		held.size = held_source_rect.size
 		held.pivot_offset = held.size * 0.5
 		held.z_index = 999
 	_tile_motion_count += 1
 	_last_tile_motion_target = target_rect
-	var target_position := _global_to_local(target_rect.position)
+	var target_position := _global_to_local(target_rect.get_center()) - incoming.size * 0.5
 	var tween := create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	tween.set_parallel(true)
 	tween.tween_property(incoming, "position", target_position, 0.15)
-	tween.tween_property(incoming, "size", target_rect.size, 0.15)
 	tween.tween_property(incoming, "rotation", deg_to_rad(4.0), 0.15)
-	tween.finished.connect(_play_pair_pop.bind([incoming, held], target_rect.get_center()))
+	tween.chain().tween_interval(PAIR_LANDING_HOLD_SECONDS)
+	tween.finished.connect(_play_pair_collision.bind(incoming, held, target_rect, held_source_rect))
+
+
+func _play_pair_collision(incoming: Control, held: Control, incoming_rect: Rect2, held_rect: Rect2) -> void:
+	if held == null or not is_instance_valid(held):
+		_play_pair_pop([incoming], incoming_rect.get_center())
+		return
+	var collision_center := (incoming_rect.get_center() + held_rect.get_center()) * 0.5
+	_pair_collision_count += 1
+	_last_pair_collision_position = collision_center
+	var incoming_target := _global_to_local(collision_center) - incoming.size * 0.5
+	var held_target := _global_to_local(collision_center) - held.size * 0.5
+	var tween := create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.set_parallel(true)
+	tween.tween_property(incoming, "position", incoming_target, 0.10)
+	tween.tween_property(held, "position", held_target, 0.10)
+	tween.tween_property(incoming, "rotation", deg_to_rad(-5.0), 0.10)
+	tween.tween_property(held, "rotation", deg_to_rad(5.0), 0.10)
+	tween.tween_property(incoming, "scale", Vector2(1.08, 1.08), 0.10)
+	tween.tween_property(held, "scale", Vector2(1.08, 1.08), 0.10)
+	tween.finished.connect(_play_pair_pop.bind([incoming, held], collision_center))
 
 
 func _play_board_pair_removal(visuals: Array) -> void:
@@ -381,6 +489,13 @@ func _matching_tray_index(tile_id: String) -> int:
 		if held.face.family == tile.face.family and held.face.value == tile.face.value:
 			return index
 	return -1
+
+
+func _tray_contains_tile(tile_id: String) -> bool:
+	for tile in _game.tray.tiles:
+		if tile.id == tile_id:
+			return true
+	return false
 
 
 func _resolved_tile_ids(transaction: Variant) -> Array[String]:
@@ -460,6 +575,8 @@ func _apply_layout() -> void:
 
 	_place_debug_panel(viewport_size, orientation)
 	_place_pause_button(viewport_size)
+	_regions.tray.call("set_tile_visual_size", _regions.board.call("tile_visual_size"))
+	_performance_callout.call("place_over", Rect2(_regions.board.position, _regions.board.size))
 	_debug_panel.call(
 		"set_info",
 		_rng.call("get_seed"),

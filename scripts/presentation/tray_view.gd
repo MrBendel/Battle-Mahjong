@@ -4,16 +4,18 @@ class_name TrayView
 const TileSkinScript := preload("res://scripts/presentation/tile_skin.gd")
 
 const SLOT_COUNT := 4
-const HEADER_HEIGHT := 32.0
 const MARGIN := 10.0
-const GAP := 6.0
+const GAP := 8.0
 
 var _game: Variant
 var _status_label: Label
-var _slots: Array[PanelContainer] = []
+var _slots: Array[Panel] = []
 var _slot_labels: Array[Label] = []
 var _slot_art: Array[TextureRect] = []
+var _slot_modifiers: Array[Label] = []
 var _tile_skin: Variant
+var _tile_visual_size := Vector2(32.0, 40.0)
+var _suppressed_tile_ids := {}
 
 
 func _init(game_state: Variant, tile_skin: Variant = null) -> void:
@@ -30,6 +32,24 @@ func _ready() -> void:
 
 func set_game_state(game_state: Variant) -> void:
 	_game = game_state
+	_suppressed_tile_ids.clear()
+	refresh()
+
+
+func set_tile_visual_size(tile_size: Vector2) -> void:
+	if tile_size.x <= 0.0 or tile_size.y <= 0.0:
+		return
+	_tile_visual_size = tile_size
+	_layout()
+
+
+func suppress_tile(tile_id: String) -> void:
+	_suppressed_tile_ids[tile_id] = true
+	refresh()
+
+
+func reveal_tile(tile_id: String) -> void:
+	_suppressed_tile_ids.erase(tile_id)
 	refresh()
 
 
@@ -41,21 +61,27 @@ func refresh() -> void:
 		var occupied: bool = index < _game.tray.tiles.size()
 		var label := _slot_labels[index]
 		var face_art := _slot_art[index]
-		if occupied:
-			var tile: Variant = _game.tray.tiles[index]
+		var modifier_label := _slot_modifiers[index]
+		var tile: Variant = _game.tray.tiles[index] if occupied else null
+		var presented: bool = occupied and not _suppressed_tile_ids.has(tile.id)
+		if presented:
 			face_art.texture = _tile_skin.texture_for_face(tile.face)
 			face_art.visible = face_art.texture != null
 			label.text = _tile_skin.label_for_face(tile.face)
 			label.visible = not face_art.visible
-			_slots[index].add_theme_stylebox_override("panel", _slot_style(Color("fffdf4"), Color("35636b")))
+			modifier_label.text = _modifier_symbol(tile)
+			modifier_label.visible = not modifier_label.text.is_empty()
+			_slots[index].add_theme_stylebox_override("panel", _tile_style())
 		else:
-			face_art.texture = null
+			face_art.texture = _tile_skin.texture_for_face(tile.face) if occupied else null
 			face_art.visible = false
+			modifier_label.text = _modifier_symbol(tile) if occupied else ""
+			modifier_label.visible = false
 			label.text = str(index + 1)
 			label.visible = true
-			_slots[index].add_theme_stylebox_override("panel", _slot_style(Color("202827"), Color("46504e")))
+			_slots[index].add_theme_stylebox_override("panel", _empty_slot_style())
 
-		label.add_theme_color_override("font_color", Color("202625") if occupied else Color("68716f"))
+		label.add_theme_color_override("font_color", Color("202625") if presented else Color("68716f"))
 
 	match _game.status:
 		"won":
@@ -90,7 +116,7 @@ func _build() -> void:
 	add_child(_status_label)
 
 	for index in range(SLOT_COUNT):
-		var slot := PanelContainer.new()
+		var slot := Panel.new()
 		var face_art := TextureRect.new()
 		face_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		face_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -99,28 +125,48 @@ func _build() -> void:
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		label.add_theme_font_size_override("font_size", 12)
+		var modifier_label := Label.new()
+		modifier_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		modifier_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		modifier_label.add_theme_color_override("font_color", Color("fff7cf"))
 		slot.add_child(face_art)
 		slot.add_child(label)
+		slot.add_child(modifier_label)
 		add_child(slot)
 		_slots.append(slot)
 		_slot_labels.append(label)
 		_slot_art.append(face_art)
+		_slot_modifiers.append(modifier_label)
+
 
 func _layout() -> void:
 	if _slots.is_empty():
 		return
 
 	_status_label.size = Vector2(maxf(80.0, size.x - 80.0 - MARGIN), 24.0)
-	var body_y := HEADER_HEIGHT
-	var body_height := maxf(34.0, size.y - body_y - MARGIN)
-	var slots_width := maxf(120.0, size.x - MARGIN * 2.0)
-	var slot_width := (slots_width - GAP * (SLOT_COUNT - 1)) / SLOT_COUNT
+	var group_width := _tile_visual_size.x * SLOT_COUNT + GAP * (SLOT_COUNT - 1)
+	var group_x := (size.x - group_width) * 0.5
+	var body_y := maxf(26.0, size.y - _tile_visual_size.y - 6.0)
+	var safe_area: Array = _tile_skin.geometry.get("face_safe_area", [92, 104, 328, 400])
+	var source_size: Array = _tile_skin.geometry.get("source_size", [512, 640])
 
 	for index in range(SLOT_COUNT):
-		_slots[index].position = Vector2(MARGIN + index * (slot_width + GAP), body_y)
-		_slots[index].size = Vector2(slot_width, body_height)
-		_slot_art[index].position = Vector2(4.0, 3.0)
-		_slot_art[index].size = Vector2(maxf(1.0, slot_width - 8.0), maxf(1.0, body_height - 6.0))
+		_slots[index].position = Vector2(group_x + index * (_tile_visual_size.x + GAP), body_y)
+		_slots[index].size = _tile_visual_size
+		_slot_art[index].position = Vector2(
+			float(safe_area[0]) / float(source_size[0]) * _tile_visual_size.x,
+			float(safe_area[1]) / float(source_size[1]) * _tile_visual_size.y
+		)
+		_slot_art[index].size = Vector2(
+			float(safe_area[2]) / float(source_size[0]) * _tile_visual_size.x,
+			float(safe_area[3]) / float(source_size[1]) * _tile_visual_size.y
+		)
+		_slot_labels[index].position = Vector2.ZERO
+		_slot_labels[index].size = _tile_visual_size
+		_slot_modifiers[index].position = Vector2(_tile_visual_size.x * 0.68, _tile_visual_size.y * 0.02)
+		_slot_modifiers[index].size = Vector2(_tile_visual_size.x * 0.30, _tile_visual_size.y * 0.23)
+		_slot_modifiers[index].add_theme_font_size_override("font_size", clampi(int(_tile_visual_size.x * 0.19), 8, 15))
+
 
 func slot_global_rect(index: int) -> Rect2:
 	if index < 0 or index >= _slots.size():
@@ -133,26 +179,63 @@ func create_tile_preview(index: int) -> Control:
 		return null
 	var preview := Panel.new()
 	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	preview.add_theme_stylebox_override("panel", _slot_style(Color("fffdf4"), Color("35636b")))
+	preview.add_theme_stylebox_override("panel", _tile_style())
 	var source_art: TextureRect = _slot_art[index]
 	if source_art.texture != null:
 		var face_art := TextureRect.new()
 		face_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		face_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		face_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		face_art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		face_art.position = source_art.position
+		face_art.size = source_art.size
 		preview.add_child(face_art)
 		face_art.texture = source_art.texture
+	var source_modifier: Label = _slot_modifiers[index]
+	if not source_modifier.text.is_empty():
+		var modifier := Label.new()
+		modifier.text = source_modifier.text
+		modifier.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		modifier.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		modifier.position = source_modifier.position
+		modifier.size = source_modifier.size
+		modifier.add_theme_color_override("font_color", Color("fff7cf"))
+		modifier.add_theme_font_size_override("font_size", source_modifier.get_theme_font_size("font_size"))
+		preview.add_child(modifier)
 	return preview
 
 
-func _slot_style(color: Color, border_color: Color) -> StyleBoxFlat:
+func _tile_style() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	style.bg_color = color
-	style.border_color = border_color
+	style.bg_color = Color("fffdf4")
+	style.border_color = Color("35636b")
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(5)
+	style.shadow_color = Color(0.0, 0.0, 0.0, 0.55)
+	style.shadow_size = 3
+	style.shadow_offset = Vector2(0.0, 4.0)
+	return style
+
+
+func _empty_slot_style() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color("202827")
+	style.border_color = Color("46504e")
 	style.set_border_width_all(2)
 	style.set_corner_radius_all(5)
 	return style
+
+
+func _modifier_symbol(tile: Variant) -> String:
+	var modifier: Dictionary = _game.definition.modifier_for_tile(tile.id)
+	if modifier.is_empty():
+		return ""
+	var symbols := {
+		"extra_life": "♥",
+		"cold_snap": "❄",
+		"score_multiplier": "×",
+		"tray_plus_one": "+1",
+	}
+	return "%s%d" % [symbols.get(modifier.type, "★"), int(modifier.level)]
 
 
 func _panel_style() -> StyleBoxFlat:

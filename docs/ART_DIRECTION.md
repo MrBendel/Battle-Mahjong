@@ -135,11 +135,12 @@ Status: Initial M7 Direction
 - The implemented Batch A proof uses `512 x 640` SVG masters, `256 x 320` PNG exports, a `328 x 400` face safe area, and independent modifier overlays. See [Tile Art Pipeline](TILE_ART_PIPELINE.md).
 - The 34 traditional identities are the required first vocabulary, not a permanent maximum.
 - The complete Default candidate set uses recognizable family/count structure with heavy rounded strokes, bright arcade color, loose brush accents, and chunky ceramic presentation.
-- Normally unselectable tiles darken. Rejected taps wiggle horizontally with a negative tone; accepted selections animate into their tray slot.
+- Normally unselectable tiles darken. Rejected taps wiggle horizontally with a negative tone; accepted selections animate into same-size tray positions without changing their board footprint.
 - The four-slot tray stays directly above the game board in every responsive layout so queue pressure remains visible while scanning tiles.
 - Undo appears as the rightmost player-controlled consumable in portrait layouts and the final tool in the landscape stack. Restart is a session command available only through the top-right pause menu.
 - Combo presentation must read as an intact or broken chain rather than a second Momentum meter. The current timed text is a functional placeholder for later callout and FX work.
-- A committed pair converges on its tray slot and composes a reusable radial impact burst; Delete Pair uses the same removal primitive directly on the board. These effects never delay or mutate simulation.
+- Qualified hard board pairs emit live `GREAT!` or `EAGLE EYES!` callouts from committed gameplay event keys. The current outlined pop-and-drift treatment is a functional first slice, not final typography.
+- A committed pair visually stages the incoming tile in the next open tray position, holds for a readable landing beat, collides both tile duplicates, and composes the reusable radial impact burst and pop. Undo returns or reverses the tile visual to its restored board position. Delete Pair uses the same removal primitive directly on the board. These effects never delay or mutate simulation.
 - The first gameplay background uses a calm charcoal and ink-green center with crimson, cyan, and warm-yellow dry-brush energy at the perimeter. It is aspect-covered and center-cropped so the portrait master also supports landscape.
 - Compact portrait support is validated at `375 x 667`; decorative character and debug regions disappear before gameplay regions shrink below their contract.
 
