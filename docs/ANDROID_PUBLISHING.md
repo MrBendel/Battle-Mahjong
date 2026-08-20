@@ -63,7 +63,7 @@ The publisher creates a temporary Play edit, uploads the signed AAB, replaces th
 
 The service-account email must appear as **Active** under Play Console **Users and permissions**. Grant it app access to Battle Mahjong and permission to release to testing tracks. A Google Cloud IAM role alone does not grant Play Console access.
 
-The Play Console email list `Battle Mahjong Internal Testers` contains `andrew.b.poes@gmail.com`. Keep the list selected on the Internal testing track. Testers join through:
+The Play Console email list `Battle Mahjong Internal Testers` contains `andrew.b.poes@gmail.com` and `dancingplatypus@gmail.com`. Keep the list selected on the Internal testing track. Testers join through:
 
 `https://play.google.com/apps/internaltest/4701554282456194202`
 
