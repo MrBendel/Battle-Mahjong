@@ -22,6 +22,7 @@ var _delete_pair_armed := false
 var _audio_player: AudioStreamPlayer
 var _audio_playback: Variant
 var _negative_feedback_count := 0
+var _suppressed_tile_ids := {}
 
 
 func _init(game_state: Variant, tile_skin: Variant = null) -> void:
@@ -39,12 +40,23 @@ func _ready() -> void:
 func set_game_state(game_state: Variant) -> void:
 	_game = game_state
 	_delete_pair_armed = false
+	_suppressed_tile_ids.clear()
 	_rebuild_tiles()
 	_layout_tiles()
 
 
 func set_delete_pair_armed(armed: bool) -> void:
 	_delete_pair_armed = armed
+	refresh()
+
+
+func suppress_tile(tile_id: String) -> void:
+	_suppressed_tile_ids[tile_id] = true
+	refresh()
+
+
+func reveal_tile(tile_id: String) -> void:
+	_suppressed_tile_ids.erase(tile_id)
 	refresh()
 
 
@@ -140,7 +152,7 @@ func refresh() -> void:
 	for tile in _game.board.tiles:
 		var button: Button = _tile_buttons[tile.id]
 		var active: bool = _game.board.call("is_tile_active", tile.id)
-		button.visible = active
+		button.visible = active and not _suppressed_tile_ids.has(tile.id)
 		if not active:
 			continue
 
@@ -227,6 +239,12 @@ func create_tile_preview(tile_id: String) -> Control:
 func tile_global_rect(tile_id: String) -> Rect2:
 	var button: Button = _tile_buttons.get(tile_id)
 	return Rect2() if button == null else button.get_global_rect()
+
+
+func tile_visual_size() -> Vector2:
+	for button in _tile_buttons.values():
+		return button.size
+	return Vector2.ZERO
 
 
 func negative_feedback_count() -> int:

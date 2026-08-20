@@ -164,6 +164,27 @@ func _run_tray_and_game_tests() -> void:
 	_check_equal(1, pair_game.tray.resolved_pair_count, "pair count is projected from state")
 	_check_equal(GameStateScript.WON, pair_game.status, "empty board and tray wins")
 
+	var rescue_face := TileFaceScript.new("test", "rescue")
+	var almost_full_tiles := [
+		TileInstanceScript.new("rescue_first", rescue_face, BoardPositionScript.new(0, 0, 0)),
+		TileInstanceScript.new("unmatched_b", TileFaceScript.new("test", "b"), BoardPositionScript.new(4, 0, 0)),
+		TileInstanceScript.new("unmatched_c", TileFaceScript.new("test", "c"), BoardPositionScript.new(8, 0, 0)),
+		TileInstanceScript.new("rescue_second", rescue_face, BoardPositionScript.new(12, 0, 0)),
+	]
+	var almost_full_game := GameStateScript.new(_definition(almost_full_tiles))
+	almost_full_game.call("select_tile", "rescue_first")
+	almost_full_game.call("select_tile", "unmatched_b")
+	almost_full_game.call("select_tile", "unmatched_c")
+	_check_equal(3, almost_full_game.tray.tiles.size(), "matching rescue starts with three authoritative tray tiles")
+	_check_equal(GameStateScript.PAIR_RESOLVED, almost_full_game.call("select_tile", "rescue_second"), "fourth visual arrival resolves against tray")
+	_check_equal(2, almost_full_game.tray.tiles.size(), "resolved fourth arrival never occupies a temporary data slot")
+	_check_equal(GameStateScript.PLAYING, almost_full_game.status, "animation-only fourth slot cannot trigger loss")
+	var rescue_transaction: Variant = almost_full_game.call("last_transaction")
+	for change in rescue_transaction.changes:
+		if change.type == GameChangeScript.TRAY:
+			_check_equal(3, change.before.size(), "rescue transaction starts from three tray tiles")
+			_check_equal(2, change.after.size(), "rescue transaction atomically removes the match")
+
 	var undo_tiles := [
 		TileInstanceScript.new("undo", TileFaceScript.new("test", "a"), BoardPositionScript.new(0, 0, 0)),
 		TileInstanceScript.new("other", TileFaceScript.new("test", "b"), BoardPositionScript.new(4, 0, 0)),
@@ -308,7 +329,7 @@ func _run_momentum_tests() -> void:
 		TileInstanceScript.new("fourth", second_face, BoardPositionScript.new(12, 0, 0)),
 	])
 	var configuration: Dictionary = definition.configuration
-	_check_equal(5, definition.rules_version, "Combo uses rules version 5")
+	_check_equal(6, definition.rules_version, "difficulty rewards use rules version 6")
 	_check_equal(1, MomentumRulesScript.multiplier_for(19999, configuration), "momentum below first threshold stays x1")
 	_check_equal(2, MomentumRulesScript.multiplier_for(20000, configuration), "first threshold enters x2")
 	_check(
@@ -397,6 +418,7 @@ func _run_momentum_tuning_tests() -> void:
 	_check_equal(120000, custom_definition.configuration.momentum_max, "factory applies Inspector maximum")
 	_check_equal(250, custom_definition.configuration.pair_base_score, "factory applies Inspector scoring")
 	_check_equal(9000, custom_definition.configuration.combo_window_ms, "factory applies Inspector Combo window")
+	_check_equal(160, custom_definition.configuration.difficulty_notable_min_score, "factory applies Inspector difficulty thresholds")
 	_check(default_definition.definition_hash() != custom_definition.definition_hash(), "custom tuning changes definition hash")
 	custom_overrides.momentum_thresholds[1] = 1
 	_check_equal(30000, custom_tuning.multiplier_thresholds[1], "simulation override cannot mutate Inspector resource")
@@ -530,12 +552,41 @@ func _run_opportunity_analysis_tests() -> void:
 	_check_equal("board_pair", pair_transaction.telemetry.resolved_pair_opportunity.source, "resolved pair links to its original board opportunity")
 	_check_equal("far_1|far_2", pair_transaction.telemetry.resolved_pair_opportunity.id, "resolved pair retains stable physical tile identity")
 	_check_equal(1, pair_transaction.telemetry.resolved_pair_opportunity.difficulty_rank, "resolved pair retains its original contextual rank")
-	_check_equal(score_before + 100, game.score, "difficulty telemetry does not change scoring yet")
+	_check_equal(score_before + 100, game.score, "ordinary pair stays at base score")
+	_check(not pair_transaction.telemetry.has("difficulty_reward"), "pair below absolute threshold receives no reward")
 	var serialized: Variant = JSON.parse_string(JSON.stringify(pair_transaction.to_dict()))
 	var parsed: Variant = GameTransactionScript.from_dict(serialized)
 	_check_equal("board_pair", parsed.telemetry.resolved_pair_opportunity.source, "pair opportunity source round-trips through transaction JSON")
 	_check_equal(66, int(parsed.telemetry.resolved_pair_opportunity.score), "pair difficulty score round-trips through transaction JSON")
 	_check_equal(1, int(parsed.telemetry.resolved_pair_opportunity.difficulty_rank), "pair difficulty rank round-trips through transaction JSON")
+
+	var notable_configuration := GameConfigurationScript.create()
+	notable_configuration.difficulty_notable_min_score = 60
+	notable_configuration.difficulty_notable_min_percentile_basis_points = 10000
+	notable_configuration.difficulty_exceptional_min_score = 1000
+	notable_configuration.difficulty_exceptional_min_percentile_basis_points = 10000
+	var notable_game := GameStateScript.new(GameDefinitionScript.new(1, tiles, notable_configuration))
+	notable_game.call("select_tile", "far_1", 100)
+	notable_game.call("select_tile", "far_2", 200)
+	var notable_transaction: Variant = notable_game.call("last_transaction")
+	_check_equal(125, notable_game.score, "notable pair adds the configured 25 percent score bonus")
+	_check_equal("notable", notable_transaction.telemetry.difficulty_reward.tier, "qualified pair records notable tier")
+	_check_equal("great", notable_transaction.telemetry.difficulty_reward.callout_key, "notable tier emits stable callout key")
+	_check_equal(25, notable_transaction.telemetry.difficulty_bonus_score, "transaction records notable bonus separately")
+	var notable_parsed: Variant = GameTransactionScript.from_dict(
+		JSON.parse_string(JSON.stringify(notable_transaction.to_dict()))
+	)
+	_check_equal("great", notable_parsed.telemetry.difficulty_reward.callout_key, "difficulty reward round-trips through JSON")
+
+	var exceptional_configuration := notable_configuration.duplicate(true)
+	exceptional_configuration.difficulty_exceptional_min_score = 60
+	var exceptional_game := GameStateScript.new(GameDefinitionScript.new(1, tiles, exceptional_configuration))
+	exceptional_game.call("select_tile", "far_1", 100)
+	exceptional_game.call("select_tile", "far_2", 200)
+	var exceptional_reward: Dictionary = exceptional_game.call("last_transaction").telemetry.difficulty_reward
+	_check_equal(150, exceptional_game.score, "exceptional pair adds the configured 50 percent score bonus")
+	_check_equal("exceptional", exceptional_reward.tier, "highest qualified tier wins deterministically")
+	_check_equal("eagle_eyes", exceptional_reward.callout_key, "exceptional tier emits stable callout key")
 
 	var held_face := TileFaceScript.new("difficulty", "held")
 	var cover_face := TileFaceScript.new("difficulty", "cover")
@@ -552,6 +603,7 @@ func _run_opportunity_analysis_tests() -> void:
 	var tray_completion: Dictionary = tray_completion_game.call("last_transaction").telemetry.resolved_pair_opportunity
 	_check_equal("tray_completion", tray_completion.source, "pair revealed after its mate was held is classified separately")
 	_check(not tray_completion.has("difficulty_rank"), "tray completion does not invent a historical board-pair rank")
+	_check(not tray_completion_game.call("last_transaction").telemetry.has("difficulty_reward"), "tray completion cannot receive board-difficulty reward")
 
 
 func _run_modifier_tests() -> void:
@@ -948,6 +1000,13 @@ func _run_simulation_tests() -> void:
 	_check_equal(48, fast_result.analyzed_pair_count, "pair-aware simulation analyzes every resolved board pair")
 	_check(fast_result.average_pair_difficulty > 0, "simulation reports average selected-pair difficulty")
 	_check(fast_result.hardest_pair_difficulty >= fast_result.average_pair_difficulty, "simulation reports a valid hardest selected pair")
+	_check(fast_result.difficulty_reward_count > 0, "reference simulation recognizes qualified hard pairs")
+	_check(fast_result.difficulty_bonus_score > 0, "reference simulation reports awarded difficulty score")
+	_check_equal(
+		fast_result.difficulty_reward_count,
+		int(fast_result.difficulty_reward_tiers.notable) + int(fast_result.difficulty_reward_tiers.exceptional),
+		"simulation reports every difficulty reward by tier"
+	)
 	var hunting_result: Dictionary = simulator.call("run", 92817361, GameSimulatorScript.PAIR_AWARE, {"selection_interval_ms": 4000})
 	_check_equal(1, hunting_result.max_combo, "eight seconds between pairs breaks Combo hunting chains")
 

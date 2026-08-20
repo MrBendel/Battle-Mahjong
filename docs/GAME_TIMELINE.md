@@ -152,7 +152,7 @@ GameTransaction
 - `definition_hash` binds the transaction to exact seed, configuration, tile identities, and geometry.
 - `logical_tick` orders deterministic transactions.
 - `playback_time_ms` is monotonic active gameplay time supplied by the command. M3 uses it as authoritative input for momentum decay and replay pacing; system wall-clock time is never read by simulation code.
-- `telemetry` records derived observations such as pair intervals, awarded multiplier, Combo transitions, and pre-selection tile/pair opportunity rankings. It does not drive reduction.
+- `telemetry` records derived observations such as pair intervals, awarded multiplier, Combo transitions, pre-selection tile/pair opportunity rankings, and selected difficulty-reward callout keys. Replay applies the explicit score change and does not recalculate opportunity analysis.
 - `reverts_transaction_id` is present only for a compensating Undo transaction.
 - State hashes detect divergence; they are validation aids, not game logic.
 

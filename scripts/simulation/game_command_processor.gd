@@ -8,6 +8,7 @@ const GameStateDataScript := preload("res://scripts/simulation/game_state_data.g
 const GameTransactionScript := preload("res://scripts/simulation/game_transaction.gd")
 const ComboRulesScript := preload("res://scripts/simulation/combo_rules.gd")
 const MomentumRulesScript := preload("res://scripts/simulation/momentum_rules.gd")
+const PairDifficultyRewardsScript := preload("res://scripts/simulation/pair_difficulty_rewards.gd")
 const ModifierLoadoutScript := preload("res://scripts/simulation/modifier_loadout.gd")
 const ModifierRulesScript := preload("res://scripts/simulation/modifier_rules.gd")
 const ConsumableInventoryScript := preload("res://scripts/simulation/consumable_inventory.gd")
@@ -159,10 +160,31 @@ func _build_select(command: Variant, definition: Variant, state: Variant, timeli
 		changes.append(GameChangeScript.new(GameChangeScript.COUNTER, "momentum_units", momentum_after_decay, momentum_after_gain))
 		var resulting_multiplier: int = MomentumRulesScript.multiplier_for(momentum_after_gain, definition.configuration)
 		var score_modifier_basis_points := ModifierRulesScript.active_score_basis_points(state, command.playback_time_ms)
-		var score_gain := int(
+		var resolved_pair_opportunity := _find_recorded_pair_opportunity(
+			timeline,
+			matching_tile_id,
+			tile_id
+		)
+		if resolved_pair_opportunity.is_empty():
+			resolved_pair_opportunity = {
+				"source": "tray_completion",
+				"observed_revision": state.revision,
+				"held_tile_id": matching_tile_id,
+				"selected_tile": selected_tile_opportunity,
+			}
+		var difficulty_reward: Dictionary = PairDifficultyRewardsScript.evaluate(
+			resolved_pair_opportunity,
+			definition.configuration
+		)
+		var score_gain_before_difficulty := int(
 			int(definition.configuration.pair_base_score) * score_multiplier * score_modifier_basis_points \
 			/ ModifierRulesScript.BASIS_POINTS_ONE
 		)
+		var difficulty_bonus_score := PairDifficultyRewardsScript.bonus_for(
+			score_gain_before_difficulty,
+			difficulty_reward
+		)
+		var score_gain: int = score_gain_before_difficulty + difficulty_bonus_score
 		changes.append(GameChangeScript.new(GameChangeScript.COUNTER, "score", state.score, state.score + score_gain))
 		combo_after = combo_before + 1
 		combo_expires_after = ComboRulesScript.expiry_after_pair(command.playback_time_ms, definition.configuration)
@@ -183,23 +205,16 @@ func _build_select(command: Variant, definition: Variant, state: Variant, timeli
 			"score_modifier_basis_points": score_modifier_basis_points,
 			"resulting_multiplier": resulting_multiplier,
 			"score_gain": score_gain,
+			"score_gain_before_difficulty": score_gain_before_difficulty,
+			"difficulty_bonus_score": difficulty_bonus_score,
 			"combo_before": combo_before,
 			"combo_after": combo_after,
 			"combo_expires_at_ms": combo_expires_after,
 		})
-		var resolved_pair_opportunity := _find_recorded_pair_opportunity(
-			timeline,
-			matching_tile_id,
-			tile_id
-		)
-		if resolved_pair_opportunity.is_empty():
-			resolved_pair_opportunity = {
-				"source": "tray_completion",
-				"observed_revision": state.revision,
-				"held_tile_id": matching_tile_id,
-				"selected_tile": selected_tile_opportunity,
-			}
 		telemetry["resolved_pair_opportunity"] = resolved_pair_opportunity
+		if not difficulty_reward.is_empty():
+			difficulty_reward["bonus_score"] = difficulty_bonus_score
+			telemetry["difficulty_reward"] = difficulty_reward
 		if tray_bonus_pairs_remaining_after > 0:
 			tray_bonus_pairs_remaining_after -= 1
 			if tray_bonus_pairs_remaining_after == 0:

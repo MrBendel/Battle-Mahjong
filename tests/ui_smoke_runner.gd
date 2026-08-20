@@ -1,5 +1,7 @@
 extends SceneTree
 
+const PairDifficultyRewardsScript := preload("res://scripts/simulation/pair_difficulty_rewards.gd")
+
 var _failures := 0
 
 
@@ -66,13 +68,22 @@ func _run() -> void:
 		break
 	_check(not selectable_tile_id.is_empty(), "reference game starts with an animatable selectable tile")
 	if not selectable_tile_id.is_empty():
+		var original_board_rect: Rect2 = shell.get("_regions").board.call("tile_global_rect", selectable_tile_id)
 		var expected_target: Rect2 = shell.get("_regions").tray.call("slot_global_rect", 0)
 		shell.call("_on_tile_selected", selectable_tile_id)
 		_check_equal(1, shell.get("_tile_motion_count"), "ordinary selection starts one board-to-tray animation")
 		_check_equal(expected_target, shell.get("_last_tile_motion_target"), "selection animation targets the next tray slot")
+		_check_equal(1, live_game.tray.tiles.size(), "ordinary transfer commits tray occupancy immediately")
 		var first_slot_art: TextureRect = shell.get("_regions").tray.get("_slot_art")[0]
-		_check(first_slot_art.visible and first_slot_art.texture != null, "tray uses the selected face artwork")
-		await create_timer(0.25).timeout
+		_check(not first_slot_art.visible, "destination tile stays visually suppressed during transfer")
+		await create_timer(0.32).timeout
+		_check(first_slot_art.visible and first_slot_art.texture != null, "arrival reveals the selected face artwork")
+		var landed_undo_before: int = shell.get("_undo_motion_count")
+		shell.call("_on_undo_requested")
+		_check_equal(landed_undo_before + 1, shell.get("_undo_motion_count"), "landed tray tile animates back on Undo")
+		_check_equal(original_board_rect, shell.get("_last_undo_motion_target"), "landed Undo returns to the original board position")
+		await create_timer(0.32).timeout
+		_check(shell.get("_regions").board.get("_tile_buttons")[selectable_tile_id].visible, "landed Undo reveals the restored board tile on arrival")
 		var paused_time: int = shell.call("_playback_time_ms")
 		shell.call("_on_pause_requested")
 		_check(shell.get("_pause_menu").visible, "pause button opens the first modal menu")
@@ -91,17 +102,46 @@ func _run() -> void:
 		_check_equal(0, live_game.revision, "pause-menu Restart creates a fresh game")
 		_check(not shell.get("_pause_menu").visible, "Restart closes the pause menu")
 		_check(shell.get("_pause_button").visible, "Restart restores the pause button")
-	var selectable_pair := _find_selectable_pair(live_game)
-	_check_equal(2, selectable_pair.size(), "reference game exposes a legal pair for match-feedback validation")
+		var undo_tile_id := ""
+		for tile in live_game.board.call("selectable_tiles"):
+			undo_tile_id = tile.id
+			break
+		var undo_target: Rect2 = shell.get("_regions").board.call("tile_global_rect", undo_tile_id)
+		shell.call("_on_tile_selected", undo_tile_id)
+		var undo_motion_before: int = shell.get("_undo_motion_count")
+		shell.call("_on_undo_requested")
+		_check_equal(0, live_game.tray.tiles.size(), "rapid Undo restores authoritative tray immediately")
+		_check(live_game.board.call("is_tile_active", undo_tile_id), "rapid Undo restores authoritative board state immediately")
+		_check_equal(undo_motion_before + 1, shell.get("_undo_motion_count"), "Undo reverses the in-flight tile visual")
+		_check_equal(undo_target, shell.get("_last_undo_motion_target"), "Undo animation targets the restored board position")
+		_check(not shell.get("_regions").board.get("_tile_buttons")[undo_tile_id].visible, "restored board tile stays hidden during return motion")
+		await create_timer(0.32).timeout
+		_check(shell.get("_regions").board.get("_tile_buttons")[undo_tile_id].visible, "restored board tile appears when Undo animation lands")
+		shell.call("_on_restart_requested")
+		live_game = shell.get("_game")
+	var selectable_pair := _find_rewardable_pair(live_game)
+	_check_equal(2, selectable_pair.size(), "reference game exposes a rewardable pair for feedback validation")
 	if selectable_pair.size() == 2:
 		shell.call("_on_tile_selected", selectable_pair[0])
 		await create_timer(0.25).timeout
 		var pair_feedback_before: int = shell.get("_pair_feedback_count")
+		var pair_collision_before: int = shell.get("_pair_collision_count")
+		var callout_before: int = shell.get("_performance_callout").get("play_count")
+		var open_visual_slot: Rect2 = shell.get("_regions").tray.call("slot_global_rect", 1)
 		shell.call("_on_tile_selected", selectable_pair[1])
-		await create_timer(0.35).timeout
+		_check_equal(0, live_game.tray.tiles.size(), "resolved pair leaves no temporary animation occupancy in tray data")
+		_check_equal(open_visual_slot, shell.get("_last_tile_motion_target"), "matching tile first targets the next open visual slot")
+		await create_timer(0.20).timeout
+		_check_equal(pair_collision_before, shell.get("_pair_collision_count"), "pair pauses briefly after landing before collision")
+		await create_timer(0.30).timeout
+		_check_equal(pair_collision_before + 1, shell.get("_pair_collision_count"), "pair performs one collision before removal pop")
 		_check_equal(pair_feedback_before + 1, shell.get("_pair_feedback_count"), "resolved pair emits one reusable match burst")
 		_check_equal(1, live_game.tray.resolved_pair_count, "match feedback follows a committed pair transaction")
 		_check_equal(1, live_game.call("combo_at", shell.call("_playback_time_ms")), "natural pair starts the live Combo readout")
+		var reward: Dictionary = live_game.call("last_transaction").telemetry.get("difficulty_reward", {})
+		_check(not reward.is_empty(), "qualified pair records its difficulty reward")
+		_check_equal(callout_before + 1, shell.get("_performance_callout").get("play_count"), "difficulty reward starts one live-text callout")
+		_check_equal(str(reward.callout_key), shell.get("_performance_callout").get("last_callout_key"), "callout consumes the transaction event key")
 	var visible_blocked_tile_id := ""
 	for tile in live_game.board.tiles:
 		if live_game.board.call("is_tile_visible", tile.id) and not live_game.board.call("is_tile_selectable", tile.id):
@@ -144,13 +184,24 @@ func _run() -> void:
 	_validate_consumables(shell, orientation)
 	shell.set("_delete_pair_armed", false)
 	shell.get("_regions").board.call("set_delete_pair_armed", false)
-	var capture_tile_id := ""
-	for tile in live_game.board.call("selectable_tiles"):
-		capture_tile_id = tile.id
-		break
-	if not capture_tile_id.is_empty():
-		shell.call("_on_tile_selected", capture_tile_id)
-		await create_timer(0.25).timeout
+	if OS.get_cmdline_user_args().has("--callout-capture"):
+		shell.call("_on_restart_requested")
+		live_game = shell.get("_game")
+		shell.call("_apply_layout")
+		var capture_pair := _find_rewardable_pair(live_game)
+		if capture_pair.size() == 2:
+			shell.call("_on_tile_selected", capture_pair[0])
+			await create_timer(0.2).timeout
+			shell.call("_on_tile_selected", capture_pair[1])
+			await create_timer(0.18).timeout
+	else:
+		var capture_tile_id := ""
+		for tile in live_game.board.call("selectable_tiles"):
+			capture_tile_id = tile.id
+			break
+		if not capture_tile_id.is_empty():
+			shell.call("_on_tile_selected", capture_tile_id)
+			await create_timer(0.25).timeout
 	if OS.get_cmdline_user_args().has("--pause-menu"):
 		shell.call("_on_pause_requested")
 		await process_frame
@@ -160,7 +211,8 @@ func _run() -> void:
 	else:
 		RenderingServer.force_draw()
 		var image := root.get_texture().get_image()
-		var capture_name := "pause-menu" if OS.get_cmdline_user_args().has("--pause-menu") \
+		var capture_name := "difficulty-callout" if OS.get_cmdline_user_args().has("--callout-capture") \
+			else "pause-menu" if OS.get_cmdline_user_args().has("--pause-menu") \
 			else "small-phone" if OS.get_cmdline_user_args().has("--small-phone") else orientation
 		var output_path := "user://m7_%s.png" % capture_name
 		if image == null:
@@ -203,6 +255,13 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 
 	var tray: Control = regions.tray
 	var board: Control = regions.board
+	var board_tile_size: Vector2 = board.call("tile_visual_size")
+	for slot in tray.get("_slots"):
+		_check(slot.size.is_equal_approx(board_tile_size), "%s tray slot preserves board tile size" % orientation)
+	var callout: Control = shell.get("_performance_callout")
+	var callout_label: Label = callout.get("_label")
+	_check_equal(Rect2(board.position, board.size), Rect2(callout.position, callout.size), "%s callout tracks the board region" % orientation)
+	_check(Rect2(Vector2.ZERO, callout.size).encloses(Rect2(callout_label.position, callout_label.size)), "%s callout text stays inside the board overlay" % orientation)
 	_check(
 		tray.position.y + tray.size.y <= board.position.y,
 		"%s tray stays above the game board" % orientation
@@ -295,11 +354,15 @@ func _validate_consumables(shell: Control, orientation: String) -> void:
 	_check(not tray_has_command_button, "%s tray contains no command buttons" % orientation)
 
 
-func _find_selectable_pair(game: Variant) -> Array[String]:
-	for first in game.board.call("selectable_tiles"):
-		for second in game.board.call("selectable_tiles_without", first.id):
-			if first.face.family == second.face.family and first.face.value == second.face.value:
-				return [first.id, second.id]
+func _find_rewardable_pair(game: Variant) -> Array[String]:
+	var analysis: Dictionary = game.call("opportunity_analysis")
+	for pair in analysis.pair_scores:
+		var observed: Dictionary = pair.duplicate(true)
+		observed["source"] = "board_pair"
+		if not PairDifficultyRewardsScript.evaluate(observed, game.definition.configuration).is_empty():
+			var ids: Array[String] = []
+			ids.assign(pair.tile_ids)
+			return ids
 	return []
 
 
