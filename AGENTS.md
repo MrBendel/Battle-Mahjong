@@ -78,4 +78,5 @@ For documentation-only changes, `git diff --check` is sufficient unless the docu
 - `docs/PLAYER_PROFILE.md`: profile, game-record, result-application, and future account boundaries.
 - `docs/PAIR_DIFFICULTY.md`: deterministic opportunity scoring, ranking, telemetry, and tuning boundary.
 - `docs/ART_DIRECTION.md`: canonical visual direction.
+- `docs/ANDROID_PUBLISHING.md`: signed Android AAB export and Play Internal testing workflow.
 - `docs/milestones/`: detailed milestone requirements and definitions of done.

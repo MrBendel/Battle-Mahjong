@@ -1,4 +1,9 @@
 .godot/
+/secrets/
+/build/
+/android/
+__pycache__/
+*.pyc
 /videos/
 *.import
 /.codex-remote-attachments/
