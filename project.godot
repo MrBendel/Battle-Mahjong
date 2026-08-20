@@ -16,9 +16,12 @@ config/features=PackedStringArray("4.6")
 
 [display]
 
-window/size/viewport_width=1280
-window/size/viewport_height=720
+window/size/viewport_width=720
+window/size/viewport_height=1280
+window/size/window_width_override=450
+window/size/window_height_override=800
 window/stretch/aspect="expand"
+window/handheld/orientation="sensor"
 
 [rendering]
 
