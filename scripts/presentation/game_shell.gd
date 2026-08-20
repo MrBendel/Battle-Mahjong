@@ -19,6 +19,7 @@ const GameChangeScript := preload("res://scripts/simulation/game_change.gd")
 const GameStateDataScript := preload("res://scripts/simulation/game_state_data.gd")
 const UpdateBannerViewScript := preload("res://scripts/presentation/update_banner_view.gd")
 const UpdateCheckerScript := preload("res://scripts/presentation/update_checker.gd")
+const SafeAreaScript := preload("res://scripts/presentation/safe_area.gd")
 const GAMEPLAY_BACKGROUND := preload("res://game-assets/backgrounds/gameplay_brush_arcade.png")
 const START_SEED := 92817361
 const PAIR_LANDING_HOLD_SECONDS := 0.12
@@ -52,6 +53,8 @@ var _paused_duration_ms := 0
 var _performance_callout: Control
 var _update_banner: PanelContainer
 var _update_checker: Node
+var _safe_area_override := Rect2(-1.0, -1.0, -1.0, -1.0)
+var _android_capture_frames_remaining := 0
 
 func _ready() -> void:
 	_build_shell()
@@ -546,6 +549,12 @@ func _global_to_local(point: Vector2) -> Vector2:
 func _process(_delta: float) -> void:
 	if _pause_started_at_ms < 0 and _game != null and _regions.has("momentum"):
 		_regions.momentum.call("refresh", _playback_time_ms())
+	if _android_capture_frames_remaining > 0:
+		_android_capture_frames_remaining -= 1
+		if _android_capture_frames_remaining == 0:
+			var image := get_viewport().get_texture().get_image()
+			if image != null:
+				image.save_png("user://android_viewport_capture.png")
 
 
 func _playback_time_ms() -> int:
@@ -553,8 +562,8 @@ func _playback_time_ms() -> int:
 	return now - _game_started_at_ms - _paused_duration_ms
 
 
-func _make_region(title: String, subtitle: String, color: Color) -> PanelContainer:
-	var panel := PanelContainer.new()
+func _make_region(title: String, subtitle: String, color: Color) -> Panel:
+	var panel := Panel.new()
 	panel.name = title.replace(" / ", "_").replace(" ", "_")
 
 	var style := StyleBoxFlat.new()
@@ -575,6 +584,11 @@ func _make_region(title: String, subtitle: String, color: Color) -> PanelContain
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.add_theme_font_size_override("font_size", 22)
 	panel.add_child(label)
+	label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	label.offset_left = 12.0
+	label.offset_top = 12.0
+	label.offset_right = -12.0
+	label.offset_bottom = -12.0
 
 	return panel
 
@@ -605,23 +619,66 @@ func _apply_layout() -> void:
 		orientation,
 		str(_game.definition.configuration.get("layout_id", "unknown"))
 	)
+	_write_android_layout_probe(orientation, viewport_size)
 
 
 func _get_safe_area_insets() -> Rect2:
+	if _safe_area_override.position.x >= 0.0:
+		return _safe_area_override
 	var safe_rect := DisplayServer.get_display_safe_area()
 	var screen_size := DisplayServer.screen_get_size()
-	if safe_rect.size == Vector2i.ZERO or screen_size == Vector2i.ZERO:
-		return Rect2()
-	var viewport_size := get_viewport_rect().size
-	var scale_x := viewport_size.x / float(screen_size.x)
-	var scale_y := viewport_size.y / float(screen_size.y)
+	return SafeAreaScript.insets(get_viewport_rect().size, safe_rect, screen_size)
 
-	var left := maxf(0.0, float(safe_rect.position.x) * scale_x)
-	var top := maxf(0.0, float(safe_rect.position.y) * scale_y)
-	var right := maxf(0.0, float(screen_size.x - (safe_rect.position.x + safe_rect.size.x)) * scale_x)
-	var bottom := maxf(0.0, float(screen_size.y - (safe_rect.position.y + safe_rect.size.y)) * scale_y)
 
-	return Rect2(left, top, right, bottom)
+func set_safe_area_override_for_testing(edge_insets: Rect2) -> void:
+	_safe_area_override = edge_insets
+	_apply_layout()
+
+
+func _write_android_layout_probe(orientation: String, viewport_size: Vector2) -> void:
+	if OS.get_name() != "Android" or not OS.is_debug_build():
+		return
+	var insets := _get_safe_area_insets()
+	var regions := {}
+	for region_name in _regions:
+		var region: Control = _regions[region_name]
+		if region.visible:
+			regions[region_name] = _rect_to_dict(Rect2(region.position, region.size))
+	var controls := {
+		"pause_button": _rect_to_dict(Rect2(_pause_button.position, _pause_button.size)),
+	}
+	if _debug_panel.visible:
+		controls["debug_panel"] = _rect_to_dict(Rect2(_debug_panel.position, _debug_panel.size))
+	var probe := {
+		"orientation": orientation.to_lower(),
+		"viewport": {"width": viewport_size.x, "height": viewport_size.y},
+		"display_safe_area": _rect_to_dict(DisplayServer.get_display_safe_area()),
+		"screen": {
+			"width": DisplayServer.screen_get_size().x,
+			"height": DisplayServer.screen_get_size().y,
+		},
+		"insets": {
+			"left": insets.position.x,
+			"top": insets.position.y,
+			"right": insets.size.x,
+			"bottom": insets.size.y,
+		},
+		"regions": regions,
+		"controls": controls,
+	}
+	var file := FileAccess.open("user://android_layout_probe.json", FileAccess.WRITE)
+	if file != null:
+		file.store_string(JSON.stringify(probe))
+	_android_capture_frames_remaining = 3
+
+
+func _rect_to_dict(rect: Rect2) -> Dictionary:
+	return {
+		"x": rect.position.x,
+		"y": rect.position.y,
+		"width": rect.size.x,
+		"height": rect.size.y,
+	}
 
 
 func _apply_landscape_layout(size: Vector2) -> void:
@@ -676,20 +733,23 @@ func _apply_portrait_layout(size: Vector2) -> void:
 	var consumables_height := 90.0
 	var tray_top: float = top_start + momentum_height + gap + debug_height + gap
 	var board_top: float = tray_top + tray_height + gap
-	var minimum_character_height := 72.0
+	var minimum_character_height := maxf(72.0, _regions.character.get_combined_minimum_size().y)
 	var reserved_after_board := gap + consumables_height + gap + minimum_character_height
 	var board_height: float = minf(
 		clampf(usable_height * 0.43, 260.0, usable_height * 0.46),
 		maxf(260.0, bottom_limit - board_top - reserved_after_board)
 	)
 	var character_top: float = board_top + board_height + gap + consumables_height + gap
-	var character_height: float = maxf(minimum_character_height, bottom_limit - character_top)
+	var character_height: float = bottom_limit - character_top
 
 	_place(_regions.momentum, Rect2(left_margin, top_start, usable_width - 52.0, momentum_height))
 	_place(_regions.tray, Rect2(left_margin, tray_top, usable_width, tray_height))
 	_place(_regions.board, Rect2(left_margin, board_top, usable_width, board_height))
 	_place(_regions.consumables, Rect2(left_margin, board_top + board_height + gap, usable_width, consumables_height))
-	_place(_regions.character, Rect2(left_margin, character_top, usable_width, character_height))
+	if character_height >= minimum_character_height:
+		_place(_regions.character, Rect2(left_margin, character_top, usable_width, character_height))
+	else:
+		_regions.character.visible = false
 
 
 func _apply_compact_portrait_layout(size: Vector2) -> void:

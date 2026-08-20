@@ -1,6 +1,7 @@
 extends SceneTree
 
 const PairDifficultyRewardsScript := preload("res://scripts/simulation/pair_difficulty_rewards.gd")
+const SafeAreaScript := preload("res://scripts/presentation/safe_area.gd")
 
 var _failures := 0
 
@@ -21,6 +22,28 @@ func _run() -> void:
 	var shell: Control = load("res://scenes/main.tscn").instantiate()
 	root.add_child(shell)
 	await process_frame
+	var update_checker: Node = shell.get("_update_checker")
+	if update_checker != null:
+		update_checker.queue_free()
+		shell.set("_update_checker", null)
+		shell.get("_update_banner").visible = false
+		await process_frame
+	_check_equal(
+		DisplayServer.SCREEN_SENSOR,
+		ProjectSettings.get_setting("display/window/handheld/orientation"),
+		"Android export declares sensor orientation"
+	)
+	var projected_insets := SafeAreaScript.insets(
+		Vector2(1200.0, 600.0),
+		Rect2i(100, 40, 960, 520),
+		Vector2i(1200, 600)
+	)
+	_check_equal(Rect2(100.0, 40.0, 140.0, 40.0), projected_insets, "safe-area projection preserves asymmetric edge insets")
+	if OS.get_cmdline_user_args().has("--safe-area"):
+		var test_insets := Rect2(72.0, 24.0, 44.0, 28.0) if requested_size.x > requested_size.y \
+			else Rect2(28.0, 54.0, 46.0, 30.0)
+		shell.call("set_safe_area_override_for_testing", test_insets)
+		await process_frame
 	var gameplay_background: TextureRect = shell.get("_gameplay_background")
 	_check(gameplay_background != null and gameplay_background.texture != null, "gameplay shell renders the M7 background asset")
 	_check_equal(
@@ -196,7 +219,10 @@ func _run() -> void:
 	var banner: Control = shell.get("_update_banner")
 	_check(banner != null and banner.visible, "%s update banner displays on available update" % orientation)
 	if banner != null and banner.visible:
-		_check(shell.get_viewport_rect().encloses(Rect2(banner.position, banner.size)), "%s update banner stays inside viewport" % orientation)
+		var banner_rect := Rect2(banner.position, banner.size)
+		var safe_viewport := SafeAreaScript.content_rect(shell.get_viewport_rect().size, shell.call("_get_safe_area_insets"))
+		_check(shell.get_viewport_rect().encloses(banner_rect), "%s update banner stays inside viewport (%s)" % [orientation, banner_rect])
+		_check(safe_viewport.encloses(banner_rect), "%s update banner stays inside safe area (%s in %s)" % [orientation, banner_rect, safe_viewport])
 		_check(
 			not Rect2(banner.position, banner.size).intersects(Rect2(shell.get("_pause_button").position, shell.get("_pause_button").size)),
 			"%s update banner does not cover pause button" % orientation
@@ -236,7 +262,8 @@ func _run() -> void:
 		var image := root.get_texture().get_image()
 		var capture_name := "difficulty-callout" if OS.get_cmdline_user_args().has("--callout-capture") \
 			else "pause-menu" if OS.get_cmdline_user_args().has("--pause-menu") \
-			else "small-phone" if OS.get_cmdline_user_args().has("--small-phone") else orientation
+			else "small-phone" if OS.get_cmdline_user_args().has("--small-phone") \
+			else "safe-%s" % orientation if OS.get_cmdline_user_args().has("--safe-area") else orientation
 		var output_path := "user://m7_%s.png" % capture_name
 		if image == null:
 			printerr("capture skipped: active renderer does not expose a framebuffer")
@@ -255,6 +282,7 @@ func _run() -> void:
 func _validate_regions(shell: Control, orientation: String) -> void:
 	var regions: Dictionary = shell.get("_regions")
 	var viewport_rect := shell.get_viewport_rect()
+	var safe_viewport: Rect2 = SafeAreaScript.content_rect(viewport_rect.size, shell.call("_get_safe_area_insets"))
 	var debug_panel: Control = shell.get("_debug_panel")
 	var pause_button: Button = shell.get("_pause_button")
 	var momentum: Control = regions.momentum
@@ -262,8 +290,10 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 	var momentum_meter: ProgressBar = momentum.get("_meter")
 	_check(not Rect2(combo_label.position, combo_label.size).intersects(Rect2(momentum_meter.position, momentum_meter.size)), "%s Combo readout does not cover Momentum meter" % orientation)
 	_check(viewport_rect.encloses(Rect2(pause_button.position, pause_button.size)), "%s pause button stays inside viewport" % orientation)
+	_check(safe_viewport.encloses(Rect2(pause_button.position, pause_button.size)), "%s pause button stays inside safe area" % orientation)
 	if debug_panel.visible:
 		_check(viewport_rect.encloses(Rect2(debug_panel.position, debug_panel.size)), "%s debug panel stays inside viewport" % orientation)
+		_check(safe_viewport.encloses(Rect2(debug_panel.position, debug_panel.size)), "%s debug panel stays inside safe area" % orientation)
 	var names: Array = []
 	for name in regions:
 		if regions[name].visible:
@@ -274,6 +304,10 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 		_check(
 			viewport_rect.encloses(region_rect),
 			"%s %s stays inside viewport (%s in %s)" % [orientation, name, region_rect, viewport_rect]
+		)
+		_check(
+			safe_viewport.encloses(region_rect),
+			"%s %s stays inside safe area (%s in %s)" % [orientation, name, region_rect, safe_viewport]
 		)
 
 	var tray: Control = regions.tray
@@ -327,10 +361,11 @@ func _validate_board_tiles(shell: Control, orientation: String) -> void:
 		if button.visible:
 			board_footprint = tile_rect if not has_visible_tile else board_footprint.merge(tile_rect)
 			has_visible_tile = true
-	_check(
-		minimum_tile_size.x >= 32.0 and minimum_tile_size.y >= 40.0,
-		"%s tiles preserve the M7 minimum footprint (%s)" % [orientation, minimum_tile_size]
-	)
+	if not OS.get_cmdline_user_args().has("--safe-area"):
+		_check(
+			minimum_tile_size.x >= 32.0 and minimum_tile_size.y >= 40.0,
+			"%s tiles preserve the M7 minimum footprint (%s)" % [orientation, minimum_tile_size]
+		)
 	_check(has_visible_tile, "%s board renders visible tiles" % orientation)
 	_check(
 		board_footprint.size.y > board_footprint.size.x,

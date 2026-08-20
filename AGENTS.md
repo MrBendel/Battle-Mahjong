@@ -63,6 +63,9 @@ Run Godot commands from the repository root using the Godot 4.6.3 console execut
 - Responsive UI smoke test: `godot --headless --path . --script res://tests/ui_smoke_runner.gd`
 - Portrait UI smoke test: `godot --headless --path . --script res://tests/ui_smoke_runner.gd -- --portrait`
 - Small-phone UI smoke test: `godot --headless --path . --script res://tests/ui_smoke_runner.gd -- --small-phone`
+- Safe-area portrait smoke test: `godot --headless --path . --script res://tests/ui_smoke_runner.gd -- --portrait --safe-area`
+- Safe-area landscape smoke test: `godot --headless --path . --script res://tests/ui_smoke_runner.gd -- --landscape --safe-area`
+- Android orientation screenshots: `powershell -ExecutionPolicy Bypass -File scripts/test_android_screenshots.ps1`
 - Simulation suite: `godot --headless --path . --script res://tests/simulation_runner.gd`
 - Layout generation: `godot --headless --path . --script res://scripts/tools/generate_layout.gd -- <requirements.json> <seed> <output.json>`
 - Default face generation: `godot --headless --path . --script res://scripts/tools/generate_default_tile_faces.gd`
@@ -79,4 +82,5 @@ For documentation-only changes, `git diff --check` is sufficient unless the docu
 - `docs/PAIR_DIFFICULTY.md`: deterministic opportunity scoring, ranking, telemetry, and tuning boundary.
 - `docs/ART_DIRECTION.md`: canonical visual direction.
 - `docs/ANDROID_PUBLISHING.md`: signed Android AAB export and Play Internal testing workflow.
+- `docs/ANDROID_SCREENSHOT_TESTING.md`: emulator-based portrait, landscape, rotation, and safe-area screenshot checks.
 - `docs/milestones/`: detailed milestone requirements and definitions of done.

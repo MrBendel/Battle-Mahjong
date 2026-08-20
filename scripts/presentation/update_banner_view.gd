@@ -36,6 +36,8 @@ func _build_ui() -> void:
 	_message_label.text = "🚀 New version available!"
 	_message_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_message_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_message_label.clip_text = true
+	_message_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_message_label.add_theme_font_size_override("font_size", 15)
 	_message_label.add_theme_color_override("font_color", Color(0.9, 0.95, 1.0))
 	hbox.add_child(_message_label)
