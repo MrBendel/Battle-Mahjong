@@ -6,6 +6,11 @@ on:
   issue_comment:
     types: [created]
 
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
 jobs:
   deploy-playstore:
     name: Build & Upload to Play Store
@@ -26,24 +31,32 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            github.rest.reactions.createForIssueComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              comment_id: context.payload.comment.id,
-              content: 'rocket'
-            })
+            try {
+              await github.rest.reactions.createForIssueComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: context.payload.comment.id,
+                content: 'rocket'
+              });
+            } catch (err) {
+              console.log('Reaction note:', err.message);
+            }
 
       - name: Add reaction to PR
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
-            github.rest.reactions.createForIssue({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.payload.pull_request.number,
-              content: 'rocket'
-            })
+            try {
+              await github.rest.reactions.createForIssue({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                content: 'rocket'
+              });
+            } catch (err) {
+              console.log('Reaction note:', err.message);
+            }
 
       - name: Checkout PR Code
         uses: actions/checkout@v4
@@ -63,38 +76,48 @@ jobs:
         uses: chickensoft-games/setup-godot@v2
         with:
           version: '4.6.3'
-          use-templates: true
+          use-dotnet: false
+          include-templates: true
 
-      - name: Run Core Tests
+      - name: Import Assets & Run Core Tests
         run: |
+          godot --headless --path . --editor --quit || true
           godot --headless --path . --script res://tests/cli_test_runner.gd
 
       - name: Decode Release Keystore
         id: keystore
         run: |
-          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
-            mkdir -p secrets
-            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > secrets/battle-mahjong-upload.keystore
-            echo "keystore_path=secrets/battle-mahjong-upload.keystore" >> $GITHUB_OUTPUT
+          if [ -z "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+            echo "ERROR: GitHub secret ANDROID_KEYSTORE_BASE64 is missing!"
+            exit 1
           fi
+          mkdir -p secrets
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > secrets/battle-mahjong-upload.keystore
+          echo "keystore_path=${PWD}/secrets/battle-mahjong-upload.keystore" >> $GITHUB_OUTPUT
 
-      - name: Set Android Export Version
+      - name: Set Android Export Version and Keystore Configuration
         id: version
         run: |
           EPOCH_2020=1577836800
           NOW=$(date +%s)
           VERSION_CODE=$((NOW - EPOCH_2020))
           VERSION_NAME="0.1.0-internal.${VERSION_CODE}"
-          godot --headless --path . --script res://scripts/tools/set_android_export_version.gd -- "${VERSION_CODE}" "${VERSION_NAME}"
+          KEYSTORE_PATH="${{ steps.keystore.outputs.keystore_path }}"
+          KEYSTORE_ALIAS="${{ secrets.ANDROID_KEYSTORE_ALIAS }}"
+          KEYSTORE_PASS="${{ secrets.ANDROID_KEYSTORE_PASSWORD }}"
+          godot --headless --path . --script res://scripts/tools/set_android_export_version.gd -- "${VERSION_CODE}" "${VERSION_NAME}" "${KEYSTORE_PATH}" "${KEYSTORE_ALIAS}" "${KEYSTORE_PASS}"
           echo "version_code=${VERSION_CODE}" >> $GITHUB_OUTPUT
           echo "version_name=${VERSION_NAME}" >> $GITHUB_OUTPUT
 
       - name: Godot Android Export
         env:
+          ANDROID_HOME: ${{ env.ANDROID_HOME }}
+          ANDROID_SDK_ROOT: ${{ env.ANDROID_HOME }}
           GODOT_ANDROID_KEYSTORE_RELEASE_PATH: ${{ steps.keystore.outputs.keystore_path }}
           GODOT_ANDROID_KEYSTORE_RELEASE_USER: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
           GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
+          adb start-server || true
           mkdir -p build/android
           godot --headless --path . --install-android-build-template --export-release "Android" build/android/battle-mahjong.aab
 
@@ -111,13 +134,17 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const issueNumber = context.payload.issue ? context.payload.issue.number : context.payload.pull_request.number;
-            const vName = '${{ steps.version.outputs.version_name }}';
-            const vCode = '${{ steps.version.outputs.version_code }}';
-            const body = `🚀 **Play Store Build Published!**\n\n- **Version Name**: \`${vName}\`\n- **Version Code**: \`${vCode}\`\n- **Track**: Google Play Internal Testing\n\nTesters can install/update via the [Internal Testing Link](https://play.google.com/apps/internaltest/4701554282456194202).`;
-            github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issueNumber,
-              body: body
-            });
+            try {
+              const issueNumber = context.payload.issue ? context.payload.issue.number : context.payload.pull_request.number;
+              const vName = '${{ steps.version.outputs.version_name }}';
+              const vCode = '${{ steps.version.outputs.version_code }}';
+              const body = `🚀 **Play Store Build Published!**\n\n- **Version Name**: \`${vName}\`\n- **Version Code**: \`${vCode}\`\n- **Track**: Google Play Internal Testing\n\nTesters can install/update via the [Internal Testing Link](https://play.google.com/apps/internaltest/4701554282456194202).`;
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body: body
+              });
+            } catch (err) {
+              console.log('Comment note:', err.message);
+            }
