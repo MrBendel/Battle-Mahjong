@@ -78,8 +78,9 @@ jobs:
           version: '4.6.3'
           use-templates: true
 
-      - name: Run Core Tests
+      - name: Import Assets & Run Core Tests
         run: |
+          godot --headless --path . --editor --quit || true
           godot --headless --path . --script res://tests/cli_test_runner.gd
 
       - name: Decode Release Keystore
