@@ -90,7 +90,7 @@ jobs:
           if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
             mkdir -p secrets
             echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > secrets/battle-mahjong-upload.keystore
-            echo "keystore_path=secrets/battle-mahjong-upload.keystore" >> $GITHUB_OUTPUT
+            echo "keystore_path=${PWD}/secrets/battle-mahjong-upload.keystore" >> $GITHUB_OUTPUT
           fi
 
       - name: Set Android Export Version
@@ -106,10 +106,13 @@ jobs:
 
       - name: Godot Android Export
         env:
+          ANDROID_HOME: ${{ env.ANDROID_HOME }}
+          ANDROID_SDK_ROOT: ${{ env.ANDROID_HOME }}
           GODOT_ANDROID_KEYSTORE_RELEASE_PATH: ${{ steps.keystore.outputs.keystore_path }}
           GODOT_ANDROID_KEYSTORE_RELEASE_USER: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
           GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
+          adb start-server || true
           mkdir -p build/android
           godot --headless --path . --install-android-build-template --export-release "Android" build/android/battle-mahjong.aab
 
