@@ -87,20 +87,25 @@ jobs:
       - name: Decode Release Keystore
         id: keystore
         run: |
-          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
-            mkdir -p secrets
-            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > secrets/battle-mahjong-upload.keystore
-            echo "keystore_path=${PWD}/secrets/battle-mahjong-upload.keystore" >> $GITHUB_OUTPUT
+          if [ -z "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+            echo "ERROR: GitHub secret ANDROID_KEYSTORE_BASE64 is missing!"
+            exit 1
           fi
+          mkdir -p secrets
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > secrets/battle-mahjong-upload.keystore
+          echo "keystore_path=${PWD}/secrets/battle-mahjong-upload.keystore" >> $GITHUB_OUTPUT
 
-      - name: Set Android Export Version
+      - name: Set Android Export Version and Keystore Configuration
         id: version
         run: |
           EPOCH_2020=1577836800
           NOW=$(date +%s)
           VERSION_CODE=$((NOW - EPOCH_2020))
           VERSION_NAME="0.1.0-internal.${VERSION_CODE}"
-          godot --headless --path . --script res://scripts/tools/set_android_export_version.gd -- "${VERSION_CODE}" "${VERSION_NAME}"
+          KEYSTORE_PATH="${{ steps.keystore.outputs.keystore_path }}"
+          KEYSTORE_ALIAS="${{ secrets.ANDROID_KEYSTORE_ALIAS }}"
+          KEYSTORE_PASS="${{ secrets.ANDROID_KEYSTORE_PASSWORD }}"
+          godot --headless --path . --script res://scripts/tools/set_android_export_version.gd -- "${VERSION_CODE}" "${VERSION_NAME}" "${KEYSTORE_PATH}" "${KEYSTORE_ALIAS}" "${KEYSTORE_PASS}"
           echo "version_code=${VERSION_CODE}" >> $GITHUB_OUTPUT
           echo "version_name=${VERSION_NAME}" >> $GITHUB_OUTPUT
 

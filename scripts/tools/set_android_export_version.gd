@@ -3,8 +3,8 @@ extends SceneTree
 
 func _init() -> void:
 	var arguments := OS.get_cmdline_user_args()
-	if arguments.size() != 2:
-		printerr("Usage: set_android_export_version.gd <version-code> <version-name>")
+	if arguments.size() < 2:
+		printerr("Usage: set_android_export_version.gd <version-code> <version-name> [keystore-path] [keystore-user] [keystore-password]")
 		quit(1)
 		return
 
@@ -24,6 +24,11 @@ func _init() -> void:
 
 	presets.set_value("preset.0.options", "version/code", version_code)
 	presets.set_value("preset.0.options", "version/name", version_name)
+	if arguments.size() >= 5:
+		presets.set_value("preset.0.options", "keystore/release", str(arguments[2]).strip_edges())
+		presets.set_value("preset.0.options", "keystore/release_user", str(arguments[3]).strip_edges())
+		presets.set_value("preset.0.options", "keystore/release_password", str(arguments[4]).strip_edges())
+
 	var save_error := presets.save("res://export_presets.cfg")
 	if save_error != OK:
 		printerr("Unable to save export_presets.cfg: %s" % error_string(save_error))

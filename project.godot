@@ -12,6 +12,7 @@ config_version=5
 
 config/name="Battle Mahjong"
 run/main_scene="res://scenes/main.tscn"
+config/icon="res://game-assets/art/title_logo.png"
 config/features=PackedStringArray("4.6")
 
 [display]
