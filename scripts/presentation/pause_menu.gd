@@ -4,6 +4,8 @@ class_name PauseMenu
 signal resumed
 signal restart_requested
 
+const SafeAreaScript := preload("res://scripts/presentation/safe_area.gd")
+
 var _panel: PanelContainer
 var _resume_button: Button
 var _restart_button: Button
@@ -64,11 +66,8 @@ func close() -> void:
 func _layout() -> void:
 	if _panel == null:
 		return
-	var safe_top := 0.0
-	var safe_rect := DisplayServer.get_display_safe_area()
-	var screen_size := DisplayServer.screen_get_size()
-	if safe_rect.size != Vector2i.ZERO and screen_size != Vector2i.ZERO:
-		safe_top = maxf(0.0, float(safe_rect.position.y) * (size.y / float(screen_size.y)))
+	var insets := SafeAreaScript.insets(size, DisplayServer.get_display_safe_area(), DisplayServer.screen_get_size())
+	var safe_top := insets.position.y
 
 	var panel_size := Vector2(minf(280.0, maxf(220.0, size.x - 28.0)), 174.0)
 	var top_pos := maxf(14.0 + safe_top, (size.y - panel_size.y) * 0.4)

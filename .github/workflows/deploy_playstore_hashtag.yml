@@ -60,7 +60,7 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Setup Godot Engine 4.6.3
-        uses: chickenprint/setup-godot@v2
+        uses: chickensoft-games/setup-godot@v2
         with:
           version: '4.6.3'
           use-templates: true
