@@ -487,17 +487,15 @@ func _play_tile_to_tray(preview: Control, source_rect: Rect2, target_rect: Rect2
 	_tile_transfer_tweens[tile_id] = tween
 	tween.set_parallel(true)
 	tween.tween_property(preview, "position", target_position, 0.18)
-	tween.tween_property(preview, "rotation", deg_to_rad(-3.0), 0.09)
-	tween.chain().tween_property(preview, "modulate:a", 0.0, 0.06)
 	tween.finished.connect(_finish_tile_to_tray.bind(preview, tile_id))
 
 
 func _finish_tile_to_tray(preview: Control, tile_id: String) -> void:
 	_tile_transfer_previews.erase(tile_id)
 	_tile_transfer_tweens.erase(tile_id)
+	_regions.tray.call("reveal_tile", tile_id)
 	if is_instance_valid(preview):
 		preview.queue_free()
-	_regions.tray.call("reveal_tile", tile_id)
 
 
 func _take_active_tile_transfer(tile_id: String) -> Control:

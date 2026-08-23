@@ -94,6 +94,11 @@ func _run() -> void:
 		var reveal_art: TextureRect = reveal_button.get_node("FaceArt")
 		_check(bool(reveal_button.get_meta("face_down")), "face-down presentation records hidden state")
 		_check(not reveal_art.visible and reveal_button.text == "?", "face-down presentation hides tile identity")
+		var forced_face_preview: Panel = shell.get("_regions").board.call("create_tile_preview", revealable_tile_id, true)
+		var forced_face_style: StyleBoxFlat = forced_face_preview.get_theme_stylebox("panel")
+		_check_equal(Color("fffdf4"), forced_face_style.bg_color, "forced face-up preview uses the bright ceramic tile style")
+		_check_equal(Color.WHITE, forced_face_preview.modulate, "forced face-up preview remains fully lit")
+		forced_face_preview.free()
 		var tray_before_reveal: int = live_game.tray.tiles.size()
 		var motion_before_reveal: int = shell.get("_tile_motion_count")
 		shell.call("_on_tile_selected", revealable_tile_id)
@@ -188,7 +193,13 @@ func _run() -> void:
 		_check_equal(1, live_game.tray.tiles.size(), "ordinary transfer commits tray occupancy immediately")
 		var first_slot_art: TextureRect = shell.get("_regions").tray.get("_slot_art")[0]
 		_check(not first_slot_art.visible, "destination tile stays visually suppressed during transfer")
-		await create_timer(0.32).timeout
+		var transfer_preview: Control = shell.get("_tile_transfer_previews").get(selectable_tile_id)
+		await create_timer(0.20).timeout
+		_check(
+			not is_instance_valid(transfer_preview) or is_equal_approx(transfer_preview.modulate.a, 1.0),
+			"board-to-tray transfer never fades through a transparent landing frame"
+		)
+		await create_timer(0.12).timeout
 		_check(first_slot_art.visible and first_slot_art.texture != null, "arrival reveals the selected face artwork")
 		var landed_undo_before: int = shell.get("_undo_motion_count")
 		shell.call("_on_undo_requested")
@@ -342,13 +353,19 @@ func _run() -> void:
 			shell.call("_on_tile_selected", tile.id)
 		_check(end_game_menu != null and end_game_menu.visible, "%s end game menu displays on loss" % orientation)
 		if end_game_menu != null and end_game_menu.visible:
+			var result_panel: Control = end_game_menu.get("_panel")
+			_check(
+				shell.get_viewport_rect().encloses(result_panel.get_global_rect()),
+				"%s end game panel stays inside viewport (%s)" % [orientation, result_panel.get_global_rect()]
+			)
 			var frozen_time: int = shell.call("_playback_time_ms")
 			await create_timer(0.05).timeout
 			_check_equal(frozen_time, shell.call("_playback_time_ms"), "%s playback time freezes on game over" % orientation)
-			shell.call("_on_restart_requested")
-			live_game = shell.get("_game")
-			_check(not end_game_menu.visible, "%s end game menu hides on restart" % orientation)
-			await process_frame
+			if not OS.get_cmdline_user_args().has("--end-game-capture"):
+				shell.call("_on_restart_requested")
+				live_game = shell.get("_game")
+				_check(not end_game_menu.visible, "%s end game menu hides on restart" % orientation)
+				await process_frame
 
 	shell.set("_delete_pair_armed", false)
 	shell.get("_regions").board.call("set_delete_pair_armed", false)
@@ -379,7 +396,8 @@ func _run() -> void:
 	else:
 		RenderingServer.force_draw()
 		var image := root.get_texture().get_image()
-		var capture_name := "difficulty-callout" if OS.get_cmdline_user_args().has("--callout-capture") \
+		var capture_name := "end-game" if OS.get_cmdline_user_args().has("--end-game-capture") \
+			else "difficulty-callout" if OS.get_cmdline_user_args().has("--callout-capture") \
 			else "pause-menu" if OS.get_cmdline_user_args().has("--pause-menu") \
 			else "small-phone" if OS.get_cmdline_user_args().has("--small-phone") \
 			else "safe-%s" % orientation if OS.get_cmdline_user_args().has("--safe-area") else orientation

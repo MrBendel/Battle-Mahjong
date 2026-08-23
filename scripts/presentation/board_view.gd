@@ -215,7 +215,10 @@ func create_tile_preview(tile_id: String, force_face_up: bool = false) -> Contro
 	var preview := Panel.new()
 	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	preview.modulate = Color.WHITE
-	preview.add_theme_stylebox_override("panel", button.get_theme_stylebox("normal").duplicate())
+	var preview_style: StyleBox = button.get_theme_stylebox("normal").duplicate()
+	if force_face_up and bool(button.get_meta("face_down", false)):
+		preview_style = _tile_style(Color("fffdf4"), Color("35636b"), 2, Vector2(0.0, 4.0))
+	preview.add_theme_stylebox_override("panel", preview_style)
 	var source_art: TextureRect = _face_art[tile_id]
 	if bool(button.get_meta("face_down", false)) and not force_face_up:
 		var back_mark := Label.new()
