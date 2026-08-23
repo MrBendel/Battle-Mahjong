@@ -142,7 +142,7 @@ func _build_select(command: Variant, definition: Variant, state: Variant, timeli
 	var matching_tile_id := matching_flipped_tile_id
 	if matching_tile_id.is_empty():
 		matching_tile_id = _matching_tray_tile_id(definition, state, tile_id)
-	if revealed_flipped_mate_id.is_empty():
+	if definition.rules_version >= 11 or revealed_flipped_mate_id.is_empty():
 		_append_hide_active_flipped_reveals(changes, state)
 	var result := SELECTED
 	var selection_count_after: int = state.selection_count + 1

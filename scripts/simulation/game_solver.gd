@@ -79,8 +79,9 @@ func verify_state_route(definition: Variant, initial_state: Variant, tile_ids: A
 
 
 func _resolve_ready_flipped_match(game: Variant) -> String:
-	for tile_id in game.call("current_snapshot").revealed_flipped_tile_ids:
-		if game.board.call("is_tile_revealed_flipped", tile_id) \
+	for tile_id in game.definition.flipped_tile_ids:
+		if (game.board.call("is_tile_revealable", tile_id) \
+				or game.board.call("is_tile_revealed_flipped", tile_id)) \
 				and not game.call("flipped_match_candidate", tile_id).is_empty():
 			return game.call("tap_tile", tile_id)
 	return ""
@@ -88,8 +89,9 @@ func _resolve_ready_flipped_match(game: Variant) -> String:
 
 func _submit_ready_flipped_match(definition: Variant, store: Variant, state: Variant, route_index: int) -> Dictionary:
 	var board := BoardStateScript.new(definition, state)
-	for tile_id in state.revealed_flipped_tile_ids:
-		if not board.call("is_tile_revealed_flipped", tile_id):
+	for tile_id in definition.flipped_tile_ids:
+		if not board.call("is_tile_revealable", tile_id) \
+				and not board.call("is_tile_revealed_flipped", tile_id):
 			continue
 		var tile: Variant = definition.get_tile(tile_id)
 		var has_tray_match := false
