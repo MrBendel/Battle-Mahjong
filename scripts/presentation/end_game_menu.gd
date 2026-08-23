@@ -46,6 +46,7 @@ func _ready() -> void:
 	_subtitle_label.add_theme_font_size_override("font_size", 14)
 	_subtitle_label.add_theme_color_override("font_color", Color(0.8, 0.85, 0.9))
 	_subtitle_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_subtitle_label.custom_minimum_size = Vector2(190.0, 38.0)
 	content.add_child(_subtitle_label)
 
 	_stats_container = VBoxContainer.new()
@@ -124,6 +125,7 @@ func _populate_stats(game: Variant, elapsed_ms: int) -> void:
 
 	for stat in stats:
 		var hbox := HBoxContainer.new()
+		hbox.add_theme_constant_override("separation", 12)
 		var key_lbl := Label.new()
 		key_lbl.text = stat[0]
 		key_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -147,8 +149,8 @@ func _layout() -> void:
 	var safe_top := insets.position.y
 
 	var panel_width := minf(320.0, maxf(240.0, size.x - 28.0))
-	var panel_height := 280.0 if _undo_button.visible else 240.0
-	var top_pos := maxf(14.0 + safe_top, (size.y - panel_height) * 0.35)
+	var panel_height := 330.0 if _undo_button.visible else 280.0
+	var top_pos := maxf(14.0 + safe_top, (size.y - panel_height) * 0.5)
 	_panel.position = Vector2((size.x - panel_width) * 0.5, top_pos)
 	_panel.size = Vector2(panel_width, panel_height)
 

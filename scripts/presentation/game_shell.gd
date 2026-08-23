@@ -487,17 +487,15 @@ func _play_tile_to_tray(preview: Control, source_rect: Rect2, target_rect: Rect2
 	_tile_transfer_tweens[tile_id] = tween
 	tween.set_parallel(true)
 	tween.tween_property(preview, "position", target_position, 0.18)
-	tween.tween_property(preview, "rotation", deg_to_rad(-3.0), 0.09)
-	tween.chain().tween_property(preview, "modulate:a", 0.0, 0.06)
 	tween.finished.connect(_finish_tile_to_tray.bind(preview, tile_id))
 
 
 func _finish_tile_to_tray(preview: Control, tile_id: String) -> void:
 	_tile_transfer_previews.erase(tile_id)
 	_tile_transfer_tweens.erase(tile_id)
+	_regions.tray.call("reveal_tile", tile_id)
 	if is_instance_valid(preview):
 		preview.queue_free()
-	_regions.tray.call("reveal_tile", tile_id)
 
 
 func _take_active_tile_transfer(tile_id: String) -> Control:
@@ -829,6 +827,8 @@ func _apply_layout() -> void:
 	var viewport_size := get_viewport_rect().size
 	var viewport_i := Vector2i(int(viewport_size.x), int(viewport_size.y))
 	var orientation := "Landscape" if viewport_size.x >= viewport_size.y else "Portrait"
+	_tile_skin.call("set_orientation", orientation.to_lower())
+	_regions.board.call("set_compact_mode", orientation == "Portrait" and viewport_size.y < 800.0)
 
 	for region in _regions.values():
 		region.visible = true
@@ -843,7 +843,9 @@ func _apply_layout() -> void:
 	if _debug_panel.visible:
 		_place_debug_panel(viewport_size, orientation)
 	_place_pause_button(viewport_size)
+	_regions.board.call("refresh")
 	_regions.tray.call("set_tile_visual_size", _regions.board.call("tile_visual_size"))
+	_regions.tray.call("refresh")
 	_performance_callout.call("place_over", Rect2(_regions.board.position, _regions.board.size))
 	_debug_panel.call(
 		"set_info",
@@ -983,8 +985,8 @@ func _apply_portrait_layout(size: Vector2) -> void:
 
 func _apply_compact_portrait_layout(size: Vector2) -> void:
 	var insets := _get_safe_area_insets()
-	var margin := 10.0
-	var gap := 8.0
+	var margin := 8.0
+	var gap := 7.0
 	var left_margin := margin + insets.position.x
 	var right_margin := margin + insets.size.x
 	var usable_width := size.x - left_margin - right_margin
@@ -995,9 +997,9 @@ func _apply_compact_portrait_layout(size: Vector2) -> void:
 		banner_offset = banner_height + gap
 	var top_start := margin + insets.position.y + banner_offset
 	var bottom_limit := size.y - margin - insets.size.y
-	var momentum_height := 58.0
+	var momentum_height := 54.0
 	var tray_height := 76.0
-	var consumables_height := 82.0
+	var consumables_height := 72.0
 	var tray_top := top_start + momentum_height + gap
 	var board_top := tray_top + tray_height + gap
 	var board_height := bottom_limit - board_top - gap - consumables_height

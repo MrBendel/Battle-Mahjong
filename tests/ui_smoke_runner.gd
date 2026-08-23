@@ -92,8 +92,16 @@ func _run() -> void:
 	if not revealable_tile_id.is_empty():
 		var reveal_button: Button = shell.get("_regions").board.get("_tile_buttons")[revealable_tile_id]
 		var reveal_art: TextureRect = reveal_button.get_node("FaceArt")
+		var reveal_base: TextureRect = reveal_button.get_node("BaseArt")
 		_check(bool(reveal_button.get_meta("face_down")), "face-down presentation records hidden state")
-		_check(not reveal_art.visible and reveal_button.text == "?", "face-down presentation hides tile identity")
+		_check(not reveal_art.visible and reveal_button.text.is_empty(), "face-down presentation hides tile identity without a question mark")
+		_check(reveal_base.visible and reveal_base.texture != null, "face-down presentation uses the blank ceramic tile")
+		var forced_face_preview: Panel = shell.get("_regions").board.call("create_tile_preview", revealable_tile_id, true)
+		var forced_face_style: StyleBoxFlat = forced_face_preview.get_theme_stylebox("panel")
+		_check_equal(Color.TRANSPARENT, forced_face_style.bg_color, "forced face-up preview lets ceramic artwork own its silhouette")
+		_check_equal(0, forced_face_style.get_border_width(SIDE_LEFT), "forced face-up preview has no legacy blue outline")
+		_check_equal(Color.WHITE, forced_face_preview.modulate, "forced face-up preview remains fully lit")
+		forced_face_preview.free()
 		var tray_before_reveal: int = live_game.tray.tiles.size()
 		var motion_before_reveal: int = shell.get("_tile_motion_count")
 		shell.call("_on_tile_selected", revealable_tile_id)
@@ -101,7 +109,12 @@ func _run() -> void:
 		_check_equal(tray_before_reveal, live_game.tray.tiles.size(), "shell reveal leaves tray occupancy unchanged")
 		_check_equal(motion_before_reveal, shell.get("_tile_motion_count"), "shell reveal does not start tray transfer")
 		_check(reveal_art.visible and reveal_button.text.is_empty(), "revealed tile displays its face in place")
-		_check_equal(Color.WHITE, reveal_button.modulate, "revealed flipped tile remains bright and readable")
+		var reveal_depth_brightness := float(reveal_button.get_meta("depth_brightness"))
+		_check_equal(
+			Color(reveal_depth_brightness, reveal_depth_brightness, reveal_depth_brightness),
+			reveal_button.modulate,
+			"revealed flipped tile removes locked-state darkness while preserving depth lighting"
+		)
 		_check(not bool(reveal_button.get_meta("targetable")), "revealed flipped tile remains pinned to the board")
 		var nonmatching_tile_id := ""
 		var revealed_face: Variant = live_game.definition.get_tile(revealable_tile_id).face
@@ -113,7 +126,7 @@ func _run() -> void:
 		if not nonmatching_tile_id.is_empty():
 			shell.call("_on_tile_selected", nonmatching_tile_id)
 			_check(live_game.board.call("is_tile_face_down", revealable_tile_id), "ordinary non-match re-hides the revealed tile")
-			_check(not reveal_art.visible and reveal_button.text == "?", "flip-back presentation restores the tile back")
+			_check(not reveal_art.visible and reveal_button.text.is_empty(), "flip-back presentation restores the blank tile back")
 			shell.call("_on_restart_requested")
 			live_game = shell.get("_game")
 	var arc_visuals := []
@@ -188,8 +201,21 @@ func _run() -> void:
 		_check_equal(1, live_game.tray.tiles.size(), "ordinary transfer commits tray occupancy immediately")
 		var first_slot_art: TextureRect = shell.get("_regions").tray.get("_slot_art")[0]
 		_check(not first_slot_art.visible, "destination tile stays visually suppressed during transfer")
-		await create_timer(0.32).timeout
+		var transfer_preview: Control = shell.get("_tile_transfer_previews").get(selectable_tile_id)
+		await create_timer(0.20).timeout
+		_check(
+			not is_instance_valid(transfer_preview) or is_equal_approx(transfer_preview.modulate.a, 1.0),
+			"board-to-tray transfer never fades through a transparent landing frame"
+		)
+		await create_timer(0.12).timeout
 		_check(first_slot_art.visible and first_slot_art.texture != null, "arrival reveals the selected face artwork")
+		var first_slot_base: TextureRect = shell.get("_regions").tray.get("_slot_bases")[0]
+		_check(
+			first_slot_base.visible and first_slot_base.texture == shell.get("_tile_skin").call("tile_base_texture"),
+			"arrival uses the Board's active ceramic base in the tray"
+		)
+		var first_slot_ink: TextureRect = shell.get("_regions").tray.get("_slot_ink_outlines")[0]
+		_check(first_slot_ink.visible and first_slot_ink.texture == first_slot_base.texture, "tray tile preserves the manga-ink silhouette")
 		var landed_undo_before: int = shell.get("_undo_motion_count")
 		shell.call("_on_undo_requested")
 		_check_equal(landed_undo_before + 1, shell.get("_undo_motion_count"), "landed tray tile animates back on Undo")
@@ -276,7 +302,8 @@ func _run() -> void:
 		var negative_count: int = board.call("negative_feedback_count")
 		var revision_before: int = live_game.revision
 		var target_button: Button = board.get("_tile_buttons")[visible_blocked_tile_id]
-		_check(target_button.modulate != Color.WHITE, "normally unselectable tile is visibly darkened")
+		var target_overlay: TextureRect = target_button.get_node("BlockedOverlay")
+		_check(target_overlay.visible and target_overlay.modulate.a > 0.0, "normally unselectable tile has the cool blocked-state veil")
 		board.call("_on_tile_pressed", visible_blocked_tile_id)
 		_check_equal(revision_before + 1, live_game.revision, "blocked-tile feedback records a live Combo break")
 		_check_equal(0, live_game.call("combo_at", shell.call("_playback_time_ms")), "blocked tile tap kills Combo")
@@ -285,7 +312,13 @@ func _run() -> void:
 		await create_timer(0.25).timeout
 		shell.call("_on_delete_pair_requested")
 		_check(not target_button.disabled, "Delete Pair mode enables visible tiles blocked from normal movement")
-		_check_equal(Color.WHITE, target_button.modulate, "Delete Pair target returns to full color")
+		var target_depth_brightness := float(target_button.get_meta("depth_brightness"))
+		_check_equal(
+			Color(target_depth_brightness, target_depth_brightness, target_depth_brightness),
+			target_button.modulate,
+			"Delete Pair target removes locked-state darkness while preserving depth lighting"
+		)
+		_check(not target_overlay.visible, "Delete Pair target removes the blocked-state veil")
 
 	shell.call("_on_restart_requested")
 	live_game = shell.get("_game")
@@ -342,13 +375,19 @@ func _run() -> void:
 			shell.call("_on_tile_selected", tile.id)
 		_check(end_game_menu != null and end_game_menu.visible, "%s end game menu displays on loss" % orientation)
 		if end_game_menu != null and end_game_menu.visible:
+			var result_panel: Control = end_game_menu.get("_panel")
+			_check(
+				shell.get_viewport_rect().encloses(result_panel.get_global_rect()),
+				"%s end game panel stays inside viewport (%s)" % [orientation, result_panel.get_global_rect()]
+			)
 			var frozen_time: int = shell.call("_playback_time_ms")
 			await create_timer(0.05).timeout
 			_check_equal(frozen_time, shell.call("_playback_time_ms"), "%s playback time freezes on game over" % orientation)
-			shell.call("_on_restart_requested")
-			live_game = shell.get("_game")
-			_check(not end_game_menu.visible, "%s end game menu hides on restart" % orientation)
-			await process_frame
+			if not OS.get_cmdline_user_args().has("--end-game-capture"):
+				shell.call("_on_restart_requested")
+				live_game = shell.get("_game")
+				_check(not end_game_menu.visible, "%s end game menu hides on restart" % orientation)
+				await process_frame
 
 	shell.set("_delete_pair_armed", false)
 	shell.get("_regions").board.call("set_delete_pair_armed", false)
@@ -379,7 +418,8 @@ func _run() -> void:
 	else:
 		RenderingServer.force_draw()
 		var image := root.get_texture().get_image()
-		var capture_name := "difficulty-callout" if OS.get_cmdline_user_args().has("--callout-capture") \
+		var capture_name := "end-game" if OS.get_cmdline_user_args().has("--end-game-capture") \
+			else "difficulty-callout" if OS.get_cmdline_user_args().has("--callout-capture") \
 			else "pause-menu" if OS.get_cmdline_user_args().has("--pause-menu") \
 			else "small-phone" if OS.get_cmdline_user_args().has("--small-phone") \
 			else "safe-%s" % orientation if OS.get_cmdline_user_args().has("--safe-area") else orientation
@@ -400,6 +440,7 @@ func _run() -> void:
 
 func _validate_regions(shell: Control, orientation: String) -> void:
 	var regions: Dictionary = shell.get("_regions")
+	_check_equal(orientation, shell.get("_tile_skin").orientation, "%s selects its matching tile base variant" % orientation)
 	var viewport_rect := shell.get_viewport_rect()
 	var safe_viewport: Rect2 = SafeAreaScript.content_rect(viewport_rect.size, shell.call("_get_safe_area_insets"))
 	var debug_panel: Control = shell.get("_debug_panel")
@@ -476,29 +517,78 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 
 func _validate_board_tiles(shell: Control, orientation: String) -> void:
 	var board: Control = shell.get("_regions").board
+	var skin: Variant = shell.get("_tile_skin")
 	var tile_layer: Control = board.get("_tile_layer")
 	var tile_layer_rect := Rect2(Vector2.ZERO, tile_layer.size)
 	var minimum_tile_size := Vector2(INF, INF)
-	var board_footprint := Rect2()
 	var has_visible_tile := false
+	var has_visible_base := false
+	var has_visible_shadow := false
+	var has_visible_ink_outline := false
 	for button in board.get("_tile_buttons").values():
 		var tile_rect := Rect2(button.position, button.size)
 		_check(tile_layer_rect.encloses(tile_rect), "%s %s stays inside board bounds" % [orientation, button.name])
 		minimum_tile_size.x = minf(minimum_tile_size.x, button.size.x)
 		minimum_tile_size.y = minf(minimum_tile_size.y, button.size.y)
 		if button.visible:
-			board_footprint = tile_rect if not has_visible_tile else board_footprint.merge(tile_rect)
 			has_visible_tile = true
+			var ink_outline: TextureRect = button.get_node("InkOutline")
+			if ink_outline.visible and not has_visible_ink_outline:
+				has_visible_ink_outline = true
+				_check(ink_outline.texture == skin.call("tile_base_texture"), "%s ink outline follows the active tile silhouette" % orientation)
+				_check(ink_outline.anchor_left < 0.0 and ink_outline.anchor_right > 1.0, "%s ink outline expands beyond the ceramic edge" % orientation)
+			var shadow_art: TextureRect = button.get_node("DepthShadow")
+			if shadow_art.visible and not has_visible_shadow:
+				has_visible_shadow = true
+				_check(shadow_art.texture == skin.call("tile_base_texture"), "%s tile shadow follows the active base silhouette" % orientation)
+				_check(shadow_art.position.x > 0.0 and shadow_art.position.y > 0.0, "%s tile shadow projects down and right" % orientation)
+			var base_art: TextureRect = button.get_node("BaseArt")
+			if base_art.visible and not has_visible_base:
+				has_visible_base = true
+				_check(base_art.texture == skin.call("tile_base_texture"), "%s board tile uses the active ceramic base" % orientation)
 	if not OS.get_cmdline_user_args().has("--safe-area"):
+		var active_geometry: Dictionary = skin.call("active_geometry")
+		var minimum_runtime: Array = active_geometry.minimum_runtime_size
 		_check(
-			minimum_tile_size.x >= 32.0 and minimum_tile_size.y >= 40.0,
-			"%s tiles preserve the M7 minimum footprint (%s)" % [orientation, minimum_tile_size]
+			minimum_tile_size.x >= float(minimum_runtime[0]) \
+				and minimum_tile_size.y >= float(minimum_runtime[1]),
+			"%s tiles preserve their orientation minimum footprint (%s)" % [orientation, minimum_tile_size]
 		)
 	_check(has_visible_tile, "%s board renders visible tiles" % orientation)
-	_check(
-		board_footprint.size.y > board_footprint.size.x,
-		"%s preserves the portrait-authored board footprint (%s)" % [orientation, board_footprint.size]
-	)
+	_check(has_visible_base, "%s board renders the supplied ceramic base artwork" % orientation)
+	_check(has_visible_shadow, "%s board renders cast shadows beneath tiles" % orientation)
+	_check(has_visible_ink_outline, "%s board renders manga-ink tile silhouettes" % orientation)
+	var adjacent_pair_checked := false
+	var board_tiles: Array = shell.get("_game").board.tiles
+	for left_tile in board_tiles:
+		if adjacent_pair_checked:
+			break
+		for right_tile in board_tiles:
+			if left_tile.position.z == right_tile.position.z \
+					and left_tile.position.y == right_tile.position.y \
+					and left_tile.position.x + 2 == right_tile.position.x:
+				var left_button: Button = board.get("_tile_buttons")[left_tile.id]
+				var right_button: Button = board.get("_tile_buttons")[right_tile.id]
+				if left_button.visible and right_button.visible:
+					var rendered_gap := right_button.position.x - (left_button.position.x + left_button.size.x)
+					_check(rendered_gap <= 0.0, "%s adjacent tile artwork meets without a seam" % orientation)
+					adjacent_pair_checked = true
+					break
+	_check(adjacent_pair_checked, "%s validates a visible authored adjacent pair" % orientation)
+	var maximum_depth := 0
+	for tile in shell.get("_game").board.tiles:
+		maximum_depth = maxi(maximum_depth, tile.position.z)
+	if maximum_depth > 0:
+		var previous_brightness := float(board.call("_depth_brightness", 0, maximum_depth))
+		for depth in range(1, maximum_depth + 1):
+			var brightness := float(board.call("_depth_brightness", depth, maximum_depth))
+			_check(brightness > previous_brightness, "%s authored layer %d is brighter than layer %d" % [orientation, depth, depth - 1])
+			previous_brightness = brightness
+		_check(is_equal_approx(previous_brightness, 1.0), "%s highest authored layer remains fully lit" % orientation)
+	if orientation == "portrait":
+		_check(minimum_tile_size.y > minimum_tile_size.x, "portrait uses tall tile artwork (%s)" % minimum_tile_size)
+	else:
+		_check(minimum_tile_size.x > minimum_tile_size.y, "landscape uses wide tile artwork (%s)" % minimum_tile_size)
 
 
 func _validate_consumables(shell: Control, orientation: String) -> void:
