@@ -56,7 +56,7 @@ The current Godot proof renders the responsive ceramic base as a texture, places
 
 ### Authored Depth Presentation
 
-The Default skin's `depth_presentation` manifest section controls board-stack lighting. The renderer maps the lowest authored `z` layer to `lowest_layer_brightness`, interpolates each higher layer toward full brightness, and projects an offset copy of the active tile-base silhouette beneath every tile. This keeps physical stack depth readable in both orientations without changing layout geometry or simulation state.
+The Default skin's `depth_presentation` manifest section controls board-stack lighting. The renderer maps the lowest authored `z` layer to `lowest_layer_brightness`, interpolates each higher layer toward full brightness, and projects an offset copy of the active tile-base silhouette beneath every tile. Tile surfaces and shadow passes occupy alternating presentation bands, so a cast shadow sits below every tile on its own authored layer and above the next layer down. This keeps physical stack depth readable in both orientations without changing layout geometry or simulation state.
 
 Blocked state is a separate cool translucent silhouette veil applied after the warm depth lighting. Covered tiles retain authored-layer shading and cast shadows, but a tile becomes canonical full brightness as soon as it is selectable or otherwise visually active. This prevents depth from being mistaken for availability. Tray tiles and moving previews remain fully lit because they are no longer being read as part of the board stack. Face-down tiles render the blank ceramic base without a question mark or rectangular placeholder.
 

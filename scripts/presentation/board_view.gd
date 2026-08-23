@@ -10,6 +10,9 @@ const HEADER_HEIGHT := 48.0
 const BOARD_MARGIN := 14.0
 const COMPACT_HEADER_HEIGHT := 6.0
 const COMPACT_BOARD_MARGIN := 4.0
+const DEPTH_Z_STRIDE := 2
+const TILE_SURFACE_Z_OFFSET := 1
+const SHADOW_Z_OFFSET := -1
 
 var _game: Variant
 var _tile_buttons: Dictionary = {}
@@ -143,6 +146,7 @@ func _rebuild_tiles() -> void:
 
 		var shadow_art := TextureRect.new()
 		shadow_art.name = "DepthShadow"
+		shadow_art.z_index = SHADOW_Z_OFFSET
 		shadow_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		shadow_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		shadow_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -454,7 +458,7 @@ func _layout_tiles() -> void:
 			float(tile.position.y - bounds.position.y) * tile_size.y * 0.5
 		) + depth_offset + tile_gap * 0.5
 		button.size = tile_size - tile_gap
-		button.z_index = tile.position.z * 100 + int(tile.position.y)
+		button.z_index = tile.position.z * DEPTH_Z_STRIDE + TILE_SURFACE_Z_OFFSET
 		button.add_theme_font_size_override("font_size", clampi(int(tile_size.x * 0.25), 10, 18))
 		var shadow_offset_ratio: Array = _tile_skin.depth_presentation.get("shadow_offset_ratio", [0.05, 0.07])
 		var shadow_art: TextureRect = _shadow_art[tile.id]
