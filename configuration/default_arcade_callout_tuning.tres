@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="ArcadeCalloutTuning" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/configuration/arcade_callout_tuning.gd" id="1_tuning"]
+
+[resource]
+script = ExtResource("1_tuning")
+first_combo_alert = 11
+combo_alert_interval = 5
+score_milestones = Array[int]([10000, 25000, 50000, 100000])
+amazing_find_min_percentile_basis_points = 9700

@@ -143,6 +143,7 @@ Status: Initial M7 Direction
 - A committed pair visually stages the incoming tile in the next open tray position, holds for a readable landing beat, collides both tile duplicates, and composes the reusable radial impact burst and pop. Undo returns or reverses the tile visual to its restored board position. Delete Pair uses the same removal primitive directly on the board. These effects never delay or mutate simulation.
 - The first gameplay background uses a calm charcoal and ink-green center with crimson, cyan, and warm-yellow dry-brush energy at the perimeter. It is aspect-covered and center-cropped so the portrait master also supports landscape.
 - Compact portrait support is validated at `375 x 667`; decorative character and debug regions disappear before gameplay regions shrink below their contract.
+- The gameplay shell follows the portrait bottom-dock and landscape split-side action composition documented in [Responsive Game Shell](RESPONSIVE_GAME_SHELL.md).
 
 Status: Open Question
 

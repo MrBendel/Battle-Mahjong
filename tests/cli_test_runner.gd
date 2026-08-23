@@ -30,6 +30,8 @@ const ModifierLoadoutScript := preload("res://scripts/simulation/modifier_loadou
 const ModifierRulesScript := preload("res://scripts/simulation/modifier_rules.gd")
 const ModifierTuningScript := preload("res://scripts/configuration/modifier_tuning.gd")
 const TileSkinScript := preload("res://scripts/presentation/tile_skin.gd")
+const ArcadeCalloutTuningScript := preload("res://scripts/configuration/arcade_callout_tuning.gd")
+const ArcadeCalloutPolicyScript := preload("res://scripts/presentation/arcade_callout_policy.gd")
 
 var _failures := 0
 var _assertions := 0
@@ -46,6 +48,7 @@ func _init() -> void:
 	_run_flipped_tile_tests()
 	_run_transaction_timeline_tests()
 	_run_momentum_tuning_tests()
+	_run_arcade_callout_tests()
 	_run_momentum_tests()
 	_run_combo_tests()
 	_run_opportunity_analysis_tests()
@@ -95,6 +98,38 @@ func _run_tile_skin_contract_tests() -> void:
 	for face_id in skin.canonical_face_ids:
 		var definition: Dictionary = skin.faces[face_id]
 		_check(ResourceLoader.exists(str(definition.get("asset", ""))), "%s Default runtime asset exists" % face_id)
+
+
+func _run_arcade_callout_tests() -> void:
+	_log(" - arcade callout policy")
+	var tuning := ArcadeCalloutTuningScript.new()
+	var policy := ArcadeCalloutPolicyScript.new()
+	_check(tuning.call("validation_errors").is_empty(), "default arcade callout tuning validates")
+	_check_equal({}, policy.call("choose_for_pair", {"combo_before": 9, "combo_after": 10}, 0, tuning), "Combo 10 remains below the alert boundary")
+	var first_combo: Dictionary = policy.call("choose_for_pair", {"combo_before": 10, "combo_after": 11}, 0, tuning)
+	_check_equal("combo", first_combo.type, "Combo 11 starts Combo alerts")
+	_check_equal("11 COMBO!", first_combo.text, "first Combo alert includes the live count")
+	_check_equal({}, policy.call("choose_for_pair", {"combo_before": 11, "combo_after": 12}, 0, tuning), "non-milestone Combo does not spam the callout lane")
+	_check_equal("15 COMBO!", policy.call("choose_for_pair", {"combo_before": 14, "combo_after": 15}, 0, tuning).text, "configured Combo interval recognizes the next milestone")
+
+	var score_alert: Dictionary = policy.call("choose_for_pair", {"score_gain": 250, "combo_before": 2, "combo_after": 3}, 10100, tuning)
+	_check_equal("score", score_alert.type, "crossing a current-run score milestone emits a score alert")
+	_check_equal("SCORE 10K!", score_alert.text, "score milestone uses compact arcade text")
+	var hidden_alert: Dictionary = policy.call("choose_for_pair", {"difficulty_reward": {"callout_key": "great", "difficulty_percentile_bps": 8000}}, 0, tuning)
+	_check_equal("WELL HIDDEN!", hidden_alert.text, "notable hidden pair receives specific recognition copy")
+	var amazing_alert: Dictionary = policy.call("choose_for_pair", {"difficulty_reward": {"callout_key": "eagle_eyes", "difficulty_percentile_bps": 9800}}, 0, tuning)
+	_check_equal("AMAZING FIND!", amazing_alert.text, "top exceptional percentile receives strongest find copy")
+	var priority_alert: Dictionary = policy.call("choose_for_pair", {
+		"score_gain": 250,
+		"combo_before": 10,
+		"combo_after": 11,
+		"difficulty_reward": {"callout_key": "eagle_eyes"},
+	}, 10100, tuning)
+	_check_equal("difficulty", priority_alert.type, "coincident pair events choose exactly one specific difficulty alert")
+	_check_equal("EAGLE EYES!", priority_alert.text, "difficulty event wins callout arbitration")
+	tuning.first_combo_alert = 10
+	tuning.score_milestones.assign([10000, 5000])
+	_check_equal(2, tuning.call("validation_errors").size(), "invalid callout thresholds report actionable errors")
 
 
 func _run_board_selectability_tests() -> void:

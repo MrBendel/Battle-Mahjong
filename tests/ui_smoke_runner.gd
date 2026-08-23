@@ -53,10 +53,12 @@ func _run() -> void:
 	)
 	var tuning: Resource = shell.get("momentum_tuning")
 	var modifier_tuning: Resource = shell.get("modifier_tuning")
+	var callout_tuning: Resource = shell.get("arcade_callout_tuning")
 	_check(tuning != null, "main scene exposes a MomentumTuning resource")
 	_check(tuning.call("validation_errors").is_empty(), "main scene MomentumTuning resource validates")
 	_check(modifier_tuning != null, "main scene exposes a ModifierTuning resource")
 	_check(modifier_tuning.call("validation_errors").is_empty(), "main scene ModifierTuning resource validates")
+	_check(callout_tuning != null and callout_tuning.call("validation_errors").is_empty(), "main scene ArcadeCalloutTuning resource validates")
 	var live_game: Variant = shell.get("_game")
 	_check_equal(shell.get("layout_id"), live_game.definition.configuration.layout_id, "main scene selects its exported layout id")
 	_check_equal(
@@ -175,8 +177,9 @@ func _run() -> void:
 	if not selectable_tile_id.is_empty():
 		var original_board_rect: Rect2 = shell.get("_regions").board.call("tile_global_rect", selectable_tile_id)
 		var expected_target: Rect2 = shell.get("_regions").tray.call("slot_global_rect", 0)
+		var tile_motion_before: int = shell.get("_tile_motion_count")
 		shell.call("_on_tile_selected", selectable_tile_id)
-		_check_equal(1, shell.get("_tile_motion_count"), "ordinary selection starts one board-to-tray animation")
+		_check_equal(tile_motion_before + 1, shell.get("_tile_motion_count"), "ordinary selection starts one board-to-tray animation")
 		_check_equal(
 			int(tuning.get("selection_gain")),
 			live_game.call("current_snapshot").momentum_units,
@@ -252,7 +255,15 @@ func _run() -> void:
 		var reward: Dictionary = live_game.call("last_transaction").telemetry.get("difficulty_reward", {})
 		_check(not reward.is_empty(), "qualified pair records its difficulty reward")
 		_check_equal(callout_before + 1, shell.get("_performance_callout").get("play_count"), "difficulty reward starts one live-text callout")
-		_check_equal(str(reward.callout_key), shell.get("_performance_callout").get("last_callout_key"), "callout consumes the transaction event key")
+		_check_equal("difficulty", shell.get("_performance_callout").get("last_alert_type"), "hard pair owns the single callout lane")
+		_check(shell.get("_performance_callout").get("last_text") in ["WELL HIDDEN!", "EAGLE EYES!", "AMAZING FIND!"], "hard pair uses find-specific arcade copy")
+		var callout: Control = shell.get("_performance_callout")
+		var callout_children_before: int = callout.get_child_count()
+		callout.call("play_alert", {"type": "combo", "key": "combo", "text": "11 COMBO!"})
+		callout.call("play_alert", {"type": "score", "key": "score_milestone", "text": "SCORE 10K!"})
+		_check_equal(callout_children_before, callout.get_child_count(), "rapid alerts reuse the single callout lane without stacking labels")
+		_check_equal("score", callout.get("last_alert_type"), "latest alert exclusively owns the callout lane")
+		_check_equal("SCORE 10K!", callout.get("last_text"), "single callout lane supports dynamic score text")
 	var visible_blocked_tile_id := ""
 	for tile in live_game.board.tiles:
 		if live_game.board.call("is_tile_visible", tile.id) \
@@ -405,6 +416,13 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 		tray.position.y + tray.size.y <= board.position.y,
 		"%s tray stays above the game board" % orientation
 	)
+	if orientation == "portrait":
+		_check(board.position.y + board.size.y <= regions.consumables.position.y, "portrait Board ends above the bottom action dock")
+		_check(not regions.character.visible, "portrait decorative region yields to the gameplay stack")
+	else:
+		_check(regions.momentum.position.x + regions.momentum.size.x <= board.position.x, "landscape Momentum stays in the upper-left rail")
+		_check(is_equal_approx(tray.get_rect().get_center().x, board.get_rect().get_center().x), "landscape tray is centered over the Board")
+		_check(not regions.character.visible, "landscape decorative region yields to the central Board and side actions")
 	_check(
 		not Rect2(pause_button.position, pause_button.size).intersects(Rect2(regions.momentum.position, regions.momentum.size)),
 		"%s pause button does not cover Momentum" % orientation
@@ -412,6 +430,8 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 
 	for first_index in range(names.size()):
 		for second_index in range(first_index + 1, names.size()):
+			if orientation == "landscape" and "consumables" in [names[first_index], names[second_index]]:
+				continue
 			var first: Control = regions[names[first_index]]
 			var second: Control = regions[names[second_index]]
 			_check(
@@ -457,6 +477,7 @@ func _validate_board_tiles(shell: Control, orientation: String) -> void:
 
 func _validate_consumables(shell: Control, orientation: String) -> void:
 	var consumables: Control = shell.get("_regions").consumables
+	var board: Control = shell.get("_regions").board
 	var buttons: Dictionary = consumables.get("_buttons")
 	var panel_rect := Rect2(Vector2.ZERO, consumables.size)
 	var controls: Array[Control] = []
@@ -482,12 +503,21 @@ func _validate_consumables(shell: Control, orientation: String) -> void:
 				]
 			)
 	_check(buttons.has("undo"), "%s consumables own Undo" % orientation)
-	for consumable_type in buttons:
-		if consumable_type != "undo":
-			if consumables.size.y <= 180.0:
+	if orientation == "landscape":
+		var board_rect := Rect2(board.position, board.size)
+		for consumable_type in buttons:
+			var button: Button = buttons[consumable_type]
+			var button_rect := Rect2(consumables.position + button.position, button.size)
+			_check(not button_rect.intersects(board_rect), "landscape %s stays in a side rail outside the Board" % consumable_type)
+			_check(button.size.x >= 120.0 and button.size.y >= 54.0, "landscape %s preserves a large touch target" % consumable_type)
+		_check(buttons.hint.position.x == buttons.delete_pair.position.x, "landscape left rail groups Hint and Delete Pair")
+		_check(buttons.shuffle.position.x == buttons.undo.position.x, "landscape right rail groups Shuffle and Undo")
+		_check(buttons.hint.position.y < buttons.delete_pair.position.y, "landscape Hint sits above Delete Pair")
+		_check(buttons.shuffle.position.y < buttons.undo.position.y, "landscape Shuffle sits above Undo")
+	else:
+		for consumable_type in buttons:
+			if consumable_type != "undo":
 				_check(buttons.undo.position.x > buttons[consumable_type].position.x, "%s Undo stays rightmost" % orientation)
-			else:
-				_check(buttons.undo.position.y > buttons[consumable_type].position.y, "%s Undo stays last in the tool stack" % orientation)
 	var tray_has_command_button := false
 	for child in shell.get("_regions").tray.get_children():
 		tray_has_command_button = tray_has_command_button or child is Button

@@ -130,6 +130,10 @@ Status: In progress. The Batch A visual-slice candidate is implemented: canonica
 
 The gameplay foundation also supports seeded flipped tiles under rules version 9. Accessible face-down tiles reveal transactionally in place, remain outside the tray, and resolve directly when their known mate is tapped. Detailed contract: [Flipped Tiles](FLIPPED_TILES.md).
 
+The first live-text arcade callout lane recognizes difficult pairs, current-run score milestones, and Combo milestones above 10 while arbitrating coincident events into one visible alert. Durable high-score triggering remains deferred to M9 profile ownership. Detailed contract: [Arcade Callouts](ARCADE_CALLOUTS.md).
+
+The gameplay shell follows a mobile-first portrait stack with a bottom action dock, while landscape preserves the portrait-authored board and moves actions into console-friendly side rails. Detailed contract: [Responsive Game Shell](RESPONSIVE_GAME_SHELL.md).
+
 Next production work moves into Batch B system artwork for modifiers, consumables, momentum, and multiplier before broader FX, character work, and the Neon skin proof.
 
 Detailed contracts: [M07 Art Foundation](milestones/M07_ART_FOUNDATION.md) and [Tile Art Pipeline](TILE_ART_PIPELINE.md)

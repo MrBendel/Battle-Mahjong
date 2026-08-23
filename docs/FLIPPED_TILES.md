@@ -56,7 +56,7 @@ This ordering is simulation data, not presentation behavior.
 - Hint may pair a known revealed flipped face with an ordinary selectable mate. It does not reveal hidden identities.
 - Delete Pair cannot target an unrevealed tile back or use one as the automatically selected mate.
 - Shuffle preserves flipped and revealed state while deterministically remapping physical tiles to slots.
-- Undo remains limited to the last unresolved tray selection. Reveals are not undoable, and a resolved flipped pair is an Undo barrier like every other resolved pair.
+- Undo remains limited to the last unresolved tray selection. Reveals are not independently undoable, but undoing an ordinary non-match also restores the exposed flipped face that the selection transaction hid when no later reveal superseded it. A resolved flipped pair is an Undo barrier like every other resolved pair.
 - Face-down and revealed flipped tiles are excluded from ordinary selectable-pair difficulty analysis. Flipped direct matches currently receive normal pair rewards but no geometry-based difficulty bonus.
 
 ## Presentation Contract
