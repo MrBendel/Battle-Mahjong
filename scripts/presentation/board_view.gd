@@ -6,13 +6,18 @@ const TileSkinScript := preload("res://scripts/presentation/tile_skin.gd")
 signal tile_selected(tile_id: String)
 signal locked_tile_tapped(tile_id: String)
 
-const TILE_ASPECT := 1.26
 const HEADER_HEIGHT := 48.0
 const BOARD_MARGIN := 14.0
+const COMPACT_HEADER_HEIGHT := 6.0
+const COMPACT_BOARD_MARGIN := 4.0
 
 var _game: Variant
 var _tile_buttons: Dictionary = {}
+var _shadow_art: Dictionary = {}
+var _ink_outlines: Dictionary = {}
+var _base_art: Dictionary = {}
 var _face_art: Dictionary = {}
+var _blocked_overlays: Dictionary = {}
 var _modifier_labels: Dictionary = {}
 var _title_label: Label
 var _status_label: Label
@@ -23,6 +28,7 @@ var _audio_player: AudioStreamPlayer
 var _audio_playback: Variant
 var _negative_feedback_count := 0
 var _suppressed_tile_ids := {}
+var _compact_mode := false
 
 
 func _init(game_state: Variant, tile_skin: Variant = null) -> void:
@@ -48,6 +54,15 @@ func set_game_state(game_state: Variant) -> void:
 func set_delete_pair_armed(armed: bool) -> void:
 	_delete_pair_armed = armed
 	refresh()
+
+
+func set_compact_mode(compact: bool) -> void:
+	if _compact_mode == compact:
+		return
+	_compact_mode = compact
+	_title_label.visible = not compact
+	_status_label.visible = not compact
+	_layout_tiles()
 
 
 func suppress_tile(tile_id: String) -> void:
@@ -100,7 +115,11 @@ func _rebuild_tiles() -> void:
 	for button in _tile_buttons.values():
 		button.queue_free()
 	_tile_buttons.clear()
+	_shadow_art.clear()
+	_ink_outlines.clear()
+	_base_art.clear()
 	_face_art.clear()
+	_blocked_overlays.clear()
 	_modifier_labels.clear()
 
 	for tile in _game.board.tiles:
@@ -111,12 +130,40 @@ func _rebuild_tiles() -> void:
 		button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		button.pressed.connect(_on_tile_pressed.bind(tile.id))
 
+		var shadow_art := TextureRect.new()
+		shadow_art.name = "DepthShadow"
+		shadow_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		shadow_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		shadow_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		button.add_child(shadow_art)
+
+		var ink_outline := TextureRect.new()
+		ink_outline.name = "InkOutline"
+		_tile_skin.configure_ink_outline(ink_outline)
+		button.add_child(ink_outline)
+
+		var base_art := TextureRect.new()
+		base_art.name = "BaseArt"
+		base_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		base_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		base_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		base_art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		button.add_child(base_art)
+
 		var face_art := TextureRect.new()
 		face_art.name = "FaceArt"
 		face_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		face_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		face_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		button.add_child(face_art)
+
+		var blocked_overlay := TextureRect.new()
+		blocked_overlay.name = "BlockedOverlay"
+		blocked_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		blocked_overlay.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		blocked_overlay.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		blocked_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		button.add_child(blocked_overlay)
 
 		var modifier_label := Label.new()
 		modifier_label.name = "Modifier"
@@ -131,7 +178,11 @@ func _rebuild_tiles() -> void:
 
 		_tile_layer.add_child(button)
 		_tile_buttons[tile.id] = button
+		_shadow_art[tile.id] = shadow_art
+		_ink_outlines[tile.id] = ink_outline
+		_base_art[tile.id] = base_art
 		_face_art[tile.id] = face_art
+		_blocked_overlays[tile.id] = blocked_overlay
 		_modifier_labels[tile.id] = modifier_label
 
 	refresh()
@@ -139,6 +190,9 @@ func _rebuild_tiles() -> void:
 
 func refresh() -> void:
 	var active_count: int = _game.board.call("active_tiles").size()
+	var max_depth := 0
+	for board_tile in _game.board.tiles:
+		max_depth = maxi(max_depth, board_tile.position.z)
 	var selectable_ids := {}
 	var revealable_ids := {}
 	var visible_ids := {}
@@ -171,15 +225,30 @@ func refresh() -> void:
 		button.set_meta("face_down", face_down)
 		button.set_meta("revealed_flipped", revealed_flipped)
 		button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if selectable else Control.CURSOR_FORBIDDEN
-		button.modulate = Color.WHITE if visually_active else Color(0.72, 0.73, 0.70)
+		var depth_brightness := _depth_brightness(tile.position.z, max_depth)
+		button.modulate = Color(depth_brightness, depth_brightness, depth_brightness)
+		button.set_meta("depth_brightness", depth_brightness)
 		_apply_tile_style(button, visually_active, face_down)
 		if _delete_pair_armed and selectable:
 			button.add_theme_stylebox_override("normal", _tile_style(Color("fff8e8"), Color("ef496f"), 4, Vector2(0.0, 3.0)))
 		var texture: Texture2D = _tile_skin.texture_for_face(tile.face)
+		var shadow_art: TextureRect = _shadow_art[tile.id]
+		shadow_art.texture = _tile_skin.tile_base_texture()
+		shadow_art.modulate = Color(0.02, 0.025, 0.025, float(_tile_skin.depth_presentation.get("shadow_opacity", 0.42)))
+		shadow_art.visible = shadow_art.texture != null
+		var ink_outline: TextureRect = _ink_outlines[tile.id]
+		_tile_skin.configure_ink_outline(ink_outline)
+		var base_art: TextureRect = _base_art[tile.id]
+		base_art.texture = _tile_skin.tile_base_texture()
+		base_art.visible = base_art.texture != null
 		var face_art: TextureRect = _face_art[tile.id]
 		face_art.texture = texture
 		face_art.visible = not face_down and texture != null
-		button.text = "?" if face_down else ("" if texture != null else _tile_label(tile))
+		var blocked_overlay: TextureRect = _blocked_overlays[tile.id]
+		blocked_overlay.texture = _tile_skin.tile_base_texture()
+		blocked_overlay.modulate = _blocked_overlay_color()
+		blocked_overlay.visible = not visually_active
+		button.text = "" if face_down or texture != null else _tile_label(tile)
 		var modifier_label: Label = _modifier_labels[tile.id]
 		modifier_label.text = _modifier_symbol(tile)
 		modifier_label.visible = not modifier_label.text.is_empty()
@@ -217,25 +286,29 @@ func create_tile_preview(tile_id: String, force_face_up: bool = false) -> Contro
 	preview.modulate = Color.WHITE
 	var preview_style: StyleBox = button.get_theme_stylebox("normal").duplicate()
 	if force_face_up and bool(button.get_meta("face_down", false)):
-		preview_style = _tile_style(Color("fffdf4"), Color("35636b"), 2, Vector2(0.0, 4.0))
+		preview_style = _art_backing_style()
 	preview.add_theme_stylebox_override("panel", preview_style)
+	var ink_outline := TextureRect.new()
+	ink_outline.name = "InkOutline"
+	_tile_skin.configure_ink_outline(ink_outline)
+	preview.add_child(ink_outline)
+	var base_art := TextureRect.new()
+	base_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	base_art.texture = _tile_skin.tile_base_texture()
+	base_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	base_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	base_art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	preview.add_child(base_art)
 	var source_art: TextureRect = _face_art[tile_id]
-	if bool(button.get_meta("face_down", false)) and not force_face_up:
-		var back_mark := Label.new()
-		back_mark.text = "?"
-		back_mark.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		back_mark.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		back_mark.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		back_mark.add_theme_color_override("font_color", Color("fff7cf"))
-		preview.add_child(back_mark)
-	elif source_art.texture != null:
+	if (not bool(button.get_meta("face_down", false)) or force_face_up) and source_art.texture != null:
 		var face_art := TextureRect.new()
 		face_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		face_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		face_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		face_art.set_anchors_preset(Control.PRESET_FULL_RECT)
-		var safe_area: Array = _tile_skin.geometry.get("face_safe_area", [92, 104, 328, 400])
-		var source_size: Array = _tile_skin.geometry.get("source_size", [512, 640])
+		var active_geometry: Dictionary = _tile_skin.active_geometry()
+		var safe_area: Array = active_geometry.get("face_safe_area", [92, 104, 328, 400])
+		var source_size: Array = active_geometry.get("source_size", [512, 640])
 		face_art.anchor_left = float(safe_area[0]) / float(source_size[0])
 		face_art.anchor_top = float(safe_area[1]) / float(source_size[1])
 		face_art.anchor_right = float(safe_area[0] + safe_area[2]) / float(source_size[0])
@@ -315,12 +388,14 @@ func _layout_tiles() -> void:
 	if _tile_layer == null or _game == null:
 		return
 
-	_status_label.size = Vector2(maxf(80.0, size.x - 140.0 - BOARD_MARGIN), 30.0)
+	var header_height := COMPACT_HEADER_HEIGHT if _compact_mode else HEADER_HEIGHT
+	var board_margin := COMPACT_BOARD_MARGIN if _compact_mode else BOARD_MARGIN
+	_status_label.size = Vector2(maxf(80.0, size.x - 140.0 - board_margin), 30.0)
 	var area := Rect2(
-		BOARD_MARGIN,
-		HEADER_HEIGHT,
-		maxf(1.0, size.x - BOARD_MARGIN * 2.0),
-		maxf(1.0, size.y - HEADER_HEIGHT - BOARD_MARGIN)
+		board_margin,
+		header_height,
+		maxf(1.0, size.x - board_margin * 2.0),
+		maxf(1.0, size.y - header_height - board_margin)
 	)
 	_tile_layer.position = area.position
 	_tile_layer.size = area.size
@@ -335,9 +410,11 @@ func _layout_tiles() -> void:
 	var control_allowance := Vector2(12.0, 12.0)
 	var tile_width: float = minf(
 		(area.size.x - depth_extent.x - control_allowance.x) / grid_width,
-		(area.size.y - depth_extent.y - control_allowance.y) / (grid_height * TILE_ASPECT)
+		(area.size.y - depth_extent.y - control_allowance.y) / (grid_height * _tile_skin.tile_aspect())
 	)
-	var tile_size := Vector2(maxf(16.0, tile_width), maxf(20.0, tile_width * TILE_ASPECT))
+	var tile_size := Vector2(maxf(16.0, tile_width), maxf(16.0, tile_width * _tile_skin.tile_aspect()))
+	var adjacent_gap_ratio := float(_tile_skin.layout_presentation.get("adjacent_gap_ratio", 0.0))
+	var tile_gap := tile_size * adjacent_gap_ratio
 	var board_size := Vector2(tile_size.x * grid_width, tile_size.y * grid_height)
 	var origin := (area.size - board_size - depth_extent) * 0.5 + Vector2(0.0, depth_extent.y)
 
@@ -347,12 +424,20 @@ func _layout_tiles() -> void:
 		button.position = origin + Vector2(
 			float(tile.position.x - bounds.position.x) * tile_size.x * 0.5,
 			float(tile.position.y - bounds.position.y) * tile_size.y * 0.5
-		) + depth_offset
-		button.size = tile_size - Vector2(3.0, 3.0)
+		) + depth_offset + tile_gap * 0.5
+		button.size = tile_size - tile_gap
 		button.z_index = tile.position.z * 100 + int(tile.position.y)
 		button.add_theme_font_size_override("font_size", clampi(int(tile_size.x * 0.25), 10, 18))
-		var safe_area: Array = _tile_skin.geometry.get("face_safe_area", [92, 104, 328, 400])
-		var source_size: Array = _tile_skin.geometry.get("source_size", [512, 640])
+		var shadow_offset_ratio: Array = _tile_skin.depth_presentation.get("shadow_offset_ratio", [0.05, 0.07])
+		var shadow_art: TextureRect = _shadow_art[tile.id]
+		shadow_art.position = Vector2(
+			button.size.x * float(shadow_offset_ratio[0]),
+			button.size.y * float(shadow_offset_ratio[1])
+		)
+		shadow_art.size = button.size
+		var active_geometry: Dictionary = _tile_skin.active_geometry()
+		var safe_area: Array = active_geometry.get("face_safe_area", [92, 104, 328, 400])
+		var source_size: Array = active_geometry.get("source_size", [512, 640])
 		var face_art: TextureRect = _face_art[tile.id]
 		face_art.position = Vector2(
 			float(safe_area[0]) / float(source_size[0]) * button.size.x,
@@ -366,6 +451,21 @@ func _layout_tiles() -> void:
 		modifier_label.position = Vector2(button.size.x * 0.68, button.size.y * 0.02)
 		modifier_label.size = Vector2(button.size.x * 0.30, button.size.y * 0.23)
 		modifier_label.add_theme_font_size_override("font_size", clampi(int(tile_size.x * 0.19), 8, 15))
+
+
+func _depth_brightness(depth: int, max_depth: int) -> float:
+	if max_depth <= 0:
+		return 1.0
+	var floor := float(_tile_skin.depth_presentation.get("lowest_layer_brightness", 0.70))
+	return lerpf(floor, 1.0, float(depth) / float(max_depth))
+
+
+func _blocked_overlay_color() -> Color:
+	var channels: Array = _tile_skin.depth_presentation.get(
+		"blocked_overlay_color",
+		[0.06, 0.16, 0.18, 0.46]
+	)
+	return Color(float(channels[0]), float(channels[1]), float(channels[2]), float(channels[3]))
 
 
 func _grid_bounds() -> Rect2i:
@@ -416,16 +516,15 @@ func _tile_tooltip(tile: Variant) -> String:
 
 
 func _apply_tile_style(button: Button, selectable: bool, face_down: bool = false) -> void:
-	var normal := _tile_style(Color("fffdf4"), Color("35636b"), 2, Vector2(0.0, 4.0))
+	var normal := _art_backing_style()
 	var hover := _tile_style(Color("ffffff"), Color("57d8b0"), 3, Vector2(0.0, 4.0))
 	var pressed := _tile_style(Color("e6f2e7"), Color("ef496f"), 4, Vector2(0.0, 1.0))
 	if face_down:
-		normal = _tile_style(Color("173b42"), Color("ef496f"), 3, Vector2(0.0, 4.0))
-		hover = _tile_style(Color("21515a"), Color("57d8b0"), 4, Vector2(0.0, 4.0))
-		pressed = _tile_style(Color("102d33"), Color("ffd166"), 4, Vector2(0.0, 1.0))
+		normal = _art_backing_style()
+		hover = _art_backing_style()
+		pressed = _art_backing_style()
 	if not selectable:
-		normal = _tile_style(Color("263a3d"), Color("303d3d"), 2, Vector2(0.0, 3.0)) if face_down \
-			else _tile_style(Color("a7a99f"), Color("3d4746"), 2, Vector2(0.0, 3.0))
+		normal = _art_backing_style()
 		hover = normal
 		pressed = normal
 	button.add_theme_stylebox_override("normal", normal)
@@ -440,6 +539,15 @@ func _apply_tile_style(button: Button, selectable: bool, face_down: bool = false
 		button.add_theme_color_override("font_color", Color("fff7cf"))
 		button.add_theme_color_override("font_hover_color", Color.WHITE)
 		button.add_theme_color_override("font_pressed_color", Color.WHITE)
+
+
+func _art_backing_style() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color.TRANSPARENT
+	style.border_color = Color.TRANSPARENT
+	return style
+
+
 func _tile_style(face_color: Color, border_color: Color, border_width: int, shadow_offset: Vector2) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = face_color

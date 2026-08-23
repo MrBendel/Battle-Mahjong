@@ -19,13 +19,16 @@ func _export_directory(source_directory: String) -> int:
 	for directory_name in DirAccess.get_directories_at(source_directory):
 		failures += _export_directory(source_directory.path_join(directory_name))
 	for file_name in DirAccess.get_files_at(source_directory):
-		if file_name.get_extension().to_lower() != "svg":
-			continue
 		var source_path := source_directory.path_join(file_name)
 		var relative_path := source_path.trim_prefix(SOURCE_ROOT + "/")
 		var output_path := RUNTIME_ROOT.path_join(relative_path.get_basename() + ".png")
-		if not _export_svg(source_path, output_path):
-			failures += 1
+		match file_name.get_extension().to_lower():
+			"svg":
+				if not _export_svg(source_path, output_path):
+					failures += 1
+			"png":
+				if not _export_raster(source_path, output_path):
+					failures += 1
 	return failures
 
 
@@ -35,6 +38,29 @@ func _export_svg(source_path: String, output_path: String) -> bool:
 	if error != OK:
 		push_error("Could not rasterize %s: %s" % [source_path, error_string(error)])
 		return false
+	var absolute_directory := ProjectSettings.globalize_path(output_path.get_base_dir())
+	if DirAccess.make_dir_recursive_absolute(absolute_directory) != OK:
+		push_error("Could not create runtime asset directory: %s" % output_path.get_base_dir())
+		return false
+	error = image.save_png(output_path)
+	if error != OK:
+		push_error("Could not write %s: %s" % [output_path, error_string(error)])
+		return false
+	printerr("%s -> %s" % [source_path, output_path])
+	return true
+
+
+func _export_raster(source_path: String, output_path: String) -> bool:
+	var image := Image.new()
+	var error := image.load(source_path)
+	if error != OK:
+		push_error("Could not load %s: %s" % [source_path, error_string(error)])
+		return false
+	image.resize(
+		maxi(1, roundi(float(image.get_width()) * RUNTIME_SCALE)),
+		maxi(1, roundi(float(image.get_height()) * RUNTIME_SCALE)),
+		Image.INTERPOLATE_LANCZOS
+	)
 	var absolute_directory := ProjectSettings.globalize_path(output_path.get_base_dir())
 	if DirAccess.make_dir_recursive_absolute(absolute_directory) != OK:
 		push_error("Could not create runtime asset directory: %s" % output_path.get_base_dir())

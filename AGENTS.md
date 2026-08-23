@@ -18,7 +18,7 @@ Project-level instructions for Codex working on Battle Mahjong.
 - Avoid hard-coding tuning values; expose them through configuration.
 - Keep tile identity independent from cosmetic tile skin.
 - Preserve portrait and landscape support.
-- Author gameplay maps portrait-first. Landscape may reflow the shell around the same board, but must not rotate, transpose, stretch, or rearrange layout slots.
+- Author gameplay maps portrait-first. Landscape may reflow the shell and use orientation-specific cosmetic tile geometry, but must not rotate, transpose, or rearrange stable layout slots.
 - Build debug tooling when it materially helps verify deterministic gameplay.
 - Prefer simple, testable architecture over premature framework-building.
 - Do not implement networking, monetization, accounts, or backend systems until their milestones.
@@ -35,7 +35,7 @@ Project-level instructions for Codex working on Battle Mahjong.
 ## Current State
 
 - Milestones M0 through M6 are implemented.
-- The playable reference board uses the portrait-authored `portrait_stack_96` layout with 96 tiles and preserves that geometry in every viewport orientation.
+- The playable reference board uses the portrait-authored `portrait_stack_96` layout with 96 tiles and preserves its stable slot topology and layer order in every viewport orientation.
 - The current reference identity composition is 24 identities with four copies each. The complete 34-face art vocabulary remains a separate unresolved production decision.
 - Authored layouts live in `configuration/layouts/` and are discovered automatically.
 - Procedural layout requirements live in `configuration/layout_requirements/`.
@@ -50,6 +50,10 @@ Project-level instructions for Codex working on Battle Mahjong.
 - The responsive gameplay shell uses a portrait bottom action dock and landscape split-side action rails around the unchanged portrait-authored Board. Decorative Character/FX and debug regions yield before gameplay space.
 - Tray tiles preserve the board's current rendered tile footprint. Match transfer, landing hold, open-slot staging, collision, removal, and Undo return are presentation-only; authoritative pair resolution leaves no temporary tray occupancy.
 - M7 Batch A has a complete visual-slice candidate. The Default set contains all 34 baseline faces as separate SVG masters and PNG runtime exports, with a presentation-only mapping for the current 24 abstract identities. Board and tray share the skin manifest; blocked rejection, board-to-tray motion, transaction-driven pair removal, and the brush-arcade background remain presentation-only.
+- Board-stack depth is presentation-only: authored lower `z` layers are progressively darker, upper tiles cast compact silhouette shadows, and blocked state uses a separate cool veil. Face-down tiles use the blank ceramic base without placeholder text.
+- Adjacent Default-skin tiles use a configurable slight visual overlap to compensate for transparent base-art padding in portrait and landscape; spacing remains cosmetic and must not alter authored board positions.
+- Default tiles derive a configurable asymmetric manga-ink silhouette from the active base texture across board, tray, and animation previews; it remains presentation-only and distinct from cast shadows and blocked state.
+- The Default skin has orientation-specific supplied ceramic bases: tall in portrait and wide in landscape. The active base, face safe area, board footprint, tray footprint, and animation previews change together without changing stable layout slots or simulation rules.
 - The M3 scoring model uses a mistake-driven Combo chain. Natural pairs extend Combo; ordinary unmatched selections and elapsed time preserve it; live locked-tile taps and successful consumables break it through replay-safe transactions. Combo remains separate from the pair-difficulty score reward.
 - Deterministic tile and pair difficulty analysis runs before each accepted natural selection and records derived transaction telemetry. The provisional geometry-only formula is documented in `docs/PAIR_DIFFICULTY.md`; it must remain orientation- and skin-independent and must not affect rewards until playtest validation.
 - Cross-game state boundaries are documented in `docs/PLAYER_PROFILE.md`. M9 will implement local profiles and a durable game library before replay presentation, game modes, backend work, or progression.

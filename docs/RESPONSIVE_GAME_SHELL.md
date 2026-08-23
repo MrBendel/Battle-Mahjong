@@ -1,6 +1,6 @@
 # Responsive Game Shell
 
-The mobile/console-oriented shell follows two presentation compositions around the same portrait-authored board. Orientation may reposition HUD and action regions, but it never rotates, transposes, stretches, or rearranges board slots.
+The mobile/console-oriented shell follows two presentation compositions around the same portrait-authored board. Orientation may reposition HUD and action regions and select an orientation-specific cosmetic tile geometry, but it never rotates, transposes, or rearranges stable board slots.
 
 ## Portrait
 
@@ -13,6 +13,8 @@ Portrait uses a strict vertical priority stack:
 
 The pause control stays in the upper-right safe area. The action dock uses one horizontal row of large touch targets. Decorative Character/FX and the debug panel are hidden by default so they cannot reduce the Board footprint. The debug panel remains available through the `show_debug_panel` Inspector property.
 
+On compact phones below `800` logical pixels tall, the redundant Board title and tile-count header collapse before the tile field shrinks. This keeps the tall ceramic tiles above their `32 x 48` presentation minimum.
+
 ## Landscape
 
 Landscape reserves a top HUD row and two side action rails:
@@ -20,7 +22,7 @@ Landscape reserves a top HUD row and two side action rails:
 - Score and Momentum occupy the upper-left.
 - The tray is centered over the Board.
 - Pause occupies the upper-right safe area.
-- The portrait-authored Board remains centered and consumes the middle playfield.
+- The portrait-authored Board remains centered and consumes the middle playfield, using the Default skin's wide ceramic base without changing slot IDs or layer order.
 - Hint and Delete Pair occupy the lower-left rail.
 - Shuffle and Undo occupy the lower-right rail.
 

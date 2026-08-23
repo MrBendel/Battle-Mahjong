@@ -10,6 +10,8 @@ const GAP := 8.0
 var _game: Variant
 var _status_label: Label
 var _slots: Array[Panel] = []
+var _slot_ink_outlines: Array[TextureRect] = []
+var _slot_bases: Array[TextureRect] = []
 var _slot_labels: Array[Label] = []
 var _slot_art: Array[TextureRect] = []
 var _slot_modifiers: Array[Label] = []
@@ -60,11 +62,16 @@ func refresh() -> void:
 	for index in range(SLOT_COUNT):
 		var occupied: bool = index < _game.tray.tiles.size()
 		var label := _slot_labels[index]
+		var ink_outline := _slot_ink_outlines[index]
+		var base_art := _slot_bases[index]
 		var face_art := _slot_art[index]
 		var modifier_label := _slot_modifiers[index]
 		var tile: Variant = _game.tray.tiles[index] if occupied else null
 		var presented: bool = occupied and not _suppressed_tile_ids.has(tile.id)
 		if presented:
+			_tile_skin.configure_ink_outline(ink_outline)
+			base_art.texture = _tile_skin.tile_base_texture()
+			base_art.visible = base_art.texture != null
 			face_art.texture = _tile_skin.texture_for_face(tile.face)
 			face_art.visible = face_art.texture != null
 			label.text = _tile_skin.label_for_face(tile.face)
@@ -73,6 +80,9 @@ func refresh() -> void:
 			modifier_label.visible = not modifier_label.text.is_empty()
 			_slots[index].add_theme_stylebox_override("panel", _tile_style())
 		else:
+			ink_outline.visible = false
+			base_art.texture = _tile_skin.tile_base_texture() if occupied else null
+			base_art.visible = false
 			face_art.texture = _tile_skin.texture_for_face(tile.face) if occupied else null
 			face_art.visible = false
 			modifier_label.text = _modifier_symbol(tile) if occupied else ""
@@ -117,6 +127,14 @@ func _build() -> void:
 
 	for index in range(SLOT_COUNT):
 		var slot := Panel.new()
+		var ink_outline := TextureRect.new()
+		ink_outline.name = "InkOutline"
+		_tile_skin.configure_ink_outline(ink_outline)
+		ink_outline.visible = false
+		var base_art := TextureRect.new()
+		base_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		base_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		base_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		var face_art := TextureRect.new()
 		face_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		face_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -129,11 +147,15 @@ func _build() -> void:
 		modifier_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		modifier_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		modifier_label.add_theme_color_override("font_color", Color("fff7cf"))
+		slot.add_child(ink_outline)
+		slot.add_child(base_art)
 		slot.add_child(face_art)
 		slot.add_child(label)
 		slot.add_child(modifier_label)
 		add_child(slot)
 		_slots.append(slot)
+		_slot_ink_outlines.append(ink_outline)
+		_slot_bases.append(base_art)
 		_slot_labels.append(label)
 		_slot_art.append(face_art)
 		_slot_modifiers.append(modifier_label)
@@ -147,12 +169,15 @@ func _layout() -> void:
 	var group_width := _tile_visual_size.x * SLOT_COUNT + GAP * (SLOT_COUNT - 1)
 	var group_x := (size.x - group_width) * 0.5
 	var body_y := maxf(26.0, size.y - _tile_visual_size.y - 6.0)
-	var safe_area: Array = _tile_skin.geometry.get("face_safe_area", [92, 104, 328, 400])
-	var source_size: Array = _tile_skin.geometry.get("source_size", [512, 640])
+	var active_geometry: Dictionary = _tile_skin.active_geometry()
+	var safe_area: Array = active_geometry.get("face_safe_area", [92, 104, 328, 400])
+	var source_size: Array = active_geometry.get("source_size", [512, 640])
 
 	for index in range(SLOT_COUNT):
 		_slots[index].position = Vector2(group_x + index * (_tile_visual_size.x + GAP), body_y)
 		_slots[index].size = _tile_visual_size
+		_slot_bases[index].position = Vector2.ZERO
+		_slot_bases[index].size = _tile_visual_size
 		_slot_art[index].position = Vector2(
 			float(safe_area[0]) / float(source_size[0]) * _tile_visual_size.x,
 			float(safe_area[1]) / float(source_size[1]) * _tile_visual_size.y
@@ -180,6 +205,17 @@ func create_tile_preview(index: int) -> Control:
 	var preview := Panel.new()
 	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	preview.add_theme_stylebox_override("panel", _tile_style())
+	var ink_outline := TextureRect.new()
+	ink_outline.name = "InkOutline"
+	_tile_skin.configure_ink_outline(ink_outline)
+	preview.add_child(ink_outline)
+	var base_art := TextureRect.new()
+	base_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	base_art.texture = _tile_skin.tile_base_texture()
+	base_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	base_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	base_art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	preview.add_child(base_art)
 	var source_art: TextureRect = _slot_art[index]
 	if source_art.texture != null:
 		var face_art := TextureRect.new()
@@ -206,13 +242,8 @@ func create_tile_preview(index: int) -> Control:
 
 func _tile_style() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color("fffdf4")
-	style.border_color = Color("35636b")
-	style.set_border_width_all(2)
-	style.set_corner_radius_all(5)
-	style.shadow_color = Color(0.0, 0.0, 0.0, 0.55)
-	style.shadow_size = 3
-	style.shadow_offset = Vector2(0.0, 4.0)
+	style.bg_color = Color.TRANSPARENT
+	style.border_color = Color.TRANSPARENT
 	return style
 
 
