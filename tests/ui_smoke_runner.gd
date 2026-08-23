@@ -109,12 +109,7 @@ func _run() -> void:
 		_check_equal(tray_before_reveal, live_game.tray.tiles.size(), "shell reveal leaves tray occupancy unchanged")
 		_check_equal(motion_before_reveal, shell.get("_tile_motion_count"), "shell reveal does not start tray transfer")
 		_check(reveal_art.visible and reveal_button.text.is_empty(), "revealed tile displays its face in place")
-		var reveal_depth_brightness := float(reveal_button.get_meta("depth_brightness"))
-		_check_equal(
-			Color(reveal_depth_brightness, reveal_depth_brightness, reveal_depth_brightness),
-			reveal_button.modulate,
-			"revealed flipped tile removes locked-state darkness while preserving depth lighting"
-		)
+		_check_equal(Color.WHITE, reveal_button.modulate, "revealed flipped tile uses canonical available-tile brightness")
 		_check(not bool(reveal_button.get_meta("targetable")), "revealed flipped tile remains pinned to the board")
 		var nonmatching_tile_id := ""
 		var revealed_face: Variant = live_game.definition.get_tile(revealable_tile_id).face
@@ -312,12 +307,7 @@ func _run() -> void:
 		await create_timer(0.25).timeout
 		shell.call("_on_delete_pair_requested")
 		_check(not target_button.disabled, "Delete Pair mode enables visible tiles blocked from normal movement")
-		var target_depth_brightness := float(target_button.get_meta("depth_brightness"))
-		_check_equal(
-			Color(target_depth_brightness, target_depth_brightness, target_depth_brightness),
-			target_button.modulate,
-			"Delete Pair target removes locked-state darkness while preserving depth lighting"
-		)
+		_check_equal(Color.WHITE, target_button.modulate, "Delete Pair target uses canonical available-tile brightness")
 		_check(not target_overlay.visible, "Delete Pair target removes the blocked-state veil")
 
 	shell.call("_on_restart_requested")
@@ -483,6 +473,11 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 		tray.position.y + tray.size.y <= board.position.y,
 		"%s tray stays above the game board" % orientation
 	)
+	var board_global_rect := board.get_global_rect()
+	for slot_index in range(4):
+		var tray_tile_rect: Rect2 = tray.call("slot_visual_global_rect", slot_index)
+		_check(not tray_tile_rect.intersects(board_global_rect), "%s rendered tray tile %d does not overlap the Board" % [orientation, slot_index + 1])
+		_check(tray.get_global_rect().encloses(tray_tile_rect), "%s rendered tray tile %d stays inside the Tray" % [orientation, slot_index + 1])
 	if orientation == "portrait":
 		_check(board.position.y + board.size.y <= regions.consumables.position.y, "portrait Board ends above the bottom action dock")
 		_check(not regions.character.visible, "portrait decorative region yields to the gameplay stack")
@@ -525,6 +520,7 @@ func _validate_board_tiles(shell: Control, orientation: String) -> void:
 	var has_visible_base := false
 	var has_visible_shadow := false
 	var has_visible_ink_outline := false
+	var selectable_brightness_is_canonical := true
 	for button in board.get("_tile_buttons").values():
 		var tile_rect := Rect2(button.position, button.size)
 		_check(tile_layer_rect.encloses(tile_rect), "%s %s stays inside board bounds" % [orientation, button.name])
@@ -532,6 +528,8 @@ func _validate_board_tiles(shell: Control, orientation: String) -> void:
 		minimum_tile_size.y = minf(minimum_tile_size.y, button.size.y)
 		if button.visible:
 			has_visible_tile = true
+			if bool(button.get_meta("targetable", false)) and button.modulate != Color.WHITE:
+				selectable_brightness_is_canonical = false
 			var ink_outline: TextureRect = button.get_node("InkOutline")
 			if ink_outline.visible and not has_visible_ink_outline:
 				has_visible_ink_outline = true
@@ -558,6 +556,7 @@ func _validate_board_tiles(shell: Control, orientation: String) -> void:
 	_check(has_visible_base, "%s board renders the supplied ceramic base artwork" % orientation)
 	_check(has_visible_shadow, "%s board renders cast shadows beneath tiles" % orientation)
 	_check(has_visible_ink_outline, "%s board renders manga-ink tile silhouettes" % orientation)
+	_check(selectable_brightness_is_canonical, "%s all selectable tiles share canonical brightness" % orientation)
 	var adjacent_pair_checked := false
 	var board_tiles: Array = shell.get("_game").board.tiles
 	for left_tile in board_tiles:

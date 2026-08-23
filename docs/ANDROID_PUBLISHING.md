@@ -71,12 +71,14 @@ The tester must open the link with an authorized Google account and accept the i
 
 ## Versioning
 
-By default, version codes are whole UTC seconds since January 1, 2020. This provides monotonic codes without modifying tracked files. Override release identity when needed:
+Every PR increments the tracked semantic patch version in `export_presets.cfg` according to [Application Versioning](VERSIONING.md). Publishing combines that version with a generated Play code, for example `0.1.1-internal.209700000`.
+
+By default, version codes are whole UTC seconds since January 1, 2020. This provides monotonic Play codes without relying on the small tracked debug code. Override release identity when needed:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/publish_internal.ps1 `
   -VersionCode 210000001 `
-  -VersionName "0.2.0-internal.1"
+  -VersionName "0.2.0-internal.210000001"
 ```
 
 Google Play rejects a version code that has already been uploaded.
@@ -93,7 +95,7 @@ The workflow (`.github/workflows/deploy_playstore_hashtag.yml`):
 3. Sets up Godot 4.6.3 and Android SDK.
 4. Runs the core test suite (`res://tests/cli_test_runner.gd`).
 5. Decodes the release keystore and sets a monotonic 2020-epoch version code.
-6. Exports a signed release bundle (`.aab`).
+6. Derives the release name from the tracked semantic version and exports a signed release bundle (`.aab`).
 7. Uploads to the Google Play Internal testing track.
 8. Posts a status comment back on the PR with version details.
 
@@ -108,10 +110,12 @@ Configure the following secrets in GitHub Repository Settings (`Settings > Secre
 
 ## Google Play In-App Updates Integration
 
-The game uses `UpdateChecker` (`res://scripts/presentation/update_checker.gd`) to interface with native Google Play Core in-app update plugins (`GodotPlayCore`, `GodotGooglePlayInAppUpdate`, `InAppUpdate`).
+The game contains an `UpdateChecker` adapter (`res://scripts/presentation/update_checker.gd`) for native Google Play Core in-app update plugins (`GodotPlayCore`, `GodotGooglePlayInAppUpdate`, `InAppUpdate`). The repository does not currently include or export one of those native plugin artifacts. Until a compatible Godot 4.6.3 Android plugin is integrated and device-tested, Android builds fall back to reporting no available update and cannot show an in-app Play update flow.
 
-- **Android Runtime**: `UpdateChecker` discovers native Play Core plugins at runtime, checks Play Store update availability, and triggers flexible or immediate in-app updates via `start_in_app_update()`.
+- **Future Android Runtime**: after plugin integration, `UpdateChecker` discovers the native singleton, checks Play Store update availability, and triggers flexible or immediate in-app updates via `start_in_app_update()`.
 - **Offline / Non-Android Fallback**: When running off-Android or without native plugins, `UpdateChecker` operates fully offline without issuing external HTTP network requests.
+
+Semantic patch bumps make release identity readable, while monotonic Android version codes make builds eligible for Google Play updates. Neither substitutes for the missing native integration.
 
 
 

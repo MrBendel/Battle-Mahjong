@@ -58,6 +58,37 @@ function Invoke-Adb {
     return Invoke-Checked -FilePath $Adb -Arguments (@("-s", $script:Serial) + $Arguments)
 }
 
+function Save-AdbExecOut {
+    param([string[]]$Arguments, [string]$Destination)
+    $quotedArguments = @("-s", $script:Serial) + $Arguments | ForEach-Object {
+        '"{0}"' -f $_.Replace('"', '\"')
+    }
+    $startInfo = [Diagnostics.ProcessStartInfo]::new()
+    $startInfo.FileName = $Adb
+    $startInfo.Arguments = $quotedArguments -join " "
+    $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $true
+    $startInfo.RedirectStandardOutput = $true
+    $process = [Diagnostics.Process]::new()
+    $process.StartInfo = $startInfo
+    $output = $null
+    try {
+        [void]$process.Start()
+        $output = [IO.File]::Open($Destination, [IO.FileMode]::Create, [IO.FileAccess]::Write)
+        $process.StandardOutput.BaseStream.CopyTo($output)
+        $process.WaitForExit()
+        if ($process.ExitCode -ne 0) {
+            throw "ADB exec-out failed with exit code $($process.ExitCode)."
+        }
+    }
+    finally {
+        if ($null -ne $output) {
+            $output.Dispose()
+        }
+        $process.Dispose()
+    }
+}
+
 function Get-EmulatorSerial {
     $lines = & $Adb devices
     foreach ($line in $lines) {
@@ -159,9 +190,14 @@ function Capture-Orientation {
     $local = Join-Path $OutputDirectory "android-$Suffix.png"
     $captureDeadline = [DateTime]::UtcNow.AddSeconds(15)
     while ([DateTime]::UtcNow -lt $captureDeadline) {
-        & $Adb -s $script:Serial exec-out run-as $PackageName cat files/android_viewport_capture.png 2>$null > $local
-        if ($LASTEXITCODE -eq 0 -and (Test-Path -LiteralPath $local) -and (Get-Item -LiteralPath $local).Length -gt 100) {
-            break
+        try {
+            Save-AdbExecOut -Arguments @("exec-out", "run-as", $PackageName, "cat", "files/android_viewport_capture.png") -Destination $local
+            if ((Test-Path -LiteralPath $local) -and (Get-Item -LiteralPath $local).Length -gt 100) {
+                break
+            }
+        }
+        catch {
+            # The app may still be replacing the capture while ADB reads it.
         }
         Start-Sleep -Milliseconds 500
     }
