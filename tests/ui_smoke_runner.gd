@@ -158,16 +158,15 @@ func _run() -> void:
 	_check_equal(stage_feedback_before + 1, shell.get("_pair_feedback_count"), "flipped tray collision triggers the shared removal burst")
 	await create_timer(0.24).timeout
 	var tray_match_rect: Rect2 = shell.get("_regions").tray.call("slot_global_rect", 0)
+	var flipped_target_rect: Rect2 = shell.get("_regions").tray.call("slot_global_rect", 1)
 	var tray_visuals := [
 		{"preview": Panel.new(), "rect": Rect2(Vector2(root.size.x * 0.5, root.size.y * 0.7), Vector2(42.0, 54.0))},
 		{"preview": Panel.new(), "rect": tray_match_rect},
 	]
-	var tray_stage_before: int = shell.get("_flipped_pair_staging_count")
+	var tray_motion_before: int = shell.get("_tile_motion_count")
 	var tray_collision_before: int = shell.get("_pair_collision_count")
-	var tray_stage_targets: Array[Rect2] = shell.call("_flipped_pair_staging_rects")
-	shell.call("_play_flipped_pair_via_open_slots", tray_visuals, true)
-	_check_equal(tray_stage_before + 1, shell.get("_flipped_pair_staging_count"), "flipped-to-tray match uses the shared staging presentation")
-	_check_equal(tray_stage_targets[1], shell.get("_last_tile_motion_target"), "flipped-to-tray match targets the second open slot")
+	shell.call("_play_flipped_match_to_tray", tray_visuals, flipped_target_rect, true)
+	_check_equal(tray_motion_before, shell.get("_tile_motion_count"), "flipped tile reveals before starting tray motion")
 	var tray_incoming: Control = tray_visuals[0].preview
 	var tray_start: Vector2 = tray_incoming.position
 	_check(tray_incoming.scale.x < 0.1, "matching flipped tile begins its face reveal edge-on")
@@ -175,11 +174,13 @@ func _run() -> void:
 	_check_equal(tray_start, tray_incoming.position, "matching flipped tile reveals in place before tray motion")
 	_check(tray_incoming.scale.x > 0.1, "matching flipped tile face becomes visible during the reveal beat")
 	await create_timer(0.10).timeout
-	_check_equal(tray_collision_before, shell.get("_pair_collision_count"), "flipped pair begins tray travel only after revealing")
+	_check_equal(tray_motion_before + 1, shell.get("_tile_motion_count"), "revealed flipped tile starts one normal tray transfer")
+	_check_equal(flipped_target_rect, shell.get("_last_tile_motion_target"), "revealed flipped tile targets the open slot")
+	_check_equal(tray_collision_before, shell.get("_pair_collision_count"), "flipped tile begins tray travel only after revealing")
 	await create_timer(0.43).timeout
-	_check_equal(tray_collision_before + 1, shell.get("_pair_collision_count"), "flipped pair collides after both tiles stage")
-	var expected_tray_collision := (tray_stage_targets[0].get_center() + tray_stage_targets[1].get_center()) * 0.5
-	_check_equal(expected_tray_collision, shell.get("_last_pair_collision_position"), "flipped-to-tray collision occurs between open slots")
+	_check_equal(tray_collision_before + 1, shell.get("_pair_collision_count"), "flipped tile collides with its held mate")
+	var expected_tray_collision := (flipped_target_rect.get_center() + tray_match_rect.get_center()) * 0.5
+	_check_equal(expected_tray_collision, shell.get("_last_pair_collision_position"), "flipped-to-tray collision matches ordinary tray behavior")
 	await create_timer(0.24).timeout
 	var representative_button: Button = null
 	for tile in live_game.board.tiles:

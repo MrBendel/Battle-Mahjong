@@ -224,8 +224,11 @@ func refresh() -> void:
 
 		var face_down: bool = _game.board.call("is_tile_face_down", tile.id)
 		var revealed_flipped: bool = _game.board.call("is_tile_revealed_flipped", tile.id)
+		var revealed_tray_match: bool = revealed_flipped \
+			and not _game.call("flipped_match_candidate", tile.id).is_empty()
 		var selectable: bool = (_delete_pair_armed and visible_ids.has(tile.id) and not face_down \
-			or not _delete_pair_armed and (selectable_ids.has(tile.id) or revealable_ids.has(tile.id))) \
+			or not _delete_pair_armed and (selectable_ids.has(tile.id) \
+				or revealable_ids.has(tile.id) or revealed_tray_match)) \
 			and _game.status == "playing"
 		var visually_active: bool = selectable or revealed_flipped
 		button.tooltip_text = _tile_tooltip(tile)
@@ -276,7 +279,10 @@ func refresh() -> void:
 func _on_tile_pressed(tile_id: String) -> void:
 	var targetable: bool = (_game.board.call("is_tile_visible", tile_id) \
 		and not _game.board.call("is_tile_face_down", tile_id)) if _delete_pair_armed \
-		else (_game.board.call("is_tile_selectable", tile_id) or _game.board.call("is_tile_revealable", tile_id))
+		else (_game.board.call("is_tile_selectable", tile_id) \
+			or _game.board.call("is_tile_revealable", tile_id) \
+			or _game.board.call("is_tile_revealed_flipped", tile_id) \
+				and not _game.call("flipped_match_candidate", tile_id).is_empty())
 	if _game.status != "playing":
 		return
 	if not targetable:

@@ -48,16 +48,17 @@ func run(seed: int, policy: String = PAIR_AWARE, policy_config: Dictionary = {})
 		effective_policy_config["attention_limit"] = attention_limit
 
 	while game.status == GameStateScript.PLAYING:
-		var tile: Variant
-		match policy:
-			RANDOM:
-				tile = _choose_random_tile(game, policy_rng)
-			BOUNDED_ATTENTION:
-				tile = _choose_bounded_attention_tile(game, policy_rng, attention_limit)
-			_:
-				if solution_index < perfect_solution.size():
-					tile = game.board.call("get_tile", perfect_solution[solution_index])
-					solution_index += 1
+		var tile: Variant = _revealed_flipped_tray_match_tile(game)
+		if tile == null:
+			match policy:
+				RANDOM:
+					tile = _choose_random_tile(game, policy_rng)
+				BOUNDED_ATTENTION:
+					tile = _choose_bounded_attention_tile(game, policy_rng, attention_limit)
+				_:
+					if solution_index < perfect_solution.size():
+						tile = game.board.call("get_tile", perfect_solution[solution_index])
+						solution_index += 1
 
 		if tile == null:
 			break
@@ -103,6 +104,14 @@ func run(seed: int, policy: String = PAIR_AWARE, policy_config: Dictionary = {})
 		"difficulty_reward_tiers": difficulty_reward_tiers,
 		"elapsed_time_ms": game.elapsed_time_ms,
 	}
+
+
+func _revealed_flipped_tray_match_tile(game: Variant) -> Variant:
+	for tile_id in game.call("current_snapshot").revealed_flipped_tile_ids:
+		if game.board.call("is_tile_revealed_flipped", tile_id) \
+				and not game.call("flipped_match_candidate", tile_id).is_empty():
+			return game.board.call("get_tile", tile_id)
+	return null
 
 
 func _choose_bounded_attention_tile(game: Variant, rng: Variant, attention_limit: int) -> Variant:

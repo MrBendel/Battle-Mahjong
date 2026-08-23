@@ -345,12 +345,17 @@ func _run_flipped_tile_tests() -> void:
 	_check_equal(GameStateScript.INVALID_SELECTION, direct_game.call("select_tile", "flipped", 100), "revealed flipped tile still cannot enter the tray")
 	_check_equal(GameStateScript.HINTED, direct_game.call("request_hint", 150), "Hint can use a known revealed flipped face")
 	_check_equal(["flipped", "ordinary"], direct_game.call("hinted_tile_ids"), "Hint points from revealed tile to ordinary mate")
-	_check_equal(GameStateScript.FLIPPED_PAIR_RESOLVED, direct_game.call("select_tile", "ordinary", 200), "matching ordinary tile resolves directly against revealed tile")
-	_check_equal(0, direct_game.tray.tiles.size(), "direct flipped match bypasses tray data")
-	_check_equal(1, direct_game.tray.resolved_pair_count, "direct flipped match counts as one pair")
-	_check_equal(1, direct_game.call("combo_at", 200), "direct flipped match extends natural Combo")
-	_check_equal(GameStateScript.WON, direct_game.status, "direct flipped match can complete the board")
-	_check(bool(direct_game.call("last_transaction").telemetry.flipped_pair), "direct match records flipped-pair telemetry")
+	_check_equal({}, direct_game.call("flipped_match_candidate", "ordinary"), "board mate cannot resolve directly against revealed tile")
+	_check_equal(GameStateScript.SELECTED, direct_game.call("select_tile", "ordinary", 200), "matching ordinary board tile enters the tray first")
+	_check_equal(["ordinary"], _tile_ids(direct_game.tray.tiles), "board mate occupies the authoritative tray slot")
+	_check(direct_game.board.call("is_tile_revealed_flipped", "flipped"), "known flipped tile remains face-up while its mate stages")
+	_check_equal("ordinary", direct_game.call("flipped_match_candidate", "flipped").tile_id, "revealed tile becomes targetable against its held mate")
+	_check_equal(GameStateScript.FLIPPED_PAIR_RESOLVED, direct_game.call("tap_tile", "flipped", 300), "tapping revealed tile resolves its held mate")
+	_check_equal(0, direct_game.tray.tiles.size(), "flipped-to-tray match clears the held tile atomically")
+	_check_equal(1, direct_game.tray.resolved_pair_count, "staged flipped match counts as one pair")
+	_check_equal(1, direct_game.call("combo_at", 300), "staged flipped match extends natural Combo")
+	_check_equal(GameStateScript.WON, direct_game.status, "staged flipped match can complete the board")
+	_check(bool(direct_game.call("last_transaction").telemetry.flipped_pair), "staged match records flipped-pair telemetry")
 
 	var replica := GameStateScript.new(direct_definition)
 	for transaction in direct_game.call("transactions"):
@@ -364,11 +369,33 @@ func _run_flipped_tile_tests() -> void:
 	)
 	_check(reversed != null, "direct flipped match applies in reverse")
 	_check_equal(["flipped"], reversed.revealed_flipped_tile_ids, "reverse restores the remembered face-up tile")
+	_check_equal(["ordinary"], reversed.tray_tile_ids, "reverse restores the staged ordinary mate")
+
+	var rules_ten_definition := GameDefinitionScript.new(1, direct_tiles, {"tray_capacity": 4}, 10, [], {}, null, ["flipped"])
+	var rules_ten_game := GameStateScript.new(rules_ten_definition)
+	_check_equal(GameStateScript.TILE_REVEALED, rules_ten_game.call("reveal_tile", "flipped"), "rules version 10 tile reveals")
+	_check_equal(GameStateScript.FLIPPED_PAIR_RESOLVED, rules_ten_game.call("select_tile", "ordinary"), "rules version 10 preserves direct board matching")
 
 	var tray_game := GameStateScript.new(_definition_with_flips(direct_tiles, ["flipped"]))
 	_check_equal(GameStateScript.SELECTED, tray_game.call("select_tile", "ordinary", 100), "ordinary mate can enter tray before reveal")
 	_check_equal(GameStateScript.FLIPPED_PAIR_RESOLVED, tray_game.call("reveal_tile", "flipped", 200), "revealed tile resolves matching tray tile directly")
 	_check_equal(0, tray_game.tray.tiles.size(), "tray-to-flipped match clears held tile atomically")
+
+	var danger_tiles := [
+		TileInstanceScript.new("held_a", TileFaceScript.new("test", "held_a"), BoardPositionScript.new(0, 0, 0)),
+		TileInstanceScript.new("held_b", TileFaceScript.new("test", "held_b"), BoardPositionScript.new(8, 0, 0)),
+		TileInstanceScript.new("held_c", TileFaceScript.new("test", "held_c"), BoardPositionScript.new(16, 0, 0)),
+		TileInstanceScript.new("danger_flip", memory_face, BoardPositionScript.new(24, 0, 0)),
+		TileInstanceScript.new("danger_mate", memory_face, BoardPositionScript.new(32, 0, 0)),
+	]
+	var danger_game := GameStateScript.new(_definition_with_flips(danger_tiles, ["danger_flip"]))
+	for held_id in ["held_a", "held_b", "held_c"]:
+		_check_equal(GameStateScript.SELECTED, danger_game.call("select_tile", held_id), "danger setup fills one tray slot")
+	_check_equal(GameStateScript.TILE_REVEALED, danger_game.call("reveal_tile", "danger_flip"), "danger setup reveals its flipped tile")
+	_check_equal(GameStateScript.GAME_OVER, danger_game.call("select_tile", "danger_mate"), "board mate cannot bypass a three-tile tray")
+	_check_equal(GameStateScript.LOST, danger_game.status, "fourth authoritative tray tile loses normally")
+	_check_equal(4, danger_game.tray.tiles.size(), "failed staged match retains all four tray tiles")
+	_check_equal(0, danger_game.tray.resolved_pair_count, "failed staged match resolves no free pair")
 	var hidden_delete_game := GameStateScript.new(_definition_with_flips(direct_tiles, ["flipped"]))
 	_check_equal(GameStateScript.NO_DELETABLE_PAIR, hidden_delete_game.call("delete_pair", "flipped"), "Delete Pair cannot target a hidden tile face")
 	_check_equal(1, hidden_delete_game.call("consumable_count", "delete_pair"), "hidden Delete Pair rejection consumes no charge")
@@ -396,10 +423,11 @@ func _run_flipped_tile_tests() -> void:
 	_check_equal(["other"], two_flip_game.call("current_snapshot").revealed_flipped_tile_ids, "only one unmatched flipped face remains exposed")
 
 	var duplicate_flip_definition: Variant = _definition_with_flips(direct_tiles, ["ordinary", "flipped"])
-	_check_equal(["flipped"], duplicate_flip_definition.flipped_tile_ids, "rules version 10 keeps at most one flipped tile per face")
+	_check_equal(["flipped"], duplicate_flip_definition.flipped_tile_ids, "current rules keep at most one flipped tile per face")
 	var duplicate_flip_game := GameStateScript.new(duplicate_flip_definition)
 	_check_equal(GameStateScript.TILE_REVEALED, duplicate_flip_game.call("reveal_tile", "flipped"), "single flipped mate reveals")
-	_check_equal(GameStateScript.FLIPPED_PAIR_RESOLVED, duplicate_flip_game.call("select_tile", "ordinary"), "ordinary mate resolves the single flipped tile")
+	_check_equal(GameStateScript.SELECTED, duplicate_flip_game.call("select_tile", "ordinary"), "ordinary mate stages before the single flipped tile")
+	_check_equal(GameStateScript.FLIPPED_PAIR_RESOLVED, duplicate_flip_game.call("tap_tile", "flipped"), "staged ordinary mate resolves the single flipped tile")
 	var legacy_double_definition := GameDefinitionScript.new(1, direct_tiles, {"tray_capacity": 4}, 9, [], {}, null, ["ordinary", "flipped"])
 	var legacy_double_game := GameStateScript.new(legacy_double_definition)
 	_check_equal(GameStateScript.TILE_REVEALED, legacy_double_game.call("reveal_tile", "flipped"), "rules version 9 first flipped mate reveals")
@@ -549,7 +577,7 @@ func _run_momentum_tests() -> void:
 		TileInstanceScript.new("fourth", second_face, BoardPositionScript.new(12, 0, 0)),
 	])
 	var configuration: Dictionary = definition.configuration
-	_check_equal(10, definition.rules_version, "auto-reveal rules use rules version 10")
+	_check_equal(11, definition.rules_version, "tray-staged flipped matching uses rules version 11")
 	_check_equal(1, MomentumRulesScript.multiplier_for(19999, configuration), "momentum below first threshold stays x1")
 	_check_equal(2, MomentumRulesScript.multiplier_for(20000, configuration), "first threshold enters x2")
 	_check(

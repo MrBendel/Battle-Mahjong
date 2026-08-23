@@ -273,12 +273,14 @@ func _on_tile_selected(tile_id: String) -> void:
 		if face_down or not flipped_candidate.is_empty():
 			var direct_visuals := _capture_board_visuals([tile_id], face_down)
 			var direct_matching_zone := ""
+			var direct_target_rect := Rect2()
 			if not flipped_candidate.is_empty():
 				var matching_tile_id := str(flipped_candidate.tile_id)
 				direct_matching_zone = str(flipped_candidate.zone)
 				if direct_matching_zone == GameStateDataScript.ZONE_BOARD:
 					direct_visuals.append_array(_capture_board_visuals([matching_tile_id]))
 				else:
+					direct_target_rect = _regions.tray.call("slot_global_rect", mini(_game.tray.tiles.size(), 3))
 					var tray_index := _tray_index_for_tile(matching_tile_id)
 					if tray_index >= 0:
 						var tray_preview: Control = _regions.tray.call("create_tile_preview", tray_index)
@@ -297,7 +299,10 @@ func _on_tile_selected(tile_id: String) -> void:
 					visual.preview.queue_free()
 				_regions.board.call("play_flip", tile_id)
 			elif result == GameStateScript.FLIPPED_PAIR_RESOLVED:
-				_play_flipped_pair_via_open_slots(direct_visuals, face_down)
+				if direct_matching_zone == GameStateDataScript.ZONE_TRAY:
+					_play_flipped_match_to_tray(direct_visuals, direct_target_rect, face_down)
+				else:
+					_play_flipped_pair_via_open_slots(direct_visuals, face_down)
 				_regions.momentum.call("play_pair_feedback", int(direct_transaction.telemetry.resulting_multiplier))
 				_play_transaction_callout(direct_transaction)
 			else:
@@ -610,6 +615,11 @@ func _play_pair_to_tray(
 		target_rect: Rect2,
 		held_source_rect: Rect2
 ) -> void:
+	_prepare_pair_to_tray(incoming, held, source_rect, held_source_rect)
+	_start_pair_to_tray_motion(incoming, held, target_rect, held_source_rect)
+
+
+func _prepare_pair_to_tray(incoming: Control, held: Control, source_rect: Rect2, held_source_rect: Rect2) -> void:
 	add_child(incoming)
 	incoming.position = _global_to_local(source_rect.position)
 	incoming.size = source_rect.size
@@ -621,6 +631,11 @@ func _play_pair_to_tray(
 		held.size = held_source_rect.size
 		held.pivot_offset = held.size * 0.5
 		held.z_index = 999
+
+
+func _start_pair_to_tray_motion(incoming: Control, held: Control, target_rect: Rect2, held_source_rect: Rect2) -> void:
+	if not is_instance_valid(incoming):
+		return
 	_tile_motion_count += 1
 	_last_tile_motion_target = target_rect
 	var target_position := _global_to_local(target_rect.get_center()) - incoming.size * 0.5
@@ -630,6 +645,26 @@ func _play_pair_to_tray(
 	tween.tween_property(incoming, "rotation", deg_to_rad(4.0), 0.15)
 	tween.chain().tween_interval(PAIR_LANDING_HOLD_SECONDS)
 	tween.finished.connect(_play_pair_collision.bind(incoming, held, target_rect, held_source_rect))
+
+
+func _play_flipped_match_to_tray(visuals: Array, target_rect: Rect2, reveal_incoming: bool) -> void:
+	if visuals.size() != 2:
+		_play_board_pair_removal(visuals)
+		return
+	var incoming: Control = visuals[0].preview
+	var held: Control = visuals[1].preview
+	var source_rect: Rect2 = visuals[0].rect
+	var held_source_rect: Rect2 = visuals[1].rect
+	_prepare_pair_to_tray(incoming, held, source_rect, held_source_rect)
+	if not reveal_incoming:
+		_start_pair_to_tray_motion(incoming, held, target_rect, held_source_rect)
+		return
+	incoming.scale = Vector2(0.08, 1.0)
+	var reveal_tween := create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	reveal_tween.tween_property(incoming, "scale", Vector2.ONE, FLIPPED_REVEAL_SECONDS)
+	reveal_tween.finished.connect(
+		_start_pair_to_tray_motion.bind(incoming, held, target_rect, held_source_rect)
+	)
 
 
 func _play_pair_collision(incoming: Control, held: Control, incoming_rect: Rect2, held_rect: Rect2) -> void:
