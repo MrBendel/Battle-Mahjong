@@ -274,6 +274,11 @@ func _run() -> void:
 			shell.call("_on_undo_requested")
 		shell.call("_on_pause_requested")
 		shell.get("_pause_menu").emit_signal("restart_requested")
+		_check_equal(
+			shell.get("_regions").board.get("_tile_buttons").size(),
+			shell.get("_regions").board.get("_tile_layer").get_child_count(),
+			"board rebuild immediately detaches stale tile controls"
+		)
 		await process_frame
 		live_game = shell.get("_game")
 		_check_equal(0, live_game.revision, "pause-menu Restart creates a fresh game")
@@ -364,6 +369,12 @@ func _run() -> void:
 		await create_timer(0.25).timeout
 		_check_equal(delete_feedback_before + 1, shell.get("_pair_feedback_count"), "Delete Pair composes the shared removal burst")
 		_check_equal(1, live_game.tray.resolved_pair_count, "Delete Pair feedback follows a committed transaction")
+
+	var shuffle_revision: int = live_game.revision
+	shell.call("_on_shuffle_requested")
+	await process_frame
+	_check_equal(shuffle_revision + 1, live_game.revision, "Shuffle commits before input-order validation")
+	_validate_board_input_order(shell, "after Shuffle")
 
 	var orientation := "portrait" if root.size.x < root.size.y else "landscape"
 	shell.call("_apply_layout")
@@ -564,11 +575,20 @@ func _validate_board_tiles(shell: Control, orientation: String) -> void:
 	var has_visible_shadow := false
 	var has_visible_ink_outline := false
 	var selectable_brightness_is_canonical := true
-	for button in board.get("_tile_buttons").values():
+	var shadow_bands_isolate_layers := true
+	for tile in shell.get("_game").board.tiles:
+		var button: Button = board.get("_tile_buttons")[tile.id]
 		var tile_rect := Rect2(button.position, button.size)
 		_check(tile_layer_rect.encloses(tile_rect), "%s %s stays inside board bounds" % [orientation, button.name])
 		minimum_tile_size.x = minf(minimum_tile_size.x, button.size.x)
 		minimum_tile_size.y = minf(minimum_tile_size.y, button.size.y)
+		var shadow_art: TextureRect = button.get_node("DepthShadow")
+		var surface_band: int = tile.position.z * 2 + 1
+		var shadow_band: int = button.z_index + shadow_art.z_index
+		if button.z_index != surface_band or shadow_band != tile.position.z * 2:
+			shadow_bands_isolate_layers = false
+		if tile.position.z > 0 and not ((tile.position.z - 1) * 2 + 1 < shadow_band and shadow_band < surface_band):
+			shadow_bands_isolate_layers = false
 		if button.visible:
 			has_visible_tile = true
 			if bool(button.get_meta("targetable", false)) and button.modulate != Color.WHITE:
@@ -578,7 +598,6 @@ func _validate_board_tiles(shell: Control, orientation: String) -> void:
 				has_visible_ink_outline = true
 				_check(ink_outline.texture == skin.call("tile_base_texture"), "%s ink outline follows the active tile silhouette" % orientation)
 				_check(ink_outline.anchor_left < 0.0 and ink_outline.anchor_right > 1.0, "%s ink outline expands beyond the ceramic edge" % orientation)
-			var shadow_art: TextureRect = button.get_node("DepthShadow")
 			if shadow_art.visible and not has_visible_shadow:
 				has_visible_shadow = true
 				_check(shadow_art.texture == skin.call("tile_base_texture"), "%s tile shadow follows the active base silhouette" % orientation)
@@ -598,6 +617,7 @@ func _validate_board_tiles(shell: Control, orientation: String) -> void:
 	_check(has_visible_tile, "%s board renders visible tiles" % orientation)
 	_check(has_visible_base, "%s board renders the supplied ceramic base artwork" % orientation)
 	_check(has_visible_shadow, "%s board renders cast shadows beneath tiles" % orientation)
+	_check(shadow_bands_isolate_layers, "%s shadows render below their own layer and above the next tile layer" % orientation)
 	_check(has_visible_ink_outline, "%s board renders manga-ink tile silhouettes" % orientation)
 	_check(selectable_brightness_is_canonical, "%s all selectable tiles share canonical brightness" % orientation)
 	var adjacent_pair_checked := false
@@ -680,6 +700,19 @@ func _validate_consumables(shell: Control, orientation: String) -> void:
 	for child in shell.get("_regions").tray.get_children():
 		tray_has_command_button = tray_has_command_button or child is Button
 	_check(not tray_has_command_button, "%s tray contains no command buttons" % orientation)
+
+
+func _validate_board_input_order(shell: Control, context: String) -> void:
+	var board: Control = shell.get("_regions").board
+	var ordered_tiles: Array = shell.get("_game").board.tiles.duplicate()
+	ordered_tiles.sort_custom(Callable(board, "_tile_precedes_for_input"))
+	var controls_follow_stack := true
+	for index in range(ordered_tiles.size()):
+		var button: Button = board.get("_tile_buttons")[ordered_tiles[index].id]
+		if button.get_index() != index:
+			controls_follow_stack = false
+			break
+	_check(controls_follow_stack, "%s tile controls follow visual stack for overlapping touch routing" % context)
 
 
 func _find_rewardable_pair(game: Variant) -> Array[String]:
