@@ -107,8 +107,9 @@ func run(seed: int, policy: String = PAIR_AWARE, policy_config: Dictionary = {})
 
 
 func _revealed_flipped_tray_match_tile(game: Variant) -> Variant:
-	for tile_id in game.call("current_snapshot").revealed_flipped_tile_ids:
-		if game.board.call("is_tile_revealed_flipped", tile_id) \
+	for tile_id in game.definition.flipped_tile_ids:
+		if (game.board.call("is_tile_revealable", tile_id) \
+				or game.board.call("is_tile_revealed_flipped", tile_id)) \
 				and not game.call("flipped_match_candidate", tile_id).is_empty():
 			return game.board.call("get_tile", tile_id)
 	return null
