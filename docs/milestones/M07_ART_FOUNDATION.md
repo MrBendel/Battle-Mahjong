@@ -62,7 +62,7 @@ Gameplay readability always takes priority over decoration.
 
 ## Canonical Tile System
 
-Create one neutral canonical tile geometry shared by every tile skin.
+Create one neutral canonical tile identity and normalized composition contract shared by every tile skin. A skin may provide portrait and landscape base geometry variants when both preserve stable authored slots, matching identity, state readability, and equivalent interaction information.
 
 The base tile must have:
 
@@ -74,6 +74,7 @@ The base tile must have:
 - a defined safe area for face artwork;
 - a defined modifier attachment area;
 - excellent readability at the smallest supported gameplay size.
+- progressive authored-layer lighting and compact cast shadows that clearly delineate overlapping stacks.
 
 Before production export, record the geometry contract with dimensions or normalized proportions for:
 
@@ -147,7 +148,7 @@ Produce clean ivory or ceramic-inspired tiles with highly readable traditional m
 
 The Default skin establishes:
 
-- canonical proportions;
+- canonical portrait and landscape proportions;
 - baseline face readability;
 - baseline value and color contrast;
 - baseline depth and edge treatment;

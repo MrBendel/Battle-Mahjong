@@ -64,6 +64,10 @@ Visual hierarchy:
 
 Character art may move, crop, shrink, or disappear if necessary.
 
+Board depth should be legible before the player reads individual faces. Each higher authored layer is progressively brighter, and upper tiles cast a compact down-right shadow over lower tiles. Depth uses warm value steps; blocked state uses a cool translucent veil. Face-down tiles use the blank ceramic base without a question mark. These treatments are presentation-only.
+
+Default ceramic tiles use a slightly asymmetric dark warm silhouette around their outer contour to evoke manga ink rather than a clean digital border. The stroke follows the tile artwork and remains distinct from blocked-state treatment and cast shadow.
+
 ## Tile Art And Cosmetics
 
 Tiles should use a canonical geometry and rendering contract:
@@ -132,7 +136,7 @@ Status: Initial M7 Direction
 - The first visual slice will separate source masters from runtime exports.
 - Default and Neon skins will share canonical tile geometry and logical face identifiers.
 - Small repeated assets will use atlases where validation confirms they are appropriate.
-- The implemented Batch A proof uses `512 x 640` SVG masters, `256 x 320` PNG exports, a `328 x 400` face safe area, and independent modifier overlays. See [Tile Art Pipeline](TILE_ART_PIPELINE.md).
+- The Default skin uses supplied tall ceramic artwork in portrait and wide ceramic artwork in landscape. Each variant defines its own source dimensions, face safe area, and minimum footprint while preserving tile identity, stable authored slots, and independent modifier overlays. See [Tile Art Pipeline](TILE_ART_PIPELINE.md).
 - The 34 traditional identities are the required first vocabulary, not a permanent maximum.
 - The complete Default candidate set uses recognizable family/count structure with heavy rounded strokes, bright arcade color, loose brush accents, and chunky ceramic presentation.
 - Normally unselectable tiles darken. Rejected taps wiggle horizontally with a negative tone; accepted selections animate into same-size tray positions without changing their board footprint.

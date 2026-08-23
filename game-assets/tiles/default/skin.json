@@ -10,6 +10,34 @@
     "atlas_padding": 8,
     "minimum_runtime_size": [32, 40]
   },
+  "base_variants": {
+    "portrait": {
+      "asset": "res://game-assets/tiles/default/bases/tile_base_portrait.png",
+      "source_size": [1024, 1536],
+      "runtime_size": [512, 768],
+      "face_safe_area": [152, 190, 720, 1050],
+      "minimum_runtime_size": [32, 48]
+    },
+    "landscape": {
+      "asset": "res://game-assets/tiles/default/bases/tile_base_landscape.png",
+      "source_size": [1536, 1024],
+      "runtime_size": [768, 512],
+      "face_safe_area": [250, 100, 1036, 740],
+      "minimum_runtime_size": [48, 32]
+    }
+  },
+  "depth_presentation": {
+    "lowest_layer_brightness": 0.46,
+    "blocked_overlay_color": [0.06, 0.16, 0.18, 0.46],
+    "shadow_opacity": 0.46,
+    "shadow_offset_ratio": [0.05, 0.07]
+  },
+  "layout_presentation": {
+    "adjacent_gap_ratio": -0.06,
+    "ink_outline_color": [0.07, 0.035, 0.02, 0.92],
+    "ink_outline_expansion_ratio": [0.055, 0.04],
+    "ink_outline_offset_ratio": [-0.004, 0.006]
+  },
   "canonical_face_ids": [
     "bamboo_1", "bamboo_2", "bamboo_3", "bamboo_4", "bamboo_5", "bamboo_6", "bamboo_7", "bamboo_8", "bamboo_9",
     "dots_1", "dots_2", "dots_3", "dots_4", "dots_5", "dots_6", "dots_7", "dots_8", "dots_9",

@@ -93,6 +93,30 @@ func _run_tile_skin_contract_tests() -> void:
 	_check(skin.call("has_face_id", "white_dragon"), "skin includes all Dragons")
 	_check_equal(Vector2i(512, 640), Vector2i(skin.geometry.source_size[0], skin.geometry.source_size[1]), "skin records canonical source geometry")
 	_check_equal(Vector2i(32, 40), Vector2i(skin.geometry.minimum_runtime_size[0], skin.geometry.minimum_runtime_size[1]), "skin records minimum runtime footprint")
+	_check_equal(2, skin.base_variants.size(), "Default skin defines portrait and landscape ceramic bases")
+	_check(ResourceLoader.exists(str(skin.base_variants.portrait.asset)), "portrait ceramic base runtime asset exists")
+	_check(ResourceLoader.exists(str(skin.base_variants.landscape.asset)), "landscape ceramic base runtime asset exists")
+	_check(skin.call("tile_aspect") > 1.0, "portrait ceramic base uses a tall footprint")
+	skin.call("set_orientation", "landscape")
+	_check(skin.call("tile_aspect") < 1.0, "landscape ceramic base uses a wide footprint")
+	_check(skin.call("tile_base_texture") != null, "active landscape ceramic base loads")
+	_check(
+		float(skin.depth_presentation.lowest_layer_brightness) <= 0.5,
+		"Default skin preserves strong contrast between the highest and lowest authored layers"
+	)
+	var blocked_overlay: Array = skin.depth_presentation.blocked_overlay_color
+	_check(
+		float(blocked_overlay[1]) > float(blocked_overlay[0]) \
+			and float(blocked_overlay[2]) > float(blocked_overlay[0]),
+		"blocked-state veil is cool rather than another neutral depth step"
+	)
+	_check(
+		float(skin.depth_presentation.shadow_opacity) > 0.0,
+		"Default skin enables cast tile shadows"
+	)
+	_check(float(skin.layout_presentation.adjacent_gap_ratio) <= 0.0, "Default skin joins adjacent tile artwork without gaps")
+	var ink_expansion: Array = skin.layout_presentation.ink_outline_expansion_ratio
+	_check(float(ink_expansion[0]) > 0.0 and float(ink_expansion[1]) > 0.0, "Default skin expands a manga-ink silhouette around tile artwork")
 	_check_equal(24, skin.reference_preview_mapping.size(), "current abstract deal has an explicit visual preview map")
 	_check_equal("bamboo_1", skin.call("presentation_id", TileFaceScript.new("reference", "01")), "reference mapping does not change simulation identity")
 	for face_id in skin.canonical_face_ids:
