@@ -23,9 +23,17 @@ $EnabledCutout = ""
 
 function Invoke-Checked {
     param([string]$FilePath, [string[]]$Arguments)
-    $output = & $FilePath @Arguments 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        throw "Command failed with exit code ${LASTEXITCODE}: $FilePath`n$output"
+    $previousPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        $output = & $FilePath @Arguments 2>&1
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousPreference
+    }
+    if ($exitCode -ne 0) {
+        throw "Command failed with exit code ${exitCode}: $FilePath`n$output"
     }
     return $output
 }
@@ -174,6 +182,45 @@ function Assert-LayoutProbe {
     }
 }
 
+function Assert-CaptureContent {
+    param([string]$Path, [string]$Name, [string]$ExpectedOrientation)
+    Add-Type -AssemblyName System.Drawing
+    $image = [Drawing.Image]::FromFile($Path)
+    try {
+        if ($ExpectedOrientation -eq "portrait" -and $image.Width -ge $image.Height) {
+            throw "$Name screenshot has unexpected dimensions $($image.Width)x$($image.Height)."
+        }
+        if ($ExpectedOrientation -eq "landscape" -and $image.Width -le $image.Height) {
+            throw "$Name screenshot has unexpected dimensions $($image.Width)x$($image.Height)."
+        }
+        $bitmap = [Drawing.Bitmap]$image
+        $visiblePixels = 0
+        $sampleCount = 0
+        $minimumLuma = 765
+        $maximumLuma = 0
+        $stepX = [Math]::Max(1, [int]($bitmap.Width / 48))
+        $stepY = [Math]::Max(1, [int]($bitmap.Height / 48))
+        for ($x = 0; $x -lt $bitmap.Width; $x += $stepX) {
+            for ($y = 0; $y -lt $bitmap.Height; $y += $stepY) {
+                $pixel = $bitmap.GetPixel($x, $y)
+                $sampleCount++
+                $luma = $pixel.R + $pixel.G + $pixel.B
+                $minimumLuma = [Math]::Min($minimumLuma, $luma)
+                $maximumLuma = [Math]::Max($maximumLuma, $luma)
+                if ($luma -gt 30) {
+                    $visiblePixels++
+                }
+            }
+        }
+        if ($visiblePixels -lt [Math]::Max(1, [int]($sampleCount * 0.02)) -or ($maximumLuma - $minimumLuma) -lt 40) {
+            throw "$Name screenshot is blank or flat ($visiblePixels of $sampleCount visible samples; luma range $minimumLuma-$maximumLuma)."
+        }
+    }
+    finally {
+        $image.Dispose()
+    }
+}
+
 function Capture-Orientation {
     param([string]$Name, [int]$Rotation, [string]$Suffix)
     Invoke-Adb -Arguments @("shell", "settings", "put", "system", "accelerometer_rotation", "0") | Out-Null
@@ -205,42 +252,48 @@ function Capture-Orientation {
         throw "Godot did not produce the $Name Android viewport capture."
     }
 
-    Add-Type -AssemblyName System.Drawing
-    $image = [Drawing.Image]::FromFile($local)
-    try {
-        if ($Name -eq "portrait" -and $image.Width -ge $image.Height) {
-            throw "Portrait screenshot has unexpected dimensions $($image.Width)x$($image.Height)."
-        }
-        if ($Name -eq "landscape" -and $image.Width -le $image.Height) {
-            throw "Landscape screenshot has unexpected dimensions $($image.Width)x$($image.Height)."
-        }
-        $bitmap = [Drawing.Bitmap]$image
-        $visiblePixels = 0
-        $sampleCount = 0
-        $minimumLuma = 765
-        $maximumLuma = 0
-        $stepX = [Math]::Max(1, [int]($bitmap.Width / 48))
-        $stepY = [Math]::Max(1, [int]($bitmap.Height / 48))
-        for ($x = 0; $x -lt $bitmap.Width; $x += $stepX) {
-            for ($y = 0; $y -lt $bitmap.Height; $y += $stepY) {
-                $pixel = $bitmap.GetPixel($x, $y)
-                $sampleCount++
-                $luma = $pixel.R + $pixel.G + $pixel.B
-                $minimumLuma = [Math]::Min($minimumLuma, $luma)
-                $maximumLuma = [Math]::Max($maximumLuma, $luma)
-                if ($luma -gt 30) {
-                    $visiblePixels++
-                }
+    Assert-CaptureContent -Path $local -Name $Name -ExpectedOrientation $Name
+    Write-Output "Captured $Name Android screenshot: $local"
+}
+
+function Capture-LifecycleResume {
+    $capture = Join-Path $OutputDirectory "android-lifecycle-resume.png"
+    Invoke-Adb -Arguments @("shell", "run-as", $PackageName, "rm", "-f", "files/android_viewport_capture.png") | Out-Null
+    foreach ($cycle in 1..5) {
+        Invoke-Adb -Arguments @("shell", "input", "keyevent", "KEYCODE_HOME") | Out-Null
+        Start-Sleep -Seconds 1
+        Invoke-Adb -Arguments @("shell", "am", "start", "-n", "$PackageName/com.godot.game.GodotAppLauncher") | Out-Null
+        Start-Sleep -Seconds 2
+    }
+
+    $deadline = [DateTime]::UtcNow.AddSeconds(15)
+    while ([DateTime]::UtcNow -lt $deadline) {
+        try {
+            Save-AdbExecOut -Arguments @("exec-out", "run-as", $PackageName, "cat", "files/android_viewport_capture.png") -Destination $capture
+            if ((Test-Path -LiteralPath $capture) -and (Get-Item -LiteralPath $capture).Length -gt 100) {
+                break
             }
         }
-        if ($visiblePixels -lt [Math]::Max(1, [int]($sampleCount * 0.02)) -or ($maximumLuma - $minimumLuma) -lt 40) {
-            throw "$Name screenshot is blank or flat ($visiblePixels of $sampleCount visible samples; luma range $minimumLuma-$maximumLuma)."
+        catch {
+            # Foreground recovery may still be replacing the capture.
         }
+        Start-Sleep -Milliseconds 500
     }
-    finally {
-        $image.Dispose()
+    if (-not (Test-Path -LiteralPath $capture) -or (Get-Item -LiteralPath $capture).Length -le 100) {
+        throw "Godot did not produce a viewport capture after repeated Android lifecycle cycles."
     }
-    Write-Output "Captured $Name Android screenshot: $local"
+    Assert-CaptureContent -Path $capture -Name "lifecycle resume" -ExpectedOrientation "portrait"
+
+    $pidText = (Invoke-Adb -Arguments @("shell", "pidof", $PackageName)) -join ""
+    $appPid = $pidText.Trim()
+    $rendererLog = (& $Adb -s $script:Serial logcat -d "--pid=$appPid" -v brief 2>&1) -join "`n"
+    if ($rendererLog -notmatch 'renderer: gl_compatibility') {
+        throw "Android did not launch Godot's compatibility renderer.`n$rendererLog"
+    }
+    if ($rendererLog -match 'QueuePresentKHR') {
+        throw "Android renderer failed to present after repeated lifecycle cycles.`n$rendererLog"
+    }
+    Write-Output "Captured Android lifecycle-resume screenshot: $capture"
 }
 
 foreach ($required in @($Godot, $JavaHome, $AndroidHome, $Adb, $Emulator, $AvdManager, $ApkAnalyzer)) {
@@ -293,7 +346,7 @@ try {
             }
         }
         $script:StartedEmulator = Start-Process -FilePath $Emulator `
-            -ArgumentList @("-avd", $AvdName, "-no-snapshot-save", "-no-boot-anim", "-no-audio", "-gpu", "swiftshader") `
+            -ArgumentList @("-avd", $AvdName, "-no-snapshot-save", "-no-boot-anim", "-no-audio", "-gpu", "host") `
             -WindowStyle Hidden `
             -PassThru
         Wait-ForEmulator
@@ -302,11 +355,13 @@ try {
     Enable-Test-Cutout
     Invoke-Adb -Arguments @("shell", "settings", "put", "secure", "immersive_mode_confirmations", "confirmed") | Out-Null
     Invoke-Adb -Arguments @("install", "-r", $Apk) | Out-Null
+    Invoke-Adb -Arguments @("logcat", "-c") | Out-Null
 
     Capture-Orientation -Name "portrait" -Rotation 0 -Suffix "portrait-start"
     Capture-Orientation -Name "landscape" -Rotation 1 -Suffix "landscape"
     Capture-Orientation -Name "portrait" -Rotation 0 -Suffix "portrait-return"
-    Write-Output "PASS: Android portrait, landscape, return portrait, safe-area, and screenshot checks."
+    Capture-LifecycleResume
+    Write-Output "PASS: Android orientation, safe-area, screenshot, renderer, and lifecycle checks."
 }
 finally {
     if (-not [string]::IsNullOrWhiteSpace($script:Serial)) {

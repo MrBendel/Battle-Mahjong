@@ -6,6 +6,8 @@ Battle Mahjong tests Android orientation and safe-area behavior at two levels:
 - `scripts/test_android_screenshots.ps1` exports and installs the target-SDK-36 x86_64 debug APK on an API 36 emulator, launches portrait-first, relaunches in landscape and portrait, validates the safe-area geometry reported by Android, and captures the rendered Godot viewport in each state.
 - The harness copies `adb exec-out` screenshot data as a raw byte stream. Do not use Windows PowerShell text redirection for PNG capture because it corrupts binary output.
 
+The project pins both desktop and mobile rendering to `gl_compatibility`. Keep the mobile override explicit: without `rendering/renderer/rendering_method.mobile`, Android falls back to the mobile Vulkan renderer even when the generic project setting uses compatibility rendering. Repeated surface teardown and recreation must not leave the resumed app presenting a stale or black frame.
+
 Android Emulator and ADB are the appropriate integration layer for this project. Native Android screenshot libraries do not inspect controls rendered inside Godot's surface.
 
 ## One-Time Setup
@@ -55,7 +57,8 @@ Captures are written to the ignored `build/android/screenshots/` directory:
 - `android-portrait-start.png`
 - `android-landscape.png`
 - `android-portrait-return.png`
+- `android-lifecycle-resume.png`
 
-The Android test verifies that the packaged manifest declares Godot's `SCREEN_SENSOR` mode (`fullUser`, compiled value `13`). The harness launches a fresh process in portrait, landscape, and portrait again because hot rotation on the emulator can relaunch and terminate Godot's reused activity fragment. On a physical device, manually verify that the live app follows rotation; startup follows the orientation in which the device is held while respecting its rotation preference.
+The Android test verifies that the packaged manifest declares Godot's `SCREEN_SENSOR` mode (`fullUser`, compiled value `13`). The harness launches a fresh process in portrait, landscape, and portrait again because hot rotation on the emulator can relaunch and terminate Godot's reused activity fragment. It then backgrounds and foregrounds the live portrait process five times, verifies that the compatibility renderer remains active without Vulkan presentation errors, and captures the resumed viewport. On a physical device, manually verify that the live app follows rotation; startup follows the orientation in which the device is held while respecting its rotation preference.
 
-The emulator's software compositor can fail to present Godot frames even while the renderer is running. Captures therefore come from `ViewportTexture.get_image()` inside the debug APK and are pulled from app-private storage with `run-as`. The suite verifies their dimensions and sampled contrast so a blank or flat frame cannot pass.
+The harness uses host GPU acceleration. Godot 4.6's compatibility canvas shader exceeds the fragment-uniform limit exposed by the emulator's SwiftShader OpenGL ES 3 implementation, so forcing `-gpu swiftshader` produces a flat frame even though the same renderer works on supported physical devices. Captures come from `ViewportTexture.get_image()` inside the debug APK and are pulled from app-private storage with `run-as`. The suite verifies their dimensions and sampled contrast so a blank or flat frame cannot pass.
