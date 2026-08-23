@@ -146,9 +146,15 @@ func _run() -> void:
 	shell.call("_play_flipped_pair_to_tray", tray_visuals)
 	_check_equal(tray_arc_before + 1, shell.get("_flipped_pair_tray_count"), "flipped-to-tray match starts its dedicated upward arc")
 	_check_equal(tray_match_rect, shell.get("_last_tile_motion_target"), "flipped-to-tray arc targets the held tile rather than an open slot")
-	await create_timer(0.18).timeout
-	_check_equal(tray_collision_before, shell.get("_pair_collision_count"), "flipped tile remains in flight before reaching its tray mate")
-	await create_timer(0.24).timeout
+	var tray_incoming: Control = tray_visuals[0].preview
+	var tray_start: Vector2 = tray_incoming.position
+	_check(tray_incoming.scale.x < 0.1, "matching flipped tile begins its face reveal edge-on")
+	await create_timer(0.10).timeout
+	_check_equal(tray_start, tray_incoming.position, "matching flipped tile reveals in place before tray motion")
+	_check(tray_incoming.scale.x > 0.1, "matching flipped tile face becomes visible during the reveal beat")
+	await create_timer(0.10).timeout
+	_check_equal(tray_collision_before, shell.get("_pair_collision_count"), "flipped tile begins tray travel only after revealing")
+	await create_timer(0.34).timeout
 	_check_equal(tray_collision_before + 1, shell.get("_pair_collision_count"), "flipped tile collides with its held tray mate")
 	_check_equal(tray_match_rect.get_center(), shell.get("_last_pair_collision_position"), "flipped-to-tray collision uses the held tile position")
 	await create_timer(0.24).timeout

@@ -23,6 +23,7 @@ const SafeAreaScript := preload("res://scripts/presentation/safe_area.gd")
 const GAMEPLAY_BACKGROUND := preload("res://game-assets/backgrounds/gameplay_brush_arcade.png")
 const START_SEED := 92817361
 const PAIR_LANDING_HOLD_SECONDS := 0.12
+const FLIPPED_REVEAL_SECONDS := 0.16
 const FLIPPED_PAIR_ARC_SECONDS := 0.34
 
 @export var momentum_tuning: Resource
@@ -97,7 +98,7 @@ func _build_shell() -> void:
 
 	_update_checker = UpdateCheckerScript.new()
 	_update_checker.name = "UpdateChecker"
-	_update_checker.current_version_code = 209616844
+	_update_checker.current_version_code = 209617106
 	_update_checker.update_available.connect(_on_update_available)
 	add_child(_update_checker)
 	_update_checker.check_for_updates()
@@ -594,14 +595,23 @@ func _play_flipped_pair_to_tray(visuals: Array) -> void:
 	held.size = held_rect.size
 	held.pivot_offset = held.size * 0.5
 	held.z_index = 1000
+	incoming.scale = Vector2(0.08, 1.0)
+	_flipped_pair_tray_count += 1
+	_tile_motion_count += 1
+	_last_tile_motion_target = held_rect
+	var reveal_tween := create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	reveal_tween.tween_property(incoming, "scale", Vector2.ONE, FLIPPED_REVEAL_SECONDS)
+	reveal_tween.finished.connect(_start_flipped_pair_tray_arc.bind(incoming, held, held_rect))
+
+
+func _start_flipped_pair_tray_arc(incoming: Control, held: Control, held_rect: Rect2) -> void:
+	if not is_instance_valid(incoming) or not is_instance_valid(held):
+		return
 	var start := incoming.position
 	var finish := _global_to_local(held_rect.get_center()) - incoming.size * 0.5
 	var path := finish - start
 	var perpendicular := Vector2(-path.y, path.x).normalized()
 	var control := (start + finish) * 0.5 + perpendicular * minf(path.length() * 0.14, 72.0)
-	_flipped_pair_tray_count += 1
-	_tile_motion_count += 1
-	_last_tile_motion_target = held_rect
 	var tween := create_tween().set_parallel(true).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
 	tween.tween_method(
 		_set_curve_position.bind(incoming, start, control, finish),
