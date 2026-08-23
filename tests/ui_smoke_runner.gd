@@ -274,6 +274,11 @@ func _run() -> void:
 			shell.call("_on_undo_requested")
 		shell.call("_on_pause_requested")
 		shell.get("_pause_menu").emit_signal("restart_requested")
+		_check_equal(
+			shell.get("_regions").board.get("_tile_buttons").size(),
+			shell.get("_regions").board.get("_tile_layer").get_child_count(),
+			"board rebuild immediately detaches stale tile controls"
+		)
 		await process_frame
 		live_game = shell.get("_game")
 		_check_equal(0, live_game.revision, "pause-menu Restart creates a fresh game")
@@ -364,6 +369,12 @@ func _run() -> void:
 		await create_timer(0.25).timeout
 		_check_equal(delete_feedback_before + 1, shell.get("_pair_feedback_count"), "Delete Pair composes the shared removal burst")
 		_check_equal(1, live_game.tray.resolved_pair_count, "Delete Pair feedback follows a committed transaction")
+
+	var shuffle_revision: int = live_game.revision
+	shell.call("_on_shuffle_requested")
+	await process_frame
+	_check_equal(shuffle_revision + 1, live_game.revision, "Shuffle commits before input-order validation")
+	_validate_board_input_order(shell, "after Shuffle")
 
 	var orientation := "portrait" if root.size.x < root.size.y else "landscape"
 	shell.call("_apply_layout")
@@ -680,6 +691,19 @@ func _validate_consumables(shell: Control, orientation: String) -> void:
 	for child in shell.get("_regions").tray.get_children():
 		tray_has_command_button = tray_has_command_button or child is Button
 	_check(not tray_has_command_button, "%s tray contains no command buttons" % orientation)
+
+
+func _validate_board_input_order(shell: Control, context: String) -> void:
+	var board: Control = shell.get("_regions").board
+	var ordered_tiles: Array = shell.get("_game").board.tiles.duplicate()
+	ordered_tiles.sort_custom(Callable(board, "_tile_precedes_for_input"))
+	var controls_follow_stack := true
+	for index in range(ordered_tiles.size()):
+		var button: Button = board.get("_tile_buttons")[ordered_tiles[index].id]
+		if button.get_index() != index:
+			controls_follow_stack = false
+			break
+	_check(controls_follow_stack, "%s tile controls follow visual stack for overlapping touch routing" % context)
 
 
 func _find_rewardable_pair(game: Variant) -> Array[String]:
