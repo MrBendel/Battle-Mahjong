@@ -38,6 +38,8 @@ Safe-area insets are applied before margins and region allocation. When space be
 
 Board tiles, tray tiles, Momentum, score, pause, and consumable actions remain readable and operable. Tray tiles continue to use the Board's rendered tile footprint.
 
+On mobile application pause or focus loss, the shell pauses gameplay without changing authoritative game state. Foreground recovery cancels stale touch and emulated-mouse presses, refreshes interactive presentation controls, and leaves the pause menu open until the player explicitly resumes. This prevents a touch release lost during Android suspension from leaving later taps partially unresponsive.
+
 ## Input Boundary
 
 This composition improves thumb reach and spatial predictability for mobile and future controller navigation. It does not itself implement gamepad tile navigation, focus graphs, or console platform integration; those remain separate input work.

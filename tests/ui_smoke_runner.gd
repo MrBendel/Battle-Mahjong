@@ -32,6 +32,11 @@ func _run() -> void:
 		ProjectSettings.get_setting("display/window/handheld/orientation"),
 		"Android export declares sensor orientation"
 	)
+	_check_equal(
+		"gl_compatibility",
+		ProjectSettings.get_setting("rendering/renderer/rendering_method.mobile"),
+		"Android export uses the lifecycle-stable compatibility renderer"
+	)
 	var projected_insets := SafeAreaScript.insets(
 		Vector2(1200.0, 600.0),
 		Rect2i(100, 40, 960, 520),
@@ -229,6 +234,34 @@ func _run() -> void:
 		_check(shell.get("_pause_button").visible, "Resume restores the pause button")
 		await create_timer(0.02).timeout
 		_check(shell.call("_playback_time_ms") > paused_time, "Resume restarts active gameplay time")
+		var lifecycle_revision: int = live_game.revision
+		var stale_touch := InputEventScreenTouch.new()
+		stale_touch.index = 7
+		stale_touch.position = Vector2(120.0, 240.0)
+		stale_touch.pressed = true
+		shell.call("_input", stale_touch)
+		var recovery_before: int = shell.get("_input_recovery_count")
+		for cycle in range(3):
+			shell.call("_on_application_backgrounded")
+			_check(shell.get("_pause_menu").visible, "background cycle %d opens the pause menu" % cycle)
+			_check_equal(lifecycle_revision, live_game.revision, "background cycle %d preserves game state" % cycle)
+			shell.call("_on_application_foregrounded")
+			await process_frame
+			await process_frame
+			if cycle < 2:
+				shell.get("_pause_menu").emit_signal("resumed")
+		_check_equal(recovery_before + 3, shell.get("_input_recovery_count"), "each foreground cycle recovers pointer input")
+		_check(shell.get("_active_screen_touches").is_empty(), "foreground recovery cancels stale screen touches")
+		shell.get("_pause_menu").emit_signal("resumed")
+		var post_resume_tile_id := ""
+		for tile in live_game.board.call("selectable_tiles"):
+			post_resume_tile_id = tile.id
+			break
+		_check(not post_resume_tile_id.is_empty(), "a selectable tile remains after lifecycle recovery")
+		if not post_resume_tile_id.is_empty():
+			shell.get("_regions").board.call("_on_tile_pressed", post_resume_tile_id)
+			_check_equal(lifecycle_revision + 1, live_game.revision, "tile input works immediately after repeated foreground recovery")
+			shell.call("_on_undo_requested")
 		shell.call("_on_pause_requested")
 		shell.get("_pause_menu").emit_signal("restart_requested")
 		await process_frame
