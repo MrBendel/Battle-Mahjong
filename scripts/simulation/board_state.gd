@@ -37,7 +37,23 @@ func active_tiles() -> Array:
 
 
 func selectable_tiles() -> Array:
-	return _selectable_tiles_from(active_tiles())
+	var selectable: Array = []
+	for tile in _accessible_tiles_from(active_tiles()):
+		if not is_tile_flipped(tile.id):
+			selectable.append(tile)
+	return selectable
+
+
+func accessible_tiles() -> Array:
+	return _accessible_tiles_from(active_tiles())
+
+
+func revealable_tiles() -> Array:
+	var revealable: Array = []
+	for tile in _accessible_tiles_from(active_tiles()):
+		if is_tile_face_down(tile.id):
+			revealable.append(tile)
+	return revealable
 
 
 func visible_tiles() -> Array:
@@ -50,7 +66,11 @@ func visible_tiles() -> Array:
 
 
 func selectable_tiles_without(tile_id: String) -> Array:
-	return _selectable_tiles_from(_active_tiles_excluding(tile_id))
+	var selectable: Array = []
+	for tile in _accessible_tiles_from(_active_tiles_excluding(tile_id)):
+		if not is_tile_flipped(tile.id):
+			selectable.append(tile)
+	return selectable
 
 
 func is_tile_active(tile_id: String) -> bool:
@@ -59,7 +79,31 @@ func is_tile_active(tile_id: String) -> bool:
 
 func is_tile_selectable(tile_id: String) -> bool:
 	var tile: Variant = get_tile(tile_id)
+	return tile != null and not is_tile_flipped(tile_id) \
+		and _selectability.call("is_selectable", tile, active_tiles())
+
+
+func is_tile_accessible(tile_id: String) -> bool:
+	var tile: Variant = get_tile(tile_id)
 	return tile != null and _selectability.call("is_selectable", tile, active_tiles())
+
+
+func is_tile_flipped(tile_id: String) -> bool:
+	return tile_id in _definition.flipped_tile_ids
+
+
+func is_tile_face_down(tile_id: String) -> bool:
+	return is_tile_active(tile_id) and is_tile_flipped(tile_id) \
+		and tile_id not in _state.revealed_flipped_tile_ids
+
+
+func is_tile_revealed_flipped(tile_id: String) -> bool:
+	return is_tile_active(tile_id) and is_tile_flipped(tile_id) \
+		and tile_id in _state.revealed_flipped_tile_ids
+
+
+func is_tile_revealable(tile_id: String) -> bool:
+	return is_tile_face_down(tile_id) and is_tile_accessible(tile_id)
 
 
 func is_tile_visible(tile_id: String) -> bool:
@@ -75,7 +119,7 @@ func _active_tiles_excluding(excluded_tile_id: String) -> Array:
 	return active
 
 
-func _selectable_tiles_from(active: Array) -> Array:
+func _accessible_tiles_from(active: Array) -> Array:
 	var selectable: Array = []
 	for tile in active:
 		if _selectability.call("is_selectable", tile, active):

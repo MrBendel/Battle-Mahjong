@@ -17,7 +17,13 @@ const DEFAULT_SELECTION_INTERVALS := {
 
 func run(seed: int, policy: String = PAIR_AWARE, policy_config: Dictionary = {}) -> Dictionary:
 	var factory := ReferenceGameFactoryScript.new()
-	var generated: Dictionary = factory.call("create_generated", seed)
+	var flipped_tile_count := maxi(0, int(policy_config.get("flipped_tile_count", 0)))
+	var generated: Dictionary = factory.call(
+		"create_generated",
+		seed,
+		4,
+		{"flipped_tile_count": flipped_tile_count}
+	)
 	var definition: Variant = generated.definition
 	var game = GameStateScript.new(definition)
 	var perfect_solution: Array[String] = []
@@ -57,8 +63,8 @@ func run(seed: int, policy: String = PAIR_AWARE, policy_config: Dictionary = {})
 			break
 
 		var next_time: int = game.elapsed_time_ms + selection_interval_ms
-		var selection_result: String = game.call("select_tile", tile.id, next_time)
-		if selection_result == GameStateScript.PAIR_RESOLVED:
+		var selection_result: String = game.call("tap_tile", tile.id, next_time)
+		if selection_result in [GameStateScript.PAIR_RESOLVED, GameStateScript.FLIPPED_PAIR_RESOLVED]:
 			var transaction: Variant = game.call("last_transaction")
 			var pair_opportunity: Dictionary = transaction.telemetry.get("resolved_pair_opportunity", {})
 			if pair_opportunity.has("score"):
@@ -101,6 +107,9 @@ func run(seed: int, policy: String = PAIR_AWARE, policy_config: Dictionary = {})
 
 func _choose_bounded_attention_tile(game: Variant, rng: Variant, attention_limit: int) -> Variant:
 	var selectable: Array = game.board.call("selectable_tiles")
+	var revealable: Array = game.board.call("revealable_tiles")
+	if not revealable.is_empty():
+		return revealable[rng.call("range_int", 0, revealable.size() - 1)]
 	var observed := _sample_tiles(selectable, attention_limit, rng)
 
 	for held_tile in game.tray.tiles:
@@ -164,10 +173,12 @@ func _choose_pair_aware_tile(game: Variant) -> Variant:
 
 func _choose_random_tile(game: Variant, rng: Variant) -> Variant:
 	var selectable: Array = game.board.call("selectable_tiles")
-	if selectable.is_empty():
+	var interactive: Array = selectable.duplicate()
+	interactive.append_array(game.board.call("revealable_tiles"))
+	if interactive.is_empty():
 		return null
 
-	return selectable[rng.call("range_int", 0, selectable.size() - 1)]
+	return interactive[rng.call("range_int", 0, interactive.size() - 1)]
 
 
 func _sample_tiles(tiles: Array, limit: int, rng: Variant) -> Array:

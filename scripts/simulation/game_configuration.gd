@@ -1,11 +1,13 @@
 extends RefCounted
 
 const DEFAULT_TRAY_CAPACITY := 4
+const DEFAULT_FLIPPED_TILE_COUNT := 0
 
 
 static func create(tray_capacity: int = DEFAULT_TRAY_CAPACITY) -> Dictionary:
 	return {
 		"tray_capacity": tray_capacity,
+		"flipped_tile_count": DEFAULT_FLIPPED_TILE_COUNT,
 		"momentum_max": 100000,
 		"momentum_pair_gain": 30000,
 		"momentum_selection_gain": 2500,

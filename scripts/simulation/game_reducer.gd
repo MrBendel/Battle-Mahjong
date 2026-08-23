@@ -107,12 +107,18 @@ func _apply_change(state: Variant, change: Variant, reverse: bool) -> bool:
 			if state.hinted_tile_ids != expected:
 				return false
 			state.hinted_tile_ids.assign(replacement)
+		GameChangeScript.FLIPPED_REVEALS:
+			if state.revealed_flipped_tile_ids != expected:
+				return false
+			state.revealed_flipped_tile_ids.assign(replacement)
 		_:
 			return false
 	return true
 
 
 func _is_valid(definition: Variant, state: Variant) -> bool:
+	if state.rules_version != definition.rules_version:
+		return false
 	if state.status not in [GameStateDataScript.PLAYING, GameStateDataScript.WON, GameStateDataScript.LOST]:
 		return false
 	if state.selection_count < 0 or state.resolved_pair_count < 0 or state.max_tray_occupancy < 0:
@@ -179,6 +185,11 @@ func _is_valid(definition: Variant, state: Variant) -> bool:
 	for hinted_tile_id in state.hinted_tile_ids:
 		if definition.get_tile(hinted_tile_id) == null:
 			return false
+	var revealed_ids := {}
+	for tile_id in state.revealed_flipped_tile_ids:
+		if tile_id not in definition.flipped_tile_ids or revealed_ids.has(tile_id):
+			return false
+		revealed_ids[tile_id] = true
 	if resolved_count != state.resolved_pair_count * 2:
 		return false
 	if state.selection_count != resolved_count + state.tray_tile_ids.size():

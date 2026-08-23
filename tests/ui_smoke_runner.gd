@@ -60,6 +60,11 @@ func _run() -> void:
 	var live_game: Variant = shell.get("_game")
 	_check_equal(shell.get("layout_id"), live_game.definition.configuration.layout_id, "main scene selects its exported layout id")
 	_check_equal(
+		int(shell.get("flipped_tile_count")),
+		live_game.definition.flipped_tile_ids.size(),
+		"main scene copies Inspector flipped-tile count into game definition"
+	)
+	_check_equal(
 		int(tuning.get("pair_gain")),
 		int(live_game.definition.configuration.momentum_pair_gain),
 		"main scene copies Inspector tuning into game definition"
@@ -78,6 +83,75 @@ func _run() -> void:
 	var attached_button: Button = shell.get("_regions").board.get("_tile_buttons")[attached_tile_id]
 	var modifier_label: Label = attached_button.get_node("Modifier")
 	_check("×" in modifier_label.text and modifier_label.visible, "starter modifier remains a separate visible tile overlay")
+	var revealable_tile_id := ""
+	for tile in live_game.board.call("revealable_tiles"):
+		revealable_tile_id = tile.id
+		break
+	_check(not revealable_tile_id.is_empty(), "reference game starts with an accessible face-down tile")
+	if not revealable_tile_id.is_empty():
+		var reveal_button: Button = shell.get("_regions").board.get("_tile_buttons")[revealable_tile_id]
+		var reveal_art: TextureRect = reveal_button.get_node("FaceArt")
+		_check(bool(reveal_button.get_meta("face_down")), "face-down presentation records hidden state")
+		_check(not reveal_art.visible and reveal_button.text == "?", "face-down presentation hides tile identity")
+		var tray_before_reveal: int = live_game.tray.tiles.size()
+		var motion_before_reveal: int = shell.get("_tile_motion_count")
+		shell.call("_on_tile_selected", revealable_tile_id)
+		_check(live_game.board.call("is_tile_revealed_flipped", revealable_tile_id), "shell commits face-down reveal transaction")
+		_check_equal(tray_before_reveal, live_game.tray.tiles.size(), "shell reveal leaves tray occupancy unchanged")
+		_check_equal(motion_before_reveal, shell.get("_tile_motion_count"), "shell reveal does not start tray transfer")
+		_check(reveal_art.visible and reveal_button.text.is_empty(), "revealed tile displays its face in place")
+		_check_equal(Color.WHITE, reveal_button.modulate, "revealed flipped tile remains bright and readable")
+		_check(not bool(reveal_button.get_meta("targetable")), "revealed flipped tile remains pinned to the board")
+		var nonmatching_tile_id := ""
+		var revealed_face: Variant = live_game.definition.get_tile(revealable_tile_id).face
+		for candidate in live_game.board.call("selectable_tiles"):
+			if not candidate.face.equals(revealed_face):
+				nonmatching_tile_id = candidate.id
+				break
+		_check(not nonmatching_tile_id.is_empty(), "reference game exposes an ordinary non-match for flip-back validation")
+		if not nonmatching_tile_id.is_empty():
+			shell.call("_on_tile_selected", nonmatching_tile_id)
+			_check(live_game.board.call("is_tile_face_down", revealable_tile_id), "ordinary non-match re-hides the revealed tile")
+			_check(not reveal_art.visible and reveal_button.text == "?", "flip-back presentation restores the tile back")
+			shell.call("_on_restart_requested")
+			live_game = shell.get("_game")
+	var arc_visuals := []
+	for rect in [Rect2(Vector2(32.0, 120.0), Vector2(42.0, 54.0)), Rect2(Vector2(root.size.x - 74.0, root.size.y - 180.0), Vector2(42.0, 54.0))]:
+		var preview := Panel.new()
+		arc_visuals.append({"preview": preview, "rect": rect})
+	var arc_count_before: int = shell.get("_flipped_pair_arc_count")
+	var arc_collision_before: int = shell.get("_pair_collision_count")
+	var arc_feedback_before: int = shell.get("_pair_feedback_count")
+	shell.call("_play_flipped_pair_collision", arc_visuals)
+	_check_equal(arc_count_before + 1, shell.get("_flipped_pair_arc_count"), "flipped pair starts one center-arc presentation")
+	var curves: Array = shell.get("_last_flipped_pair_curves")
+	_check_equal(2, curves.size(), "flipped pair records one curve per tile")
+	for curve in curves:
+		var straight_midpoint: Vector2 = (curve.start + curve.finish) * 0.5
+		_check(curve.control.distance_to(straight_midpoint) > 1.0, "flipped tile path bends away from a straight center line")
+	await create_timer(0.18).timeout
+	_check_equal(arc_collision_before, shell.get("_pair_collision_count"), "flipped pair remains in flight before center collision")
+	await create_timer(0.24).timeout
+	_check_equal(arc_collision_before + 1, shell.get("_pair_collision_count"), "flipped pair collides after curved travel")
+	_check_equal(shell.get("_regions").board.get_global_rect().get_center(), shell.get("_last_pair_collision_position"), "flipped pair collision targets board center")
+	_check_equal(arc_feedback_before + 1, shell.get("_pair_feedback_count"), "flipped center collision triggers the shared removal burst")
+	await create_timer(0.24).timeout
+	var tray_match_rect: Rect2 = shell.get("_regions").tray.call("slot_global_rect", 0)
+	var tray_visuals := [
+		{"preview": Panel.new(), "rect": Rect2(Vector2(root.size.x * 0.5, root.size.y * 0.7), Vector2(42.0, 54.0))},
+		{"preview": Panel.new(), "rect": tray_match_rect},
+	]
+	var tray_arc_before: int = shell.get("_flipped_pair_tray_count")
+	var tray_collision_before: int = shell.get("_pair_collision_count")
+	shell.call("_play_flipped_pair_to_tray", tray_visuals)
+	_check_equal(tray_arc_before + 1, shell.get("_flipped_pair_tray_count"), "flipped-to-tray match starts its dedicated upward arc")
+	_check_equal(tray_match_rect, shell.get("_last_tile_motion_target"), "flipped-to-tray arc targets the held tile rather than an open slot")
+	await create_timer(0.18).timeout
+	_check_equal(tray_collision_before, shell.get("_pair_collision_count"), "flipped tile remains in flight before reaching its tray mate")
+	await create_timer(0.24).timeout
+	_check_equal(tray_collision_before + 1, shell.get("_pair_collision_count"), "flipped tile collides with its held tray mate")
+	_check_equal(tray_match_rect.get_center(), shell.get("_last_pair_collision_position"), "flipped-to-tray collision uses the held tile position")
+	await create_timer(0.24).timeout
 	var representative_button: Button = null
 	for tile in live_game.board.tiles:
 		if tile.face.logical_id() == "reference_01":
@@ -175,7 +249,9 @@ func _run() -> void:
 		_check_equal(str(reward.callout_key), shell.get("_performance_callout").get("last_callout_key"), "callout consumes the transaction event key")
 	var visible_blocked_tile_id := ""
 	for tile in live_game.board.tiles:
-		if live_game.board.call("is_tile_visible", tile.id) and not live_game.board.call("is_tile_selectable", tile.id):
+		if live_game.board.call("is_tile_visible", tile.id) \
+				and not live_game.board.call("is_tile_selectable", tile.id) \
+				and not live_game.board.call("is_tile_revealable", tile.id):
 			visible_blocked_tile_id = tile.id
 			break
 	_check(not visible_blocked_tile_id.is_empty(), "reference layout contains a visible tile blocked from normal movement")

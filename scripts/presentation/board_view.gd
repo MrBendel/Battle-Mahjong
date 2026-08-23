@@ -140,12 +140,15 @@ func _rebuild_tiles() -> void:
 func refresh() -> void:
 	var active_count: int = _game.board.call("active_tiles").size()
 	var selectable_ids := {}
+	var revealable_ids := {}
 	var visible_ids := {}
 	var hinted_ids := {}
 	for hinted_tile_id in _game.call("hinted_tile_ids"):
 		hinted_ids[hinted_tile_id] = true
 	for tile in _game.board.call("selectable_tiles"):
 		selectable_ids[tile.id] = true
+	for tile in _game.board.call("revealable_tiles"):
+		revealable_ids[tile.id] = true
 	for tile in _game.board.call("visible_tiles"):
 		visible_ids[tile.id] = true
 
@@ -156,21 +159,27 @@ func refresh() -> void:
 		if not active:
 			continue
 
-		var selectable: bool = (_delete_pair_armed and visible_ids.has(tile.id) \
-			or not _delete_pair_armed and selectable_ids.has(tile.id)) \
+		var face_down: bool = _game.board.call("is_tile_face_down", tile.id)
+		var revealed_flipped: bool = _game.board.call("is_tile_revealed_flipped", tile.id)
+		var selectable: bool = (_delete_pair_armed and visible_ids.has(tile.id) and not face_down \
+			or not _delete_pair_armed and (selectable_ids.has(tile.id) or revealable_ids.has(tile.id))) \
 			and _game.status == "playing"
+		var visually_active: bool = selectable or revealed_flipped
+		button.tooltip_text = _tile_tooltip(tile)
 		button.disabled = _game.status != "playing"
 		button.set_meta("targetable", selectable)
+		button.set_meta("face_down", face_down)
+		button.set_meta("revealed_flipped", revealed_flipped)
 		button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if selectable else Control.CURSOR_FORBIDDEN
-		button.modulate = Color.WHITE if selectable else Color(0.72, 0.73, 0.70)
-		_apply_tile_style(button, selectable)
+		button.modulate = Color.WHITE if visually_active else Color(0.72, 0.73, 0.70)
+		_apply_tile_style(button, visually_active, face_down)
 		if _delete_pair_armed and selectable:
 			button.add_theme_stylebox_override("normal", _tile_style(Color("fff8e8"), Color("ef496f"), 4, Vector2(0.0, 3.0)))
 		var texture: Texture2D = _tile_skin.texture_for_face(tile.face)
 		var face_art: TextureRect = _face_art[tile.id]
 		face_art.texture = texture
-		face_art.visible = texture != null
-		button.text = "" if texture != null else _tile_label(tile)
+		face_art.visible = not face_down and texture != null
+		button.text = "?" if face_down else ("" if texture != null else _tile_label(tile))
 		var modifier_label: Label = _modifier_labels[tile.id]
 		modifier_label.text = _modifier_symbol(tile)
 		modifier_label.visible = not modifier_label.text.is_empty()
@@ -180,13 +189,14 @@ func refresh() -> void:
 	if active_count == 0:
 		_status_label.text = "Board cleared"
 	else:
-		_status_label.text = "%d tiles  |  %d free" % [active_count, selectable_ids.size()]
+		_status_label.text = "%d tiles  |  %d free" % [active_count, selectable_ids.size() + revealable_ids.size()]
 	_layout_tiles()
 
 
 func _on_tile_pressed(tile_id: String) -> void:
-	var targetable: bool = _game.board.call("is_tile_visible", tile_id) if _delete_pair_armed \
-		else _game.board.call("is_tile_selectable", tile_id)
+	var targetable: bool = (_game.board.call("is_tile_visible", tile_id) \
+		and not _game.board.call("is_tile_face_down", tile_id)) if _delete_pair_armed \
+		else (_game.board.call("is_tile_selectable", tile_id) or _game.board.call("is_tile_revealable", tile_id))
 	if _game.status != "playing":
 		return
 	if not targetable:
@@ -198,7 +208,7 @@ func _on_tile_pressed(tile_id: String) -> void:
 	tile_selected.emit(tile_id)
 
 
-func create_tile_preview(tile_id: String) -> Control:
+func create_tile_preview(tile_id: String, force_face_up: bool = false) -> Control:
 	var button: Button = _tile_buttons.get(tile_id)
 	if button == null or not button.visible:
 		return null
@@ -207,7 +217,15 @@ func create_tile_preview(tile_id: String) -> Control:
 	preview.modulate = Color.WHITE
 	preview.add_theme_stylebox_override("panel", button.get_theme_stylebox("normal").duplicate())
 	var source_art: TextureRect = _face_art[tile_id]
-	if source_art.texture != null:
+	if bool(button.get_meta("face_down", false)) and not force_face_up:
+		var back_mark := Label.new()
+		back_mark.text = "?"
+		back_mark.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		back_mark.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		back_mark.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		back_mark.add_theme_color_override("font_color", Color("fff7cf"))
+		preview.add_child(back_mark)
+	elif source_art.texture != null:
 		var face_art := TextureRect.new()
 		face_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		face_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -249,6 +267,16 @@ func tile_visual_size() -> Vector2:
 
 func negative_feedback_count() -> int:
 	return _negative_feedback_count
+
+
+func play_flip(tile_id: String) -> void:
+	var button: Button = _tile_buttons.get(tile_id)
+	if button == null or not button.visible:
+		return
+	button.pivot_offset = button.size * 0.5
+	button.scale = Vector2(0.08, 1.0)
+	var tween := create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(button, "scale", Vector2.ONE, 0.16)
 
 
 func _play_negative_feedback(tile_id: String) -> void:
@@ -369,6 +397,14 @@ func _modifier_symbol(tile: Variant) -> String:
 
 
 func _tile_tooltip(tile: Variant) -> String:
+	if _game.board.call("is_tile_face_down", tile.id):
+		var hidden_modifier: Dictionary = _game.definition.modifier_for_tile(tile.id)
+		if hidden_modifier.is_empty():
+			return "Face-down tile"
+		return "Face-down tile | %s level %d" % [
+			str(hidden_modifier.type).replace("_", " ").capitalize(),
+			int(hidden_modifier.level),
+		]
 	var label: String = _tile_skin.label_for_face(tile.face).replace("\n", " ")
 	var modifier: Dictionary = _game.definition.modifier_for_tile(tile.id)
 	if modifier.is_empty():
@@ -376,12 +412,17 @@ func _tile_tooltip(tile: Variant) -> String:
 	return "%s | %s level %d" % [label, str(modifier.type).replace("_", " ").capitalize(), int(modifier.level)]
 
 
-func _apply_tile_style(button: Button, selectable: bool) -> void:
+func _apply_tile_style(button: Button, selectable: bool, face_down: bool = false) -> void:
 	var normal := _tile_style(Color("fffdf4"), Color("35636b"), 2, Vector2(0.0, 4.0))
 	var hover := _tile_style(Color("ffffff"), Color("57d8b0"), 3, Vector2(0.0, 4.0))
 	var pressed := _tile_style(Color("e6f2e7"), Color("ef496f"), 4, Vector2(0.0, 1.0))
+	if face_down:
+		normal = _tile_style(Color("173b42"), Color("ef496f"), 3, Vector2(0.0, 4.0))
+		hover = _tile_style(Color("21515a"), Color("57d8b0"), 4, Vector2(0.0, 4.0))
+		pressed = _tile_style(Color("102d33"), Color("ffd166"), 4, Vector2(0.0, 1.0))
 	if not selectable:
-		normal = _tile_style(Color("a7a99f"), Color("3d4746"), 2, Vector2(0.0, 3.0))
+		normal = _tile_style(Color("263a3d"), Color("303d3d"), 2, Vector2(0.0, 3.0)) if face_down \
+			else _tile_style(Color("a7a99f"), Color("3d4746"), 2, Vector2(0.0, 3.0))
 		hover = normal
 		pressed = normal
 	button.add_theme_stylebox_override("normal", normal)
@@ -392,6 +433,10 @@ func _apply_tile_style(button: Button, selectable: bool) -> void:
 	button.add_theme_color_override("font_hover_color", Color("111615"))
 	button.add_theme_color_override("font_pressed_color", Color("111615"))
 	button.add_theme_color_override("font_disabled_color", Color("59615f"))
+	if face_down:
+		button.add_theme_color_override("font_color", Color("fff7cf"))
+		button.add_theme_color_override("font_hover_color", Color.WHITE)
+		button.add_theme_color_override("font_pressed_color", Color.WHITE)
 func _tile_style(face_color: Color, border_color: Color, border_width: int, shadow_offset: Vector2) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = face_color

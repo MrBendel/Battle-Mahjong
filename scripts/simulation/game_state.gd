@@ -17,6 +17,8 @@ const LOST := GameStateDataScript.LOST
 
 const SELECTED := GameCommandProcessorScript.SELECTED
 const PAIR_RESOLVED := GameCommandProcessorScript.PAIR_RESOLVED
+const TILE_REVEALED := GameCommandProcessorScript.TILE_REVEALED
+const FLIPPED_PAIR_RESOLVED := GameCommandProcessorScript.FLIPPED_PAIR_RESOLVED
 const INVALID_SELECTION := GameCommandProcessorScript.INVALID_SELECTION
 const GAME_OVER := GameCommandProcessorScript.GAME_OVER
 const EXTRA_LIFE_USED := GameCommandProcessorScript.EXTRA_LIFE_USED
@@ -87,6 +89,38 @@ func select_tile(tile_id: String, playback_time_ms: int = -1) -> String:
 	var effective_time := elapsed_time_ms if playback_time_ms < 0 else playback_time_ms
 	var command := GameCommandScript.new(GameCommandScript.SELECT_TILE, {"tile_id": tile_id}, revision, "", "local", effective_time)
 	return store.call("submit_command", command).result
+
+
+func reveal_tile(tile_id: String, playback_time_ms: int = -1) -> String:
+	var effective_time := elapsed_time_ms if playback_time_ms < 0 else playback_time_ms
+	var command := GameCommandScript.new(GameCommandScript.REVEAL_TILE, {"tile_id": tile_id}, revision, "", "local", effective_time)
+	return store.call("submit_command", command).result
+
+
+func tap_tile(tile_id: String, playback_time_ms: int = -1) -> String:
+	if board.call("is_tile_face_down", tile_id):
+		return reveal_tile(tile_id, playback_time_ms)
+	return select_tile(tile_id, playback_time_ms)
+
+
+func flipped_match_candidate(tile_id: String) -> Dictionary:
+	var tile: Variant = definition.get_tile(tile_id)
+	if tile == null:
+		return {}
+	if board.call("is_tile_face_down", tile_id):
+		for held_tile_id in _state.tray_tile_ids:
+			var held_tile: Variant = definition.get_tile(held_tile_id)
+			if held_tile.face.equals(tile.face):
+				return {"tile_id": held_tile_id, "zone": GameStateDataScript.ZONE_TRAY}
+	var candidate_ids: Array[String] = []
+	for candidate_id in _state.revealed_flipped_tile_ids:
+		if candidate_id != tile_id and _state.tile_zones.get(candidate_id) == GameStateDataScript.ZONE_BOARD:
+			candidate_ids.append(candidate_id)
+	candidate_ids.sort()
+	for candidate_id in candidate_ids:
+		if definition.get_tile(candidate_id).face.equals(tile.face):
+			return {"tile_id": candidate_id, "zone": GameStateDataScript.ZONE_BOARD}
+	return {}
 
 
 func can_undo() -> bool:

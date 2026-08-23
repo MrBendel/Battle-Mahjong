@@ -17,6 +17,8 @@ const TrayAwareShufflePlannerScript := preload("res://scripts/simulation/tray_aw
 
 const SELECTED := "selected"
 const PAIR_RESOLVED := "pair_resolved"
+const TILE_REVEALED := "tile_revealed"
+const FLIPPED_PAIR_RESOLVED := "flipped_pair_resolved"
 const INVALID_SELECTION := "invalid_selection"
 const GAME_OVER := "game_over"
 const EXTRA_LIFE_USED := "extra_life_used"
@@ -43,6 +45,8 @@ func build_transaction(command: Variant, definition: Variant, state: Variant, ti
 	match command.type:
 		GameCommandScript.SELECT_TILE:
 			return _build_select(command, definition, state, timeline)
+		GameCommandScript.REVEAL_TILE:
+			return _build_reveal(command, definition, state)
 		GameCommandScript.UNDO:
 			return _build_undo(command, definition, state, timeline)
 		GameCommandScript.HINT:
@@ -133,7 +137,12 @@ func _build_select(command: Variant, definition: Variant, state: Variant, timeli
 	tray_before.assign(state.tray_tile_ids)
 	var tray_after: Array[String] = []
 	tray_after.assign(tray_before)
-	var matching_tile_id := _matching_tray_tile_id(definition, state, tile_id)
+	var matching_flipped_tile_id := _matching_revealed_flipped_tile_id(definition, state, tile_id)
+	var matching_tile_id := matching_flipped_tile_id
+	if matching_tile_id.is_empty():
+		matching_tile_id = _matching_tray_tile_id(definition, state, tile_id)
+	if matching_flipped_tile_id.is_empty():
+		_append_hide_active_flipped_reveals(changes, state)
 	var result := SELECTED
 	var selection_count_after: int = state.selection_count + 1
 	var extra_life_charges_after: int = state.extra_life_charges
@@ -166,9 +175,14 @@ func _build_select(command: Variant, definition: Variant, state: Variant, timeli
 		else:
 			changes.append(GameChangeScript.new(GameChangeScript.TILE_ZONE, tile_id, GameStateDataScript.ZONE_BOARD, GameStateDataScript.ZONE_TRAY))
 	else:
-		tray_after.erase(matching_tile_id)
+		var matching_zone := GameStateDataScript.ZONE_BOARD
+		if matching_flipped_tile_id.is_empty():
+			matching_zone = GameStateDataScript.ZONE_TRAY
+			tray_after.erase(matching_tile_id)
+		else:
+			selection_count_after = state.selection_count + 2
 		changes.append(GameChangeScript.new(GameChangeScript.TILE_ZONE, tile_id, GameStateDataScript.ZONE_BOARD, GameStateDataScript.ZONE_RESOLVED))
-		changes.append(GameChangeScript.new(GameChangeScript.TILE_ZONE, matching_tile_id, GameStateDataScript.ZONE_TRAY, GameStateDataScript.ZONE_RESOLVED))
+		changes.append(GameChangeScript.new(GameChangeScript.TILE_ZONE, matching_tile_id, matching_zone, GameStateDataScript.ZONE_RESOLVED))
 		changes.append(GameChangeScript.new(GameChangeScript.COUNTER, "resolved_pair_count", state.resolved_pair_count, state.resolved_pair_count + 1))
 		var score_multiplier: int = MomentumRulesScript.multiplier_for(momentum_after_decay, definition.configuration)
 		var momentum_after_gain: int = MomentumRulesScript.add_pair_gain(momentum_after_selection, definition.configuration)
@@ -176,11 +190,20 @@ func _build_select(command: Variant, definition: Variant, state: Variant, timeli
 		momentum_after_command = momentum_after_gain
 		var resulting_multiplier: int = MomentumRulesScript.multiplier_for(momentum_after_gain, definition.configuration)
 		var score_modifier_basis_points := ModifierRulesScript.active_score_basis_points(state, command.playback_time_ms)
-		var resolved_pair_opportunity := _find_recorded_pair_opportunity(
-			timeline,
-			matching_tile_id,
-			tile_id
-		)
+		var resolved_pair_opportunity := {}
+		if not matching_flipped_tile_id.is_empty():
+			resolved_pair_opportunity = {
+				"source": "flipped_pair",
+				"observed_revision": state.revision,
+				"revealed_tile_id": matching_flipped_tile_id,
+				"selected_tile_id": tile_id,
+			}
+		else:
+			resolved_pair_opportunity = _find_recorded_pair_opportunity(
+				timeline,
+				matching_tile_id,
+				tile_id
+			)
 		if resolved_pair_opportunity.is_empty():
 			resolved_pair_opportunity = {
 				"source": "tray_completion",
@@ -231,6 +254,9 @@ func _build_select(command: Variant, definition: Variant, state: Variant, timeli
 			"combo_expires_at_ms": combo_expires_after,
 		})
 		telemetry["resolved_pair_opportunity"] = resolved_pair_opportunity
+		if not matching_flipped_tile_id.is_empty():
+			telemetry["flipped_pair"] = true
+			telemetry["resolved_tile_ids"] = [matching_flipped_tile_id, tile_id]
 		if not difficulty_reward.is_empty():
 			difficulty_reward["bonus_score"] = difficulty_bonus_score
 			telemetry["difficulty_reward"] = difficulty_reward
@@ -270,7 +296,7 @@ func _build_select(command: Variant, definition: Variant, state: Variant, timeli
 		modifier_activation_count_after += triggered_modifiers.size()
 		if not triggered_modifiers.is_empty():
 			telemetry["modifiers_triggered"] = triggered_modifiers
-		result = PAIR_RESOLVED
+		result = FLIPPED_PAIR_RESOLVED if not matching_flipped_tile_id.is_empty() else PAIR_RESOLVED
 
 	changes.append(GameChangeScript.new(GameChangeScript.TRAY, "tray_tile_ids", tray_before, tray_after))
 	_append_counter_change(changes, "selection_count", state.selection_count, selection_count_after)
@@ -311,6 +337,152 @@ func _build_select(command: Variant, definition: Variant, state: Variant, timeli
 	transaction.definition_hash = definition.definition_hash()
 	transaction.telemetry = telemetry
 	return {"result": result, "transaction": transaction}
+
+
+func _build_reveal(command: Variant, definition: Variant, state: Variant) -> Dictionary:
+	if state.status != GameStateDataScript.PLAYING:
+		return {"result": GAME_OVER}
+
+	var tile_id: String = str(command.payload.get("tile_id", ""))
+	var board := BoardStateScript.new(definition, state)
+	if not board.call("is_tile_revealable", tile_id):
+		return {"result": INVALID_SELECTION}
+
+	var changes: Array = []
+	var momentum_after_decay := _append_clock_changes(command, definition, state, changes)
+	_append_clear_hint(changes, state)
+	var matching_tile_id := _matching_tray_tile_id(definition, state, tile_id)
+	var matching_zone := GameStateDataScript.ZONE_TRAY
+	if matching_tile_id.is_empty():
+		matching_tile_id = _matching_revealed_flipped_tile_id(definition, state, tile_id)
+		matching_zone = GameStateDataScript.ZONE_BOARD
+	var revealed_after: Array[String] = []
+	if matching_zone == GameStateDataScript.ZONE_BOARD and not matching_tile_id.is_empty():
+		revealed_after.assign(state.revealed_flipped_tile_ids)
+	else:
+		revealed_after = _reveals_without_active_tiles(state)
+	revealed_after.append(tile_id)
+	revealed_after.sort()
+	changes.append(GameChangeScript.new(
+		GameChangeScript.FLIPPED_REVEALS,
+		"revealed_flipped_tile_ids",
+		state.revealed_flipped_tile_ids,
+		revealed_after
+	))
+	if matching_tile_id.is_empty():
+		var reveal_transaction := GameTransactionScript.new(command, changes, TILE_REVEALED)
+		reveal_transaction.definition_hash = definition.definition_hash()
+		reveal_transaction.telemetry = {
+			"revealed_tile_id": tile_id,
+			"face_id": definition.get_tile(tile_id).face.logical_id(),
+		}
+		return {"result": TILE_REVEALED, "transaction": reveal_transaction}
+
+	var tray_before: Array[String] = []
+	tray_before.assign(state.tray_tile_ids)
+	var tray_after: Array[String] = []
+	tray_after.assign(tray_before)
+	var selection_increment := 2
+	if matching_zone == GameStateDataScript.ZONE_TRAY:
+		tray_after.erase(matching_tile_id)
+		selection_increment = 1
+	changes.append(GameChangeScript.new(
+		GameChangeScript.TILE_ZONE,
+		tile_id,
+		GameStateDataScript.ZONE_BOARD,
+		GameStateDataScript.ZONE_RESOLVED
+	))
+	changes.append(GameChangeScript.new(
+		GameChangeScript.TILE_ZONE,
+		matching_tile_id,
+		matching_zone,
+		GameStateDataScript.ZONE_RESOLVED
+	))
+	if tray_before != tray_after:
+		changes.append(GameChangeScript.new(GameChangeScript.TRAY, "tray_tile_ids", tray_before, tray_after))
+	changes.append(GameChangeScript.new(
+		GameChangeScript.COUNTER,
+		"resolved_pair_count",
+		state.resolved_pair_count,
+		state.resolved_pair_count + 1
+	))
+	changes.append(GameChangeScript.new(
+		GameChangeScript.COUNTER,
+		"selection_count",
+		state.selection_count,
+		state.selection_count + selection_increment
+	))
+
+	var momentum_after_gain: int = MomentumRulesScript.add_pair_gain(momentum_after_decay, definition.configuration)
+	_append_counter_change(changes, "momentum_units", momentum_after_decay, momentum_after_gain)
+	var score_multiplier: int = MomentumRulesScript.multiplier_for(momentum_after_decay, definition.configuration)
+	var score_modifier_basis_points: int = ModifierRulesScript.active_score_basis_points(state, command.playback_time_ms)
+	var score_gain: int = int(
+		int(definition.configuration.pair_base_score) * score_multiplier * score_modifier_basis_points \
+		/ ModifierRulesScript.BASIS_POINTS_ONE
+	)
+	_append_counter_change(changes, "score", state.score, state.score + score_gain)
+	var combo_before: int = ComboRulesScript.count_at(state, command.playback_time_ms)
+	var combo_after := combo_before + 1
+	var combo_expires_after := 0
+	if definition.rules_version < 8:
+		combo_expires_after = ComboRulesScript.expiry_after_pair(command.playback_time_ms, definition.configuration)
+	_append_combo_state(changes, state, combo_after, maxi(state.max_combo, combo_after), combo_expires_after)
+	_append_counter_change(changes, "last_pair_time_ms", state.last_pair_time_ms, command.playback_time_ms)
+	var resulting_multiplier: int = MomentumRulesScript.multiplier_for(momentum_after_gain, definition.configuration)
+	_append_counter_change(changes, "max_multiplier", state.max_multiplier, maxi(state.max_multiplier, resulting_multiplier))
+
+	var pair_ids := [tile_id, matching_tile_id]
+	var modifier_values := _modifier_values_after_pair(definition, state, pair_ids, command.playback_time_ms)
+	var tray_bonus_pairs_after: int = int(modifier_values.tray_bonus_pairs_remaining)
+	var tray_bonus_capacity_after: int = int(modifier_values.tray_bonus_capacity)
+	if tray_bonus_pairs_after > 0 and not bool(modifier_values.tray_bonus_triggered):
+		tray_bonus_pairs_after -= 1
+		if tray_bonus_pairs_after == 0:
+			tray_bonus_capacity_after = 0
+	_append_counter_change(changes, "extra_life_charges", state.extra_life_charges, int(modifier_values.extra_life_charges))
+	_append_counter_change(changes, "cold_snap_until_ms", state.cold_snap_until_ms, int(modifier_values.cold_snap_until_ms))
+	_append_counter_change(changes, "score_multiplier_until_ms", state.score_multiplier_until_ms, int(modifier_values.score_multiplier_until_ms))
+	_append_counter_change(changes, "score_multiplier_basis_points", state.score_multiplier_basis_points, int(modifier_values.score_multiplier_basis_points))
+	_append_counter_change(changes, "tray_bonus_capacity", state.tray_bonus_capacity, tray_bonus_capacity_after)
+	_append_counter_change(changes, "tray_bonus_pairs_remaining", state.tray_bonus_pairs_remaining, tray_bonus_pairs_after)
+	_append_counter_change(changes, "modifier_activation_count", state.modifier_activation_count, int(modifier_values.modifier_activation_count))
+
+	var next_status: String = state.status
+	if _board_tile_count_after(state, changes) == 0 and tray_after.is_empty():
+		next_status = GameStateDataScript.WON
+	if next_status != state.status:
+		changes.append(GameChangeScript.new(GameChangeScript.STATUS, "status", state.status, next_status))
+
+	var transaction := GameTransactionScript.new(command, changes, FLIPPED_PAIR_RESOLVED)
+	transaction.definition_hash = definition.definition_hash()
+	transaction.telemetry = {
+		"flipped_pair": true,
+		"revealed_tile_id": tile_id,
+		"resolved_tile_ids": pair_ids,
+		"matching_source": matching_zone,
+		"pair_interval_ms": command.playback_time_ms - state.last_pair_time_ms,
+		"momentum_before": state.momentum_units,
+		"momentum_after_decay": momentum_after_decay,
+		"momentum_after_gain": momentum_after_gain,
+		"score_multiplier": score_multiplier,
+		"score_modifier_basis_points": score_modifier_basis_points,
+		"resulting_multiplier": resulting_multiplier,
+		"score_gain": score_gain,
+		"score_gain_before_difficulty": score_gain,
+		"difficulty_bonus_score": 0,
+		"combo_before": combo_before,
+		"combo_after": combo_after,
+		"combo_expires_at_ms": combo_expires_after,
+		"resolved_pair_opportunity": {
+			"source": "flipped_pair",
+			"observed_revision": state.revision,
+			"revealed_tile_id": tile_id,
+			"matching_tile_id": matching_tile_id,
+		},
+		"modifiers_triggered": modifier_values.triggered_modifiers,
+	}
+	return {"result": FLIPPED_PAIR_RESOLVED, "transaction": transaction}
 
 
 func _build_undo(command: Variant, definition: Variant, state: Variant, timeline: Array) -> Dictionary:
@@ -358,7 +530,22 @@ func _build_hint(command: Variant, definition: Variant, state: Variant) -> Dicti
 	var selectable: Array = board.call("selectable_tiles")
 	selectable.sort_custom(func(first: Variant, second: Variant) -> bool: return first.id < second.id)
 	var hinted: Array[String] = []
+	var revealed_ids: Array[String] = []
+	for revealed_id in state.revealed_flipped_tile_ids:
+		if state.tile_zones.get(revealed_id) == GameStateDataScript.ZONE_BOARD:
+			revealed_ids.append(revealed_id)
+	revealed_ids.sort()
+	for revealed_id in revealed_ids:
+		var revealed_tile: Variant = definition.get_tile(revealed_id)
+		for tile in selectable:
+			if tile.face.equals(revealed_tile.face):
+				hinted.assign([revealed_id, tile.id])
+				break
+		if not hinted.is_empty():
+			break
 	for held_tile_id in state.tray_tile_ids:
+		if not hinted.is_empty():
+			break
 		var held_tile: Variant = definition.get_tile(held_tile_id)
 		for tile in selectable:
 			if tile.face.equals(held_tile.face):
@@ -395,14 +582,15 @@ func _build_delete_pair(command: Variant, definition: Variant, state: Variant) -
 		return {"result": CONSUMABLE_UNAVAILABLE}
 	var tile_id: String = str(command.payload.get("tile_id", ""))
 	var board := BoardStateScript.new(definition, state)
-	if not board.call("is_tile_visible", tile_id):
+	if not board.call("is_tile_visible", tile_id) or board.call("is_tile_face_down", tile_id):
 		return {"result": NO_DELETABLE_PAIR}
 	var tile: Variant = board.call("get_tile", tile_id)
 	var visible: Array = board.call("visible_tiles")
 	visible.sort_custom(func(first: Variant, second: Variant) -> bool: return first.id < second.id)
 	var partner_id := ""
 	for candidate in visible:
-		if candidate.id != tile_id and candidate.face.equals(tile.face):
+		if candidate.id != tile_id and not board.call("is_tile_face_down", candidate.id) \
+				and candidate.face.equals(tile.face):
 			partner_id = candidate.id
 			break
 	if partner_id.is_empty():
@@ -648,6 +836,42 @@ func _matching_tray_tile_id(definition: Variant, state: Variant, tile_id: String
 		if definition.get_tile(held_tile_id).face.equals(tile.face):
 			return held_tile_id
 	return ""
+
+
+func _matching_revealed_flipped_tile_id(definition: Variant, state: Variant, tile_id: String) -> String:
+	var tile: Variant = definition.get_tile(tile_id)
+	if tile == null:
+		return ""
+	var candidate_ids: Array[String] = []
+	for candidate_id in state.revealed_flipped_tile_ids:
+		if candidate_id != tile_id \
+				and state.tile_zones.get(candidate_id) == GameStateDataScript.ZONE_BOARD:
+			candidate_ids.append(candidate_id)
+	candidate_ids.sort()
+	for candidate_id in candidate_ids:
+		var candidate: Variant = definition.get_tile(candidate_id)
+		if candidate != null and candidate.face.equals(tile.face):
+			return candidate_id
+	return ""
+
+
+func _append_hide_active_flipped_reveals(changes: Array, state: Variant) -> void:
+	var revealed_after := _reveals_without_active_tiles(state)
+	if revealed_after != state.revealed_flipped_tile_ids:
+		changes.append(GameChangeScript.new(
+			GameChangeScript.FLIPPED_REVEALS,
+			"revealed_flipped_tile_ids",
+			state.revealed_flipped_tile_ids,
+			revealed_after
+		))
+
+
+func _reveals_without_active_tiles(state: Variant) -> Array[String]:
+	var revealed_after: Array[String] = []
+	for revealed_id in state.revealed_flipped_tile_ids:
+		if state.tile_zones.get(revealed_id) != GameStateDataScript.ZONE_BOARD:
+			revealed_after.append(revealed_id)
+	return revealed_after
 
 
 func _board_tile_count_after(state: Variant, changes: Array) -> int:
