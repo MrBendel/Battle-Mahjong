@@ -106,4 +106,12 @@ Configure the following secrets in GitHub Repository Settings (`Settings > Secre
 - `ANDROID_KEYSTORE_ALIAS`: Keystore key alias from `secrets/android-upload.env`.
 - `ANDROID_KEYSTORE_PASSWORD`: Keystore password from `secrets/android-upload.env`.
 
+## Google Play In-App Updates Integration
+
+The game uses `UpdateChecker` (`res://scripts/presentation/update_checker.gd`) to interface with native Google Play Core in-app update plugins (`GodotPlayCore`, `GodotGooglePlayInAppUpdate`, `InAppUpdate`).
+
+- **Android Runtime**: `UpdateChecker` discovers native Play Core plugins at runtime, checks Play Store update availability, and triggers flexible or immediate in-app updates via `start_in_app_update()`.
+- **Offline / Non-Android Fallback**: When running off-Android or without native plugins, `UpdateChecker` operates fully offline without issuing external HTTP network requests.
+
+
 

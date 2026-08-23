@@ -22,12 +22,11 @@ func _run() -> void:
 	var shell: Control = load("res://scenes/main.tscn").instantiate()
 	root.add_child(shell)
 	await process_frame
-	var update_checker: Node = shell.get("_update_checker")
-	if update_checker != null:
-		update_checker.queue_free()
-		shell.set("_update_checker", null)
-		shell.get("_update_banner").visible = false
+	var banner_view: Control = shell.get("_update_banner")
+	if banner_view != null:
+		banner_view.visible = false
 		await process_frame
+
 	_check_equal(
 		DisplayServer.SCREEN_SENSOR,
 		ProjectSettings.get_setting("display/window/handheld/orientation"),
