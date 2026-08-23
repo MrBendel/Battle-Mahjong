@@ -14,6 +14,8 @@ const ConsumablesViewScript := preload("res://scripts/presentation/consumables_v
 const TileSkinScript := preload("res://scripts/presentation/tile_skin.gd")
 const PairMatchFxScript := preload("res://scripts/presentation/pair_match_fx.gd")
 const PerformanceCalloutScript := preload("res://scripts/presentation/performance_callout_view.gd")
+const ArcadeCalloutPolicyScript := preload("res://scripts/presentation/arcade_callout_policy.gd")
+const ArcadeCalloutTuningScript := preload("res://scripts/configuration/arcade_callout_tuning.gd")
 const PauseMenuScript := preload("res://scripts/presentation/pause_menu.gd")
 const EndGameMenuScript := preload("res://scripts/presentation/end_game_menu.gd")
 const GameChangeScript := preload("res://scripts/simulation/game_change.gd")
@@ -29,8 +31,10 @@ const FLIPPED_PAIR_ARC_SECONDS := 0.34
 
 @export var momentum_tuning: Resource
 @export var modifier_tuning: Resource
+@export var arcade_callout_tuning: Resource
 @export var layout_id: String = BoardLayoutCatalogScript.DEFAULT_LAYOUT_ID
 @export_range(0, 48, 1) var flipped_tile_count := 12
+@export var show_debug_panel := false
 
 var _rng: RefCounted = DeterministicRngScript.new(START_SEED)
 var _regions: Dictionary = {}
@@ -60,6 +64,7 @@ var _pause_started_at_ms := -1
 var _game_over_time_ms := -1
 var _paused_duration_ms := 0
 var _performance_callout: Control
+var _arcade_callout_policy := ArcadeCalloutPolicyScript.new()
 var _update_banner: PanelContainer
 var _update_checker: Node
 var _safe_area_override := Rect2(-1.0, -1.0, -1.0, -1.0)
@@ -86,6 +91,10 @@ func _build_shell() -> void:
 		add_child(region)
 	_performance_callout = PerformanceCalloutScript.new()
 	add_child(_performance_callout)
+	if arcade_callout_tuning == null or arcade_callout_tuning.get_script() != ArcadeCalloutTuningScript:
+		push_error("No valid ArcadeCalloutTuning resource assigned.")
+	elif not arcade_callout_tuning.call("validation_errors").is_empty():
+		push_error("Invalid ArcadeCalloutTuning resource: %s" % " ".join(arcade_callout_tuning.call("validation_errors")))
 
 	_regions.board.tile_selected.connect(_on_tile_selected)
 	_regions.board.locked_tile_tapped.connect(_on_locked_tile_tapped)
@@ -273,6 +282,7 @@ func _on_tile_selected(tile_id: String) -> void:
 					_play_flipped_pair_collision(direct_visuals)
 				var direct_transaction: Variant = _game.call("last_transaction")
 				_regions.momentum.call("play_pair_feedback", int(direct_transaction.telemetry.resulting_multiplier))
+				_play_transaction_callout(direct_transaction)
 			else:
 				for visual in direct_visuals:
 					visual.preview.queue_free()
@@ -302,8 +312,21 @@ func _on_tile_selected(tile_id: String) -> void:
 	if result == GameStateScript.PAIR_RESOLVED:
 		var transaction: Variant = _game.call("last_transaction")
 		_regions.momentum.call("play_pair_feedback", int(transaction.telemetry.resulting_multiplier))
-		if transaction.telemetry.has("difficulty_reward"):
-			_performance_callout.call("play_reward", transaction.telemetry.difficulty_reward)
+		_play_transaction_callout(transaction)
+
+
+func _play_transaction_callout(transaction: Variant) -> void:
+	if arcade_callout_tuning == null:
+		return
+	var score_after := int(_game.call("current_snapshot").score)
+	var alert: Dictionary = _arcade_callout_policy.call(
+		"choose_for_pair",
+		transaction.telemetry,
+		score_after,
+		arcade_callout_tuning
+	)
+	if not alert.is_empty():
+		_performance_callout.call("play_alert", alert)
 
 
 func _active_revealed_flipped_tile_ids() -> Array[String]:
@@ -809,7 +832,7 @@ func _apply_layout() -> void:
 
 	for region in _regions.values():
 		region.visible = true
-	_debug_panel.visible = true
+	_debug_panel.visible = show_debug_panel
 	if orientation == "Landscape":
 		_apply_landscape_layout(viewport_size)
 	elif viewport_size.y < 800.0:
@@ -817,7 +840,8 @@ func _apply_layout() -> void:
 	else:
 		_apply_portrait_layout(viewport_size)
 
-	_place_debug_panel(viewport_size, orientation)
+	if _debug_panel.visible:
+		_place_debug_panel(viewport_size, orientation)
 	_place_pause_button(viewport_size)
 	_regions.tray.call("set_tile_visual_size", _regions.board.call("tile_visual_size"))
 	_performance_callout.call("place_over", Rect2(_regions.board.position, _regions.board.size))
@@ -892,32 +916,39 @@ func _rect_to_dict(rect: Rect2) -> Dictionary:
 
 func _apply_landscape_layout(size: Vector2) -> void:
 	var insets := _get_safe_area_insets()
-	var margin := 16.0
-	var gap := 12.0
-	var left_margin := margin + insets.position.x
-	var right_margin := margin + insets.size.x
-	var usable_width := size.x - left_margin - right_margin
+	var content := SafeAreaScript.content_rect(size, insets)
+	var margin := 12.0
+	var gap := 10.0
+	var safe_rect := Rect2(content.position + Vector2(margin, margin), content.size - Vector2(margin * 2.0, margin * 2.0))
 	var banner_offset := 0.0
 	if _update_banner != null and _update_banner.visible:
 		var banner_height := 44.0
-		_place(_update_banner, Rect2(left_margin, margin + insets.position.y, usable_width, banner_height))
+		_place(_update_banner, Rect2(safe_rect.position, Vector2(safe_rect.size.x, banner_height)))
 		banner_offset = banner_height + gap
-	var top_start := margin + insets.position.y + banner_offset
-	var bottom_limit := size.y - margin - insets.size.y
+	var top_start := safe_rect.position.y + banner_offset
+	var bottom_limit := safe_rect.end.y
 	var usable_height := bottom_limit - top_start
+	var rail_width := clampf(safe_rect.size.x * 0.18, 120.0, 240.0)
+	var top_height := clampf(usable_height * 0.15, 76.0, 104.0)
+	var board_left := safe_rect.position.x + rail_width + gap
+	var board_width := safe_rect.size.x - (rail_width + gap) * 2.0
+	var board_top := top_start + top_height + gap
+	var tray_width := minf(board_width, 430.0)
 
-	var left_width: float = clampf(usable_width * 0.20, 220.0, 320.0)
-	var right_width: float = clampf(usable_width * 0.22, 240.0, 360.0)
-	var tray_height: float = clampf(usable_height * 0.16, 88.0, 128.0)
-	var board_left: float = left_margin + left_width + gap
-	var board_width: float = size.x - board_left - right_width - gap - right_margin
-	var board_height: float = usable_height - tray_height - gap
-
-	_place(_regions.momentum, Rect2(left_margin, top_start, left_width, 96.0))
-	_place(_regions.consumables, Rect2(left_margin, top_start + 96.0 + gap, left_width, usable_height - 96.0 - gap))
-	_place(_regions.tray, Rect2(board_left, top_start, board_width, tray_height))
-	_place(_regions.board, Rect2(board_left, top_start + tray_height + gap, board_width, board_height))
-	_place(_regions.character, Rect2(board_left + board_width + gap, top_start, right_width, usable_height))
+	_place(_regions.momentum, Rect2(safe_rect.position.x, top_start, rail_width, top_height))
+	_place(_regions.tray, Rect2(board_left + (board_width - tray_width) * 0.5, top_start, tray_width, top_height))
+	_place(_regions.board, Rect2(board_left, board_top, board_width, bottom_limit - board_top))
+	_place(_regions.consumables, safe_rect)
+	var action_gap := 8.0
+	var action_height := clampf((usable_height - top_height - gap - action_gap) * 0.18, 54.0, 72.0)
+	var action_bottom := safe_rect.size.y
+	_regions.consumables.call("set_action_rects", {
+		"hint": Rect2(0.0, action_bottom - action_height * 2.0 - action_gap, rail_width, action_height),
+		"delete_pair": Rect2(0.0, action_bottom - action_height, rail_width, action_height),
+		"shuffle": Rect2(safe_rect.size.x - rail_width, action_bottom - action_height * 2.0 - action_gap, rail_width, action_height),
+		"undo": Rect2(safe_rect.size.x - rail_width, action_bottom - action_height, rail_width, action_height),
+	})
+	_regions.character.visible = false
 
 
 func _apply_portrait_layout(size: Vector2) -> void:
@@ -934,31 +965,20 @@ func _apply_portrait_layout(size: Vector2) -> void:
 		banner_offset = banner_height + gap
 	var top_start := margin + insets.position.y + banner_offset
 	var bottom_limit := size.y - margin - insets.size.y
-	var usable_height := bottom_limit - top_start
-
-	var momentum_height := 64.0
-	var debug_height := 120.0
-	var tray_height := 86.0
-	var consumables_height := 90.0
-	var tray_top: float = top_start + momentum_height + gap + debug_height + gap
+	var momentum_height := 68.0
+	var tray_height := 82.0
+	var consumables_height := 76.0
+	var tray_top: float = top_start + momentum_height + gap
 	var board_top: float = tray_top + tray_height + gap
-	var minimum_character_height := maxf(72.0, _regions.character.get_combined_minimum_size().y)
-	var reserved_after_board := gap + consumables_height + gap + minimum_character_height
-	var board_height: float = minf(
-		clampf(usable_height * 0.43, 260.0, usable_height * 0.46),
-		maxf(260.0, bottom_limit - board_top - reserved_after_board)
-	)
-	var character_top: float = board_top + board_height + gap + consumables_height + gap
-	var character_height: float = bottom_limit - character_top
+	var consumables_top := bottom_limit - consumables_height
+	var board_height := consumables_top - gap - board_top
 
 	_place(_regions.momentum, Rect2(left_margin, top_start, usable_width - 52.0, momentum_height))
 	_place(_regions.tray, Rect2(left_margin, tray_top, usable_width, tray_height))
 	_place(_regions.board, Rect2(left_margin, board_top, usable_width, board_height))
-	_place(_regions.consumables, Rect2(left_margin, board_top + board_height + gap, usable_width, consumables_height))
-	if character_height >= minimum_character_height:
-		_place(_regions.character, Rect2(left_margin, character_top, usable_width, character_height))
-	else:
-		_regions.character.visible = false
+	_place(_regions.consumables, Rect2(left_margin, consumables_top, usable_width, consumables_height))
+	_regions.consumables.call("clear_action_rects")
+	_regions.character.visible = false
 
 
 func _apply_compact_portrait_layout(size: Vector2) -> void:
@@ -985,6 +1005,7 @@ func _apply_compact_portrait_layout(size: Vector2) -> void:
 	_place(_regions.tray, Rect2(left_margin, tray_top, usable_width, tray_height))
 	_place(_regions.board, Rect2(left_margin, board_top, usable_width, board_height))
 	_place(_regions.consumables, Rect2(left_margin, board_top + board_height + gap, usable_width, consumables_height))
+	_regions.consumables.call("clear_action_rects")
 	_regions.character.visible = false
 	_debug_panel.visible = false
 

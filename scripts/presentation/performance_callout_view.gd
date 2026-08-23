@@ -1,12 +1,14 @@
 extends Control
 
-const CALLOUT_TEXT := {
-	"great": "GREAT!",
-	"eagle_eyes": "EAGLE EYES!",
+const TYPE_COLORS := {
+	"difficulty": Color("fff27a"),
+	"combo": Color("7af2bd"),
+	"score": Color("72d8ff"),
 }
 
 var play_count := 0
 var last_callout_key := ""
+var last_alert_type := ""
 var last_text := ""
 var _label: Label
 var _active_tween: Tween
@@ -39,21 +41,25 @@ func place_over(board_rect: Rect2) -> void:
 	_label.pivot_offset = _label.size * 0.5
 
 
-func play_reward(reward: Dictionary) -> void:
-	var key := str(reward.get("callout_key", ""))
-	if not CALLOUT_TEXT.has(key):
+func play_alert(alert: Dictionary) -> void:
+	var key := str(alert.get("key", ""))
+	var alert_type := str(alert.get("type", ""))
+	var text := str(alert.get("text", ""))
+	if key.is_empty() or text.is_empty() or not TYPE_COLORS.has(alert_type):
 		return
 	if _active_tween != null and _active_tween.is_valid():
 		_active_tween.kill()
 	play_count += 1
 	last_callout_key = key
-	last_text = str(CALLOUT_TEXT[key])
+	last_alert_type = alert_type
+	last_text = text
 	_label.text = last_text
+	_label.add_theme_color_override("font_color", TYPE_COLORS[alert_type])
 	_label.visible = true
 	_label.position = _base_label_position
 	_label.modulate = Color.WHITE
 	_label.scale = Vector2(0.55, 0.55)
-	_label.rotation = deg_to_rad(-3.0 if key == "great" else 3.0)
+	_label.rotation = deg_to_rad(-3.0 if play_count % 2 == 0 else 3.0)
 	_active_tween = create_tween()
 	_active_tween.tween_property(_label, "scale", Vector2(1.08, 1.08), 0.12) \
 		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
@@ -63,6 +69,13 @@ func play_reward(reward: Dictionary) -> void:
 	_active_tween.tween_property(_label, "modulate:a", 0.0, 0.22)
 	_active_tween.tween_property(_label, "position:y", _label.position.y - 18.0, 0.22)
 	_active_tween.finished.connect(_finish_callout)
+
+
+func play_reward(reward: Dictionary) -> void:
+	var key := str(reward.get("callout_key", ""))
+	var alert_key := "well_hidden" if key == "great" else key
+	var text := "WELL HIDDEN!" if key == "great" else ("EAGLE EYES!" if key == "eagle_eyes" else "")
+	play_alert({"type": "difficulty", "key": alert_key, "text": text})
 
 
 func reset() -> void:

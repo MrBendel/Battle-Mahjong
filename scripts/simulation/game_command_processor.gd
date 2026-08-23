@@ -515,6 +515,17 @@ func _build_undo(command: Variant, definition: Variant, state: Variant, timeline
 		GameChangeScript.new(GameChangeScript.TRAY, "tray_tile_ids", tray_before, tray_after),
 		GameChangeScript.new(GameChangeScript.COUNTER, "selection_count", state.selection_count, state.selection_count - 1),
 	])
+	for target_change in target_transaction.changes:
+		if target_change.type == GameChangeScript.FLIPPED_REVEALS \
+				and state.revealed_flipped_tile_ids == target_change.after:
+			changes.append(GameChangeScript.new(
+				GameChangeScript.FLIPPED_REVEALS,
+				"revealed_flipped_tile_ids",
+				state.revealed_flipped_tile_ids,
+				target_change.before
+			))
+			combo_telemetry["restored_flipped_reveals"] = target_change.before.duplicate()
+			break
 	var transaction := GameTransactionScript.new(command, changes, UNDONE, target_transaction.transaction_id)
 	transaction.definition_hash = target_transaction.definition_hash
 	transaction.telemetry = combo_telemetry

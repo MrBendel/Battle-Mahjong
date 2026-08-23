@@ -9,6 +9,9 @@ signal undo_requested
 var _game: Variant
 var _buttons: Dictionary = {}
 var _notice: Label
+var _background: Panel
+var _title: Label
+var _action_rects: Dictionary = {}
 
 
 func _init(game_state: Variant) -> void:
@@ -16,21 +19,22 @@ func _init(game_state: Variant) -> void:
 
 
 func _ready() -> void:
-	var background := Panel.new()
-	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_background = Panel.new()
+	_background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_background.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.11, 0.17, 0.13, 1.0)
 	style.border_color = Color(0.42, 0.62, 0.47, 1.0)
 	style.set_border_width_all(2)
 	style.set_corner_radius_all(8)
-	background.add_theme_stylebox_override("panel", style)
-	add_child(background)
-	var title := Label.new()
-	title.text = "Consumables"
-	title.position = Vector2(12.0, 8.0)
-	title.add_theme_font_size_override("font_size", 20)
-	add_child(title)
+	_background.add_theme_stylebox_override("panel", style)
+	add_child(_background)
+	_title = Label.new()
+	_title.text = "Consumables"
+	_title.position = Vector2(12.0, 8.0)
+	_title.add_theme_font_size_override("font_size", 20)
+	add_child(_title)
 	_notice = Label.new()
 	_notice.position = Vector2(12.0, 38.0)
 	_notice.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -71,8 +75,19 @@ func show_notice(message: String) -> void:
 		_layout()
 
 
+func set_action_rects(rects: Dictionary) -> void:
+	_action_rects = rects.duplicate(true)
+	_layout()
+
+
+func clear_action_rects() -> void:
+	_action_rects.clear()
+	_layout()
+
+
 func _add_button(consumable_type: String, label: String, callback: Callable) -> void:
 	var button := Button.new()
+	button.name = consumable_type.capitalize().replace("_", "")
 	button.set_meta("label", label)
 	button.focus_mode = Control.FOCUS_NONE
 	button.pressed.connect(callback)
@@ -83,6 +98,19 @@ func _add_button(consumable_type: String, label: String, callback: Callable) -> 
 func _layout() -> void:
 	if _buttons.is_empty():
 		return
+	if not _action_rects.is_empty():
+		_background.visible = false
+		_title.visible = false
+		_notice.visible = false
+		for consumable_type in _buttons:
+			var rect: Rect2 = _action_rects.get(consumable_type, Rect2())
+			_buttons[consumable_type].position = rect.position
+			_buttons[consumable_type].size = rect.size
+			_buttons[consumable_type].add_theme_font_size_override("font_size", 16)
+		refresh()
+		return
+	_background.visible = true
+	_title.visible = false
 	_notice.size = Vector2(maxf(100.0, size.x - 24.0), 46.0)
 	var vertical := size.y > 180.0
 	_notice.visible = vertical
@@ -99,8 +127,8 @@ func _layout() -> void:
 		var button_width := available_width / float(types.size())
 		var button_x := 12.0
 		for index in types.size():
-			_buttons[types[index]].position = Vector2(button_x, maxf(42.0, size.y - 44.0))
-			_buttons[types[index]].size = Vector2(button_width, 36.0)
+			_buttons[types[index]].position = Vector2(button_x, 8.0)
+			_buttons[types[index]].size = Vector2(button_width, maxf(44.0, size.y - 16.0))
 			_buttons[types[index]].add_theme_font_size_override("font_size", 14)
 			button_x += button_width + gap
 	refresh()
