@@ -4,6 +4,7 @@ Battle Mahjong tests Android orientation and safe-area behavior at two levels:
 
 - The Godot UI smoke runner injects asymmetric portrait and landscape insets. This catches layout math regressions quickly without starting Android.
 - `scripts/test_android_screenshots.ps1` exports and installs the target-SDK-36 x86_64 debug APK on an API 36 emulator, launches portrait-first, relaunches in landscape and portrait, validates the safe-area geometry reported by Android, and captures the rendered Godot viewport in each state.
+- The harness copies `adb exec-out` screenshot data as a raw byte stream. Do not use Windows PowerShell text redirection for PNG capture because it corrupts binary output.
 
 Android Emulator and ADB are the appropriate integration layer for this project. Native Android screenshot libraries do not inspect controls rendered inside Godot's surface.
 

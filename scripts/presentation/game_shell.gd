@@ -839,6 +839,11 @@ func _apply_layout() -> void:
 		_apply_compact_portrait_layout(viewport_size)
 	else:
 		_apply_portrait_layout(viewport_size)
+	_regions.board.call("refresh")
+	var tile_visual_size: Vector2 = _regions.board.call("tile_visual_size")
+	var required_tray_height := float(_regions.tray.call("minimum_height_for_tile", tile_visual_size))
+	var required_tray_width := float(_regions.tray.call("minimum_width_for_tile", tile_visual_size))
+	_reflow_for_tray_clearance(orientation, required_tray_height, required_tray_width)
 
 	if _debug_panel.visible:
 		_place_debug_panel(viewport_size, orientation)
@@ -855,6 +860,29 @@ func _apply_layout() -> void:
 		str(_game.definition.configuration.get("layout_id", "unknown"))
 	)
 	_write_android_layout_probe(orientation, viewport_size)
+
+
+func _reflow_for_tray_clearance(
+	orientation: String,
+	required_height: float,
+	required_width: float
+) -> void:
+	var tray: Control = _regions.tray
+	var board: Control = _regions.board
+	if required_width > tray.size.x:
+		var expanded_width := minf(required_width, board.size.x)
+		tray.position.x = board.position.x + (board.size.x - expanded_width) * 0.5
+		tray.size.x = expanded_width
+	if required_height <= tray.size.y:
+		return
+	var board_bottom := board.position.y + board.size.y
+	var gap := 10.0 if orientation == "Landscape" or get_viewport_rect().size.y >= 800.0 else 7.0
+	tray.size.y = required_height
+	if orientation == "Landscape":
+		_regions.momentum.size.y = required_height
+	var board_top := tray.position.y + tray.size.y + gap
+	board.position.y = board_top
+	board.size.y = maxf(1.0, board_bottom - board_top)
 
 
 func _get_safe_area_insets() -> Rect2:

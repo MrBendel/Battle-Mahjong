@@ -45,6 +45,18 @@ func set_tile_visual_size(tile_size: Vector2) -> void:
 	_layout()
 
 
+func minimum_height_for_tile(tile_size: Vector2) -> float:
+	var expansion: Array = _tile_skin.layout_presentation.get("ink_outline_expansion_ratio", [0.055, 0.04])
+	var offset: Array = _tile_skin.layout_presentation.get("ink_outline_offset_ratio", [-0.004, 0.006])
+	var outline_bottom_ratio := float(expansion[1]) * 0.5 + maxf(0.0, float(offset[1]))
+	return ceilf(26.0 + tile_size.y * (1.0 + outline_bottom_ratio) + 8.0)
+
+
+func minimum_width_for_tile(tile_size: Vector2) -> float:
+	var expansion: Array = _tile_skin.layout_presentation.get("ink_outline_expansion_ratio", [0.055, 0.04])
+	return ceilf(tile_size.x * (float(SLOT_COUNT) + float(expansion[0])) + GAP * float(SLOT_COUNT - 1))
+
+
 func suppress_tile(tile_id: String) -> void:
 	_suppressed_tile_ids[tile_id] = true
 	refresh()
@@ -197,6 +209,12 @@ func slot_global_rect(index: int) -> Rect2:
 	if index < 0 or index >= _slots.size():
 		return Rect2()
 	return _slots[index].get_global_rect()
+
+
+func slot_visual_global_rect(index: int) -> Rect2:
+	if index < 0 or index >= _slots.size():
+		return Rect2()
+	return _slots[index].get_global_rect().merge(_slot_ink_outlines[index].get_global_rect())
 
 
 func create_tile_preview(index: int) -> Control:

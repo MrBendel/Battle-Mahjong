@@ -31,6 +31,7 @@ Project-level instructions for Codex working on Battle Mahjong.
 - Keep authored layouts and procedural layout requirements data-driven under `configuration/`.
 - Verify generated layouts structurally and with the solver before accepting them.
 - Do not commit `.codex-remote-attachments/`; those files are local conversation inputs.
+- Before submitting every PR, increment the patch component of the tracked Android version in `export_presets.cfg` exactly once relative to the PR's base branch (for example, `0.1.1` to `0.1.2`). Keep the screenshot preset on the same base version with its `-screenshot` suffix. Do not reuse gameplay rules versions as app versions; follow `docs/VERSIONING.md`.
 
 ## Current State
 
@@ -53,6 +54,8 @@ Project-level instructions for Codex working on Battle Mahjong.
 - Board-stack depth is presentation-only: authored lower `z` layers are progressively darker, upper tiles cast compact silhouette shadows, and blocked state uses a separate cool veil. Face-down tiles use the blank ceramic base without placeholder text.
 - Adjacent Default-skin tiles use a configurable slight visual overlap to compensate for transparent base-art padding in portrait and landscape; spacing remains cosmetic and must not alter authored board positions.
 - Default tiles derive a configurable asymmetric manga-ink silhouette from the active base texture across board, tray, and animation previews; it remains presentation-only and distinct from cast shadows and blocked state.
+- Selectable and otherwise visually active tiles always use canonical full brightness; authored-layer shading and the cool blocked veil apply only while a tile remains covered. Responsive layouts reserve the rendered tray-tile height before placing the Board.
+- `UpdateChecker` is currently an adapter contract only; no native Google Play Core in-app-update plugin is included in Android exports. Version bumps and monotonic Play codes do not make the in-app prompt functional without that future integration.
 - The Default skin has orientation-specific supplied ceramic bases: tall in portrait and wide in landscape. The active base, face safe area, board footprint, tray footprint, and animation previews change together without changing stable layout slots or simulation rules.
 - The M3 scoring model uses a mistake-driven Combo chain. Natural pairs extend Combo; ordinary unmatched selections and elapsed time preserve it; live locked-tile taps and successful consumables break it through replay-safe transactions. Combo remains separate from the pair-difficulty score reward.
 - Deterministic tile and pair difficulty analysis runs before each accepted natural selection and records derived transaction telemetry. The provisional geometry-only formula is documented in `docs/PAIR_DIFFICULTY.md`; it must remain orientation- and skin-independent and must not affect rewards until playtest validation.
@@ -93,4 +96,5 @@ For documentation-only changes, `git diff --check` is sufficient unless the docu
 - `docs/ART_DIRECTION.md`: canonical visual direction.
 - `docs/ANDROID_PUBLISHING.md`: signed Android AAB export and Play Internal testing workflow.
 - `docs/ANDROID_SCREENSHOT_TESTING.md`: emulator-based portrait, landscape, rotation, and safe-area screenshot checks.
+- `docs/VERSIONING.md`: PR patch bumps, Android version names/codes, and release identity ownership.
 - `docs/milestones/`: detailed milestone requirements and definitions of done.
