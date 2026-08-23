@@ -69,11 +69,31 @@ var _update_banner: PanelContainer
 var _update_checker: Node
 var _safe_area_override := Rect2(-1.0, -1.0, -1.0, -1.0)
 var _android_capture_frames_remaining := 0
+var _active_screen_touches: Dictionary = {}
+var _application_backgrounded := false
+var _input_recovery_count := 0
 
 func _ready() -> void:
 	_build_shell()
 	_apply_layout()
 	get_viewport().size_changed.connect(_apply_layout)
+
+
+func _notification(what: int) -> void:
+	if what == MainLoop.NOTIFICATION_APPLICATION_PAUSED \
+			or what == MainLoop.NOTIFICATION_APPLICATION_FOCUS_OUT:
+		_on_application_backgrounded()
+	elif what == MainLoop.NOTIFICATION_APPLICATION_RESUMED \
+			or what == MainLoop.NOTIFICATION_APPLICATION_FOCUS_IN:
+		_on_application_foregrounded()
+
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventScreenTouch:
+		if event.pressed:
+			_active_screen_touches[event.index] = event.position
+		else:
+			_active_screen_touches.erase(event.index)
 
 
 func _build_shell() -> void:
@@ -443,6 +463,54 @@ func _on_resume_requested() -> void:
 	_pause_started_at_ms = -1
 	_pause_menu.call("close")
 	_pause_button.visible = true
+
+
+func _on_application_backgrounded() -> void:
+	if _application_backgrounded:
+		return
+	_application_backgrounded = true
+	if _pause_started_at_ms < 0 and _game_over_time_ms < 0 \
+			and _game != null and _game.status == GameStateScript.PLAYING:
+		_on_pause_requested()
+
+
+func _on_application_foregrounded() -> void:
+	if not _application_backgrounded:
+		return
+	_application_backgrounded = false
+	call_deferred("_recover_input_after_foreground")
+
+
+func _recover_input_after_foreground() -> void:
+	_cancel_active_pointer_events()
+	Input.flush_buffered_events()
+	if _regions.has("board"):
+		_regions.board.call("reset_input_state")
+	if _regions.has("consumables"):
+		_regions.consumables.call("reset_input_state")
+	_apply_layout()
+	_input_recovery_count += 1
+
+
+func _cancel_active_pointer_events() -> void:
+	var touches := _active_screen_touches.duplicate()
+	_active_screen_touches.clear()
+	for index in touches:
+		var cancellation := InputEventScreenTouch.new()
+		cancellation.index = int(index)
+		cancellation.position = touches[index]
+		cancellation.pressed = false
+		cancellation.canceled = true
+		Input.parse_input_event(cancellation)
+
+	# Android can emulate a mouse press from a touch whose release was lost while
+	# suspending. Release it outside the viewport so no control treats it as a tap.
+	var mouse_release := InputEventMouseButton.new()
+	mouse_release.button_index = MOUSE_BUTTON_LEFT
+	mouse_release.position = Vector2(-10000.0, -10000.0)
+	mouse_release.global_position = mouse_release.position
+	mouse_release.pressed = false
+	Input.parse_input_event(mouse_release)
 
 
 func _unhandled_input(event: InputEvent) -> void:

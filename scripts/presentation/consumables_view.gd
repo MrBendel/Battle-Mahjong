@@ -55,6 +55,19 @@ func set_game_state(game_state: Variant) -> void:
 	refresh()
 
 
+func reset_input_state() -> void:
+	for button in _buttons.values():
+		remove_child(button)
+		button.queue_free()
+	_buttons.clear()
+	_add_button("hint", "Hint", func() -> void: hint_requested.emit())
+	_add_button("delete_pair", "Delete Pair", func() -> void: delete_pair_requested.emit())
+	_add_button("shuffle", "Shuffle", func() -> void: shuffle_requested.emit())
+	_add_button("undo", "Undo", func() -> void: undo_requested.emit())
+	refresh()
+	_layout()
+
+
 func refresh() -> void:
 	if _buttons.is_empty():
 		return

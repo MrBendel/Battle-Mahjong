@@ -51,6 +51,11 @@ func set_game_state(game_state: Variant) -> void:
 	_layout_tiles()
 
 
+func reset_input_state() -> void:
+	_rebuild_tiles()
+	_layout_tiles()
+
+
 func set_delete_pair_armed(armed: bool) -> void:
 	_delete_pair_armed = armed
 	refresh()
