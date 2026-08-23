@@ -64,7 +64,7 @@ Visual hierarchy:
 
 Character art may move, crop, shrink, or disappear if necessary.
 
-Board depth should be legible before the player reads individual faces. Each higher authored layer is progressively brighter, and upper tiles cast a compact down-right shadow over lower tiles. Depth uses warm value steps; blocked state uses a cool translucent veil. Face-down tiles use the blank ceramic base without a question mark. These treatments are presentation-only.
+Board depth should be legible before the player reads individual faces. Covered lower authored layers are progressively darker, and upper tiles cast a compact down-right shadow over lower tiles. Depth uses warm value steps; blocked state uses a cool translucent veil. Once a tile is selectable or otherwise visually active, it returns to canonical full brightness regardless of authored layer. Face-down tiles use the blank ceramic base without a question mark. These treatments are presentation-only.
 
 Default ceramic tiles use a slightly asymmetric dark warm silhouette around their outer contour to evoke manga ink rather than a clean digital border. The stroke follows the tile artwork and remains distinct from blocked-state treatment and cast shadow.
 

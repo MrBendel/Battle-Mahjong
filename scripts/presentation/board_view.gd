@@ -226,7 +226,8 @@ func refresh() -> void:
 		button.set_meta("revealed_flipped", revealed_flipped)
 		button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if selectable else Control.CURSOR_FORBIDDEN
 		var depth_brightness := _depth_brightness(tile.position.z, max_depth)
-		button.modulate = Color(depth_brightness, depth_brightness, depth_brightness)
+		var presentation_brightness := 1.0 if visually_active else depth_brightness
+		button.modulate = Color(presentation_brightness, presentation_brightness, presentation_brightness)
 		button.set_meta("depth_brightness", depth_brightness)
 		_apply_tile_style(button, visually_active, face_down)
 		if _delete_pair_armed and selectable:

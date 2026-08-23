@@ -11,7 +11,7 @@ Portrait uses a strict vertical priority stack:
 3. The largest possible uninterrupted Board region.
 4. A bottom action dock ordered Hint, Delete Pair, Shuffle, Undo.
 
-The pause control stays in the upper-right safe area. The action dock uses one horizontal row of large touch targets. Decorative Character/FX and the debug panel are hidden by default so they cannot reduce the Board footprint. The debug panel remains available through the `show_debug_panel` Inspector property.
+The pause control stays in the upper-right safe area. The action dock uses one horizontal row of large touch targets. Decorative Character/FX and the debug panel are hidden by default so they cannot reduce the Board footprint. The debug panel remains available through the `show_debug_panel` Inspector property. The Tray reserves the full rendered tile and ink-outline height before the Board is placed; the Board yields vertical space when necessary so their rendered children cannot overlap.
 
 On compact phones below `800` logical pixels tall, the redundant Board title and tile-count header collapse before the tile field shrinks. This keeps the tall ceramic tiles above their `32 x 48` presentation minimum.
 
@@ -20,7 +20,7 @@ On compact phones below `800` logical pixels tall, the redundant Board title and
 Landscape reserves a top HUD row and two side action rails:
 
 - Score and Momentum occupy the upper-left.
-- The tray is centered over the Board.
+- The tray is centered over the Board and reserves the full rendered wide-tile height before the Board begins.
 - Pause occupies the upper-right safe area.
 - The portrait-authored Board remains centered and consumes the middle playfield, using the Default skin's wide ceramic base without changing slot IDs or layer order.
 - Hint and Delete Pair occupy the lower-left rail.

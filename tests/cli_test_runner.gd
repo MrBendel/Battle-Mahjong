@@ -40,6 +40,7 @@ var _assertions := 0
 func _init() -> void:
 	_log("Running Battle Mahjong simulation tests")
 	_run_tile_matcher_tests()
+	_run_application_version_tests()
 	_run_tile_skin_contract_tests()
 	_run_board_selectability_tests()
 	_run_board_projection_tests()
@@ -78,6 +79,22 @@ func _run_tile_matcher_tests() -> void:
 	_check(matcher.call("faces_match", east_a, east_b), "east matches east")
 	_check_equal("east", east_a.logical_id(), "wind uses the canonical skin identifier")
 	_check_equal("red_dragon", TileFaceScript.new(TileFaceScript.FAMILY_DRAGON, TileFaceScript.DRAGON_RED).logical_id(), "dragon uses the canonical skin identifier")
+
+
+func _run_application_version_tests() -> void:
+	_log(" - application version contract")
+	var presets := ConfigFile.new()
+	_check_equal(OK, presets.load("res://export_presets.cfg"), "Android export presets load")
+	var release_name := str(presets.get_value("preset.0.options", "version/name", ""))
+	var screenshot_name := str(presets.get_value("preset.1.options", "version/name", ""))
+	var semantic_version := RegEx.new()
+	semantic_version.compile("^[0-9]+\\.[0-9]+\\.[0-9]+$")
+	_check(semantic_version.search(release_name) != null, "tracked Android release name is semantic")
+	_check_equal("%s-screenshot" % release_name, screenshot_name, "screenshot preset shares the tracked version base")
+	_check(
+		int(presets.get_value("preset.0.options", "version/code", 0)) > 1,
+		"tracked Android debug version code has advanced"
+	)
 
 
 func _run_tile_skin_contract_tests() -> void:

@@ -101,8 +101,21 @@ jobs:
           EPOCH_2020=1577836800
           NOW=$(date +%s)
           VERSION_CODE=$((NOW - EPOCH_2020))
-          VERSION_NAME="0.1.0-internal.${VERSION_CODE}"
+          BASE_VERSION=$(awk -F'"' '/^version\/name=/{print $2; exit}' export_presets.cfg)
+          if ! [[ "${BASE_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "ERROR: tracked Android version is not semantic: ${BASE_VERSION}"
+            exit 1
+          fi
+          VERSION_NAME="${BASE_VERSION}-internal.${VERSION_CODE}"
           godot --headless --path . --script res://scripts/tools/set_android_export_version.gd -- "${VERSION_CODE}" "${VERSION_NAME}"
+          cat > version.json <<EOF
+          {
+            "latest_version_code": ${VERSION_CODE},
+            "latest_version_name": "${VERSION_NAME}",
+            "min_version_code": 0,
+            "store_url": "https://play.google.com/apps/internaltest/4701554282456194202"
+          }
+          EOF
           echo "version_code=${VERSION_CODE}" >> $GITHUB_OUTPUT
           echo "version_name=${VERSION_NAME}" >> $GITHUB_OUTPUT
 

@@ -117,7 +117,11 @@ if ($VersionCode -le 0) {
     $VersionCode = [int][Math]::Floor(([DateTimeOffset]::UtcNow - $epoch).TotalSeconds)
 }
 if ([string]::IsNullOrWhiteSpace($VersionName)) {
-    $VersionName = "0.1.0-internal.$VersionCode"
+    $trackedVersionMatch = Select-String -LiteralPath $PresetFile -Pattern '^version/name="([0-9]+\.[0-9]+\.[0-9]+)"$' | Select-Object -First 1
+    if ($null -eq $trackedVersionMatch) {
+        throw "Android export preset does not contain a semantic tracked version name."
+    }
+    $VersionName = "$($trackedVersionMatch.Matches[0].Groups[1].Value)-internal.$VersionCode"
 }
 
 Push-Location $RepoRoot
