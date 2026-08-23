@@ -137,11 +137,12 @@ func _build_select(command: Variant, definition: Variant, state: Variant, timeli
 	tray_before.assign(state.tray_tile_ids)
 	var tray_after: Array[String] = []
 	tray_after.assign(tray_before)
-	var matching_flipped_tile_id := _matching_revealed_flipped_tile_id(definition, state, tile_id)
+	var revealed_flipped_mate_id := _matching_revealed_flipped_tile_id(definition, state, tile_id)
+	var matching_flipped_tile_id := revealed_flipped_mate_id if definition.rules_version < 11 else ""
 	var matching_tile_id := matching_flipped_tile_id
 	if matching_tile_id.is_empty():
 		matching_tile_id = _matching_tray_tile_id(definition, state, tile_id)
-	if matching_flipped_tile_id.is_empty():
+	if revealed_flipped_mate_id.is_empty():
 		_append_hide_active_flipped_reveals(changes, state)
 	var result := SELECTED
 	var selection_count_after: int = state.selection_count + 1
@@ -346,13 +347,17 @@ func _build_reveal(command: Variant, definition: Variant, state: Variant) -> Dic
 
 	var tile_id: String = str(command.payload.get("tile_id", ""))
 	var board := BoardStateScript.new(definition, state)
-	if not board.call("is_tile_revealable", tile_id):
+	var matching_tray_tile_id := _matching_tray_tile_id(definition, state, tile_id)
+	var resolving_revealed_tile: bool = definition.rules_version >= 11 \
+		and board.call("is_tile_revealed_flipped", tile_id) \
+		and not matching_tray_tile_id.is_empty()
+	if not board.call("is_tile_revealable", tile_id) and not resolving_revealed_tile:
 		return {"result": INVALID_SELECTION}
 
 	var changes: Array = []
 	var momentum_after_decay := _append_clock_changes(command, definition, state, changes)
 	_append_clear_hint(changes, state)
-	var matching_tile_id := _matching_tray_tile_id(definition, state, tile_id)
+	var matching_tile_id := matching_tray_tile_id
 	var matching_zone := GameStateDataScript.ZONE_TRAY
 	if matching_tile_id.is_empty() and definition.rules_version < 10:
 		matching_tile_id = _matching_revealed_flipped_tile_id(definition, state, tile_id)
@@ -848,6 +853,8 @@ func _append_clock_changes(command: Variant, definition: Variant, state: Variant
 
 func _matching_tray_tile_id(definition: Variant, state: Variant, tile_id: String) -> String:
 	var tile: Variant = definition.get_tile(tile_id)
+	if tile == null:
+		return ""
 	for held_tile_id in state.tray_tile_ids:
 		if definition.get_tile(held_tile_id).face.equals(tile.face):
 			return held_tile_id

@@ -128,7 +128,7 @@ Detailed contract: [M06 Consumables](milestones/M06_CONSUMABLES.md)
 
 Status: In progress. The Batch A visual-slice candidate is implemented: canonical tile geometry, an extensible 34-face manifest, the complete Default face set, source/runtime exports, responsive board and tray rendering, selection/rejection motion, transaction-driven pair removal, and the first production-style gameplay background.
 
-The gameplay foundation also supports seeded flipped tiles. Rules version 10 automatically reveals face-down tiles as board mutations uncover them; all reveals remain transactional, stay outside the tray, and resolve directly when their known mate is tapped. Detailed contract: [Flipped Tiles](FLIPPED_TILES.md).
+The gameplay foundation also supports seeded flipped tiles. Rules version 11 keeps reveals transactional and outside the tray, but requires an ordinary board mate to enter the tray before the flipped tile can be tapped to resolve it. Detailed contract: [Flipped Tiles](FLIPPED_TILES.md).
 
 The first live-text arcade callout lane recognizes difficult pairs, current-run score milestones, and Combo milestones above 10 while arbitrating coincident events into one visible alert. Durable high-score triggering remains deferred to M9 profile ownership. Detailed contract: [Arcade Callouts](ARCADE_CALLOUTS.md).
 

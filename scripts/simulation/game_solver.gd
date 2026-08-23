@@ -40,6 +40,9 @@ func verify_solution(definition: Variant, tile_ids: Array) -> Dictionary:
 			GameStateScript.FLIPPED_PAIR_RESOLVED,
 		]:
 			return {"valid": false, "reason": "route tile %d was rejected" % index}
+		var staged_result := _resolve_ready_flipped_match(game)
+		if not staged_result.is_empty() and staged_result != GameStateScript.FLIPPED_PAIR_RESOLVED:
+			return {"valid": false, "reason": "staged flipped match after tile %d was rejected" % index}
 
 	return {"valid": game.status == GameStateScript.WON, "reason": "" if game.status == GameStateScript.WON else "solution did not win"}
 
@@ -68,7 +71,45 @@ func verify_state_route(definition: Variant, initial_state: Variant, tile_ids: A
 		if not bool(submitted.accepted):
 			return {"valid": false, "reason": "route tile %d was rejected" % index}
 		state = store.call("current_state")
+		var staged_result := _submit_ready_flipped_match(definition, store, state, index)
+		if not bool(staged_result.accepted):
+			return {"valid": false, "reason": str(staged_result.reason)}
+		state = store.call("current_state")
 	return {"valid": state.status == GameStateScript.WON, "reason": "" if state.status == GameStateScript.WON else "route did not win"}
+
+
+func _resolve_ready_flipped_match(game: Variant) -> String:
+	for tile_id in game.call("current_snapshot").revealed_flipped_tile_ids:
+		if game.board.call("is_tile_revealed_flipped", tile_id) \
+				and not game.call("flipped_match_candidate", tile_id).is_empty():
+			return game.call("tap_tile", tile_id)
+	return ""
+
+
+func _submit_ready_flipped_match(definition: Variant, store: Variant, state: Variant, route_index: int) -> Dictionary:
+	var board := BoardStateScript.new(definition, state)
+	for tile_id in state.revealed_flipped_tile_ids:
+		if not board.call("is_tile_revealed_flipped", tile_id):
+			continue
+		var tile: Variant = definition.get_tile(tile_id)
+		var has_tray_match := false
+		for held_tile_id in state.tray_tile_ids:
+			if definition.get_tile(held_tile_id).face.equals(tile.face):
+				has_tray_match = true
+				break
+		if not has_tray_match:
+			continue
+		var command := GameCommandScript.new(
+			GameCommandScript.REVEAL_TILE,
+			{"tile_id": tile_id},
+			state.revision,
+			"verify_staged_%06d" % route_index,
+			"solver",
+			state.elapsed_time_ms
+		)
+		var submitted: Dictionary = store.call("submit_command", command)
+		return {"accepted": bool(submitted.accepted), "reason": "staged flipped match was rejected"}
+	return {"accepted": true, "reason": ""}
 
 
 func _search(active: Array, path: Array[String]) -> bool:

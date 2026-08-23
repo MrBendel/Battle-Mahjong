@@ -9,7 +9,7 @@ const ZONE_TRAY := "tray"
 const ZONE_RESOLVED := "resolved"
 
 var revision := 0
-var rules_version := 10
+var rules_version := 11
 var status := PLAYING
 var tile_zones: Dictionary = {}
 var tile_slot_ids: Dictionary = {}

@@ -98,7 +98,9 @@ func reveal_tile(tile_id: String, playback_time_ms: int = -1) -> String:
 
 
 func tap_tile(tile_id: String, playback_time_ms: int = -1) -> String:
-	if board.call("is_tile_face_down", tile_id):
+	if board.call("is_tile_face_down", tile_id) \
+			or board.call("is_tile_revealed_flipped", tile_id) \
+			and not flipped_match_candidate(tile_id).is_empty():
 		return reveal_tile(tile_id, playback_time_ms)
 	return select_tile(tile_id, playback_time_ms)
 
@@ -107,7 +109,8 @@ func flipped_match_candidate(tile_id: String) -> Dictionary:
 	var tile: Variant = definition.get_tile(tile_id)
 	if tile == null:
 		return {}
-	if board.call("is_tile_face_down", tile_id):
+	if board.call("is_tile_face_down", tile_id) \
+			or definition.rules_version >= 11 and board.call("is_tile_revealed_flipped", tile_id):
 		for held_tile_id in _state.tray_tile_ids:
 			var held_tile: Variant = definition.get_tile(held_tile_id)
 			if held_tile.face.equals(tile.face):
