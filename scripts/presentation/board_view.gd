@@ -118,6 +118,8 @@ func _build() -> void:
 
 func _rebuild_tiles() -> void:
 	for button in _tile_buttons.values():
+		if button.get_parent() == _tile_layer:
+			_tile_layer.remove_child(button)
 		button.queue_free()
 	_tile_buttons.clear()
 	_shadow_art.clear()
@@ -477,6 +479,24 @@ func _layout_tiles() -> void:
 		modifier_label.position = Vector2(button.size.x * 0.68, button.size.y * 0.02)
 		modifier_label.size = Vector2(button.size.x * 0.30, button.size.y * 0.23)
 		modifier_label.add_theme_font_size_override("font_size", clampi(int(tile_size.x * 0.19), 8, 15))
+	_sync_tile_input_order()
+
+
+func _sync_tile_input_order() -> void:
+	var ordered_tiles: Array = _game.board.tiles.duplicate()
+	ordered_tiles.sort_custom(_tile_precedes_for_input)
+	for index in range(ordered_tiles.size()):
+		_tile_layer.move_child(_tile_buttons[ordered_tiles[index].id], index)
+
+
+func _tile_precedes_for_input(first: Variant, second: Variant) -> bool:
+	if first.position.z != second.position.z:
+		return first.position.z < second.position.z
+	if first.position.y != second.position.y:
+		return first.position.y < second.position.y
+	if first.position.x != second.position.x:
+		return first.position.x < second.position.x
+	return first.id < second.id
 
 
 func _depth_brightness(depth: int, max_depth: int) -> float:
