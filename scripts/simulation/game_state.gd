@@ -112,6 +112,8 @@ func flipped_match_candidate(tile_id: String) -> Dictionary:
 			var held_tile: Variant = definition.get_tile(held_tile_id)
 			if held_tile.face.equals(tile.face):
 				return {"tile_id": held_tile_id, "zone": GameStateDataScript.ZONE_TRAY}
+	if definition.rules_version >= 10:
+		return {}
 	var candidate_ids: Array[String] = []
 	for candidate_id in _state.revealed_flipped_tile_ids:
 		if candidate_id != tile_id and _state.tile_zones.get(candidate_id) == GameStateDataScript.ZONE_BOARD:

@@ -5,18 +5,18 @@ Flipped tiles add a deterministic memory layer to the normal board and tray rule
 ## Definition And State
 
 - `GameDefinition.flipped_tile_ids` records the physical tiles that begin face-down.
-- Reference games choose those IDs deterministically from the game seed.
+- Reference games choose those IDs deterministically from the game seed. Rules version 10 permits at most one flipped physical tile per face identity, ensuring every flipped tile retains ordinary matching copies.
 - `flipped_tile_count` is configuration data. The playable shell exposes it in the Godot Inspector and currently defaults to `12` on a 96-tile board.
 - `GameStateData.revealed_flipped_tile_ids` records committed reveals in the replayable game state.
 - Flipped identity belongs to the physical tile. Shuffle may move that tile to another stable layout slot without changing whether it is flipped or already revealed.
 - Tile skins only provide presentation. They cannot change flipped identity or matching behavior.
 - Modifier attachments remain visible on tile backs because they belong to the physical tile; only the mahjong face identity is hidden.
 
-Rules version 9 introduces this state contract. Earlier rules versions preserve their existing definition identity and have no flipped tiles.
+Rules version 9 introduces the flipped-tile state contract. Rules version 10 adds deterministic automatic reveals when board changes newly expose a face-down tile. Earlier rules versions preserve their existing behavior and definition identity.
 
 ## Interaction Rules
 
-A face-down tile can be revealed only when ordinary board geometry considers it accessible. Removing covering or side-blocking tiles may therefore make additional face-down tiles revealable. Accessibility does not automatically reveal a tile.
+A face-down tile can be revealed only when ordinary board geometry considers it accessible. In rules version 10 and later, removing a covering or side-blocking board tile automatically reveals at most one newly accessible face-down tile when no other flipped tile is currently face-up. The transaction records that physical ID in `auto_revealed_tile_ids`, so replay and presentation do not recalculate the result from screen coordinates. Other newly accessible backs remain available for manual reveal. Face-down tiles that are accessible at the start of a game remain player-revealed.
 
 An accepted reveal:
 
@@ -26,9 +26,9 @@ An accepted reveal:
 - does not award selection Momentum;
 - does not reset or extend Combo by itself.
 
-A revealed flipped tile remains a special board tile and can never enter the tray. Only one unmatched flipped face remains exposed: selecting an ordinary non-matching tile turns it face-down again, while revealing a different non-matching flipped tile turns the previous tile face-down and leaves the newly tapped tile exposed. The re-hide is part of the same deterministic transaction as the accepted selection or reveal.
+A revealed flipped tile remains a special board tile and can never enter the tray. Exactly one active flipped tile may be face-up. Revealing another back turns the previous tile face-down, even when both tiles have the same identity; flipped-to-flipped direct matching is not allowed in rules version 10. An ordinary non-matching selection also turns the exposed tile face-down before applying any newly uncovered automatic reveal from that move. Reveal and re-hide changes are committed in the accepted transaction.
 
-When an ordinary accessible tile matches an active revealed flipped tile, the pair resolves directly from the board. When a face-down reveal matches a tile already in the tray, the revealed tile and held tile resolve atomically. When it matches another active revealed flipped tile, both board tiles resolve atomically. These paths never create temporary authoritative tray occupancy.
+When an ordinary accessible tile matches the active revealed flipped tile, the pair resolves directly from the board. When a face-down reveal matches a tile already in the tray, the revealed tile and held tile resolve atomically. A face-down tile never resolves against another flipped tile in rules version 10. These paths never create temporary authoritative tray occupancy.
 
 Direct flipped matches are natural pairs. They:
 
@@ -46,8 +46,9 @@ An ordinary tile selected against a revealed flipped mate still receives the con
 Four-copy identities can create multiple legal mates. The authoritative priority is:
 
 1. An ordinary selected tile matches the lexically first active revealed flipped mate before checking the tray.
-2. A newly revealed tile matches the first matching tray tile before checking active revealed flipped mates.
-3. Active revealed flipped candidates are ordered by physical tile ID.
+2. A newly revealed tile matches the first matching tray tile.
+
+Rules version 9 retains its legacy flipped-to-flipped candidate ordering for replay compatibility.
 
 This ordering is simulation data, not presentation behavior.
 
@@ -61,4 +62,4 @@ This ordering is simulation data, not presentation behavior.
 
 ## Presentation Contract
 
-The current implementation uses a temporary high-contrast tile-back treatment and a short in-place flip. Board-to-board direct matches capture both tiles at their rendered size, send them along opposing curved paths to collide at the center of the game board, and then compose the existing pair-removal burst. When the matching tile is already in the tray, the flipped tile first reveals its matching face in place, then curves upward and collides at the held tile's actual tray position. These sequences are presentation-only; the authoritative pair resolves immediately. Production tile-back artwork may replace the placeholder without changing simulation, transactions, or replay data.
+The current implementation uses a temporary high-contrast tile-back treatment and a short in-place flip. Automatically uncovered tiles use the same flip animation as manual reveals. A pair containing a flipped tile captures both rendered tiles, moves them into two open tray staging positions, pauses for the normal landing hold, and then collides them between those positions before composing the existing pair-removal burst. A newly tapped face-down tile reveals before tray travel begins. Staging remains presentation-only and never occupies authoritative tray slots; when three tiles are already held, the final two visual positions are reused so no temporary fifth data slot is introduced. The authoritative pair resolves immediately. Production tile-back artwork may replace the placeholder without changing simulation, transactions, or replay data.

@@ -134,6 +134,10 @@ func _rebuild_tiles() -> void:
 		button.focus_mode = Control.FOCUS_NONE
 		button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		button.pressed.connect(_on_tile_pressed.bind(tile.id))
+		button.button_down.connect(_set_tile_interaction_brightness.bind(tile.id, true))
+		button.button_up.connect(_set_tile_interaction_brightness.bind(tile.id, false))
+		button.mouse_entered.connect(_set_tile_interaction_brightness.bind(tile.id, true))
+		button.mouse_exited.connect(_set_tile_interaction_brightness.bind(tile.id, false))
 
 		var shadow_art := TextureRect.new()
 		shadow_art.name = "DepthShadow"
@@ -233,6 +237,7 @@ func refresh() -> void:
 		var depth_brightness := _depth_brightness(tile.position.z, max_depth)
 		var presentation_brightness := 1.0 if visually_active else depth_brightness
 		button.modulate = Color(presentation_brightness, presentation_brightness, presentation_brightness)
+		button.set_meta("presentation_brightness", presentation_brightness)
 		button.set_meta("depth_brightness", depth_brightness)
 		_apply_tile_style(button, visually_active, face_down)
 		if _delete_pair_armed and selectable:
@@ -281,6 +286,15 @@ func _on_tile_pressed(tile_id: String) -> void:
 		return
 
 	tile_selected.emit(tile_id)
+
+
+func _set_tile_interaction_brightness(tile_id: String, highlighted: bool) -> void:
+	var button: Button = _tile_buttons.get(tile_id)
+	if button == null or not bool(button.get_meta("targetable", false)):
+		return
+	var base_brightness := float(button.get_meta("presentation_brightness", 1.0))
+	var brightness := base_brightness * (1.16 if highlighted else 1.0)
+	button.modulate = Color(brightness, brightness, brightness)
 
 
 func create_tile_preview(tile_id: String, force_face_up: bool = false) -> Control:
@@ -521,18 +535,10 @@ func _tile_tooltip(tile: Variant) -> String:
 	return "%s | %s level %d" % [label, str(modifier.type).replace("_", " ").capitalize(), int(modifier.level)]
 
 
-func _apply_tile_style(button: Button, selectable: bool, face_down: bool = false) -> void:
+func _apply_tile_style(button: Button, _selectable: bool, _face_down: bool = false) -> void:
 	var normal := _art_backing_style()
-	var hover := _tile_style(Color("ffffff"), Color("57d8b0"), 3, Vector2(0.0, 4.0))
-	var pressed := _tile_style(Color("e6f2e7"), Color("ef496f"), 4, Vector2(0.0, 1.0))
-	if face_down:
-		normal = _art_backing_style()
-		hover = _art_backing_style()
-		pressed = _art_backing_style()
-	if not selectable:
-		normal = _art_backing_style()
-		hover = normal
-		pressed = normal
+	var hover := _art_backing_style()
+	var pressed := _art_backing_style()
 	button.add_theme_stylebox_override("normal", normal)
 	button.add_theme_stylebox_override("hover", hover)
 	button.add_theme_stylebox_override("pressed", pressed)
@@ -541,7 +547,7 @@ func _apply_tile_style(button: Button, selectable: bool, face_down: bool = false
 	button.add_theme_color_override("font_hover_color", Color("111615"))
 	button.add_theme_color_override("font_pressed_color", Color("111615"))
 	button.add_theme_color_override("font_disabled_color", Color("59615f"))
-	if face_down:
+	if _face_down:
 		button.add_theme_color_override("font_color", Color("fff7cf"))
 		button.add_theme_color_override("font_hover_color", Color.WHITE)
 		button.add_theme_color_override("font_pressed_color", Color.WHITE)

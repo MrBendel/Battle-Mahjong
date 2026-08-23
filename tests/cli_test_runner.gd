@@ -395,10 +395,15 @@ func _run_flipped_tile_tests() -> void:
 	_check(two_flip_game.board.call("is_tile_revealed_flipped", "other"), "second non-match remains exposed")
 	_check_equal(["other"], two_flip_game.call("current_snapshot").revealed_flipped_tile_ids, "only one unmatched flipped face remains exposed")
 
-	var double_definition: Variant = _definition_with_flips(direct_tiles, ["ordinary", "flipped"])
-	var double_game := GameStateScript.new(double_definition)
-	_check_equal(GameStateScript.TILE_REVEALED, double_game.call("reveal_tile", "flipped"), "first flipped mate reveals")
-	_check_equal(GameStateScript.FLIPPED_PAIR_RESOLVED, double_game.call("reveal_tile", "ordinary"), "second flipped mate resolves both")
+	var duplicate_flip_definition: Variant = _definition_with_flips(direct_tiles, ["ordinary", "flipped"])
+	_check_equal(["flipped"], duplicate_flip_definition.flipped_tile_ids, "rules version 10 keeps at most one flipped tile per face")
+	var duplicate_flip_game := GameStateScript.new(duplicate_flip_definition)
+	_check_equal(GameStateScript.TILE_REVEALED, duplicate_flip_game.call("reveal_tile", "flipped"), "single flipped mate reveals")
+	_check_equal(GameStateScript.FLIPPED_PAIR_RESOLVED, duplicate_flip_game.call("select_tile", "ordinary"), "ordinary mate resolves the single flipped tile")
+	var legacy_double_definition := GameDefinitionScript.new(1, direct_tiles, {"tray_capacity": 4}, 9, [], {}, null, ["ordinary", "flipped"])
+	var legacy_double_game := GameStateScript.new(legacy_double_definition)
+	_check_equal(GameStateScript.TILE_REVEALED, legacy_double_game.call("reveal_tile", "flipped"), "rules version 9 first flipped mate reveals")
+	_check_equal(GameStateScript.FLIPPED_PAIR_RESOLVED, legacy_double_game.call("reveal_tile", "ordinary"), "rules version 9 preserves flipped-to-flipped matching")
 
 	var blocked_tiles := [
 		TileInstanceScript.new("blocked_flip", memory_face, BoardPositionScript.new(0, 0, 0)),
@@ -409,6 +414,26 @@ func _run_flipped_tile_tests() -> void:
 	_check_equal(GameStateScript.INVALID_SELECTION, blocked_game.call("reveal_tile", "blocked_flip"), "inaccessible face-down reveal is rejected")
 	_check_equal(0, blocked_game.revision, "rejected reveal appends no transaction")
 
+	var cover_face := TileFaceScript.new("test", "cover_pair")
+	var uncover_tiles := [
+		TileInstanceScript.new("auto_flip", memory_face, BoardPositionScript.new(0, 0, 0)),
+		TileInstanceScript.new("auto_mate", memory_face, BoardPositionScript.new(8, 0, 0)),
+		TileInstanceScript.new("cover_first", cover_face, BoardPositionScript.new(0, 0, 1)),
+		TileInstanceScript.new("cover_second", cover_face, BoardPositionScript.new(4, 0, 1)),
+	]
+	var uncover_definition: Variant = _definition_with_flips(uncover_tiles, ["auto_flip"])
+	var uncover_game := GameStateScript.new(uncover_definition)
+	_check(not uncover_game.board.call("is_tile_revealable", "auto_flip"), "covered auto-flip tile begins inaccessible")
+	_check_equal(GameStateScript.SELECTED, uncover_game.call("select_tile", "cover_first"), "removing a covering tile remains an ordinary selection")
+	_check(uncover_game.board.call("is_tile_revealed_flipped", "auto_flip"), "newly uncovered face-down tile flips automatically")
+	_check_equal(["auto_flip"], uncover_game.call("last_transaction").telemetry.auto_revealed_tile_ids, "selection records deterministic auto-reveal telemetry")
+	_check_equal(GameStateScript.UNDONE, uncover_game.call("undo_last_unmatched"), "auto-revealing selection remains undoable")
+	_check(not uncover_game.board.call("is_tile_revealable", "auto_flip"), "Undo restores the covering tile and hidden state atomically")
+	var legacy_auto_definition := GameDefinitionScript.new(1, uncover_tiles, {"tray_capacity": 4}, 9, [], {}, null, ["auto_flip"])
+	var legacy_auto_game := GameStateScript.new(legacy_auto_definition)
+	_check_equal(GameStateScript.SELECTED, legacy_auto_game.call("select_tile", "cover_first"), "rules version 9 selection still applies")
+	_check(legacy_auto_game.board.call("is_tile_revealable", "auto_flip"), "rules version 9 preserves manual reveal after uncovering")
+
 	var factory := ReferenceGameFactoryScript.new()
 	var generated_a: Dictionary = factory.call("create_generated", 44881, 4, {"flipped_tile_count": 12})
 	var generated_b: Dictionary = factory.call("create_generated", 44881, 4, {"flipped_tile_count": 12})
@@ -416,6 +441,10 @@ func _run_flipped_tile_tests() -> void:
 	_check_equal(12, generated_a.definition.flipped_tile_ids.size(), "reference configuration assigns requested flipped count")
 	_check_equal(generated_a.definition.flipped_tile_ids, generated_b.definition.flipped_tile_ids, "same seed reproduces flipped placement")
 	_check(generated_a.definition.flipped_tile_ids != generated_c.definition.flipped_tile_ids, "different seed changes flipped placement")
+	var generated_flipped_faces := {}
+	for generated_flipped_id in generated_a.definition.flipped_tile_ids:
+		generated_flipped_faces[generated_a.definition.get_tile(generated_flipped_id).face.logical_id()] = true
+	_check_equal(generated_a.definition.flipped_tile_ids.size(), generated_flipped_faces.size(), "seeded placement flips at most one physical tile per face")
 	_check(
 		bool(GameSolverScript.new().call("verify_solution", generated_a.definition, generated_a.solution).valid),
 		"generated pair certificate remains valid with flipped tiles"
@@ -520,7 +549,7 @@ func _run_momentum_tests() -> void:
 		TileInstanceScript.new("fourth", second_face, BoardPositionScript.new(12, 0, 0)),
 	])
 	var configuration: Dictionary = definition.configuration
-	_check_equal(9, definition.rules_version, "flipped-tile rules use rules version 9")
+	_check_equal(10, definition.rules_version, "auto-reveal rules use rules version 10")
 	_check_equal(1, MomentumRulesScript.multiplier_for(19999, configuration), "momentum below first threshold stays x1")
 	_check_equal(2, MomentumRulesScript.multiplier_for(20000, configuration), "first threshold enters x2")
 	_check(

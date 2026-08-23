@@ -27,13 +27,19 @@ func verify_solution(definition: Variant, tile_ids: Array) -> Dictionary:
 	if tile_ids.size() != definition.tiles.size():
 		return {"valid": false, "reason": "solution length does not match tile count"}
 
-	for index in range(0, tile_ids.size(), 2):
-		var first_result: String = game.call("tap_tile", str(tile_ids[index]))
-		if first_result not in [GameStateScript.SELECTED, GameStateScript.TILE_REVEALED]:
-			return {"valid": false, "reason": "tile %d is not a legal first selection" % index}
-		var second_result: String = game.call("tap_tile", str(tile_ids[index + 1]))
-		if second_result not in [GameStateScript.PAIR_RESOLVED, GameStateScript.FLIPPED_PAIR_RESOLVED]:
-			return {"valid": false, "reason": "tiles %d-%d do not resolve a legal pair" % [index, index + 1]}
+	for index in tile_ids.size():
+		var tile_id := str(tile_ids[index])
+		if not game.board.call("is_tile_active", tile_id) \
+				or game.board.call("is_tile_revealed_flipped", tile_id):
+			continue
+		var result: String = game.call("tap_tile", tile_id)
+		if result not in [
+			GameStateScript.SELECTED,
+			GameStateScript.TILE_REVEALED,
+			GameStateScript.PAIR_RESOLVED,
+			GameStateScript.FLIPPED_PAIR_RESOLVED,
+		]:
+			return {"valid": false, "reason": "route tile %d was rejected" % index}
 
 	return {"valid": game.status == GameStateScript.WON, "reason": "" if game.status == GameStateScript.WON else "solution did not win"}
 

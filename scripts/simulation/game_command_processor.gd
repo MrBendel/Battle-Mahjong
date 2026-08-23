@@ -332,6 +332,7 @@ func _build_select(command: Variant, definition: Variant, state: Variant, timeli
 		next_status = GameStateDataScript.WON
 	if next_status != state.status:
 		changes.append(GameChangeScript.new(GameChangeScript.STATUS, "status", state.status, next_status))
+	_append_newly_uncovered_flipped_reveals(definition, state, changes, telemetry)
 
 	var transaction := GameTransactionScript.new(command, changes, result)
 	transaction.definition_hash = definition.definition_hash()
@@ -353,7 +354,7 @@ func _build_reveal(command: Variant, definition: Variant, state: Variant) -> Dic
 	_append_clear_hint(changes, state)
 	var matching_tile_id := _matching_tray_tile_id(definition, state, tile_id)
 	var matching_zone := GameStateDataScript.ZONE_TRAY
-	if matching_tile_id.is_empty():
+	if matching_tile_id.is_empty() and definition.rules_version < 10:
 		matching_tile_id = _matching_revealed_flipped_tile_id(definition, state, tile_id)
 		matching_zone = GameStateDataScript.ZONE_BOARD
 	var revealed_after: Array[String] = []
@@ -454,9 +455,7 @@ func _build_reveal(command: Variant, definition: Variant, state: Variant) -> Dic
 	if next_status != state.status:
 		changes.append(GameChangeScript.new(GameChangeScript.STATUS, "status", state.status, next_status))
 
-	var transaction := GameTransactionScript.new(command, changes, FLIPPED_PAIR_RESOLVED)
-	transaction.definition_hash = definition.definition_hash()
-	transaction.telemetry = {
+	var telemetry := {
 		"flipped_pair": true,
 		"revealed_tile_id": tile_id,
 		"resolved_tile_ids": pair_ids,
@@ -482,6 +481,10 @@ func _build_reveal(command: Variant, definition: Variant, state: Variant) -> Dic
 		},
 		"modifiers_triggered": modifier_values.triggered_modifiers,
 	}
+	_append_newly_uncovered_flipped_reveals(definition, state, changes, telemetry)
+	var transaction := GameTransactionScript.new(command, changes, FLIPPED_PAIR_RESOLVED)
+	transaction.definition_hash = definition.definition_hash()
+	transaction.telemetry = telemetry
 	return {"result": FLIPPED_PAIR_RESOLVED, "transaction": transaction}
 
 
@@ -632,14 +635,16 @@ func _build_delete_pair(command: Variant, definition: Variant, state: Variant) -
 	_append_counter_change(changes, "modifier_activation_count", state.modifier_activation_count, int(modifier_values.modifier_activation_count))
 	if _board_tile_count_after(state, changes) == 0 and state.tray_tile_ids.is_empty():
 		changes.append(GameChangeScript.new(GameChangeScript.STATUS, "status", state.status, GameStateDataScript.WON))
-	var transaction := GameTransactionScript.new(command, changes, PAIR_DELETED)
-	transaction.definition_hash = definition.definition_hash()
-	transaction.telemetry = {
+	var telemetry := {
 		"assisted_pair": true,
 		"deleted_tile_ids": [tile_id, partner_id],
 		"modifiers_triggered": modifier_values.triggered_modifiers,
 	}
-	transaction.telemetry.merge(combo_telemetry)
+	telemetry.merge(combo_telemetry)
+	_append_newly_uncovered_flipped_reveals(definition, state, changes, telemetry)
+	var transaction := GameTransactionScript.new(command, changes, PAIR_DELETED)
+	transaction.definition_hash = definition.definition_hash()
+	transaction.telemetry = telemetry
 	return {"result": PAIR_DELETED, "transaction": transaction}
 
 
@@ -883,6 +888,57 @@ func _reveals_without_active_tiles(state: Variant) -> Array[String]:
 		if state.tile_zones.get(revealed_id) != GameStateDataScript.ZONE_BOARD:
 			revealed_after.append(revealed_id)
 	return revealed_after
+
+
+func _append_newly_uncovered_flipped_reveals(
+	definition: Variant,
+	state: Variant,
+	changes: Array,
+	telemetry: Dictionary
+) -> void:
+	if definition.rules_version < 10 or definition.flipped_tile_ids.is_empty():
+		return
+	var projected: Variant = state.duplicate_data()
+	for change in changes:
+		match change.type:
+			GameChangeScript.TILE_ZONE:
+				projected.tile_zones[change.target] = change.after
+			GameChangeScript.TILE_SLOT:
+				projected.tile_slot_ids[change.target] = change.after
+			GameChangeScript.FLIPPED_REVEALS:
+				projected.revealed_flipped_tile_ids.assign(change.after)
+	var board_before := BoardStateScript.new(definition, state)
+	var board_after := BoardStateScript.new(definition, projected)
+	var auto_revealed_ids: Array[String] = []
+	for revealed_id in projected.revealed_flipped_tile_ids:
+		if projected.tile_zones.get(revealed_id) == GameStateDataScript.ZONE_BOARD:
+			return
+	var flipped_ids: Array[String] = []
+	flipped_ids.assign(definition.flipped_tile_ids)
+	flipped_ids.sort()
+	for flipped_id in flipped_ids:
+		if board_before.call("is_tile_accessible", flipped_id) \
+				or not board_after.call("is_tile_revealable", flipped_id):
+			continue
+		auto_revealed_ids.append(flipped_id)
+		break
+	if auto_revealed_ids.is_empty():
+		return
+	var reveals_before: Array[String] = []
+	reveals_before.assign(projected.revealed_flipped_tile_ids)
+	var reveals_after: Array[String] = []
+	reveals_after.assign(reveals_before)
+	for flipped_id in auto_revealed_ids:
+		if flipped_id not in reveals_after:
+			reveals_after.append(flipped_id)
+	reveals_after.sort()
+	changes.append(GameChangeScript.new(
+		GameChangeScript.FLIPPED_REVEALS,
+		"revealed_flipped_tile_ids",
+		reveals_before,
+		reveals_after
+	))
+	telemetry["auto_revealed_tile_ids"] = auto_revealed_ids
 
 
 func _board_tile_count_after(state: Variant, changes: Array) -> int:

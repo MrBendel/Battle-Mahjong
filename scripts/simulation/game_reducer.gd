@@ -186,10 +186,15 @@ func _is_valid(definition: Variant, state: Variant) -> bool:
 		if definition.get_tile(hinted_tile_id) == null:
 			return false
 	var revealed_ids := {}
+	var active_revealed_count := 0
 	for tile_id in state.revealed_flipped_tile_ids:
 		if tile_id not in definition.flipped_tile_ids or revealed_ids.has(tile_id):
 			return false
 		revealed_ids[tile_id] = true
+		if state.tile_zones.get(tile_id) == GameStateDataScript.ZONE_BOARD:
+			active_revealed_count += 1
+	if state.rules_version >= 10 and active_revealed_count > 1:
+		return false
 	if resolved_count != state.resolved_pair_count * 2:
 		return false
 	if state.selection_count != resolved_count + state.tray_tile_ids.size():

@@ -141,11 +141,21 @@ func _place_modifiers(seed: int, tiles: Array, loadout: Array) -> Dictionary:
 
 
 func _place_flipped_tiles(seed: int, tiles: Array, requested_count: int) -> Array[String]:
+	var candidates: Array = tiles.duplicate()
+	candidates.sort_custom(func(first: Variant, second: Variant) -> bool: return first.id < second.id)
+	_shuffle(candidates, DeterministicRngScript.new(seed + 524287))
 	var tile_ids: Array[String] = []
-	for tile in tiles:
+	var used_faces := {}
+	var target_count := clampi(requested_count, 0, tiles.size())
+	if target_count == 0:
+		return tile_ids
+	for tile in candidates:
+		var face_id: String = tile.face.logical_id()
+		if used_faces.has(face_id):
+			continue
 		tile_ids.append(tile.id)
-	tile_ids.sort()
-	_shuffle(tile_ids, DeterministicRngScript.new(seed + 524287))
-	tile_ids.resize(clampi(requested_count, 0, tile_ids.size()))
+		used_faces[face_id] = true
+		if tile_ids.size() == target_count:
+			break
 	tile_ids.sort()
 	return tile_ids

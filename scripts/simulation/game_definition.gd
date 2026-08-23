@@ -4,7 +4,7 @@ const GameConfigurationScript := preload("res://scripts/simulation/game_configur
 const ConsumableInventoryScript := preload("res://scripts/simulation/consumable_inventory.gd")
 
 const SCHEMA_VERSION := 4
-const CURRENT_RULES_VERSION := 9
+const CURRENT_RULES_VERSION := 10
 const LEGACY_COMBO_WINDOW_MS := 7000
 
 var seed: int
@@ -59,12 +59,21 @@ func _init(
 	for tile in tiles:
 		_tiles_by_id[tile.id] = tile
 	var seen_flipped_ids := {}
+	var seen_flipped_faces := {}
 	if rules_version >= 9:
+		var candidate_flipped_ids: Array[String] = []
 		for tile_id_value in game_flipped_tile_ids:
-			var tile_id := str(tile_id_value)
-			if _tiles_by_id.has(tile_id) and not seen_flipped_ids.has(tile_id):
-				flipped_tile_ids.append(tile_id)
-				seen_flipped_ids[tile_id] = true
+			candidate_flipped_ids.append(str(tile_id_value))
+		candidate_flipped_ids.sort()
+		for tile_id in candidate_flipped_ids:
+			if not _tiles_by_id.has(tile_id) or seen_flipped_ids.has(tile_id):
+				continue
+			var face_id: String = _tiles_by_id[tile_id].face.logical_id()
+			if rules_version >= 10 and seen_flipped_faces.has(face_id):
+				continue
+			flipped_tile_ids.append(tile_id)
+			seen_flipped_ids[tile_id] = true
+			seen_flipped_faces[face_id] = true
 	flipped_tile_ids.sort()
 	if rules_version >= 9:
 		configuration["flipped_tile_count"] = flipped_tile_ids.size()
