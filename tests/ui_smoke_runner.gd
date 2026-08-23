@@ -312,6 +312,33 @@ func _run() -> void:
 		_check(not banner.visible, "%s update banner hides on dismiss" % orientation)
 		await process_frame
 
+	shell.call("_on_restart_requested")
+	live_game = shell.get("_game")
+	var end_game_menu: Control = shell.get("_end_game_menu")
+	var loss_tiles: Array = []
+	for tile in live_game.board.call("selectable_tiles"):
+		var is_unique := true
+		for existing in loss_tiles:
+			if existing.face.family == tile.face.family and existing.face.value == tile.face.value:
+				is_unique = false
+				break
+		if is_unique:
+			loss_tiles.append(tile)
+		if loss_tiles.size() == 4:
+			break
+	if loss_tiles.size() == 4:
+		for tile in loss_tiles:
+			shell.call("_on_tile_selected", tile.id)
+		_check(end_game_menu != null and end_game_menu.visible, "%s end game menu displays on loss" % orientation)
+		if end_game_menu != null and end_game_menu.visible:
+			var frozen_time: int = shell.call("_playback_time_ms")
+			await create_timer(0.05).timeout
+			_check_equal(frozen_time, shell.call("_playback_time_ms"), "%s playback time freezes on game over" % orientation)
+			shell.call("_on_restart_requested")
+			live_game = shell.get("_game")
+			_check(not end_game_menu.visible, "%s end game menu hides on restart" % orientation)
+			await process_frame
+
 	shell.set("_delete_pair_armed", false)
 	shell.get("_regions").board.call("set_delete_pair_armed", false)
 	if OS.get_cmdline_user_args().has("--callout-capture"):
