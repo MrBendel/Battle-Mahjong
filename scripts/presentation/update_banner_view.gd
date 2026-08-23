@@ -88,8 +88,7 @@ func show_update(version_name: String, store_url: String, mandatory: bool = fals
 
 func _on_update_pressed() -> void:
 	update_requested.emit()
-	if not _store_url.is_empty():
-		OS.shell_open(_store_url)
+
 
 
 func _on_dismiss_pressed() -> void:

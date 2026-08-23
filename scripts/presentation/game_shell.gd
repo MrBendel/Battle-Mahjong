@@ -94,14 +94,14 @@ func _build_shell() -> void:
 	_update_banner = UpdateBannerViewScript.new()
 	_update_banner.visible = false
 	_update_banner.dismissed.connect(_apply_layout)
+	_update_banner.update_requested.connect(_on_update_requested)
 	add_child(_update_banner)
 
 	_update_checker = UpdateCheckerScript.new()
 	_update_checker.name = "UpdateChecker"
-	_update_checker.current_version_code = 209617106
 	_update_checker.update_available.connect(_on_update_available)
 	add_child(_update_checker)
-	_update_checker.check_for_updates()
+	_update_checker.call("check_for_updates")
 
 	_debug_panel = DebugPanelScript.new()
 	add_child(_debug_panel)
@@ -111,6 +111,12 @@ func _build_shell() -> void:
 func _on_update_available(version_name: String, store_url: String, mandatory: bool) -> void:
 	_update_banner.call("show_update", version_name, store_url, mandatory)
 	_apply_layout()
+
+
+func _on_update_requested() -> void:
+	if _update_checker != null and _update_checker.has_method("start_in_app_update"):
+		_update_checker.call("start_in_app_update", false)
+
 
 
 func _build_pause_menu() -> void:
