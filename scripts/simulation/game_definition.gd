@@ -3,8 +3,8 @@ extends RefCounted
 const GameConfigurationScript := preload("res://scripts/simulation/game_configuration.gd")
 const ConsumableInventoryScript := preload("res://scripts/simulation/consumable_inventory.gd")
 
-const SCHEMA_VERSION := 3
-const CURRENT_RULES_VERSION := 8
+const SCHEMA_VERSION := 4
+const CURRENT_RULES_VERSION := 9
 const LEGACY_COMBO_WINDOW_MS := 7000
 
 var seed: int
@@ -14,6 +14,7 @@ var tiles: Array
 var modifier_loadout: Array
 var modifier_attachments: Dictionary
 var consumable_inventory: Dictionary
+var flipped_tile_ids: Array[String] = []
 var _tiles_by_id: Dictionary = {}
 var _definition_hash := ""
 
@@ -25,7 +26,8 @@ func _init(
 		game_rules_version: int = CURRENT_RULES_VERSION,
 		game_modifier_loadout: Array = [],
 		game_modifier_attachments: Dictionary = {},
-		game_consumable_inventory: Variant = null
+		game_consumable_inventory: Variant = null,
+		game_flipped_tile_ids: Array = []
 ) -> void:
 	seed = game_seed
 	rules_version = game_rules_version
@@ -39,6 +41,8 @@ func _init(
 			configuration["combo_window_ms"] = LEGACY_COMBO_WINDOW_MS
 	else:
 		configuration.erase("combo_window_ms")
+	if rules_version < 9:
+		configuration.erase("flipped_tile_count")
 	_normalize_configuration_numbers()
 	modifier_loadout = []
 	for modifier in game_modifier_loadout:
@@ -54,6 +58,16 @@ func _init(
 	consumable_inventory = normalized_inventory.inventory
 	for tile in tiles:
 		_tiles_by_id[tile.id] = tile
+	var seen_flipped_ids := {}
+	if rules_version >= 9:
+		for tile_id_value in game_flipped_tile_ids:
+			var tile_id := str(tile_id_value)
+			if _tiles_by_id.has(tile_id) and not seen_flipped_ids.has(tile_id):
+				flipped_tile_ids.append(tile_id)
+				seen_flipped_ids[tile_id] = true
+	flipped_tile_ids.sort()
+	if rules_version >= 9:
+		configuration["flipped_tile_count"] = flipped_tile_ids.size()
 
 
 func get_tile(tile_id: String) -> Variant:
@@ -101,6 +115,7 @@ func _normalize_configuration_numbers() -> void:
 		"modifier_score_multiplier_duration_ms",
 		"modifier_tray_plus_one_base_pairs",
 		"modifier_tray_plus_one_pairs_per_level",
+		"flipped_tile_count",
 	]
 	for key in integer_keys:
 		if configuration.has(key):
@@ -132,6 +147,7 @@ func to_dict() -> Dictionary:
 		"modifier_loadout": modifier_loadout.duplicate(true),
 		"modifier_attachments": modifier_attachments.duplicate(true),
 		"consumable_inventory": consumable_inventory.duplicate(true),
+		"flipped_tile_ids": flipped_tile_ids.duplicate(),
 	}
 
 
@@ -178,21 +194,24 @@ func definition_hash() -> String:
 	var consumable_parts: Array[String] = []
 	for consumable_type in ConsumableInventoryScript.TYPES:
 		consumable_parts.append("%s=%d" % [consumable_type, int(consumable_inventory[consumable_type])])
-	_definition_hash = ("%d|%d|%s|%s|%s|%s|%s" % [
-		rules_version,
-		seed,
+	var hash_parts: Array[String] = [
+		str(rules_version),
+		str(seed),
 		",".join(configuration_parts),
 		",".join(tile_parts),
 		",".join(loadout_parts),
 		",".join(attachment_parts),
 		",".join(consumable_parts),
-	]).sha256_text()
+	]
+	if rules_version >= 9:
+		hash_parts.append(",".join(flipped_tile_ids))
+	_definition_hash = "|".join(hash_parts).sha256_text()
 	return _definition_hash
 
 
 static func from_dict(data: Dictionary) -> RefCounted:
 	var schema_version := int(data.get("schema_version", 0))
-	if schema_version not in [1, 2, SCHEMA_VERSION]:
+	if schema_version not in [1, 2, 3, SCHEMA_VERSION]:
 		return null
 	var position_script: Script = load("res://scripts/simulation/board_position.gd")
 	var face_script: Script = load("res://scripts/simulation/tile_face.gd")
@@ -213,5 +232,6 @@ static func from_dict(data: Dictionary) -> RefCounted:
 		int(data.get("rules_version", CURRENT_RULES_VERSION)),
 		data.get("modifier_loadout", []),
 		data.get("modifier_attachments", {}),
-		data.get("consumable_inventory", null)
+		data.get("consumable_inventory", null),
+		data.get("flipped_tile_ids", [])
 	)

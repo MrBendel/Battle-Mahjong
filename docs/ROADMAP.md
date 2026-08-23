@@ -128,6 +128,8 @@ Detailed contract: [M06 Consumables](milestones/M06_CONSUMABLES.md)
 
 Status: In progress. The Batch A visual-slice candidate is implemented: canonical tile geometry, an extensible 34-face manifest, the complete Default face set, source/runtime exports, responsive board and tray rendering, selection/rejection motion, transaction-driven pair removal, and the first production-style gameplay background.
 
+The gameplay foundation also supports seeded flipped tiles under rules version 9. Accessible face-down tiles reveal transactionally in place, remain outside the tray, and resolve directly when their known mate is tapped. Detailed contract: [Flipped Tiles](FLIPPED_TILES.md).
+
 Next production work moves into Batch B system artwork for modifiers, consumables, momentum, and multiplier before broader FX, character work, and the Neon skin proof.
 
 Detailed contracts: [M07 Art Foundation](milestones/M07_ART_FOUNDATION.md) and [Tile Art Pipeline](TILE_ART_PIPELINE.md)

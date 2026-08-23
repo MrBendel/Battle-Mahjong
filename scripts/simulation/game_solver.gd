@@ -1,6 +1,7 @@
 extends RefCounted
 
 const BoardSelectabilityScript := preload("res://scripts/simulation/board_selectability.gd")
+const BoardStateScript := preload("res://scripts/simulation/board_state.gd")
 const GameStateScript := preload("res://scripts/simulation/game_state.gd")
 const GameCommandScript := preload("res://scripts/simulation/game_command.gd")
 const GameStoreScript := preload("res://scripts/simulation/game_store.gd")
@@ -27,9 +28,11 @@ func verify_solution(definition: Variant, tile_ids: Array) -> Dictionary:
 		return {"valid": false, "reason": "solution length does not match tile count"}
 
 	for index in range(0, tile_ids.size(), 2):
-		if game.call("select_tile", str(tile_ids[index])) != GameStateScript.SELECTED:
+		var first_result: String = game.call("tap_tile", str(tile_ids[index]))
+		if first_result not in [GameStateScript.SELECTED, GameStateScript.TILE_REVEALED]:
 			return {"valid": false, "reason": "tile %d is not a legal first selection" % index}
-		if game.call("select_tile", str(tile_ids[index + 1])) != GameStateScript.PAIR_RESOLVED:
+		var second_result: String = game.call("tap_tile", str(tile_ids[index + 1]))
+		if second_result not in [GameStateScript.PAIR_RESOLVED, GameStateScript.FLIPPED_PAIR_RESOLVED]:
 			return {"valid": false, "reason": "tiles %d-%d do not resolve a legal pair" % [index, index + 1]}
 
 	return {"valid": game.status == GameStateScript.WON, "reason": "" if game.status == GameStateScript.WON else "solution did not win"}
@@ -39,9 +42,17 @@ func verify_state_route(definition: Variant, initial_state: Variant, tile_ids: A
 	var state: Variant = initial_state.duplicate_data()
 	var store := GameStoreScript.new(definition, state)
 	for index in tile_ids.size():
+		var board: Variant = BoardStateScript.new(definition, state)
+		var tile_id := str(tile_ids[index])
+		if not board.call("is_tile_active", tile_id):
+			continue
+		if board.call("is_tile_revealed_flipped", tile_id):
+			continue
+		var command_type := GameCommandScript.REVEAL_TILE if board.call("is_tile_face_down", tile_id) \
+			else GameCommandScript.SELECT_TILE
 		var command := GameCommandScript.new(
-			GameCommandScript.SELECT_TILE,
-			{"tile_id": str(tile_ids[index])},
+			command_type,
+			{"tile_id": tile_id},
 			state.revision,
 			"verify_%06d" % index,
 			"solver",

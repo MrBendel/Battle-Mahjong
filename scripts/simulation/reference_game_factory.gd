@@ -78,6 +78,11 @@ func create_generated_for_layout(
 	configuration["layout_id"] = layout.id
 	configuration["layout_revision"] = layout.revision
 	configuration["layout_hash"] = layout.content_hash()
+	var flipped_tile_ids := _place_flipped_tiles(
+		seed,
+		tiles,
+		int(configuration.get("flipped_tile_count", GameConfigurationScript.DEFAULT_FLIPPED_TILE_COUNT))
+	)
 	var requested_loadout: Array = ModifierLoadoutScript.starter() if modifier_loadout == null else modifier_loadout
 	var normalized: Dictionary = ModifierLoadoutScript.normalize(
 		requested_loadout,
@@ -97,7 +102,9 @@ func create_generated_for_layout(
 			configuration,
 			GameDefinitionScript.CURRENT_RULES_VERSION,
 			normalized.loadout,
-			attachments
+			attachments,
+			null,
+			flipped_tile_ids
 		),
 		"solution": solution,
 	}
@@ -131,3 +138,14 @@ func _place_modifiers(seed: int, tiles: Array, loadout: Array) -> Dictionary:
 	for index in range(loadout.size()):
 		attachments[tile_ids[index]] = loadout[index].duplicate(true)
 	return attachments
+
+
+func _place_flipped_tiles(seed: int, tiles: Array, requested_count: int) -> Array[String]:
+	var tile_ids: Array[String] = []
+	for tile in tiles:
+		tile_ids.append(tile.id)
+	tile_ids.sort()
+	_shuffle(tile_ids, DeterministicRngScript.new(seed + 524287))
+	tile_ids.resize(clampi(requested_count, 0, tile_ids.size()))
+	tile_ids.sort()
+	return tile_ids

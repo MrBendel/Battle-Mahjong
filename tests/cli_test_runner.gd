@@ -43,6 +43,7 @@ func _init() -> void:
 	_run_board_projection_tests()
 	_run_fixed_layout_tests()
 	_run_tray_and_game_tests()
+	_run_flipped_tile_tests()
 	_run_transaction_timeline_tests()
 	_run_momentum_tuning_tests()
 	_run_momentum_tests()
@@ -240,6 +241,119 @@ func _run_tray_and_game_tests() -> void:
 	_check_equal(4, loss_game.tray.tiles.size(), "mutating tray projection cannot mutate store")
 
 
+func _run_flipped_tile_tests() -> void:
+	_log(" - deterministic flipped tiles")
+	var memory_face := TileFaceScript.new("test", "memory")
+	var direct_tiles := [
+		TileInstanceScript.new("flipped", memory_face, BoardPositionScript.new(0, 0, 0)),
+		TileInstanceScript.new("ordinary", memory_face, BoardPositionScript.new(4, 0, 0)),
+	]
+	var direct_definition: Variant = _definition_with_flips(direct_tiles, ["flipped"])
+	_check_equal(1, direct_definition.configuration.flipped_tile_count, "definition records the actual flipped-tile count")
+	_check_equal(["flipped"], direct_definition.flipped_tile_ids, "definition binds physical flipped tile ids")
+	var serialized_definition: Variant = GameDefinitionScript.from_dict(
+		JSON.parse_string(JSON.stringify(direct_definition.to_dict()))
+	)
+	_check(serialized_definition != null, "flipped definition round-trips through JSON")
+	_check_equal(direct_definition.definition_hash(), serialized_definition.definition_hash(), "flipped ids participate in definition identity")
+	var legacy_definition := GameDefinitionScript.new(1, direct_tiles, {}, 8, [], {}, null, ["flipped"])
+	_check(legacy_definition.flipped_tile_ids.is_empty(), "pre-version-9 definition ignores flipped ids")
+	_check(not legacy_definition.configuration.has("flipped_tile_count"), "pre-version-9 definition preserves legacy configuration identity")
+
+	var direct_game := GameStateScript.new(direct_definition)
+	_check(direct_game.board.call("is_tile_revealable", "flipped"), "accessible face-down tile is revealable")
+	_check(not direct_game.board.call("is_tile_selectable", "flipped"), "face-down tile cannot enter the tray")
+	_check_equal(GameStateScript.TILE_REVEALED, direct_game.call("reveal_tile", "flipped", 100), "accessible face-down tile reveals in place")
+	_check(direct_game.board.call("is_tile_revealed_flipped", "flipped"), "revealed flipped tile remains active on the board")
+	_check_equal(0, direct_game.tray.tiles.size(), "reveal does not occupy a tray slot")
+	_check_equal(GameStateScript.INVALID_SELECTION, direct_game.call("select_tile", "flipped", 100), "revealed flipped tile still cannot enter the tray")
+	_check_equal(GameStateScript.HINTED, direct_game.call("request_hint", 150), "Hint can use a known revealed flipped face")
+	_check_equal(["flipped", "ordinary"], direct_game.call("hinted_tile_ids"), "Hint points from revealed tile to ordinary mate")
+	_check_equal(GameStateScript.FLIPPED_PAIR_RESOLVED, direct_game.call("select_tile", "ordinary", 200), "matching ordinary tile resolves directly against revealed tile")
+	_check_equal(0, direct_game.tray.tiles.size(), "direct flipped match bypasses tray data")
+	_check_equal(1, direct_game.tray.resolved_pair_count, "direct flipped match counts as one pair")
+	_check_equal(1, direct_game.call("combo_at", 200), "direct flipped match extends natural Combo")
+	_check_equal(GameStateScript.WON, direct_game.status, "direct flipped match can complete the board")
+	_check(bool(direct_game.call("last_transaction").telemetry.flipped_pair), "direct match records flipped-pair telemetry")
+
+	var replica := GameStateScript.new(direct_definition)
+	for transaction in direct_game.call("transactions"):
+		_check(bool(replica.call("apply_transaction", transaction).accepted), "flipped transaction replays")
+	_check_equal(direct_game.call("current_snapshot").state_hash(), replica.call("current_snapshot").state_hash(), "flipped timeline reaches authoritative state")
+	var reversed: Variant = GameReducerScript.new().call(
+		"apply_reverse",
+		direct_definition,
+		direct_game.call("current_snapshot"),
+		direct_game.call("last_transaction")
+	)
+	_check(reversed != null, "direct flipped match applies in reverse")
+	_check_equal(["flipped"], reversed.revealed_flipped_tile_ids, "reverse restores the remembered face-up tile")
+
+	var tray_game := GameStateScript.new(_definition_with_flips(direct_tiles, ["flipped"]))
+	_check_equal(GameStateScript.SELECTED, tray_game.call("select_tile", "ordinary", 100), "ordinary mate can enter tray before reveal")
+	_check_equal(GameStateScript.FLIPPED_PAIR_RESOLVED, tray_game.call("reveal_tile", "flipped", 200), "revealed tile resolves matching tray tile directly")
+	_check_equal(0, tray_game.tray.tiles.size(), "tray-to-flipped match clears held tile atomically")
+	var hidden_delete_game := GameStateScript.new(_definition_with_flips(direct_tiles, ["flipped"]))
+	_check_equal(GameStateScript.NO_DELETABLE_PAIR, hidden_delete_game.call("delete_pair", "flipped"), "Delete Pair cannot target a hidden tile face")
+	_check_equal(1, hidden_delete_game.call("consumable_count", "delete_pair"), "hidden Delete Pair rejection consumes no charge")
+
+	var other_face := TileFaceScript.new("test", "other")
+	var memory_tiles := [
+		TileInstanceScript.new("memory_flip", memory_face, BoardPositionScript.new(0, 0, 0)),
+		TileInstanceScript.new("memory_mate", memory_face, BoardPositionScript.new(4, 0, 0)),
+		TileInstanceScript.new("other", other_face, BoardPositionScript.new(8, 0, 0)),
+		TileInstanceScript.new("other_mate", other_face, BoardPositionScript.new(12, 0, 0)),
+	]
+	var mismatch_game := GameStateScript.new(_definition_with_flips(memory_tiles, ["memory_flip"]))
+	_check_equal(GameStateScript.TILE_REVEALED, mismatch_game.call("reveal_tile", "memory_flip"), "memory tile reveals before a non-match")
+	_check_equal(GameStateScript.SELECTED, mismatch_game.call("select_tile", "other"), "ordinary non-match follows normal tray selection")
+	_check(mismatch_game.board.call("is_tile_face_down", "memory_flip"), "ordinary non-match turns the exposed tile face-down")
+	_check_equal([], mismatch_game.call("current_snapshot").revealed_flipped_tile_ids, "non-match re-hide is authoritative state")
+	_check_equal(GameStateScript.UNDONE, mismatch_game.call("undo_last_unmatched"), "ordinary non-match remains undoable")
+	_check(mismatch_game.board.call("is_tile_revealed_flipped", "memory_flip"), "Undo restores the preceding exposed memory tile")
+
+	var two_flip_game := GameStateScript.new(_definition_with_flips(memory_tiles, ["memory_flip", "other"]))
+	_check_equal(GameStateScript.TILE_REVEALED, two_flip_game.call("reveal_tile", "memory_flip"), "first non-matching flipped tile reveals")
+	_check_equal(GameStateScript.TILE_REVEALED, two_flip_game.call("reveal_tile", "other"), "second non-matching flipped tile reveals")
+	_check(two_flip_game.board.call("is_tile_face_down", "memory_flip"), "second non-match turns the first flipped tile face-down")
+	_check(two_flip_game.board.call("is_tile_revealed_flipped", "other"), "second non-match remains exposed")
+	_check_equal(["other"], two_flip_game.call("current_snapshot").revealed_flipped_tile_ids, "only one unmatched flipped face remains exposed")
+
+	var double_definition: Variant = _definition_with_flips(direct_tiles, ["ordinary", "flipped"])
+	var double_game := GameStateScript.new(double_definition)
+	_check_equal(GameStateScript.TILE_REVEALED, double_game.call("reveal_tile", "flipped"), "first flipped mate reveals")
+	_check_equal(GameStateScript.FLIPPED_PAIR_RESOLVED, double_game.call("reveal_tile", "ordinary"), "second flipped mate resolves both")
+
+	var blocked_tiles := [
+		TileInstanceScript.new("blocked_flip", memory_face, BoardPositionScript.new(0, 0, 0)),
+		TileInstanceScript.new("cover", TileFaceScript.new("test", "cover"), BoardPositionScript.new(0, 0, 1)),
+	]
+	var blocked_game := GameStateScript.new(_definition_with_flips(blocked_tiles, ["blocked_flip"]))
+	_check(not blocked_game.board.call("is_tile_revealable", "blocked_flip"), "covered face-down tile is not revealable")
+	_check_equal(GameStateScript.INVALID_SELECTION, blocked_game.call("reveal_tile", "blocked_flip"), "inaccessible face-down reveal is rejected")
+	_check_equal(0, blocked_game.revision, "rejected reveal appends no transaction")
+
+	var factory := ReferenceGameFactoryScript.new()
+	var generated_a: Dictionary = factory.call("create_generated", 44881, 4, {"flipped_tile_count": 12})
+	var generated_b: Dictionary = factory.call("create_generated", 44881, 4, {"flipped_tile_count": 12})
+	var generated_c: Dictionary = factory.call("create_generated", 44882, 4, {"flipped_tile_count": 12})
+	_check_equal(12, generated_a.definition.flipped_tile_ids.size(), "reference configuration assigns requested flipped count")
+	_check_equal(generated_a.definition.flipped_tile_ids, generated_b.definition.flipped_tile_ids, "same seed reproduces flipped placement")
+	_check(generated_a.definition.flipped_tile_ids != generated_c.definition.flipped_tile_ids, "different seed changes flipped placement")
+	_check(
+		bool(GameSolverScript.new().call("verify_solution", generated_a.definition, generated_a.solution).valid),
+		"generated pair certificate remains valid with flipped tiles"
+	)
+	var shuffled_game := GameStateScript.new(generated_a.definition)
+	var revealable_ids: Array = shuffled_game.board.call("revealable_tiles")
+	_check(not revealable_ids.is_empty(), "flipped reference game exposes a reveal before Shuffle")
+	if not revealable_ids.is_empty():
+		var remembered_id: String = revealable_ids[0].id
+		_check_equal(GameStateScript.TILE_REVEALED, shuffled_game.call("reveal_tile", remembered_id), "pre-Shuffle tile reveals")
+		_check_equal(GameStateScript.SHUFFLED, shuffled_game.call("shuffle"), "Shuffle verifies with an active revealed flipped tile")
+		_check(remembered_id in shuffled_game.call("current_snapshot").revealed_flipped_tile_ids, "Shuffle preserves remembered reveal state")
+
+
 func _run_transaction_timeline_tests() -> void:
 	_log(" - transaction timeline")
 	var definition = FixedLayoutsScript.new().call("m1_smoke_definition")
@@ -330,7 +444,7 @@ func _run_momentum_tests() -> void:
 		TileInstanceScript.new("fourth", second_face, BoardPositionScript.new(12, 0, 0)),
 	])
 	var configuration: Dictionary = definition.configuration
-	_check_equal(8, definition.rules_version, "mistake-driven Combo uses rules version 8")
+	_check_equal(9, definition.rules_version, "flipped-tile rules use rules version 9")
 	_check_equal(1, MomentumRulesScript.multiplier_for(19999, configuration), "momentum below first threshold stays x1")
 	_check_equal(2, MomentumRulesScript.multiplier_for(20000, configuration), "first threshold enters x2")
 	_check(
@@ -1030,10 +1144,32 @@ func _run_simulation_tests() -> void:
 	)
 	var hunting_result: Dictionary = simulator.call("run", 92817361, GameSimulatorScript.PAIR_AWARE, {"selection_interval_ms": 4000})
 	_check_equal(48, hunting_result.max_combo, "waiting to hunt for pairs no longer breaks Combo")
+	var flipped_result: Dictionary = simulator.call(
+		"run",
+		92817361,
+		GameSimulatorScript.PAIR_AWARE,
+		{"selection_interval_ms": 450, "flipped_tile_count": 12}
+	)
+	_check_equal(GameStateScript.WON, flipped_result.status, "pair-aware policy clears a 12-flipped-tile game")
+	_check_equal(48, flipped_result.pairs, "flipped simulation resolves every pair")
+	_check(flipped_result.max_tray < 4, "flipped direct matches preserve tray safety in verified route")
 
 
 func _definition(tiles: Array, tray_capacity: int = 4) -> Variant:
 	return GameDefinitionScript.new(1, tiles, {"tray_capacity": tray_capacity})
+
+
+func _definition_with_flips(tiles: Array, flipped_tile_ids: Array) -> Variant:
+	return GameDefinitionScript.new(
+		1,
+		tiles,
+		{"tray_capacity": 4},
+		GameDefinitionScript.CURRENT_RULES_VERSION,
+		[],
+		{},
+		null,
+		flipped_tile_ids
+	)
 
 
 func _game_with_first_combo(definition: Variant) -> Variant:

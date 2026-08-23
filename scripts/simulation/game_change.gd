@@ -8,6 +8,7 @@ const RNG_STATE := "rng_state"
 const TILE_SLOT := "tile_slot"
 const CONSUMABLES := "consumables"
 const HINT := "hint"
+const FLIPPED_REVEALS := "flipped_reveals"
 
 var type: String
 var target: String

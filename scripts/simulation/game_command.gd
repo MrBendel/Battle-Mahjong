@@ -6,6 +6,7 @@ const HINT := "hint"
 const DELETE_PAIR := "delete_pair"
 const SHUFFLE := "shuffle"
 const BREAK_COMBO := "break_combo"
+const REVEAL_TILE := "reveal_tile"
 
 var command_id: String
 var actor_id: String

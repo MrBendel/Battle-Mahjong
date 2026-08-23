@@ -44,7 +44,8 @@ Project-level instructions for Codex working on Battle Mahjong.
 - The M4 solver proves pair-only removal routes. Tray-aware routes that require temporarily holding unmatched tiles are deferred.
 - M5 uses a configurable three-slot modifier loadout and gives reference games a level-0 `2.0x` starter Score Multiplier tile. Persistent collection and leveling remain deferred.
 - M6 snapshots Hint, Undo, Delete Pair, and Shuffle quantities into each game definition. Delete Pair targets visible tiles independently from ordinary movement selectability; Shuffle preserves an almost-full tray and constructs a verified deterministic route. Persistent consumable ownership remains deferred.
-- Rules version 8 makes Combo mistake-driven with no current timeout. Rules version 7 and earlier retain timed Combo replay behavior. Accepted natural tile selections award configurable Momentum, and Undo compensates the actual gain without rewinding gameplay time.
+- Rules version 8 and later use mistake-driven Combo with no current timeout. Rules version 7 and earlier retain timed Combo replay behavior. Accepted natural tile selections award configurable Momentum, and Undo compensates the actual gain without rewinding gameplay time.
+- Rules version 9 adds deterministic flipped tiles. Seeded physical tile IDs begin face-down, accessible reveals are transactions, revealed flipped tiles never enter the tray, and known matches resolve directly without temporary authoritative tray occupancy. The playable 96-tile shell exposes a default count of 12 through the Inspector.
 - Tray tiles preserve the board's current rendered tile footprint. Match transfer, landing hold, open-slot staging, collision, removal, and Undo return are presentation-only; authoritative pair resolution leaves no temporary tray occupancy.
 - M7 Batch A has a complete visual-slice candidate. The Default set contains all 34 baseline faces as separate SVG masters and PNG runtime exports, with a presentation-only mapping for the current 24 abstract identities. Board and tray share the skin manifest; blocked rejection, board-to-tray motion, transaction-driven pair removal, and the brush-arcade background remain presentation-only.
 - The M3 scoring model uses a mistake-driven Combo chain. Natural pairs extend Combo; ordinary unmatched selections and elapsed time preserve it; live locked-tile taps and successful consumables break it through replay-safe transactions. Combo remains separate from the pair-difficulty score reward.
@@ -80,6 +81,7 @@ For documentation-only changes, `git diff --check` is sufficient unless the docu
 - `docs/TILE_ART_PIPELINE.md`: canonical tile geometry, identity, source/export, and skin-manifest contract.
 - `docs/PLAYER_PROFILE.md`: profile, game-record, result-application, and future account boundaries.
 - `docs/PAIR_DIFFICULTY.md`: deterministic opportunity scoring, ranking, telemetry, and tuning boundary.
+- `docs/FLIPPED_TILES.md`: seeded face-down assignment, reveal, direct-match, consumable, and replay rules.
 - `docs/ART_DIRECTION.md`: canonical visual direction.
 - `docs/ANDROID_PUBLISHING.md`: signed Android AAB export and Play Internal testing workflow.
 - `docs/ANDROID_SCREENSHOT_TESTING.md`: emulator-based portrait, landscape, rotation, and safe-area screenshot checks.

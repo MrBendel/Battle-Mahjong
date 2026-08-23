@@ -23,10 +23,13 @@ const SafeAreaScript := preload("res://scripts/presentation/safe_area.gd")
 const GAMEPLAY_BACKGROUND := preload("res://game-assets/backgrounds/gameplay_brush_arcade.png")
 const START_SEED := 92817361
 const PAIR_LANDING_HOLD_SECONDS := 0.12
+const FLIPPED_REVEAL_SECONDS := 0.16
+const FLIPPED_PAIR_ARC_SECONDS := 0.34
 
 @export var momentum_tuning: Resource
 @export var modifier_tuning: Resource
 @export var layout_id: String = BoardLayoutCatalogScript.DEFAULT_LAYOUT_ID
+@export_range(0, 48, 1) var flipped_tile_count := 12
 
 var _rng: RefCounted = DeterministicRngScript.new(START_SEED)
 var _regions: Dictionary = {}
@@ -41,6 +44,9 @@ var _pair_feedback_count := 0
 var _last_pair_feedback_position := Vector2()
 var _pair_collision_count := 0
 var _last_pair_collision_position := Vector2()
+var _flipped_pair_arc_count := 0
+var _flipped_pair_tray_count := 0
+var _last_flipped_pair_curves: Array = []
 var _undo_motion_count := 0
 var _last_undo_motion_target := Rect2()
 var _tile_transfer_previews := {}
@@ -92,7 +98,7 @@ func _build_shell() -> void:
 
 	_update_checker = UpdateCheckerScript.new()
 	_update_checker.name = "UpdateChecker"
-	_update_checker.current_version_code = 209362639
+	_update_checker.current_version_code = 209617106
 	_update_checker.update_available.connect(_on_update_available)
 	add_child(_update_checker)
 	_update_checker.check_for_updates()
@@ -143,7 +149,7 @@ func _build_gameplay_background() -> void:
 
 
 func _create_game() -> Variant:
-	var tuning_overrides := {}
+	var tuning_overrides := {"flipped_tile_count": flipped_tile_count}
 	if momentum_tuning == null:
 		push_warning("No MomentumTuning resource assigned; using simulation defaults.")
 	elif momentum_tuning.get_script() != MomentumTuningScript:
@@ -151,7 +157,7 @@ func _create_game() -> Variant:
 	else:
 		var tuning_errors: Array[String] = momentum_tuning.validation_errors()
 		if tuning_errors.is_empty():
-			tuning_overrides = momentum_tuning.configuration_overrides()
+			tuning_overrides.merge(momentum_tuning.configuration_overrides(), true)
 		else:
 			push_error("Invalid MomentumTuning; using simulation defaults: %s" % " ".join(tuning_errors))
 	if modifier_tuning == null:
@@ -187,6 +193,7 @@ func _create_game() -> Variant:
 func _on_tile_selected(tile_id: String) -> void:
 	if _pause_started_at_ms >= 0:
 		return
+	var revealed_before := _active_revealed_flipped_tile_ids()
 	var result: String
 	var tile_preview: Control = null
 	var matching_preview: Control = null
@@ -206,6 +213,43 @@ func _on_tile_selected(tile_id: String) -> void:
 			_play_board_pair_removal(removal_visuals)
 			return
 	else:
+		var face_down: bool = _game.board.call("is_tile_face_down", tile_id)
+		var flipped_candidate: Dictionary = _game.call("flipped_match_candidate", tile_id)
+		if face_down or not flipped_candidate.is_empty():
+			var direct_visuals := _capture_board_visuals([tile_id], face_down)
+			var direct_matching_zone := ""
+			if not flipped_candidate.is_empty():
+				var matching_tile_id := str(flipped_candidate.tile_id)
+				direct_matching_zone = str(flipped_candidate.zone)
+				if direct_matching_zone == GameStateDataScript.ZONE_BOARD:
+					direct_visuals.append_array(_capture_board_visuals([matching_tile_id]))
+				else:
+					var tray_index := _tray_index_for_tile(matching_tile_id)
+					if tray_index >= 0:
+						var tray_preview: Control = _regions.tray.call("create_tile_preview", tray_index)
+						if tray_preview != null:
+							direct_visuals.append({
+								"preview": tray_preview,
+								"rect": _regions.tray.call("slot_global_rect", tray_index),
+							})
+			result = _game.call("tap_tile", tile_id, _playback_time_ms())
+			_refresh_game_views()
+			_play_flip_backs(revealed_before)
+			if result == GameStateScript.TILE_REVEALED:
+				for visual in direct_visuals:
+					visual.preview.queue_free()
+				_regions.board.call("play_flip", tile_id)
+			elif result == GameStateScript.FLIPPED_PAIR_RESOLVED:
+				if direct_matching_zone == GameStateDataScript.ZONE_TRAY:
+					_play_flipped_pair_to_tray(direct_visuals)
+				else:
+					_play_flipped_pair_collision(direct_visuals)
+				var direct_transaction: Variant = _game.call("last_transaction")
+				_regions.momentum.call("play_pair_feedback", int(direct_transaction.telemetry.resulting_multiplier))
+			else:
+				for visual in direct_visuals:
+					visual.preview.queue_free()
+			return
 		var matching_index := _matching_tray_index(tile_id)
 		tile_preview = _regions.board.call("create_tile_preview", tile_id)
 		source_rect = _regions.board.call("tile_global_rect", tile_id)
@@ -218,6 +262,7 @@ func _on_tile_selected(tile_id: String) -> void:
 		if _tray_contains_tile(tile_id):
 			_regions.tray.call("suppress_tile", tile_id)
 	_refresh_game_views()
+	_play_flip_backs(revealed_before)
 	if tile_preview != null and result != GameStateScript.INVALID_SELECTION:
 		if result == GameStateScript.PAIR_RESOLVED:
 			_play_pair_to_tray(tile_preview, matching_preview, source_rect, target_rect, matching_source_rect)
@@ -232,6 +277,20 @@ func _on_tile_selected(tile_id: String) -> void:
 		_regions.momentum.call("play_pair_feedback", int(transaction.telemetry.resulting_multiplier))
 		if transaction.telemetry.has("difficulty_reward"):
 			_performance_callout.call("play_reward", transaction.telemetry.difficulty_reward)
+
+
+func _active_revealed_flipped_tile_ids() -> Array[String]:
+	var ids: Array[String] = []
+	for tile_id in _game.call("current_snapshot").revealed_flipped_tile_ids:
+		if _game.board.call("is_tile_revealed_flipped", tile_id):
+			ids.append(tile_id)
+	return ids
+
+
+func _play_flip_backs(previously_revealed_ids: Array[String]) -> void:
+	for tile_id in previously_revealed_ids:
+		if _game.board.call("is_tile_face_down", tile_id):
+			_regions.board.call("play_flip", tile_id)
 
 
 func _on_locked_tile_tapped(tile_id: String) -> void:
@@ -480,6 +539,105 @@ func _play_board_pair_removal(visuals: Array) -> void:
 	_play_pair_pop(visuals.map(func(visual: Dictionary) -> Variant: return visual.preview), center)
 
 
+func _play_flipped_pair_collision(visuals: Array) -> void:
+	if visuals.size() != 2:
+		_play_board_pair_removal(visuals)
+		return
+	var collision_center: Vector2 = _regions.board.get_global_rect().get_center()
+	var previews: Array = []
+	var tween := create_tween().set_parallel(true).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
+	_last_flipped_pair_curves.clear()
+	for index in range(visuals.size()):
+		var visual: Dictionary = visuals[index]
+		var preview: Control = visual.preview
+		var rect: Rect2 = visual.rect
+		add_child(preview)
+		preview.position = _global_to_local(rect.position)
+		preview.size = rect.size
+		preview.pivot_offset = preview.size * 0.5
+		preview.z_index = 1000 + index
+		previews.append(preview)
+		var start := preview.position
+		var finish := _global_to_local(collision_center) - preview.size * 0.5
+		var path := finish - start
+		var perpendicular := Vector2(-path.y, path.x).normalized()
+		var bend := minf(path.length() * 0.18, 90.0)
+		var bend_sign := -1.0 if index == 0 else 1.0
+		var control := (start + finish) * 0.5 + perpendicular * bend * bend_sign
+		_last_flipped_pair_curves.append({"start": start, "control": control, "finish": finish})
+		tween.tween_method(
+			_set_curve_position.bind(preview, start, control, finish),
+			0.0,
+			1.0,
+			FLIPPED_PAIR_ARC_SECONDS
+		)
+		tween.tween_property(preview, "rotation", deg_to_rad(-7.0 if index == 0 else 7.0), FLIPPED_PAIR_ARC_SECONDS)
+		tween.tween_property(preview, "scale", Vector2(1.08, 1.08), FLIPPED_PAIR_ARC_SECONDS)
+	_flipped_pair_arc_count += 1
+	tween.finished.connect(_finish_flipped_pair_collision.bind(previews, collision_center))
+
+
+func _play_flipped_pair_to_tray(visuals: Array) -> void:
+	if visuals.size() != 2:
+		_play_board_pair_removal(visuals)
+		return
+	var incoming: Control = visuals[0].preview
+	var held: Control = visuals[1].preview
+	var incoming_rect: Rect2 = visuals[0].rect
+	var held_rect: Rect2 = visuals[1].rect
+	add_child(incoming)
+	add_child(held)
+	incoming.position = _global_to_local(incoming_rect.position)
+	incoming.size = incoming_rect.size
+	incoming.pivot_offset = incoming.size * 0.5
+	incoming.z_index = 1001
+	held.position = _global_to_local(held_rect.position)
+	held.size = held_rect.size
+	held.pivot_offset = held.size * 0.5
+	held.z_index = 1000
+	incoming.scale = Vector2(0.08, 1.0)
+	_flipped_pair_tray_count += 1
+	_tile_motion_count += 1
+	_last_tile_motion_target = held_rect
+	var reveal_tween := create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	reveal_tween.tween_property(incoming, "scale", Vector2.ONE, FLIPPED_REVEAL_SECONDS)
+	reveal_tween.finished.connect(_start_flipped_pair_tray_arc.bind(incoming, held, held_rect))
+
+
+func _start_flipped_pair_tray_arc(incoming: Control, held: Control, held_rect: Rect2) -> void:
+	if not is_instance_valid(incoming) or not is_instance_valid(held):
+		return
+	var start := incoming.position
+	var finish := _global_to_local(held_rect.get_center()) - incoming.size * 0.5
+	var path := finish - start
+	var perpendicular := Vector2(-path.y, path.x).normalized()
+	var control := (start + finish) * 0.5 + perpendicular * minf(path.length() * 0.14, 72.0)
+	var tween := create_tween().set_parallel(true).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
+	tween.tween_method(
+		_set_curve_position.bind(incoming, start, control, finish),
+		0.0,
+		1.0,
+		FLIPPED_PAIR_ARC_SECONDS
+	)
+	tween.tween_property(incoming, "rotation", deg_to_rad(6.0), FLIPPED_PAIR_ARC_SECONDS)
+	tween.tween_property(incoming, "scale", Vector2(1.08, 1.08), FLIPPED_PAIR_ARC_SECONDS)
+	tween.tween_property(held, "scale", Vector2(1.06, 1.06), FLIPPED_PAIR_ARC_SECONDS)
+	tween.finished.connect(_finish_flipped_pair_collision.bind([incoming, held], held_rect.get_center()))
+
+
+func _set_curve_position(progress: float, preview: Control, start: Vector2, control: Vector2, finish: Vector2) -> void:
+	if not is_instance_valid(preview):
+		return
+	var inverse := 1.0 - progress
+	preview.position = inverse * inverse * start + 2.0 * inverse * progress * control + progress * progress * finish
+
+
+func _finish_flipped_pair_collision(previews: Array, collision_center: Vector2) -> void:
+	_pair_collision_count += 1
+	_last_pair_collision_position = collision_center
+	_play_pair_pop(previews, collision_center)
+
+
 func _play_pair_pop(previews: Array, global_center: Vector2) -> void:
 	_pair_feedback_count += 1
 	_last_pair_feedback_position = global_center
@@ -515,6 +673,13 @@ func _matching_tray_index(tile_id: String) -> int:
 	return -1
 
 
+func _tray_index_for_tile(tile_id: String) -> int:
+	for index in range(_game.tray.tiles.size()):
+		if _game.tray.tiles[index].id == tile_id:
+			return index
+	return -1
+
+
 func _tray_contains_tile(tile_id: String) -> bool:
 	for tile in _game.tray.tiles:
 		if tile.id == tile_id:
@@ -530,10 +695,10 @@ func _resolved_tile_ids(transaction: Variant) -> Array[String]:
 	return resolved
 
 
-func _capture_board_visuals(tile_ids: Array[String]) -> Array:
+func _capture_board_visuals(tile_ids: Array[String], force_face_up: bool = false) -> Array:
 	var visuals: Array = []
 	for tile_id in tile_ids:
-		var preview: Control = _regions.board.call("create_tile_preview", tile_id)
+		var preview: Control = _regions.board.call("create_tile_preview", tile_id, force_face_up)
 		if preview != null:
 			visuals.append({
 				"preview": preview,
