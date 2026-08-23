@@ -27,7 +27,6 @@ const GAMEPLAY_BACKGROUND := preload("res://game-assets/backgrounds/gameplay_bru
 const START_SEED := 92817361
 const PAIR_LANDING_HOLD_SECONDS := 0.12
 const FLIPPED_REVEAL_SECONDS := 0.16
-const FLIPPED_PAIR_ARC_SECONDS := 0.34
 
 @export var momentum_tuning: Resource
 @export var modifier_tuning: Resource
@@ -49,9 +48,8 @@ var _pair_feedback_count := 0
 var _last_pair_feedback_position := Vector2()
 var _pair_collision_count := 0
 var _last_pair_collision_position := Vector2()
-var _flipped_pair_arc_count := 0
-var _flipped_pair_tray_count := 0
-var _last_flipped_pair_curves: Array = []
+var _flipped_pair_staging_count := 0
+var _last_flipped_pair_stage_targets: Array[Rect2] = []
 var _undo_motion_count := 0
 var _last_undo_motion_target := Rect2()
 var _tile_transfer_previews := {}
@@ -266,6 +264,7 @@ func _on_tile_selected(tile_id: String) -> void:
 			var transaction: Variant = _game.call("last_transaction")
 			var removal_visuals := _capture_board_visuals(_resolved_tile_ids(transaction))
 			_refresh_game_views()
+			_play_transaction_auto_reveals(transaction)
 			_play_board_pair_removal(removal_visuals)
 			return
 	else:
@@ -291,16 +290,14 @@ func _on_tile_selected(tile_id: String) -> void:
 			result = _game.call("tap_tile", tile_id, _playback_time_ms())
 			_refresh_game_views()
 			_play_flip_backs(revealed_before)
+			var direct_transaction: Variant = _game.call("last_transaction")
+			_play_transaction_auto_reveals(direct_transaction)
 			if result == GameStateScript.TILE_REVEALED:
 				for visual in direct_visuals:
 					visual.preview.queue_free()
 				_regions.board.call("play_flip", tile_id)
 			elif result == GameStateScript.FLIPPED_PAIR_RESOLVED:
-				if direct_matching_zone == GameStateDataScript.ZONE_TRAY:
-					_play_flipped_pair_to_tray(direct_visuals)
-				else:
-					_play_flipped_pair_collision(direct_visuals)
-				var direct_transaction: Variant = _game.call("last_transaction")
+				_play_flipped_pair_via_open_slots(direct_visuals, face_down)
 				_regions.momentum.call("play_pair_feedback", int(direct_transaction.telemetry.resulting_multiplier))
 				_play_transaction_callout(direct_transaction)
 			else:
@@ -320,6 +317,8 @@ func _on_tile_selected(tile_id: String) -> void:
 			_regions.tray.call("suppress_tile", tile_id)
 	_refresh_game_views()
 	_play_flip_backs(revealed_before)
+	var selection_transaction: Variant = _game.call("last_transaction")
+	_play_transaction_auto_reveals(selection_transaction)
 	if tile_preview != null and result != GameStateScript.INVALID_SELECTION:
 		if result == GameStateScript.PAIR_RESOLVED:
 			_play_pair_to_tray(tile_preview, matching_preview, source_rect, target_rect, matching_source_rect)
@@ -670,14 +669,13 @@ func _play_board_pair_removal(visuals: Array) -> void:
 	_play_pair_pop(visuals.map(func(visual: Dictionary) -> Variant: return visual.preview), center)
 
 
-func _play_flipped_pair_collision(visuals: Array) -> void:
+func _play_flipped_pair_via_open_slots(visuals: Array, reveal_incoming: bool = false) -> void:
 	if visuals.size() != 2:
 		_play_board_pair_removal(visuals)
 		return
-	var collision_center: Vector2 = _regions.board.get_global_rect().get_center()
 	var previews: Array = []
-	var tween := create_tween().set_parallel(true).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
-	_last_flipped_pair_curves.clear()
+	var targets := _flipped_pair_staging_rects()
+	_last_flipped_pair_stage_targets.assign(targets)
 	for index in range(visuals.size()):
 		var visual: Dictionary = visuals[index]
 		var preview: Control = visual.preview
@@ -688,85 +686,44 @@ func _play_flipped_pair_collision(visuals: Array) -> void:
 		preview.pivot_offset = preview.size * 0.5
 		preview.z_index = 1000 + index
 		previews.append(preview)
-		var start := preview.position
-		var finish := _global_to_local(collision_center) - preview.size * 0.5
-		var path := finish - start
-		var perpendicular := Vector2(-path.y, path.x).normalized()
-		var bend := minf(path.length() * 0.18, 90.0)
-		var bend_sign := -1.0 if index == 0 else 1.0
-		var control := (start + finish) * 0.5 + perpendicular * bend * bend_sign
-		_last_flipped_pair_curves.append({"start": start, "control": control, "finish": finish})
-		tween.tween_method(
-			_set_curve_position.bind(preview, start, control, finish),
-			0.0,
-			1.0,
-			FLIPPED_PAIR_ARC_SECONDS
-		)
-		tween.tween_property(preview, "rotation", deg_to_rad(-7.0 if index == 0 else 7.0), FLIPPED_PAIR_ARC_SECONDS)
-		tween.tween_property(preview, "scale", Vector2(1.08, 1.08), FLIPPED_PAIR_ARC_SECONDS)
-	_flipped_pair_arc_count += 1
-	tween.finished.connect(_finish_flipped_pair_collision.bind(previews, collision_center))
+	_flipped_pair_staging_count += 1
+	_tile_motion_count += 2
+	_last_tile_motion_target = targets[1]
+	if reveal_incoming:
+		previews[0].scale = Vector2(0.08, 1.0)
+		var reveal_tween := create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		reveal_tween.tween_property(previews[0], "scale", Vector2.ONE, FLIPPED_REVEAL_SECONDS)
+		reveal_tween.finished.connect(_stage_flipped_pair_in_tray.bind(previews, targets))
+	else:
+		_stage_flipped_pair_in_tray(previews, targets)
 
 
-func _play_flipped_pair_to_tray(visuals: Array) -> void:
-	if visuals.size() != 2:
-		_play_board_pair_removal(visuals)
+func _flipped_pair_staging_rects() -> Array[Rect2]:
+	var first_slot := mini(_game.tray.tiles.size(), 2)
+	return [
+		_regions.tray.call("slot_global_rect", first_slot),
+		_regions.tray.call("slot_global_rect", first_slot + 1),
+	]
+
+
+func _stage_flipped_pair_in_tray(previews: Array, targets: Array[Rect2]) -> void:
+	if previews.size() != 2 or not is_instance_valid(previews[0]) or not is_instance_valid(previews[1]):
 		return
-	var incoming: Control = visuals[0].preview
-	var held: Control = visuals[1].preview
-	var incoming_rect: Rect2 = visuals[0].rect
-	var held_rect: Rect2 = visuals[1].rect
-	add_child(incoming)
-	add_child(held)
-	incoming.position = _global_to_local(incoming_rect.position)
-	incoming.size = incoming_rect.size
-	incoming.pivot_offset = incoming.size * 0.5
-	incoming.z_index = 1001
-	held.position = _global_to_local(held_rect.position)
-	held.size = held_rect.size
-	held.pivot_offset = held.size * 0.5
-	held.z_index = 1000
-	incoming.scale = Vector2(0.08, 1.0)
-	_flipped_pair_tray_count += 1
-	_tile_motion_count += 1
-	_last_tile_motion_target = held_rect
-	var reveal_tween := create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	reveal_tween.tween_property(incoming, "scale", Vector2.ONE, FLIPPED_REVEAL_SECONDS)
-	reveal_tween.finished.connect(_start_flipped_pair_tray_arc.bind(incoming, held, held_rect))
-
-
-func _start_flipped_pair_tray_arc(incoming: Control, held: Control, held_rect: Rect2) -> void:
-	if not is_instance_valid(incoming) or not is_instance_valid(held):
-		return
-	var start := incoming.position
-	var finish := _global_to_local(held_rect.get_center()) - incoming.size * 0.5
-	var path := finish - start
-	var perpendicular := Vector2(-path.y, path.x).normalized()
-	var control := (start + finish) * 0.5 + perpendicular * minf(path.length() * 0.14, 72.0)
 	var tween := create_tween().set_parallel(true).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
-	tween.tween_method(
-		_set_curve_position.bind(incoming, start, control, finish),
-		0.0,
-		1.0,
-		FLIPPED_PAIR_ARC_SECONDS
-	)
-	tween.tween_property(incoming, "rotation", deg_to_rad(6.0), FLIPPED_PAIR_ARC_SECONDS)
-	tween.tween_property(incoming, "scale", Vector2(1.08, 1.08), FLIPPED_PAIR_ARC_SECONDS)
-	tween.tween_property(held, "scale", Vector2(1.06, 1.06), FLIPPED_PAIR_ARC_SECONDS)
-	tween.finished.connect(_finish_flipped_pair_collision.bind([incoming, held], held_rect.get_center()))
+	for index in previews.size():
+		var preview: Control = previews[index]
+		var target_position := _global_to_local(targets[index].get_center()) - preview.size * 0.5
+		tween.tween_property(preview, "position", target_position, 0.18)
+		tween.tween_property(preview, "rotation", deg_to_rad(-3.0 if index == 0 else 3.0), 0.18)
+	tween.chain().tween_interval(PAIR_LANDING_HOLD_SECONDS)
+	tween.finished.connect(_play_pair_collision.bind(previews[0], previews[1], targets[0], targets[1]))
 
 
-func _set_curve_position(progress: float, preview: Control, start: Vector2, control: Vector2, finish: Vector2) -> void:
-	if not is_instance_valid(preview):
+func _play_transaction_auto_reveals(transaction: Variant) -> void:
+	if transaction == null:
 		return
-	var inverse := 1.0 - progress
-	preview.position = inverse * inverse * start + 2.0 * inverse * progress * control + progress * progress * finish
-
-
-func _finish_flipped_pair_collision(previews: Array, collision_center: Vector2) -> void:
-	_pair_collision_count += 1
-	_last_pair_collision_position = collision_center
-	_play_pair_pop(previews, collision_center)
+	for tile_id in transaction.telemetry.get("auto_revealed_tile_ids", []):
+		_regions.board.call("play_flip", str(tile_id))
 
 
 func _play_pair_pop(previews: Array, global_center: Vector2) -> void:

@@ -101,6 +101,15 @@ func _run() -> void:
 		_check(bool(reveal_button.get_meta("face_down")), "face-down presentation records hidden state")
 		_check(not reveal_art.visible and reveal_button.text.is_empty(), "face-down presentation hides tile identity without a question mark")
 		_check(reveal_base.visible and reveal_base.texture != null, "face-down presentation uses the blank ceramic tile")
+		var hover_style: StyleBoxFlat = reveal_button.get_theme_stylebox("hover")
+		var pressed_style: StyleBoxFlat = reveal_button.get_theme_stylebox("pressed")
+		_check_equal(Color.TRANSPARENT, hover_style.bg_color, "tile hover adds no rectangular background")
+		_check_equal(Color.TRANSPARENT, pressed_style.bg_color, "tile press adds no rectangular background")
+		var resting_brightness: float = reveal_button.modulate.r
+		shell.get("_regions").board.call("_set_tile_interaction_brightness", revealable_tile_id, true)
+		_check(reveal_button.modulate.r > resting_brightness, "tile interaction highlights by brightness")
+		shell.get("_regions").board.call("_set_tile_interaction_brightness", revealable_tile_id, false)
+		_check_equal(resting_brightness, reveal_button.modulate.r, "tile interaction brightness restores cleanly")
 		var forced_face_preview: Panel = shell.get("_regions").board.call("create_tile_preview", revealable_tile_id, true)
 		var forced_face_style: StyleBoxFlat = forced_face_preview.get_theme_stylebox("panel")
 		_check_equal(Color.TRANSPARENT, forced_face_style.bg_color, "forced face-up preview lets ceramic artwork own its silhouette")
@@ -129,37 +138,36 @@ func _run() -> void:
 			_check(not reveal_art.visible and reveal_button.text.is_empty(), "flip-back presentation restores the blank tile back")
 			shell.call("_on_restart_requested")
 			live_game = shell.get("_game")
-	var arc_visuals := []
+	var stage_visuals := []
 	for rect in [Rect2(Vector2(32.0, 120.0), Vector2(42.0, 54.0)), Rect2(Vector2(root.size.x - 74.0, root.size.y - 180.0), Vector2(42.0, 54.0))]:
 		var preview := Panel.new()
-		arc_visuals.append({"preview": preview, "rect": rect})
-	var arc_count_before: int = shell.get("_flipped_pair_arc_count")
-	var arc_collision_before: int = shell.get("_pair_collision_count")
-	var arc_feedback_before: int = shell.get("_pair_feedback_count")
-	shell.call("_play_flipped_pair_collision", arc_visuals)
-	_check_equal(arc_count_before + 1, shell.get("_flipped_pair_arc_count"), "flipped pair starts one center-arc presentation")
-	var curves: Array = shell.get("_last_flipped_pair_curves")
-	_check_equal(2, curves.size(), "flipped pair records one curve per tile")
-	for curve in curves:
-		var straight_midpoint: Vector2 = (curve.start + curve.finish) * 0.5
-		_check(curve.control.distance_to(straight_midpoint) > 1.0, "flipped tile path bends away from a straight center line")
-	await create_timer(0.18).timeout
-	_check_equal(arc_collision_before, shell.get("_pair_collision_count"), "flipped pair remains in flight before center collision")
+		stage_visuals.append({"preview": preview, "rect": rect})
+	var staging_before: int = shell.get("_flipped_pair_staging_count")
+	var stage_collision_before: int = shell.get("_pair_collision_count")
+	var stage_feedback_before: int = shell.get("_pair_feedback_count")
+	var stage_targets: Array[Rect2] = shell.call("_flipped_pair_staging_rects")
+	shell.call("_play_flipped_pair_via_open_slots", stage_visuals)
+	_check_equal(staging_before + 1, shell.get("_flipped_pair_staging_count"), "flipped pair starts one two-slot staging presentation")
+	_check_equal(stage_targets, shell.get("_last_flipped_pair_stage_targets"), "flipped pair records both open tray targets")
 	await create_timer(0.24).timeout
-	_check_equal(arc_collision_before + 1, shell.get("_pair_collision_count"), "flipped pair collides after curved travel")
-	_check_equal(shell.get("_regions").board.get_global_rect().get_center(), shell.get("_last_pair_collision_position"), "flipped pair collision targets board center")
-	_check_equal(arc_feedback_before + 1, shell.get("_pair_feedback_count"), "flipped center collision triggers the shared removal burst")
+	_check_equal(stage_collision_before, shell.get("_pair_collision_count"), "flipped pair holds in the tray before collision")
+	await create_timer(0.20).timeout
+	var expected_stage_collision := (stage_targets[0].get_center() + stage_targets[1].get_center()) * 0.5
+	_check_equal(stage_collision_before + 1, shell.get("_pair_collision_count"), "flipped pair collides after tray staging")
+	_check_equal(expected_stage_collision, shell.get("_last_pair_collision_position"), "flipped pair collides between its staging slots")
+	_check_equal(stage_feedback_before + 1, shell.get("_pair_feedback_count"), "flipped tray collision triggers the shared removal burst")
 	await create_timer(0.24).timeout
 	var tray_match_rect: Rect2 = shell.get("_regions").tray.call("slot_global_rect", 0)
 	var tray_visuals := [
 		{"preview": Panel.new(), "rect": Rect2(Vector2(root.size.x * 0.5, root.size.y * 0.7), Vector2(42.0, 54.0))},
 		{"preview": Panel.new(), "rect": tray_match_rect},
 	]
-	var tray_arc_before: int = shell.get("_flipped_pair_tray_count")
+	var tray_stage_before: int = shell.get("_flipped_pair_staging_count")
 	var tray_collision_before: int = shell.get("_pair_collision_count")
-	shell.call("_play_flipped_pair_to_tray", tray_visuals)
-	_check_equal(tray_arc_before + 1, shell.get("_flipped_pair_tray_count"), "flipped-to-tray match starts its dedicated upward arc")
-	_check_equal(tray_match_rect, shell.get("_last_tile_motion_target"), "flipped-to-tray arc targets the held tile rather than an open slot")
+	var tray_stage_targets: Array[Rect2] = shell.call("_flipped_pair_staging_rects")
+	shell.call("_play_flipped_pair_via_open_slots", tray_visuals, true)
+	_check_equal(tray_stage_before + 1, shell.get("_flipped_pair_staging_count"), "flipped-to-tray match uses the shared staging presentation")
+	_check_equal(tray_stage_targets[1], shell.get("_last_tile_motion_target"), "flipped-to-tray match targets the second open slot")
 	var tray_incoming: Control = tray_visuals[0].preview
 	var tray_start: Vector2 = tray_incoming.position
 	_check(tray_incoming.scale.x < 0.1, "matching flipped tile begins its face reveal edge-on")
@@ -167,10 +175,11 @@ func _run() -> void:
 	_check_equal(tray_start, tray_incoming.position, "matching flipped tile reveals in place before tray motion")
 	_check(tray_incoming.scale.x > 0.1, "matching flipped tile face becomes visible during the reveal beat")
 	await create_timer(0.10).timeout
-	_check_equal(tray_collision_before, shell.get("_pair_collision_count"), "flipped tile begins tray travel only after revealing")
-	await create_timer(0.34).timeout
-	_check_equal(tray_collision_before + 1, shell.get("_pair_collision_count"), "flipped tile collides with its held tray mate")
-	_check_equal(tray_match_rect.get_center(), shell.get("_last_pair_collision_position"), "flipped-to-tray collision uses the held tile position")
+	_check_equal(tray_collision_before, shell.get("_pair_collision_count"), "flipped pair begins tray travel only after revealing")
+	await create_timer(0.43).timeout
+	_check_equal(tray_collision_before + 1, shell.get("_pair_collision_count"), "flipped pair collides after both tiles stage")
+	var expected_tray_collision := (tray_stage_targets[0].get_center() + tray_stage_targets[1].get_center()) * 0.5
+	_check_equal(expected_tray_collision, shell.get("_last_pair_collision_position"), "flipped-to-tray collision occurs between open slots")
 	await create_timer(0.24).timeout
 	var representative_button: Button = null
 	for tile in live_game.board.tiles:
