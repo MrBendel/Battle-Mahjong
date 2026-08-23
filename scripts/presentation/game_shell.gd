@@ -15,6 +15,7 @@ const TileSkinScript := preload("res://scripts/presentation/tile_skin.gd")
 const PairMatchFxScript := preload("res://scripts/presentation/pair_match_fx.gd")
 const PerformanceCalloutScript := preload("res://scripts/presentation/performance_callout_view.gd")
 const PauseMenuScript := preload("res://scripts/presentation/pause_menu.gd")
+const EndGameMenuScript := preload("res://scripts/presentation/end_game_menu.gd")
 const GameChangeScript := preload("res://scripts/simulation/game_change.gd")
 const GameStateDataScript := preload("res://scripts/simulation/game_state_data.gd")
 const UpdateBannerViewScript := preload("res://scripts/presentation/update_banner_view.gd")
@@ -54,7 +55,9 @@ var _tile_transfer_tweens := {}
 var _gameplay_background: TextureRect
 var _pause_button: Button
 var _pause_menu: Control
+var _end_game_menu: Control
 var _pause_started_at_ms := -1
+var _game_over_time_ms := -1
 var _paused_duration_ms := 0
 var _performance_callout: Control
 var _update_banner: PanelContainer
@@ -106,6 +109,7 @@ func _build_shell() -> void:
 	_debug_panel = DebugPanelScript.new()
 	add_child(_debug_panel)
 	_build_pause_menu()
+	_build_end_game_menu()
 
 
 func _on_update_available(version_name: String, store_url: String, mandatory: bool) -> void:
@@ -134,6 +138,23 @@ func _build_pause_menu() -> void:
 	_pause_menu.resumed.connect(_on_resume_requested)
 	_pause_menu.restart_requested.connect(_on_restart_requested)
 	add_child(_pause_menu)
+
+
+func _build_end_game_menu() -> void:
+	_end_game_menu = EndGameMenuScript.new()
+	_end_game_menu.visible = false
+	_end_game_menu.restart_requested.connect(_on_restart_requested)
+	_end_game_menu.undo_requested.connect(_on_end_game_undo_requested)
+	add_child(_end_game_menu)
+
+
+func _on_end_game_undo_requested() -> void:
+	if _end_game_menu != null:
+		_end_game_menu.call("close")
+	_game_over_time_ms = -1
+	if _pause_button != null:
+		_pause_button.visible = true
+	_on_undo_requested()
 
 
 func _build_gameplay_background() -> void:
@@ -197,7 +218,7 @@ func _create_game() -> Variant:
 
 
 func _on_tile_selected(tile_id: String) -> void:
-	if _pause_started_at_ms >= 0:
+	if _pause_started_at_ms >= 0 or _game_over_time_ms >= 0 or _game.status != GameStateScript.PLAYING:
 		return
 	var revealed_before := _active_revealed_flipped_tile_ids()
 	var result: String
@@ -300,7 +321,7 @@ func _play_flip_backs(previously_revealed_ids: Array[String]) -> void:
 
 
 func _on_locked_tile_tapped(tile_id: String) -> void:
-	if _pause_started_at_ms >= 0:
+	if _pause_started_at_ms >= 0 or _game_over_time_ms >= 0 or _game.status != GameStateScript.PLAYING:
 		return
 	_game.call("break_combo_for_locked_tile", tile_id, _playback_time_ms())
 	_regions.momentum.call("refresh", _playback_time_ms())
@@ -332,7 +353,7 @@ func _on_undo_requested() -> void:
 
 
 func _on_hint_requested() -> void:
-	if _pause_started_at_ms >= 0:
+	if _pause_started_at_ms >= 0 or _game_over_time_ms >= 0 or _game.status != GameStateScript.PLAYING:
 		return
 	var result: String = _game.call("request_hint", _playback_time_ms())
 	if result == GameStateScript.NO_HINT_AVAILABLE:
@@ -343,7 +364,7 @@ func _on_hint_requested() -> void:
 
 
 func _on_delete_pair_requested() -> void:
-	if _pause_started_at_ms >= 0:
+	if _pause_started_at_ms >= 0 or _game_over_time_ms >= 0 or _game.status != GameStateScript.PLAYING:
 		return
 	_delete_pair_armed = true
 	_regions.board.call("set_delete_pair_armed", true)
@@ -351,7 +372,7 @@ func _on_delete_pair_requested() -> void:
 
 
 func _on_shuffle_requested() -> void:
-	if _pause_started_at_ms >= 0:
+	if _pause_started_at_ms >= 0 or _game_over_time_ms >= 0 or _game.status != GameStateScript.PLAYING:
 		return
 	_delete_pair_armed = false
 	_regions.board.call("set_delete_pair_armed", false)
@@ -365,9 +386,12 @@ func _on_shuffle_requested() -> void:
 
 func _on_restart_requested() -> void:
 	_pause_started_at_ms = -1
+	_game_over_time_ms = -1
 	_paused_duration_ms = 0
 	if _pause_menu != null:
 		_pause_menu.call("close")
+	if _end_game_menu != null:
+		_end_game_menu.call("close")
 	if _pause_button != null:
 		_pause_button.visible = true
 	_game = _create_game()
@@ -382,7 +406,7 @@ func _on_restart_requested() -> void:
 
 
 func _on_pause_requested() -> void:
-	if _pause_started_at_ms >= 0:
+	if _pause_started_at_ms >= 0 or _game_over_time_ms >= 0 or _game.status != GameStateScript.PLAYING:
 		return
 	_pause_started_at_ms = Time.get_ticks_msec()
 	_pause_button.visible = false
@@ -412,6 +436,18 @@ func _refresh_game_views() -> void:
 	_regions.tray.call("refresh")
 	_regions.momentum.call("refresh", _playback_time_ms())
 	_regions.consumables.call("refresh")
+	_check_game_over()
+
+
+func _check_game_over() -> void:
+	if _game == null or _game.status == GameStateScript.PLAYING:
+		return
+	if _game_over_time_ms < 0:
+		_game_over_time_ms = _playback_time_ms()
+		if _pause_button != null:
+			_pause_button.visible = false
+		if _end_game_menu != null:
+			_end_game_menu.call("show_result", _game, _game_over_time_ms)
 
 
 func _play_tile_to_tray(preview: Control, source_rect: Rect2, target_rect: Rect2, tile_id: String) -> void:
@@ -729,6 +765,8 @@ func _process(_delta: float) -> void:
 
 
 func _playback_time_ms() -> int:
+	if _game_over_time_ms >= 0:
+		return _game_over_time_ms
 	var now: int = _pause_started_at_ms if _pause_started_at_ms >= 0 else Time.get_ticks_msec()
 	return now - _game_started_at_ms - _paused_duration_ms
 
