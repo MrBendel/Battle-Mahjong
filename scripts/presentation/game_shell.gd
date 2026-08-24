@@ -134,16 +134,16 @@ func _build_shell() -> void:
 	_update_banner.update_requested.connect(_on_update_requested)
 	add_child(_update_banner)
 
+	_debug_panel = DebugPanelScript.new()
+	add_child(_debug_panel)
+	_build_pause_menu()
+	_build_end_game_menu()
+
 	_update_checker = UpdateCheckerScript.new()
 	_update_checker.name = "UpdateChecker"
 	_update_checker.update_available.connect(_on_update_available)
 	add_child(_update_checker)
 	_update_checker.call("check_for_updates")
-
-	_debug_panel = DebugPanelScript.new()
-	add_child(_debug_panel)
-	_build_pause_menu()
-	_build_end_game_menu()
 
 
 func _on_update_available(version_name: String, store_url: String, mandatory: bool) -> void:
@@ -921,7 +921,8 @@ func _apply_layout() -> void:
 
 	for region in _regions.values():
 		region.visible = true
-	_debug_panel.visible = show_debug_panel
+	if _debug_panel != null:
+		_debug_panel.visible = show_debug_panel
 	if orientation == "Landscape":
 		_apply_landscape_layout(viewport_size)
 	elif viewport_size.y < 800.0:

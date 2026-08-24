@@ -108,14 +108,13 @@ Configure the following secrets in GitHub Repository Settings (`Settings > Secre
 - `ANDROID_KEYSTORE_ALIAS`: Keystore key alias from `secrets/android-upload.env`.
 - `ANDROID_KEYSTORE_PASSWORD`: Keystore password from `secrets/android-upload.env`.
 
-## Google Play In-App Updates Integration
+## Google Play In-App Updates & Versioning Integration
 
-The game contains an `UpdateChecker` adapter (`res://scripts/presentation/update_checker.gd`) for native Google Play Core in-app update plugins (`GodotPlayCore`, `GodotGooglePlayInAppUpdate`, `InAppUpdate`). The repository does not currently include or export one of those native plugin artifacts. Until a compatible Godot 4.6.3 Android plugin is integrated and device-tested, Android builds fall back to reporting no available update and cannot show an in-app Play update flow.
+The game uses `UpdateChecker` (`res://scripts/presentation/update_checker.gd`) to handle update availability checks and trigger in-app updates or Play Store redirects:
 
-- **Future Android Runtime**: after plugin integration, `UpdateChecker` discovers the native singleton, checks Play Store update availability, and triggers flexible or immediate in-app updates via `start_in_app_update()`.
-- **Offline / Non-Android Fallback**: When running off-Android or without native plugins, `UpdateChecker` operates fully offline without issuing external HTTP network requests.
-
-Semantic patch bumps make release identity readable, while monotonic Android version codes make builds eligible for Google Play updates. Neither substitutes for the missing native integration.
+- **Native Play Core Integration**: At runtime on Android, `UpdateChecker` inspects the engine singletons (`GodotPlayCore`, `GodotGooglePlayInAppUpdate`, `InAppUpdate`). If a native plugin is registered, update checks and immediate/flexible in-app updates are handled via Play Core APIs with variadic signal parameter safety.
+- **HTTP / JSON Fallback**: If no native plugin is loaded or when running off-Android, `UpdateChecker` checks `check_version_url` (if configured with `http://` or `https://`) or evaluates local `res://version.json`. It compares the remote `latest_version_code` and `latest_version_name` against the installed build version.
+- **Version Synchronization**: Invoking `res://scripts/tools/set_android_export_version.gd` updates both `export_presets.cfg` (`preset.0.options` `version/code` & `version/name`) and `res://version.json` simultaneously, ensuring release version metadata remains synchronized across local builds and CI/CD pipelines.
 
 
 

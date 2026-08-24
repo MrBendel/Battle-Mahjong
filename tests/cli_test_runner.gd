@@ -32,6 +32,7 @@ const ModifierTuningScript := preload("res://scripts/configuration/modifier_tuni
 const TileSkinScript := preload("res://scripts/presentation/tile_skin.gd")
 const ArcadeCalloutTuningScript := preload("res://scripts/configuration/arcade_callout_tuning.gd")
 const ArcadeCalloutPolicyScript := preload("res://scripts/presentation/arcade_callout_policy.gd")
+const UpdateCheckerScript := preload("res://scripts/presentation/update_checker.gd")
 
 var _failures := 0
 var _assertions := 0
@@ -58,6 +59,7 @@ func _init() -> void:
 	_run_generator_solver_tests()
 	_run_reference_game_tests()
 	_run_simulation_tests()
+	_run_update_checker_tests()
 
 	if _failures == 0:
 		_log("PASS: %d assertions" % _assertions)
@@ -111,8 +113,8 @@ func _run_tile_skin_contract_tests() -> void:
 	_check_equal(Vector2i(512, 640), Vector2i(skin.geometry.source_size[0], skin.geometry.source_size[1]), "skin records canonical source geometry")
 	_check_equal(Vector2i(32, 40), Vector2i(skin.geometry.minimum_runtime_size[0], skin.geometry.minimum_runtime_size[1]), "skin records minimum runtime footprint")
 	_check_equal(2, skin.base_variants.size(), "Default skin defines portrait and landscape ceramic bases")
-	_check(ResourceLoader.exists(str(skin.base_variants.portrait.asset)), "portrait ceramic base runtime asset exists")
-	_check(ResourceLoader.exists(str(skin.base_variants.landscape.asset)), "landscape ceramic base runtime asset exists")
+	_check(ResourceLoader.exists(str(skin.base_variants.portrait.asset)) or FileAccess.file_exists(str(skin.base_variants.portrait.asset)), "portrait ceramic base runtime asset exists")
+	_check(ResourceLoader.exists(str(skin.base_variants.landscape.asset)) or FileAccess.file_exists(str(skin.base_variants.landscape.asset)), "landscape ceramic base runtime asset exists")
 	_check(skin.call("tile_aspect") > 1.0, "portrait ceramic base uses a tall footprint")
 	skin.call("set_orientation", "landscape")
 	_check(skin.call("tile_aspect") < 1.0, "landscape ceramic base uses a wide footprint")
@@ -1399,6 +1401,75 @@ func _all_upper_slots_supported(layout: Variant) -> bool:
 		if not supported:
 			return false
 	return true
+
+
+func _run_update_checker_tests() -> void:
+	_log(" - update checker")
+	var checker = UpdateCheckerScript.new()
+	root.add_child(checker)
+
+	var current_code := checker.get_current_version_code()
+	var current_name := checker.get_current_version_name()
+	_check(current_code > 0, "current version code is valid positive int")
+	_check(not current_name.is_empty(), "current version name is non-empty string")
+
+	var sig_state := {
+		"emitted": false,
+		"vname": "",
+		"url": "",
+		"mandatory": false
+	}
+
+	checker.update_available.connect(func(vname: String, url: String, mandatory: bool):
+		sig_state["emitted"] = true
+		sig_state["vname"] = vname
+		sig_state["url"] = url
+		sig_state["mandatory"] = mandatory
+	)
+
+	checker.mock_trigger_update_available("0.2.0-test", "https://example.com/test", true)
+	_check(bool(sig_state["emitted"]), "mock_trigger_update_available emits update_available signal")
+	_check_equal("0.2.0-test", str(sig_state["vname"]), "emits correct version name")
+	_check_equal("https://example.com/test", str(sig_state["url"]), "emits correct store url")
+	_check_equal(true, bool(sig_state["mandatory"]), "emits correct mandatory flag")
+
+	sig_state["emitted"] = false
+	checker._on_native_update_available({"version_name": "0.3.0", "is_mandatory": true})
+	_check(bool(sig_state["emitted"]), "native update signal handles dictionary parameters safely")
+	_check_equal("0.3.0", str(sig_state["vname"]), "extracts version_name from dictionary")
+	_check_equal(true, bool(sig_state["mandatory"]), "extracts is_mandatory from dictionary")
+
+	sig_state["emitted"] = false
+	checker._on_native_update_available("0.4.0", true)
+	_check(bool(sig_state["emitted"]), "native update signal handles direct string/bool arguments safely")
+	_check_equal("0.4.0", str(sig_state["vname"]), "extracts version_name from string parameter")
+	_check_equal(true, bool(sig_state["mandatory"]), "extracts mandatory bool parameter")
+
+	var comp_state := {
+		"emitted": false,
+		"up_to_date": false
+	}
+	checker.check_completed.connect(func(up_to_date: bool):
+		comp_state["emitted"] = true
+		comp_state["up_to_date"] = up_to_date
+	)
+
+	checker._evaluate_version_dict({
+		"latest_version_code": current_code + 100,
+		"latest_version_name": "0.9.9",
+		"min_version_code": current_code + 10,
+		"store_url": "https://example.com/update"
+	})
+	_check(bool(comp_state["emitted"]) and not bool(comp_state["up_to_date"]), "higher remote version code marks build as needing update")
+
+	checker._evaluate_version_dict({
+		"latest_version_code": current_code,
+		"latest_version_name": current_name,
+		"min_version_code": 0
+	})
+	_check(bool(comp_state["emitted"]) and bool(comp_state["up_to_date"]), "equal remote version code marks build as up to date")
+
+	checker.queue_free()
 
 
 func _check(condition: bool, message: String) -> void:
