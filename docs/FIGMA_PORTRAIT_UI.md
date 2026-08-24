@@ -18,7 +18,7 @@ Optimized Godot runtime exports generally live under:
 game-assets/ui/portrait/
 ```
 
-Runtime exports include the gameplay background, score box, Momentum frame/fill/badge, and pause button. The supplied composable queue artwork lives under `assets/UI/tile-queue/`; `queue-cap.png` is mirrored for the right edge and `queue-repeat.png` owns each complete empty-slot presentation. Older imported queue references under `game-assets/ui/portrait/` are not wired into the shell. The live tray must render the same tile instances as the Board, and the consumable drawer intentionally retains its current placeholders.
+Runtime exports include the gameplay background, score box, Momentum frame/fill/badge, and pause button. The background intentionally retains its `941 x 1672` master dimensions because its `48 px` scale-9 margins are authored in that source coordinate space. The supplied composable queue artwork lives under `assets/UI/tile-queue/`; `queue-cap.png` is mirrored for the right edge and `queue-repeat.png` owns each complete empty-slot presentation. Older imported queue references under `game-assets/ui/portrait/` are not wired into the shell. The live tray must render the same tile instances as the Board, and the consumable drawer intentionally retains its current placeholders.
 
 Mila Script Sans Regular and Bold TTF files live under `assets/fonts/`. Godot uses Regular for values and Bold for headings, multiplier emphasis, and tick labels. WOFF2 files are retained alongside the supplied artwork package but are not loaded at runtime. No font license document was supplied with these files; redistribution rights must be confirmed before a public release.
 
@@ -47,13 +47,13 @@ The Momentum fill is clipped inside the exported frame and scales horizontally f
 
 Portrait layout is resolved inside the safe-area content rectangle:
 
-1. The Figma background aspect-covers the viewport and may crop at the sides.
+1. The `941 x 1672` Figma background uses scale-9 rendering with fixed `48 px` source margins on every edge. Only its interior and edge spans stretch, preserving the gold corner treatment while the same artwork temporarily serves every portrait and landscape aspect ratio.
 2. Score, Momentum, and pause anchor to the safe-area top.
 3. The queue is centered below the HUD.
 4. The existing Board consumes the flexible middle region.
 5. The existing compact consumables drawer stays above the bottom safe area.
 
-The portrait HUD, margins, queue allocation, and bottom drawer scale from the `390 x 844` reference composition. Scale uses the smaller ratio of safe display width to reference width and safe display height to reference height, so the complete HUD grows on high-resolution displays without overflowing shorter or wider portrait devices. The score remains left-aligned, pause remains right-aligned, and the Momentum frame is positioned independently so its center always matches the safe display's horizontal center. It does not rotate or rearrange the portrait-authored board. Landscape keeps the established split-side shell until a separate landscape visual source is approved.
+The portrait HUD, margins, queue allocation, and bottom drawer scale from the `390 x 844` reference composition. Scale uses the smaller ratio of safe display width to reference width and safe display height to reference height, so the complete HUD grows on high-resolution displays without overflowing shorter or wider portrait devices. The score remains left-aligned, pause remains right-aligned, and the Momentum frame is positioned independently so its center always matches the safe display's horizontal center. It does not rotate or rearrange the portrait-authored board. Landscape keeps the established split-side shell while temporarily sharing the scale-9 Figma background until separate landscape artwork is approved.
 
 ## First-Pass Gaps
 

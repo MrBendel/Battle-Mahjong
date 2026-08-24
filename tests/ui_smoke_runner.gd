@@ -50,13 +50,14 @@ func _run() -> void:
 			else Rect2(28.0, 54.0, 46.0, 30.0)
 		shell.call("set_safe_area_override_for_testing", test_insets)
 		await process_frame
-	var gameplay_background: TextureRect = shell.get("_gameplay_background")
+	var gameplay_background: NinePatchRect = shell.get("_gameplay_background")
 	_check(gameplay_background != null and gameplay_background.texture != null, "gameplay shell renders the M7 background asset")
-	_check_equal(
-		TextureRect.STRETCH_KEEP_ASPECT_COVERED,
-		gameplay_background.stretch_mode,
-		"gameplay background covers responsive viewports without distortion"
-	)
+	_check_equal(load("res://game-assets/ui/portrait/background.png"), gameplay_background.texture, "gameplay shell reuses the Figma background in every orientation")
+	_check_equal(Vector2(941.0, 1672.0), gameplay_background.texture.get_size(), "gameplay background retains the Figma master dimensions required by its scale-9 contract")
+	for side in [SIDE_LEFT, SIDE_TOP, SIDE_RIGHT, SIDE_BOTTOM]:
+		_check_equal(48, gameplay_background.get_patch_margin(side), "gameplay background preserves its 48 px scale-9 border")
+	_check_equal(NinePatchRect.AXIS_STRETCH_MODE_STRETCH, gameplay_background.axis_stretch_horizontal, "gameplay background stretches its scale-9 interior horizontally")
+	_check_equal(NinePatchRect.AXIS_STRETCH_MODE_STRETCH, gameplay_background.axis_stretch_vertical, "gameplay background stretches its scale-9 interior vertically")
 	var tuning: Resource = shell.get("momentum_tuning")
 	var modifier_tuning: Resource = shell.get("modifier_tuning")
 	var callout_tuning: Resource = shell.get("arcade_callout_tuning")
@@ -495,13 +496,13 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 	var combo_label: Label = momentum.get("_combo")
 	var momentum_meter: ProgressBar = momentum.get("_meter")
 	_check(not Rect2(combo_label.position, combo_label.size).intersects(Rect2(momentum_meter.position, momentum_meter.size)), "%s Combo readout does not cover Momentum meter" % orientation)
+	_check_equal(
+		load("res://game-assets/ui/portrait/background.png"),
+		shell.get("_gameplay_background").texture,
+		"%s uses the shared Figma gameplay background" % orientation
+	)
 	if orientation == "portrait":
 		var expected_portrait_scale := minf(safe_viewport.size.x / 390.0, safe_viewport.size.y / 844.0)
-		_check_equal(
-			load("res://game-assets/ui/portrait/background.png"),
-			shell.get("_gameplay_background").texture,
-			"portrait uses the Figma gameplay background"
-		)
 		_check(momentum.get("_portrait_style"), "portrait enables the Figma Momentum presentation")
 		_check(momentum.get("_score_art").visible, "portrait shows the exported score-box artwork")
 		_check(momentum.get("_momentum_frame").visible, "portrait shows the exported Momentum frame")

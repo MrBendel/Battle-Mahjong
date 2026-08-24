@@ -23,8 +23,8 @@ const GameStateDataScript := preload("res://scripts/simulation/game_state_data.g
 const UpdateBannerViewScript := preload("res://scripts/presentation/update_banner_view.gd")
 const UpdateCheckerScript := preload("res://scripts/presentation/update_checker.gd")
 const SafeAreaScript := preload("res://scripts/presentation/safe_area.gd")
-const GAMEPLAY_BACKGROUND := preload("res://game-assets/backgrounds/gameplay_brush_arcade.png")
 const PORTRAIT_BACKGROUND := preload("res://game-assets/ui/portrait/background.png")
+const BACKGROUND_PATCH_MARGIN := 48
 const PORTRAIT_PAUSE_BUTTON := preload("res://game-assets/ui/portrait/pause_button.png")
 const PORTRAIT_REFERENCE_SIZE := Vector2(390.0, 844.0)
 const START_SEED := 92817361
@@ -57,7 +57,7 @@ var _undo_motion_count := 0
 var _last_undo_motion_target := Rect2()
 var _tile_transfer_previews := {}
 var _tile_transfer_tweens := {}
-var _gameplay_background: TextureRect
+var _gameplay_background: NinePatchRect
 var _gameplay_background_wash: ColorRect
 var _portrait_hud_scrim: ColorRect
 var _pause_button: Button
@@ -194,12 +194,16 @@ func _on_end_game_undo_requested() -> void:
 
 
 func _build_gameplay_background() -> void:
-	_gameplay_background = TextureRect.new()
+	_gameplay_background = NinePatchRect.new()
 	_gameplay_background.name = "GameplayBackground"
 	_gameplay_background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_gameplay_background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_gameplay_background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	_gameplay_background.texture = GAMEPLAY_BACKGROUND
+	_gameplay_background.texture = PORTRAIT_BACKGROUND
+	_gameplay_background.set_patch_margin(SIDE_LEFT, BACKGROUND_PATCH_MARGIN)
+	_gameplay_background.set_patch_margin(SIDE_TOP, BACKGROUND_PATCH_MARGIN)
+	_gameplay_background.set_patch_margin(SIDE_RIGHT, BACKGROUND_PATCH_MARGIN)
+	_gameplay_background.set_patch_margin(SIDE_BOTTOM, BACKGROUND_PATCH_MARGIN)
+	_gameplay_background.axis_stretch_horizontal = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
+	_gameplay_background.axis_stretch_vertical = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
 	_gameplay_background.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_gameplay_background)
 
@@ -904,8 +908,7 @@ func _apply_layout() -> void:
 	var orientation := "Landscape" if viewport_size.x >= viewport_size.y else "Portrait"
 	_tile_skin.call("set_orientation", orientation.to_lower())
 	var portrait := orientation == "Portrait"
-	_gameplay_background.texture = PORTRAIT_BACKGROUND if portrait else GAMEPLAY_BACKGROUND
-	_gameplay_background_wash.visible = not portrait
+	_gameplay_background_wash.visible = false
 	_portrait_hud_scrim.visible = portrait
 	_regions.momentum.call("set_portrait_style", portrait)
 	_regions.tray.call("set_portrait_style", portrait)
