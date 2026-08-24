@@ -75,7 +75,10 @@ func _build_select(command: Variant, definition: Variant, state: Variant, timeli
 
 	var tile_id: String = str(command.payload.get("tile_id", ""))
 	var board := BoardStateScript.new(definition, state)
-	if not board.call("is_tile_selectable", tile_id):
+	var selecting_revealed_flipped: bool = definition.rules_version >= 12 \
+		and board.call("is_tile_revealed_flipped", tile_id) \
+		and board.call("is_tile_accessible", tile_id)
+	if not board.call("is_tile_selectable", tile_id) and not selecting_revealed_flipped:
 		return {"result": INVALID_SELECTION}
 	var opportunity_analyzer := BoardOpportunityAnalysisScript.new()
 	var opportunity_analysis: Dictionary = opportunity_analyzer.call("analyze", definition, state)
@@ -124,6 +127,8 @@ func _build_select(command: Variant, definition: Variant, state: Variant, timeli
 			"selected_pair_options": selected_pair_options,
 		},
 	}
+	if selecting_revealed_flipped:
+		telemetry["selected_revealed_flipped_tile_id"] = tile_id
 	if state.combo_count > 0 and combo_before == 0:
 		telemetry["combo_break_reason"] = "timeout"
 	if command.playback_time_ms != state.last_selection_time_ms:
@@ -192,7 +197,14 @@ func _build_select(command: Variant, definition: Variant, state: Variant, timeli
 		var resulting_multiplier: int = MomentumRulesScript.multiplier_for(momentum_after_gain, definition.configuration)
 		var score_modifier_basis_points := ModifierRulesScript.active_score_basis_points(state, command.playback_time_ms)
 		var resolved_pair_opportunity := {}
-		if not matching_flipped_tile_id.is_empty():
+		if selecting_revealed_flipped:
+			resolved_pair_opportunity = {
+				"source": "flipped_pair",
+				"observed_revision": state.revision,
+				"revealed_tile_id": tile_id,
+				"matching_tile_id": matching_tile_id,
+			}
+		elif not matching_flipped_tile_id.is_empty():
 			resolved_pair_opportunity = {
 				"source": "flipped_pair",
 				"observed_revision": state.revision,
@@ -255,9 +267,9 @@ func _build_select(command: Variant, definition: Variant, state: Variant, timeli
 			"combo_expires_at_ms": combo_expires_after,
 		})
 		telemetry["resolved_pair_opportunity"] = resolved_pair_opportunity
-		if not matching_flipped_tile_id.is_empty():
+		if selecting_revealed_flipped or not matching_flipped_tile_id.is_empty():
 			telemetry["flipped_pair"] = true
-			telemetry["resolved_tile_ids"] = [matching_flipped_tile_id, tile_id]
+			telemetry["resolved_tile_ids"] = [matching_tile_id, tile_id]
 		if not difficulty_reward.is_empty():
 			difficulty_reward["bonus_score"] = difficulty_bonus_score
 			telemetry["difficulty_reward"] = difficulty_reward
@@ -348,6 +360,8 @@ func _build_reveal(command: Variant, definition: Variant, state: Variant) -> Dic
 	var tile_id: String = str(command.payload.get("tile_id", ""))
 	var board := BoardStateScript.new(definition, state)
 	var matching_tray_tile_id := _matching_tray_tile_id(definition, state, tile_id)
+	if definition.rules_version >= 12 and board.call("is_tile_face_down", tile_id):
+		matching_tray_tile_id = ""
 	var resolving_revealed_tile: bool = definition.rules_version >= 11 \
 		and board.call("is_tile_revealed_flipped", tile_id) \
 		and not matching_tray_tile_id.is_empty()
@@ -518,14 +532,6 @@ func _build_undo(command: Variant, definition: Variant, state: Variant, timeline
 	var momentum_after_undo := MomentumRulesScript.remove_selection_gain(momentum_after_decay, selection_gain)
 	_append_counter_change(changes, "momentum_units", momentum_after_decay, momentum_after_undo)
 	combo_telemetry["momentum_selection_gain_reverted"] = momentum_after_decay - momentum_after_undo
-	for change in target_transaction.changes:
-		if change.type == GameChangeScript.FLIPPED_REVEALS:
-			changes.append(GameChangeScript.new(
-				GameChangeScript.FLIPPED_REVEALS,
-				"revealed_flipped_tile_ids",
-				state.revealed_flipped_tile_ids,
-				change.before
-			))
 	changes.append_array([
 		GameChangeScript.new(GameChangeScript.TILE_ZONE, tile_id, GameStateDataScript.ZONE_TRAY, GameStateDataScript.ZONE_BOARD),
 		GameChangeScript.new(GameChangeScript.TRAY, "tray_tile_ids", tray_before, tray_after),
@@ -911,7 +917,8 @@ func _append_newly_uncovered_flipped_reveals(
 	changes: Array,
 	telemetry: Dictionary
 ) -> void:
-	if definition.rules_version < 10 or definition.flipped_tile_ids.is_empty():
+	if definition.rules_version < 10 or definition.rules_version >= 13 \
+			or definition.flipped_tile_ids.is_empty():
 		return
 	var projected: Variant = state.duplicate_data()
 	for change in changes:

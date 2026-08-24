@@ -46,6 +46,8 @@ Tile composition remains:
 
 ```text
 Tile Base
++ Tile Back (face-down state only)
++ Tile Back Design (face-down cosmetic overlay)
 + Tile Face
 + Modifier Overlay
 + Interaction State
@@ -71,7 +73,7 @@ Editable masters live under `art-source/tiles/<skin>/`. Godot runtime exports li
 Rules:
 
 - SVG remains the canonical source format for flat face artwork. The first orientation-specific ceramic bases are transparent raster masters derived from the supplied artwork and live under `art-source/tiles/default/bases/`.
-- Runtime tile assets are transparent sRGB PNG files at 50% source scale.
+- Runtime tile assets are transparent sRGB PNG files at 50% source scale. The supplied Default tile-back raster master is retained separately and exported into orientation-specific transparent runtime backs.
 - Alpha is straight, not premultiplied.
 - File names are stable logical face IDs such as `bamboo_1.svg` and `red_dragon.svg`.
 - Runtime PNG files are generated outputs and must not be edited directly. The tile exporter downsamples raster base masters alongside SVG face masters.
@@ -88,13 +90,15 @@ Each skin owns a versioned `skin.json` containing skin identity, geometry, guara
 
 The loader requires the initial 34 IDs but does not reject additional face definitions. This allows the vocabulary to grow without changing the renderer contract.
 
+Tile-back designs use the same separation principle. `default_back_id` chooses an entry from `back_designs`; each entry supplies transparent ornament artwork only. `base_variants.<orientation>.back_design_safe_area` defines where that ornament is composited over the blank ceramic back. Back-design selection is cosmetic and must never enter matching, board, transaction, or replay logic. Durable player ownership and selection remain deferred to the profile milestone.
+
 Missing face art intentionally falls back to live text during production. A skin is not production-complete until every identity used by a game definition has artwork and both text fallback and placeholder mappings are disabled for release.
 
 ## Current Default Assets
 
 The Default candidate set contains all 34 Bamboo, Dots, Characters, Winds, and Dragons as editable SVG masters and runtime PNG exports. The treatment preserves familiar family and count structure while using heavy rounded strokes, loose registration, bright arcade color, and brush accents.
 
-The board and tray consume the same skin manifest and active orientation variant. Portrait viewports use the tall ceramic base; landscape viewports use the wide ceramic base. Animation previews capture the same active base, and orientation changes remain presentation-only. Blocked tiles are darkened without changing their face asset. A blocked tap produces a short horizontal rejection motion and generated negative tone without submitting a gameplay command. Successful ordinary selections commit immediately, then animate a presentation-only duplicate into the next tray slot. A committed pair converges on the matching tray slot and composes the reusable `PairMatchFx` burst; Delete Pair composes the same removal primitive over its resolved board tiles.
+The board and tray consume the same skin manifest and active orientation variant. Portrait viewports use the tall ceramic base; landscape viewports use the wide ceramic base. Face-down board tiles compose the corresponding blank ceramic back plus the selected cosmetic back design inside an orientation-specific safe area. The Default skin currently selects `arcade_spark` from its `back_designs` catalog. A skin can add or replace catalog entries without duplicating ceramic geometry or changing gameplay identity. Revealed tiles return to the normal base plus face composition. Animation previews capture the same active artwork, and orientation changes remain presentation-only. Blocked tiles are darkened without changing their face asset. A blocked tap produces a short horizontal rejection motion and generated negative tone without submitting a gameplay command. Successful ordinary selections commit immediately, then animate a presentation-only duplicate into the next tray slot. A committed pair converges on the matching tray slot and composes the reusable `PairMatchFx` burst; Delete Pair composes the same removal primitive over its resolved board tiles.
 
 These are production candidates with replaceable masters, not final approval of every glyph. Gameplay still uses the existing 24 abstract identities through the presentation-only map.
 

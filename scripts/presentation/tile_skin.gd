@@ -7,15 +7,21 @@ var id := ""
 var display_name := ""
 var geometry: Dictionary = {}
 var base_variants: Dictionary = {}
+var back_variants: Dictionary = {}
+var default_back_id := ""
+var back_designs: Dictionary = {}
 var depth_presentation: Dictionary = {}
 var layout_presentation: Dictionary = {}
 var canonical_face_ids: Array[String] = []
 var faces: Dictionary = {}
 var reference_preview_mapping: Dictionary = {}
 var orientation := "portrait"
+var back_design_id := ""
 
 var _textures: Dictionary = {}
 var _base_textures: Dictionary = {}
+var _back_textures: Dictionary = {}
+var _back_design_textures: Dictionary = {}
 var _load_errors: Array[String] = []
 
 
@@ -40,8 +46,19 @@ func validation_errors() -> Array[String]:
 			errors.append("Tile base variant '%s' has no runtime asset." % variant_id)
 		var source_size: Array = variant.get("source_size", [])
 		var safe_area: Array = variant.get("face_safe_area", [])
-		if source_size.size() != 2 or safe_area.size() != 4:
+		var back_safe_area: Array = variant.get("back_design_safe_area", [])
+		if source_size.size() != 2 or safe_area.size() != 4 or back_safe_area.size() != 4:
 			errors.append("Tile base variant '%s' has invalid geometry." % variant_id)
+		var back_path := str(back_variants.get(variant_id, ""))
+		if back_path.is_empty() or not (ResourceLoader.exists(back_path) or FileAccess.file_exists(back_path)):
+			errors.append("Missing tile back variant: %s" % variant_id)
+	if default_back_id.is_empty() or not back_designs.has(default_back_id):
+		errors.append("Default tile-back design must reference a known design.")
+	for design_id in back_designs:
+		var design: Dictionary = back_designs[design_id]
+		var design_path := str(design.get("asset", ""))
+		if design_path.is_empty() or not (ResourceLoader.exists(design_path) or FileAccess.file_exists(design_path)):
+			errors.append("Tile-back design '%s' has no runtime asset." % design_id)
 	var depth_floor := float(depth_presentation.get("lowest_layer_brightness", 0.0))
 	var blocked_overlay: Array = depth_presentation.get("blocked_overlay_color", [])
 	var shadow_opacity := float(depth_presentation.get("shadow_opacity", -1.0))
@@ -133,6 +150,48 @@ func tile_base_texture() -> Texture2D:
 	return texture
 
 
+func tile_back_texture() -> Texture2D:
+	if _back_textures.has(orientation):
+		return _back_textures[orientation]
+	var texture := _load_texture(str(back_variants.get(orientation, "")))
+	_back_textures[orientation] = texture
+	return texture
+
+
+func set_back_design(value: String) -> bool:
+	if not back_designs.has(value) or back_design_id == value:
+		return false
+	back_design_id = value
+	return true
+
+
+func back_design_texture() -> Texture2D:
+	if _back_design_textures.has(back_design_id):
+		return _back_design_textures[back_design_id]
+	var design: Dictionary = back_designs.get(back_design_id, {})
+	var texture := _load_texture(str(design.get("asset", "")))
+	_back_design_textures[back_design_id] = texture
+	return texture
+
+
+func configure_back_design(design_art: TextureRect) -> void:
+	var active := active_geometry()
+	var source_size: Array = active.get("source_size", [512, 640])
+	var safe_area: Array = active.get("back_design_safe_area", [92, 104, 328, 400])
+	design_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	design_art.texture = back_design_texture()
+	design_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	design_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	design_art.anchor_left = float(safe_area[0]) / float(source_size[0])
+	design_art.anchor_top = float(safe_area[1]) / float(source_size[1])
+	design_art.anchor_right = float(safe_area[0] + safe_area[2]) / float(source_size[0])
+	design_art.anchor_bottom = float(safe_area[1] + safe_area[3]) / float(source_size[1])
+	design_art.offset_left = 0.0
+	design_art.offset_top = 0.0
+	design_art.offset_right = 0.0
+	design_art.offset_bottom = 0.0
+
+
 func _load_texture(asset_path: String) -> Texture2D:
 	if asset_path.is_empty():
 		return null
@@ -209,6 +268,10 @@ func _load_manifest(manifest_path: String) -> void:
 	display_name = str(parsed.get("display_name", id))
 	geometry = parsed.get("geometry", {}).duplicate(true)
 	base_variants = parsed.get("base_variants", {}).duplicate(true)
+	back_variants = parsed.get("back_variants", {}).duplicate(true)
+	default_back_id = str(parsed.get("default_back_id", ""))
+	back_designs = parsed.get("back_designs", {}).duplicate(true)
+	back_design_id = default_back_id
 	depth_presentation = parsed.get("depth_presentation", {}).duplicate(true)
 	layout_presentation = parsed.get("layout_presentation", {}).duplicate(true)
 	canonical_face_ids.assign(parsed.get("canonical_face_ids", []))

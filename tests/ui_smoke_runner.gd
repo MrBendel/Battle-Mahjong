@@ -101,9 +101,12 @@ func _run() -> void:
 		var reveal_button: Button = shell.get("_regions").board.get("_tile_buttons")[revealable_tile_id]
 		var reveal_art: TextureRect = reveal_button.get_node("FaceArt")
 		var reveal_base: TextureRect = reveal_button.get_node("BaseArt")
+		var reveal_back: TextureRect = reveal_button.get_node("BackArt")
+		var reveal_back_design: TextureRect = reveal_button.get_node("BackDesignArt")
 		_check(bool(reveal_button.get_meta("face_down")), "face-down presentation records hidden state")
 		_check(not reveal_art.visible and reveal_button.text.is_empty(), "face-down presentation hides tile identity without a question mark")
-		_check(reveal_base.visible and reveal_base.texture != null, "face-down presentation uses the blank ceramic tile")
+		_check(reveal_back.visible and reveal_back.texture != null and not reveal_base.visible, "face-down presentation uses the dedicated tile back")
+		_check(reveal_back_design.visible and reveal_back_design.texture != null, "face-down presentation composites an independent cosmetic back design")
 		var hover_style: StyleBoxFlat = reveal_button.get_theme_stylebox("hover")
 		var pressed_style: StyleBoxFlat = reveal_button.get_theme_stylebox("pressed")
 		_check_equal(Color.TRANSPARENT, hover_style.bg_color, "tile hover adds no rectangular background")
@@ -125,9 +128,11 @@ func _run() -> void:
 		_check(live_game.board.call("is_tile_revealed_flipped", revealable_tile_id), "shell commits face-down reveal transaction")
 		_check_equal(tray_before_reveal, live_game.tray.tiles.size(), "shell reveal leaves tray occupancy unchanged")
 		_check_equal(motion_before_reveal, shell.get("_tile_motion_count"), "shell reveal does not start tray transfer")
+		_check(reveal_back.visible, "flip animation starts on the tile back")
+		await create_timer(0.20).timeout
 		_check(reveal_art.visible and reveal_button.text.is_empty(), "revealed tile displays its face in place")
 		_check_equal(Color.WHITE, reveal_button.modulate, "revealed flipped tile uses canonical available-tile brightness")
-		_check(not bool(reveal_button.get_meta("targetable")), "revealed flipped tile remains pinned to the board")
+		_check(bool(reveal_button.get_meta("targetable")), "revealed flipped tile becomes playable into the tray")
 		var nonmatching_tile_id := ""
 		var revealed_face: Variant = live_game.definition.get_tile(revealable_tile_id).face
 		for candidate in live_game.board.call("selectable_tiles"):
@@ -138,9 +143,18 @@ func _run() -> void:
 		if not nonmatching_tile_id.is_empty():
 			shell.call("_on_tile_selected", nonmatching_tile_id)
 			_check(live_game.board.call("is_tile_face_down", revealable_tile_id), "ordinary non-match re-hides the revealed tile")
-			_check(not reveal_art.visible and reveal_button.text.is_empty(), "flip-back presentation restores the blank tile back")
-			shell.call("_on_restart_requested")
-			live_game = shell.get("_game")
+			await create_timer(0.10).timeout
+			_check(reveal_back.visible and reveal_back_design.visible and not reveal_art.visible and reveal_button.text.is_empty(), "flip-back presentation restores both tile-back layers")
+		shell.call("_on_restart_requested")
+		live_game = shell.get("_game")
+		shell.call("_on_tile_selected", revealable_tile_id)
+		await create_timer(0.20).timeout
+		var revealed_motion_before: int = shell.get("_tile_motion_count")
+		shell.call("_on_tile_selected", revealable_tile_id)
+		_check(revealable_tile_id in live_game.call("current_snapshot").tray_tile_ids, "second flipped-tile tap occupies an authoritative tray slot")
+		_check_equal(revealed_motion_before + 1, shell.get("_tile_motion_count"), "second flipped-tile tap starts the normal tray transfer")
+		shell.call("_on_restart_requested")
+		live_game = shell.get("_game")
 	var board_view: Control = shell.get("_regions").board
 	shell.call("_on_hint_requested")
 	var animated_hint_id := ""
