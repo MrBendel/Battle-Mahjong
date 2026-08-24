@@ -53,7 +53,7 @@ Portrait layout is resolved inside the safe-area content rectangle:
 4. The existing Board consumes the flexible middle region.
 5. The existing compact consumables drawer stays above the bottom safe area.
 
-The portrait HUD scales from the `390 x 844` reference composition. It does not rotate or rearrange the portrait-authored board. Landscape keeps the established split-side shell until a separate landscape visual source is approved.
+The portrait HUD, margins, queue allocation, and bottom drawer scale from the `390 x 844` reference composition. Scale uses the smaller ratio of safe display width to reference width and safe display height to reference height, so the complete HUD grows on high-resolution displays without overflowing shorter or wider portrait devices. It does not rotate or rearrange the portrait-authored board. Landscape keeps the established split-side shell until a separate landscape visual source is approved.
 
 ## First-Pass Gaps
 

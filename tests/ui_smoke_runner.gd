@@ -12,7 +12,9 @@ func _init() -> void:
 
 func _run() -> void:
 	var requested_size := Vector2i(720, 1280)
-	if OS.get_cmdline_user_args().has("--small-phone"):
+	if OS.get_cmdline_user_args().has("--large-portrait"):
+		requested_size = Vector2i(1080, 2400)
+	elif OS.get_cmdline_user_args().has("--small-phone"):
 		requested_size = Vector2i(375, 667)
 	elif OS.get_cmdline_user_args().has("--landscape"):
 		requested_size = Vector2i(1280, 720)
@@ -494,6 +496,7 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 	var momentum_meter: ProgressBar = momentum.get("_meter")
 	_check(not Rect2(combo_label.position, combo_label.size).intersects(Rect2(momentum_meter.position, momentum_meter.size)), "%s Combo readout does not cover Momentum meter" % orientation)
 	if orientation == "portrait":
+		var expected_portrait_scale := minf(safe_viewport.size.x / 390.0, safe_viewport.size.y / 844.0)
 		_check_equal(
 			load("res://game-assets/ui/portrait/background.png"),
 			shell.get("_gameplay_background").texture,
@@ -516,7 +519,15 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 		)
 		_check_equal("123,456,789", momentum.call("_format_score", 123456789), "portrait score formatting groups thousands")
 		_check_equal("01:02.34", momentum.call("_format_time", 62340), "portrait timer formats runtime playback")
+		_check(
+			is_equal_approx(momentum.size.y, 81.0 * expected_portrait_scale),
+			"portrait HUD scales from both safe display dimensions"
+		)
 		_check(is_equal_approx(pause_button.size.x, pause_button.size.y), "portrait pause artwork preserves a square control")
+		_check(
+			is_equal_approx(pause_button.size.x, 48.0 * expected_portrait_scale),
+			"portrait pause control scales with the display resolution"
+		)
 		_check_equal(
 			load("res://game-assets/ui/portrait/pause_button.png"),
 			pause_button.icon,
@@ -709,6 +720,11 @@ func _validate_consumables(shell: Control, orientation: String) -> void:
 		controls.append(notice)
 	for control in controls:
 		_check(panel_rect.encloses(Rect2(control.position, control.size)), "%s consumable control stays inside its panel" % orientation)
+	if orientation == "portrait":
+		_check(consumables.get("_horizontal_dock"), "portrait keeps consumables in bottom-dock mode")
+		var first_button_y: float = buttons.values()[0].position.y
+		for button in buttons.values():
+			_check(is_equal_approx(button.position.y, first_button_y), "portrait consumables remain in one bottom row")
 	for first_index in range(controls.size()):
 		for second_index in range(first_index + 1, controls.size()):
 			var first_rect := Rect2(controls[first_index].position, controls[first_index].size)

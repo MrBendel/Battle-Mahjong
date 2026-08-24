@@ -26,6 +26,7 @@ const SafeAreaScript := preload("res://scripts/presentation/safe_area.gd")
 const GAMEPLAY_BACKGROUND := preload("res://game-assets/backgrounds/gameplay_brush_arcade.png")
 const PORTRAIT_BACKGROUND := preload("res://game-assets/ui/portrait/background.png")
 const PORTRAIT_PAUSE_BUTTON := preload("res://game-assets/ui/portrait/pause_button.png")
+const PORTRAIT_REFERENCE_SIZE := Vector2(390.0, 844.0)
 const START_SEED := 92817361
 const PAIR_LANDING_HOLD_SECONDS := 0.12
 const FLIPPED_REVEAL_SECONDS := 0.16
@@ -908,6 +909,7 @@ func _apply_layout() -> void:
 	_portrait_hud_scrim.visible = portrait
 	_regions.momentum.call("set_portrait_style", portrait)
 	_regions.tray.call("set_portrait_style", portrait)
+	_regions.consumables.call("set_horizontal_dock", portrait)
 	_regions.board.call("set_compact_mode", orientation == "Portrait" and viewport_size.y < 800.0)
 
 	for region in _regions.values():
@@ -1073,14 +1075,14 @@ func _apply_compact_portrait_layout(size: Vector2) -> void:
 func _apply_figma_portrait_layout(size: Vector2, compact: bool) -> void:
 	var insets := _get_safe_area_insets()
 	var content := SafeAreaScript.content_rect(size, insets)
-	var margin := 8.0 if compact else 12.0
+	var scale := _portrait_reference_scale(content)
+	var margin := (8.0 if compact else 12.0) * scale
 	var usable_width := maxf(1.0, content.size.x - margin * 2.0)
-	var scale := clampf(content.size.x / 390.0, 0.82, 1.28)
 	var banner_offset := 0.0
 	if _update_banner != null and _update_banner.visible:
-		var banner_height := 40.0
+		var banner_height := 40.0 * scale
 		_place(_update_banner, Rect2(content.position.x + margin, content.position.y, usable_width, banner_height))
-		banner_offset = banner_height + 6.0
+		banner_offset = banner_height + 6.0 * scale
 	var top_start := content.position.y + banner_offset
 	var momentum_height := 81.0 * scale
 	var tray_height := 118.564 * scale
@@ -1088,7 +1090,7 @@ func _apply_figma_portrait_layout(size: Vector2, compact: bool) -> void:
 	var tray_top := top_start + momentum_height
 	var board_top := tray_top + tray_height
 	var consumables_top := content.end.y - consumables_height - margin * 0.5
-	var board_height := maxf(1.0, consumables_top - board_top - 6.0)
+	var board_height := maxf(1.0, consumables_top - board_top - 6.0 * scale)
 	var pause_space := 54.0 * scale
 	_place(_regions.momentum, Rect2(content.position.x, top_start, maxf(220.0, content.size.x - pause_space), momentum_height))
 	_place(_regions.tray, Rect2(content.position.x + margin, tray_top, usable_width, tray_height))
@@ -1103,6 +1105,13 @@ func _place(control: Control, rect: Rect2) -> void:
 	control.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	control.position = rect.position
 	control.size = rect.size
+
+
+func _portrait_reference_scale(content: Rect2) -> float:
+	return maxf(0.01, minf(
+		content.size.x / PORTRAIT_REFERENCE_SIZE.x,
+		content.size.y / PORTRAIT_REFERENCE_SIZE.y
+	))
 
 
 func _place_debug_panel(size: Vector2, orientation: String) -> void:
@@ -1132,7 +1141,7 @@ func _place_pause_button(size: Vector2) -> void:
 	_pause_button.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	if size.x < size.y:
 		var content := SafeAreaScript.content_rect(size, insets)
-		var scale := clampf(content.size.x / 390.0, 0.82, 1.28)
+		var scale := _portrait_reference_scale(content)
 		var button_size := 48.0 * scale
 		_pause_button.position = Vector2(content.end.x - button_size - 6.0 * scale, content.position.y + 12.0 * scale + banner_y_offset)
 		_pause_button.size = Vector2(button_size, button_size)
