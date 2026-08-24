@@ -15,6 +15,7 @@ const HORIZONTAL_PATCH_RATIO := 0.30
 const VERTICAL_PATCH_RATIO := 0.50
 const PORTRAIT_REFERENCE_SIZE := Vector2(366.0, 149.2696)
 const PORTRAIT_BACKGROUND_RECT := Rect2(0.0, 7.2696, 366.0, 136.0)
+const PORTRAIT_COMPONENT_Y_OFFSET := 15.0
 const PORTRAIT_ACTION_TYPES := ["hint", "shuffle", "delete_pair", "undo"]
 const PORTRAIT_ACTION_X := [18.1238, 100.1843, 181.9931, 263.8019]
 const PORTRAIT_LABELS := ["HINT", "Shuffle", "Delete", "Undo"]
@@ -263,7 +264,8 @@ func _layout_portrait_background() -> void:
 	if size.x <= 0.0 or size.y <= 0.0:
 		return
 	var component_scale := minf(size.x / PORTRAIT_REFERENCE_SIZE.x, size.y / PORTRAIT_REFERENCE_SIZE.y)
-	var origin := (size - PORTRAIT_REFERENCE_SIZE * component_scale) * 0.5
+	var origin := (size - PORTRAIT_REFERENCE_SIZE * component_scale) * 0.5 \
+		+ Vector2(0.0, PORTRAIT_COMPONENT_Y_OFFSET * component_scale)
 	var target_rect := Rect2(origin + PORTRAIT_BACKGROUND_RECT.position * component_scale, PORTRAIT_BACKGROUND_RECT.size * component_scale)
 	var source_size := PORTRAIT_BACKGROUND.get_size()
 	var art_scale := target_rect.size.y / source_size.y
@@ -274,7 +276,8 @@ func _layout_portrait_background() -> void:
 
 func _layout_portrait_actions() -> void:
 	var component_scale := minf(size.x / PORTRAIT_REFERENCE_SIZE.x, size.y / PORTRAIT_REFERENCE_SIZE.y)
-	var origin := (size - PORTRAIT_REFERENCE_SIZE * component_scale) * 0.5
+	var origin := (size - PORTRAIT_REFERENCE_SIZE * component_scale) * 0.5 \
+		+ Vector2(0.0, PORTRAIT_COMPONENT_Y_OFFSET * component_scale)
 	for index in PORTRAIT_ACTION_TYPES.size():
 		var consumable_type: String = PORTRAIT_ACTION_TYPES[index]
 		var button: Button = _buttons[consumable_type]

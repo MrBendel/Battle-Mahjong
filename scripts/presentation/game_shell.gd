@@ -29,6 +29,10 @@ const PORTRAIT_PAUSE_BUTTON := preload("res://game-assets/ui/portrait/pause_butt
 const PORTRAIT_HUD_TOP_SCRIM := preload("res://game-assets/ui/portrait/hud_top_scrim.svg")
 const PORTRAIT_REFERENCE_SIZE := Vector2(390.0, 844.0)
 const PORTRAIT_HUD_SCRIM_SIZE := Vector2(390.0, 167.0)
+const PORTRAIT_QUEUE_SOURCE_HEIGHT := 115.0
+const PORTRAIT_QUEUE_BOTTOM_TRANSPARENT := 15.0
+const PORTRAIT_QUEUE_TO_BOARD_GAP := 2.0
+const PORTRAIT_BOTTOM_DOCK_OFFSET := 15.0
 const START_SEED := 92817361
 const PAIR_LANDING_HOLD_SECONDS := 0.12
 const FLIPPED_REVEAL_SECONDS := 0.16
@@ -962,9 +966,18 @@ func _reflow_for_tray_clearance(
 		var expanded_width := minf(required_width, board.size.x)
 		tray.position.x = board.position.x + (board.size.x - expanded_width) * 0.5
 		tray.size.x = expanded_width
+	var board_bottom := board.position.y + board.size.y
+	if orientation == "Portrait":
+		var queue_scale := required_height / PORTRAIT_QUEUE_SOURCE_HEIGHT
+		tray.size.y = required_height
+		var board_top := tray.position.y + required_height \
+			- PORTRAIT_QUEUE_BOTTOM_TRANSPARENT * queue_scale \
+			+ PORTRAIT_QUEUE_TO_BOARD_GAP * queue_scale
+		board.position.y = board_top
+		board.size.y = maxf(1.0, board_bottom - board_top)
+		return
 	if required_height <= tray.size.y:
 		return
-	var board_bottom := board.position.y + board.size.y
 	var gap := 10.0 if orientation == "Landscape" or get_viewport_rect().size.y >= 800.0 else 7.0
 	tray.size.y = required_height
 	if orientation == "Landscape":
@@ -1096,8 +1109,9 @@ func _apply_figma_portrait_layout(size: Vector2, compact: bool) -> void:
 	var consumables_height := 149.2696 * scale
 	var tray_top := top_start + momentum_height
 	var board_top := tray_top + tray_height
-	var consumables_top := content.end.y - consumables_height - margin * 0.5
-	var board_height := maxf(1.0, consumables_top - board_top - 6.0 * scale)
+	var consumables_top := content.end.y - consumables_height
+	var board_bottom := consumables_top + (PORTRAIT_BOTTOM_DOCK_OFFSET - 2.0) * scale
+	var board_height := maxf(1.0, board_bottom - board_top)
 	_place(_regions.momentum, Rect2(content.position.x, top_start, content.size.x, momentum_height))
 	_place(_regions.tray, Rect2(content.position.x + margin, tray_top, usable_width, tray_height))
 	_place(_regions.board, Rect2(content.position.x + margin, board_top, usable_width, board_height))

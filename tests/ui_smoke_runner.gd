@@ -642,6 +642,13 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 		var tray_capacity: int = shell.get("_game").tray.capacity
 		_check_equal(tray_capacity, visible_queue_sections, "portrait queue renders one repeated section per active slot")
 		_check_equal(tray_capacity, tray.call("_slot_count"), "portrait queue follows the live tray capacity")
+		for slot_index in range(tray_capacity):
+			var queue_scale: float = tray.get("_queue_repeats")[slot_index].size.y / 115.0
+			var expected_slot_center_x: float = tray.get("_queue_repeats")[slot_index].position.x + 62.42 * queue_scale * 0.5
+			_check(
+				is_equal_approx(tray.get("_slots")[slot_index].get_rect().get_center().x, expected_slot_center_x),
+				"portrait tray tile %d is centered in its visual queue slot" % (slot_index + 1)
+			)
 		for slot_index in range(shell.get("_game").tray.tiles.size(), tray_capacity):
 			var empty_slot_style: StyleBoxFlat = tray.get("_slots")[slot_index].get_theme_stylebox("panel")
 			_check_equal(Color.TRANSPARENT, empty_slot_style.bg_color, "portrait empty slot %d is supplied only by Figma artwork" % (slot_index + 1))
@@ -653,17 +660,19 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 	var callout_label: Label = callout.get("_label")
 	_check_equal(Rect2(board.position, board.size), Rect2(callout.position, callout.size), "%s callout tracks the board region" % orientation)
 	_check(Rect2(Vector2.ZERO, callout.size).encloses(Rect2(callout_label.position, callout_label.size)), "%s callout text stays inside the board overlay" % orientation)
-	_check(
-		tray.position.y + tray.size.y <= board.position.y,
-		"%s tray stays above the game board" % orientation
-	)
+	if orientation == "portrait":
+		_check(board.position.y < tray.position.y + tray.size.y, "portrait Board reclaims the queue artwork's transparent lower padding")
+	else:
+		_check(tray.position.y + tray.size.y <= board.position.y, "landscape tray stays above the game board")
 	var board_global_rect := board.get_global_rect()
 	for slot_index in range(4):
 		var tray_tile_rect: Rect2 = tray.call("slot_visual_global_rect", slot_index)
 		_check(not tray_tile_rect.intersects(board_global_rect), "%s rendered tray tile %d does not overlap the Board" % [orientation, slot_index + 1])
 		_check(tray.get_global_rect().encloses(tray_tile_rect), "%s rendered tray tile %d stays inside the Tray" % [orientation, slot_index + 1])
 	if orientation == "portrait":
-		_check(board.position.y + board.size.y <= regions.consumables.position.y, "portrait Board ends above the bottom action dock")
+		_check(board.position.y + board.size.y > regions.consumables.position.y, "portrait Board reclaims the action dock's transparent upper padding")
+		for button in regions.consumables.get("_buttons").values():
+			_check(not button.get_global_rect().intersects(board_global_rect), "portrait consumable touch targets stay below the Board")
 		_check(not regions.character.visible, "portrait decorative region yields to the gameplay stack")
 	else:
 		_check(regions.momentum.position.x + regions.momentum.size.x <= board.position.x, "landscape Momentum stays in the upper-left rail")
@@ -671,6 +680,10 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 		_check(not regions.character.visible, "landscape decorative region yields to the central Board and side actions")
 	var pause_rect := Rect2(pause_button.position, pause_button.size)
 	if orientation == "portrait":
+		_check(
+			regions.consumables.get("_portrait_background").position.y > 7.2696 * minf(regions.consumables.size.x / 366.0, regions.consumables.size.y / 149.2696),
+			"portrait action dock shifts its component through transparent lower padding"
+		)
 		_check(not pause_rect.intersects(momentum.get("_momentum_badge").get_global_rect()), "portrait pause button does not cover the centered Momentum presentation")
 	else:
 		_check(not pause_rect.intersects(Rect2(regions.momentum.position, regions.momentum.size)), "landscape pause button does not cover Momentum")
@@ -678,6 +691,9 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 	for first_index in range(names.size()):
 		for second_index in range(first_index + 1, names.size()):
 			if orientation == "landscape" and "consumables" in [names[first_index], names[second_index]]:
+				continue
+			if orientation == "portrait" and "board" in [names[first_index], names[second_index]] \
+				and ("tray" in [names[first_index], names[second_index]] or "consumables" in [names[first_index], names[second_index]]):
 				continue
 			var first: Control = regions[names[first_index]]
 			var second: Control = regions[names[second_index]]

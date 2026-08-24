@@ -266,8 +266,13 @@ func _layout_portrait() -> void:
 	var safe_area: Array = active_geometry.get("face_safe_area", [92, 104, 328, 400])
 	var source_size: Array = active_geometry.get("source_size", [512, 640])
 	for index in range(_slot_count()):
+		var repeat_origin := origin + Vector2((FIGMA_CAP_SIZE.x + FIGMA_SLOT_SIZE.x * index) * scale, 0.0)
+		var tile_center := repeat_origin + Vector2(
+			FIGMA_SLOT_SIZE.x * scale * 0.5,
+			FIGMA_TILE_RECT.get_center().y * scale
+		)
 		var slot_rect := Rect2(
-			origin + Vector2((FIGMA_CAP_SIZE.x + FIGMA_SLOT_SIZE.x * index + FIGMA_TILE_RECT.position.x) * scale, FIGMA_TILE_RECT.position.y * scale),
+			tile_center - _tile_visual_size * 0.5,
 			_tile_visual_size
 		)
 		_slots[index].position = slot_rect.position
