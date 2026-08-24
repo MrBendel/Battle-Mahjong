@@ -18,7 +18,7 @@ Optimized Godot runtime exports generally live under:
 game-assets/ui/portrait/
 ```
 
-Runtime exports include the gameplay background, score box, Momentum frame/fill/badge, and pause button. The background intentionally retains its `941 x 1672` master dimensions because its `48 px` scale-9 margins are authored in that source coordinate space. The supplied composable queue artwork lives under `assets/UI/tile-queue/`; `queue-cap.png` is mirrored for the right edge and `queue-repeat.png` owns each complete empty-slot presentation. Older imported queue references under `game-assets/ui/portrait/` are not wired into the shell. The live tray must render the same tile instances as the Board, and the consumable drawer intentionally retains its current placeholders.
+Runtime exports include the gameplay background, HUD top scrim, score box, Momentum frame/fill/badge, and pause button. The background intentionally retains its `941 x 1672` master dimensions because its `48 px` scale-9 margins are authored in that source coordinate space. The `390 x 167` HUD top scrim is the exact Figma vector: a dark top-to-transparent fade that scales to the full portrait viewport width. The supplied composable queue artwork lives under `assets/UI/tile-queue/`; `queue-cap.png` is mirrored for the right edge and `queue-repeat.png` owns each complete empty-slot presentation. Older imported queue references under `game-assets/ui/portrait/` are not wired into the shell. The live tray must render the same tile instances as the Board, and the consumable drawer intentionally retains its current placeholders.
 
 Mila Script Sans Regular and Bold TTF files live under `assets/fonts/`. Godot uses Regular for values and Bold for headings, multiplier emphasis, and tick labels. WOFF2 files are retained alongside the supplied artwork package but are not loaded at runtime. No font license document was supplied with these files; redistribution rights must be confirmed before a public release.
 
@@ -27,6 +27,7 @@ Mila Script Sans Regular and Bold TTF files live under `assets/fonts/`. Godot us
 Static exported artwork:
 
 - background;
+- HUD top scrim;
 - score-box shell;
 - Momentum frame, fill texture, and multiplier badge;
 - pause button;

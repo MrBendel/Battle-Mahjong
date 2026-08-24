@@ -503,6 +503,12 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 	)
 	if orientation == "portrait":
 		var expected_portrait_scale := minf(safe_viewport.size.x / 390.0, safe_viewport.size.y / 844.0)
+		var hud_scrim: TextureRect = shell.get("_portrait_hud_scrim")
+		_check(hud_scrim.visible, "portrait displays the exported Figma HUD top scrim")
+		_check_equal(load("res://game-assets/ui/portrait/hud_top_scrim.svg"), hud_scrim.texture, "portrait uses the latest Figma HUD top scrim asset")
+		_check_equal(TextureRect.STRETCH_SCALE, hud_scrim.stretch_mode, "portrait HUD top scrim scales with the viewport width")
+		_check(is_equal_approx(hud_scrim.size.x, viewport_rect.size.x), "portrait HUD top scrim spans the full viewport width")
+		_check(is_equal_approx(hud_scrim.size.y, viewport_rect.size.x * 167.0 / 390.0), "portrait HUD top scrim preserves its Figma fade depth")
 		_check(momentum.get("_portrait_style"), "portrait enables the Figma Momentum presentation")
 		_check(momentum.get("_score_art").visible, "portrait shows the exported score-box artwork")
 		_check(momentum.get("_momentum_frame").visible, "portrait shows the exported Momentum frame")
@@ -542,6 +548,7 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 			"portrait pause button uses the exported Figma artwork"
 		)
 	else:
+		_check(not shell.get("_portrait_hud_scrim").visible, "landscape hides the portrait-only HUD top scrim")
 		_check(not momentum.get("_portrait_style"), "landscape retains the existing compact HUD presentation")
 	_check(viewport_rect.encloses(Rect2(pause_button.position, pause_button.size)), "%s pause button stays inside viewport" % orientation)
 	_check(safe_viewport.encloses(Rect2(pause_button.position, pause_button.size)), "%s pause button stays inside safe area" % orientation)

@@ -26,7 +26,9 @@ const SafeAreaScript := preload("res://scripts/presentation/safe_area.gd")
 const PORTRAIT_BACKGROUND := preload("res://game-assets/ui/portrait/background.png")
 const BACKGROUND_PATCH_MARGIN := 48
 const PORTRAIT_PAUSE_BUTTON := preload("res://game-assets/ui/portrait/pause_button.png")
+const PORTRAIT_HUD_TOP_SCRIM := preload("res://game-assets/ui/portrait/hud_top_scrim.svg")
 const PORTRAIT_REFERENCE_SIZE := Vector2(390.0, 844.0)
+const PORTRAIT_HUD_SCRIM_SIZE := Vector2(390.0, 167.0)
 const START_SEED := 92817361
 const PAIR_LANDING_HOLD_SECONDS := 0.12
 const FLIPPED_REVEAL_SECONDS := 0.16
@@ -59,7 +61,7 @@ var _tile_transfer_previews := {}
 var _tile_transfer_tweens := {}
 var _gameplay_background: NinePatchRect
 var _gameplay_background_wash: ColorRect
-var _portrait_hud_scrim: ColorRect
+var _portrait_hud_scrim: TextureRect
 var _pause_button: Button
 var _pause_menu: Control
 var _end_game_menu: Control
@@ -214,9 +216,11 @@ func _build_gameplay_background() -> void:
 	_gameplay_background_wash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_gameplay_background_wash)
 
-	_portrait_hud_scrim = ColorRect.new()
+	_portrait_hud_scrim = TextureRect.new()
 	_portrait_hud_scrim.name = "PortraitHudScrim"
-	_portrait_hud_scrim.color = Color(0.01, 0.025, 0.02, 0.64)
+	_portrait_hud_scrim.texture = PORTRAIT_HUD_TOP_SCRIM
+	_portrait_hud_scrim.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_portrait_hud_scrim.stretch_mode = TextureRect.STRETCH_SCALE
 	_portrait_hud_scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_portrait_hud_scrim)
 
@@ -1098,7 +1102,8 @@ func _apply_figma_portrait_layout(size: Vector2, compact: bool) -> void:
 	_place(_regions.tray, Rect2(content.position.x + margin, tray_top, usable_width, tray_height))
 	_place(_regions.board, Rect2(content.position.x + margin, board_top, usable_width, board_height))
 	_place(_regions.consumables, Rect2(content.position.x + margin, consumables_top, usable_width, consumables_height))
-	_place(_portrait_hud_scrim, Rect2(0.0, 0.0, size.x, top_start + momentum_height))
+	var scrim_height := size.x * PORTRAIT_HUD_SCRIM_SIZE.y / PORTRAIT_HUD_SCRIM_SIZE.x
+	_place(_portrait_hud_scrim, Rect2(0.0, 0.0, size.x, scrim_height))
 	_regions.consumables.call("clear_action_rects")
 	_regions.character.visible = false
 
