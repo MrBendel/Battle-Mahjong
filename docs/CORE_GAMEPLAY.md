@@ -70,10 +70,12 @@ Status: Decided for the initial M3 tuning baseline
 - An accepted natural tile selection adds `2000` units; Undo removes the actual gain from the compensated selection after normal decay.
 - A pair adds `10000` units. Together with two fast selections, a clean pair advances approximately one multiplier tier.
 - `x1` is the unlabeled default. Thresholds every `12500` units produce the seven visible upgrades `x2` through `x8`.
-- Tier decay rates are `5`, `6`, `7`, `9`, `11`, `14`, `17`, and `21` units per millisecond, making higher tiers progressively harder to maintain.
+- Tier decay rates are `3`, `4`, `5`, `6`, `7`, `8`, `10`, and `12` units per millisecond, making higher tiers progressively harder to maintain while keeping consistent fast pairs net-positive through `x8`.
 - A pair scores `100 * current multiplier` before the completing selection's gain, then selection and pair gains build the multiplier for later pairs.
 
 These values are stored in game configuration and remain provisional pending playtesting.
+
+The defaults are editable in Godot by selecting `configuration/default_momentum_tuning.tres` in the FileSystem dock, or by selecting the `GameShell` root and opening its assigned `Momentum Tuning` resource in the Inspector. `Pair Gain`, `Selection Gain`, `Multiplier Thresholds`, and the per-tier `Decay Per Second` array are all exposed. A game snapshots these values when it is created, so restart the run after changing the resource.
 
 ## Win And Loss
 

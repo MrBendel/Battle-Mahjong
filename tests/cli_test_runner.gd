@@ -601,12 +601,12 @@ func _run_momentum_tests() -> void:
 	_check_equal(2000, game.call("last_transaction").telemetry.momentum_selection_gain, "selection telemetry records its actual gain")
 	_check_equal(GameStateScript.PAIR_RESOLVED, game.call("select_tile", "second", 200), "timestamped pair resolves")
 	var snapshot: Variant = game.call("current_snapshot")
-	_check_equal(13500, snapshot.momentum_units, "a fast pair advances approximately one multiplier tier")
+	_check_equal(13700, snapshot.momentum_units, "a fast pair advances approximately one multiplier tier")
 	_check_equal(100, snapshot.score, "completing selection does not increase its own pair multiplier")
 	_check_equal(200, snapshot.elapsed_time_ms, "accepted command materializes gameplay time")
 	_check_equal(2, snapshot.max_multiplier, "state records peak multiplier")
-	_check_equal(9334, game.call("momentum_at", 1000), "presentation preview applies deterministic decay")
-	_check_equal(13500, game.call("current_snapshot").momentum_units, "momentum preview does not mutate authoritative state")
+	_check_equal(11002, game.call("momentum_at", 1000), "presentation preview applies deterministic decay")
+	_check_equal(13700, game.call("current_snapshot").momentum_units, "momentum preview does not mutate authoritative state")
 
 	var pair_transaction: Variant = game.call("transactions")[-1]
 	_check_equal(200, pair_transaction.playback_time_ms, "transaction records command playback time")
@@ -660,7 +660,7 @@ func _run_momentum_tuning_tests() -> void:
 	var default_overrides: Dictionary = default_tuning.call("configuration_overrides")
 	_check_equal(100000, default_overrides.momentum_max, "Inspector maximum maps to simulation configuration")
 	_check_equal(2000, default_overrides.momentum_selection_gain, "Inspector selection gain maps to simulation configuration")
-	_check_equal([5, 6, 7, 9, 11, 14, 17, 21], default_overrides.momentum_decay_per_ms, "per-second Inspector decay converts exactly")
+	_check_equal([3, 4, 5, 6, 7, 8, 10, 12], default_overrides.momentum_decay_per_ms, "per-second Inspector decay converts exactly")
 	_check_equal(MomentumTuningScript.default_overrides(), default_overrides, "Inspector defaults match headless simulation defaults")
 
 	var custom_tuning: Variant = MomentumTuningScript.new()
@@ -940,9 +940,12 @@ func _run_modifier_tests() -> void:
 	var cold_game := GameStateScript.new(cold_definition)
 	cold_game.call("select_tile", "boost_a", 100)
 	cold_game.call("select_tile", "boost_b", 200)
+	var cold_snap_baseline: int = cold_game.call("current_snapshot").momentum_units
 	cold_game.call("select_tile", "normal_a", 5000)
+	var frozen_selection_momentum: int = cold_game.call("current_snapshot").momentum_units
+	_check_equal(cold_snap_baseline + 2000, frozen_selection_momentum, "Cold Snap preserves Momentum before the first frozen selection gain")
 	cold_game.call("select_tile", "normal_b", 6000)
-	_check_equal(37000, cold_game.call("last_transaction").telemetry.momentum_after_decay, "Cold Snap freezes committed selection momentum decay")
+	_check_equal(frozen_selection_momentum, cold_game.call("last_transaction").telemetry.momentum_after_decay, "Cold Snap freezes committed selection momentum decay")
 
 	var tray_modifier := {"modifier_id": "tray", "type": ModifierLoadoutScript.TRAY_PLUS_ONE, "level": 0}
 	var tray_definition: Variant = _definition_with_modifiers(

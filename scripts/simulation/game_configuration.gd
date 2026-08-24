@@ -12,7 +12,7 @@ static func create(tray_capacity: int = DEFAULT_TRAY_CAPACITY) -> Dictionary:
 		"momentum_pair_gain": 10000,
 		"momentum_selection_gain": 2000,
 		"momentum_thresholds": [0, 12500, 25000, 37500, 50000, 62500, 75000, 87500],
-		"momentum_decay_per_ms": [5, 6, 7, 9, 11, 14, 17, 21],
+		"momentum_decay_per_ms": [3, 4, 5, 6, 7, 8, 10, 12],
 		"pair_base_score": 100,
 		"difficulty_notable_min_score": 160,
 		"difficulty_notable_min_percentile_basis_points": 7500,

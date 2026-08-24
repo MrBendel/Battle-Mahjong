@@ -15,7 +15,7 @@ const GameConfigurationScript := preload("res://scripts/simulation/game_configur
 
 @export_category("Decay")
 ## One rate per multiplier tier. Values must be positive multiples of 1000.
-@export var decay_per_second: Array[int] = [5000, 6000, 7000, 9000, 11000, 14000, 17000, 21000]
+@export var decay_per_second: Array[int] = [3000, 4000, 5000, 6000, 7000, 8000, 10000, 12000]
 
 @export_category("Scoring")
 ## Points awarded per pair before applying the current multiplier.
