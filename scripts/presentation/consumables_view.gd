@@ -4,7 +4,7 @@ class_name ConsumablesView
 const PORTRAIT_BACKGROUND := preload("res://assets/UI/bottom-bar/bottom-tray-background-export.png")
 const PORTRAIT_TILE_CAP := preload("res://assets/UI/bottom-bar/tile-cap.png")
 const PORTRAIT_NUMBER_BACKGROUND := preload("res://assets/UI/bottom-bar/count-bg.png")
-const PORTRAIT_FONT := preload("res://assets/fonts/mila-script-sans-bold.ttf")
+const PORTRAIT_FONT := preload("res://assets/fonts/mila-script-sans-bold-tight.tres")
 const PORTRAIT_ICONS := {
 	"hint": preload("res://assets/UI/bottom-bar/icon-hint.png"),
 	"shuffle": preload("res://assets/UI/bottom-bar/icon-shuffle.png"),

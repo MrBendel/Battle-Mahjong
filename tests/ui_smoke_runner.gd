@@ -560,7 +560,9 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 			_check_equal(load("res://assets/UI/bottom-bar/tile-cap.png"), art.cap.texture, "portrait %s uses the supplied ceramic cap" % consumable_type)
 			_check_equal(expected_icons[consumable_type], art.icon.texture, "portrait %s uses its exported Figma icon" % consumable_type)
 			_check_equal(load("res://assets/UI/bottom-bar/count-bg.png"), art.number_background.texture, "portrait %s uses the supplied quantity plaque" % consumable_type)
-			_check_equal(load("res://assets/fonts/mila-script-sans-bold.ttf"), art.title.get_theme_font("font"), "portrait %s label uses Mila Script Sans Bold" % consumable_type)
+			var action_font: FontVariation = art.title.get_theme_font("font")
+			_check_equal(load("res://assets/fonts/mila-script-sans-bold.ttf"), action_font.base_font, "portrait %s label uses Mila Script Sans Bold" % consumable_type)
+			_check_equal(-2, action_font.spacing_glyph, "portrait %s label uses tightened glyph spacing" % consumable_type)
 			_check_equal(str(shell.get("_game").call("consumable_count", consumable_type)), art.quantity.text, "portrait %s shows its live quantity" % consumable_type)
 		var hud_scrim: TextureRect = shell.get("_portrait_hud_scrim")
 		_check(hud_scrim.visible, "portrait displays the exported Figma HUD top scrim")
@@ -576,16 +578,12 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 		for tick_index in range(momentum.get("_ticks").size()):
 			_check_equal("%dX" % (tick_index + 2), momentum.get("_ticks")[tick_index].text, "portrait Momentum tick %d skips the default x1 tier" % (tick_index + 1))
 		_check(momentum.get("_fill_clip").clip_contents, "portrait Momentum fill is clipped for runtime animation")
-		_check_equal(
-			load("res://assets/fonts/mila-script-sans-regular.ttf"),
-			momentum.get("_score").get_theme_font("font"),
-			"portrait score uses Mila Script Sans Regular"
-		)
-		_check_equal(
-			load("res://assets/fonts/mila-script-sans-bold.ttf"),
-			momentum.get("_score_title").get_theme_font("font"),
-			"portrait score heading uses Mila Script Sans Bold"
-		)
+		var score_font: FontVariation = momentum.get("_score").get_theme_font("font")
+		var score_title_font: FontVariation = momentum.get("_score_title").get_theme_font("font")
+		_check_equal(load("res://assets/fonts/mila-script-sans-regular.ttf"), score_font.base_font, "portrait score uses Mila Script Sans Regular")
+		_check_equal(load("res://assets/fonts/mila-script-sans-bold.ttf"), score_title_font.base_font, "portrait score heading uses Mila Script Sans Bold")
+		_check_equal(-2, score_font.spacing_glyph, "portrait score uses tightened glyph spacing")
+		_check_equal(-2, score_title_font.spacing_glyph, "portrait heading uses tightened glyph spacing")
 		_check_equal("123,456,789", momentum.call("_format_score", 123456789), "portrait score formatting groups thousands")
 		_check_equal("01:02.34", momentum.call("_format_time", 62340), "portrait timer formats runtime playback")
 		_check(
