@@ -13,6 +13,11 @@ const COMPACT_BOARD_MARGIN := 4.0
 const DEPTH_Z_STRIDE := 2
 const TILE_SURFACE_Z_OFFSET := 1
 const SHADOW_Z_OFFSET := -1
+const HINT_CYCLE_SECONDS := 1.2
+const HINT_BRIGHTNESS_GAIN := 0.10
+const HINT_GLOW_MIN_ALPHA := 0.04
+const HINT_GLOW_MAX_ALPHA := 0.18
+const HINT_BOB_RATIO := 0.035
 
 var _game: Variant
 var _tile_buttons: Dictionary = {}
@@ -20,6 +25,7 @@ var _shadow_art: Dictionary = {}
 var _ink_outlines: Dictionary = {}
 var _base_art: Dictionary = {}
 var _face_art: Dictionary = {}
+var _hint_glows: Dictionary = {}
 var _blocked_overlays: Dictionary = {}
 var _modifier_labels: Dictionary = {}
 var _title_label: Label
@@ -32,6 +38,9 @@ var _audio_playback: Variant
 var _negative_feedback_count := 0
 var _suppressed_tile_ids := {}
 var _compact_mode := false
+var _hinted_tile_ids := {}
+var _tile_layout_positions := {}
+var _hint_elapsed := 0.0
 
 
 func _init(game_state: Variant, tile_skin: Variant = null) -> void:
@@ -44,6 +53,12 @@ func _ready() -> void:
 	_rebuild_tiles()
 	resized.connect(_layout_tiles)
 	_layout_tiles()
+	set_process(false)
+
+
+func _process(delta: float) -> void:
+	_hint_elapsed = fmod(_hint_elapsed + delta, HINT_CYCLE_SECONDS)
+	_apply_hint_presentation()
 
 
 func set_game_state(game_state: Variant) -> void:
@@ -129,8 +144,13 @@ func _rebuild_tiles() -> void:
 	_ink_outlines.clear()
 	_base_art.clear()
 	_face_art.clear()
+	_hint_glows.clear()
 	_blocked_overlays.clear()
 	_modifier_labels.clear()
+	_tile_layout_positions.clear()
+	_hinted_tile_ids.clear()
+	_hint_elapsed = 0.0
+	set_process(false)
 
 	for tile in _game.board.tiles:
 		var button := Button.new()
@@ -172,6 +192,18 @@ func _rebuild_tiles() -> void:
 		face_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		button.add_child(face_art)
 
+		var hint_glow := TextureRect.new()
+		hint_glow.name = "HintGlow"
+		hint_glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		hint_glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		hint_glow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		hint_glow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		var glow_material := CanvasItemMaterial.new()
+		glow_material.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+		hint_glow.material = glow_material
+		hint_glow.visible = false
+		button.add_child(hint_glow)
+
 		var blocked_overlay := TextureRect.new()
 		blocked_overlay.name = "BlockedOverlay"
 		blocked_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -197,6 +229,7 @@ func _rebuild_tiles() -> void:
 		_ink_outlines[tile.id] = ink_outline
 		_base_art[tile.id] = base_art
 		_face_art[tile.id] = face_art
+		_hint_glows[tile.id] = hint_glow
 		_blocked_overlays[tile.id] = blocked_overlay
 		_modifier_labels[tile.id] = modifier_label
 
@@ -214,6 +247,10 @@ func refresh() -> void:
 	var hinted_ids := {}
 	for hinted_tile_id in _game.call("hinted_tile_ids"):
 		hinted_ids[hinted_tile_id] = true
+	_hinted_tile_ids = hinted_ids
+	if _hinted_tile_ids.is_empty():
+		_hint_elapsed = 0.0
+	set_process(not _hinted_tile_ids.is_empty())
 	for tile in _game.board.call("selectable_tiles"):
 		selectable_ids[tile.id] = true
 	for tile in _game.board.call("revealable_tiles"):
@@ -264,6 +301,9 @@ func refresh() -> void:
 		var face_art: TextureRect = _face_art[tile.id]
 		face_art.texture = texture
 		face_art.visible = not face_down and texture != null
+		var hint_glow: TextureRect = _hint_glows[tile.id]
+		hint_glow.texture = _tile_skin.tile_base_texture()
+		hint_glow.visible = false
 		var blocked_overlay: TextureRect = _blocked_overlays[tile.id]
 		blocked_overlay.texture = _tile_skin.tile_base_texture()
 		blocked_overlay.modulate = _blocked_overlay_color()
@@ -272,14 +312,13 @@ func refresh() -> void:
 		var modifier_label: Label = _modifier_labels[tile.id]
 		modifier_label.text = _modifier_symbol(tile)
 		modifier_label.visible = not modifier_label.text.is_empty()
-		if hinted_ids.has(tile.id):
-			button.add_theme_stylebox_override("normal", _tile_style(Color("fffdf4"), Color("ffd166"), 5, Vector2(0.0, 3.0)))
 
 	if active_count == 0:
 		_status_label.text = "Board cleared"
 	else:
 		_status_label.text = "%d tiles  |  %d free" % [active_count, selectable_ids.size() + revealable_ids.size()]
 	_layout_tiles()
+	_apply_hint_presentation()
 
 
 func _on_tile_pressed(tile_id: String) -> void:
@@ -307,6 +346,24 @@ func _set_tile_interaction_brightness(tile_id: String, highlighted: bool) -> voi
 	var base_brightness := float(button.get_meta("presentation_brightness", 1.0))
 	var brightness := base_brightness * (1.16 if highlighted else 1.0)
 	button.modulate = Color(brightness, brightness, brightness)
+
+
+func _apply_hint_presentation() -> void:
+	var wave := 0.5 + 0.5 * sin(_hint_elapsed / HINT_CYCLE_SECONDS * TAU)
+	for tile_id in _tile_buttons:
+		var button: Button = _tile_buttons[tile_id]
+		var base_position: Vector2 = _tile_layout_positions.get(tile_id, button.position)
+		var hint_glow: TextureRect = _hint_glows[tile_id]
+		if not button.visible or not _hinted_tile_ids.has(tile_id):
+			hint_glow.visible = false
+			continue
+		var bob_height := clampf(button.size.y * HINT_BOB_RATIO, 1.5, 3.5)
+		button.position = base_position + Vector2(0.0, -bob_height * wave)
+		var base_brightness := float(button.get_meta("presentation_brightness", 1.0))
+		var brightness := base_brightness * (1.0 + HINT_BRIGHTNESS_GAIN * wave)
+		button.modulate = Color(brightness, brightness, brightness)
+		hint_glow.visible = hint_glow.texture != null
+		hint_glow.modulate = Color(1.0, 0.92, 0.68, lerpf(HINT_GLOW_MIN_ALPHA, HINT_GLOW_MAX_ALPHA, wave))
 
 
 func create_tile_preview(tile_id: String, force_face_up: bool = false) -> Control:
@@ -457,6 +514,7 @@ func _layout_tiles() -> void:
 			float(tile.position.x - bounds.position.x) * tile_size.x * 0.5,
 			float(tile.position.y - bounds.position.y) * tile_size.y * 0.5
 		) + depth_offset + tile_gap * 0.5
+		_tile_layout_positions[tile.id] = button.position
 		button.size = tile_size - tile_gap
 		button.z_index = tile.position.z * DEPTH_Z_STRIDE + TILE_SURFACE_Z_OFFSET
 		button.add_theme_font_size_override("font_size", clampi(int(tile_size.x * 0.25), 10, 18))
@@ -484,6 +542,7 @@ func _layout_tiles() -> void:
 		modifier_label.size = Vector2(button.size.x * 0.30, button.size.y * 0.23)
 		modifier_label.add_theme_font_size_override("font_size", clampi(int(tile_size.x * 0.19), 8, 15))
 	_sync_tile_input_order()
+	_apply_hint_presentation()
 
 
 func _sync_tile_input_order() -> void:
