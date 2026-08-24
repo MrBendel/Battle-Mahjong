@@ -515,8 +515,24 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 		_check_equal(652, bottom_background.get_patch_margin(SIDE_RIGHT), "portrait bottom bar preserves its 30 percent right patch")
 		_check_equal(362, bottom_background.get_patch_margin(SIDE_TOP), "portrait bottom bar preserves its 50 percent top patch")
 		_check_equal(362, bottom_background.get_patch_margin(SIDE_BOTTOM), "portrait bottom bar preserves its 50 percent bottom patch")
-		_check(is_equal_approx(bottom_background.size.x * bottom_background.scale.x, consumables.size.x), "portrait bottom bar stretches horizontally to the dock width")
-		_check(is_equal_approx(bottom_background.size.y * bottom_background.scale.y, consumables.size.y), "portrait bottom bar scales uniformly to the dock height")
+		var bottom_component_scale := minf(consumables.size.x / 366.0, consumables.size.y / 149.2696)
+		_check(is_equal_approx(bottom_background.size.x * bottom_background.scale.x, 366.0 * bottom_component_scale), "portrait bottom bar stretches to the Figma component width")
+		_check(is_equal_approx(bottom_background.size.y * bottom_background.scale.y, 136.0 * bottom_component_scale), "portrait bottom bar preserves the Figma background height")
+		var portrait_art: Dictionary = consumables.get("_portrait_art")
+		var expected_icons := {
+			"hint": load("res://game-assets/ui/portrait/bottom_tray_icon_hint.png"),
+			"shuffle": load("res://game-assets/ui/portrait/bottom_tray_icon_shuffle.png"),
+			"delete_pair": load("res://game-assets/ui/portrait/bottom_tray_icon_delete.png"),
+			"undo": load("res://game-assets/ui/portrait/bottom_tray_icon_undo.png"),
+		}
+		for consumable_type in ["hint", "shuffle", "delete_pair", "undo"]:
+			var art: Dictionary = portrait_art[consumable_type]
+			_check(art.root.visible, "portrait displays %s Figma action artwork" % consumable_type)
+			_check_equal(load("res://game-assets/ui/portrait/bottom_tray_tile_cap.png"), art.cap.texture, "portrait %s uses the Figma ceramic cap" % consumable_type)
+			_check_equal(expected_icons[consumable_type], art.icon.texture, "portrait %s uses its exported Figma icon" % consumable_type)
+			_check_equal(load("res://game-assets/ui/portrait/bottom_tray_number_bg.png"), art.number_background.texture, "portrait %s uses the Figma quantity plaque" % consumable_type)
+			_check_equal(load("res://assets/fonts/mila-script-sans-bold.ttf"), art.title.get_theme_font("font"), "portrait %s label uses Mila Script Sans Bold" % consumable_type)
+			_check_equal(str(shell.get("_game").call("consumable_count", consumable_type)), art.quantity.text, "portrait %s shows its live quantity" % consumable_type)
 		var hud_scrim: TextureRect = shell.get("_portrait_hud_scrim")
 		_check(hud_scrim.visible, "portrait displays the exported Figma HUD top scrim")
 		_check_equal(load("res://game-assets/ui/portrait/hud_top_scrim.svg"), hud_scrim.texture, "portrait uses the latest Figma HUD top scrim asset")
@@ -564,6 +580,8 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 	else:
 		_check(not shell.get("_portrait_hud_scrim").visible, "landscape hides the portrait-only HUD top scrim")
 		_check(not regions.consumables.get("_portrait_background").visible, "landscape hides the portrait bottom bar artwork")
+		for art in regions.consumables.get("_portrait_art").values():
+			_check(not art.root.visible, "landscape hides portrait action artwork")
 		_check(not momentum.get("_portrait_style"), "landscape retains the existing compact HUD presentation")
 	_check(viewport_rect.encloses(Rect2(pause_button.position, pause_button.size)), "%s pause button stays inside viewport" % orientation)
 	_check(safe_viewport.encloses(Rect2(pause_button.position, pause_button.size)), "%s pause button stays inside safe area" % orientation)
@@ -781,9 +799,13 @@ func _validate_consumables(shell: Control, orientation: String) -> void:
 		_check(panel_rect.encloses(Rect2(control.position, control.size)), "%s consumable control stays inside its panel" % orientation)
 	if orientation == "portrait":
 		_check(consumables.get("_horizontal_dock"), "portrait keeps consumables in bottom-dock mode")
+		_check(buttons.hint.position.x < buttons.shuffle.position.x, "portrait places Shuffle after Hint")
+		_check(buttons.shuffle.position.x < buttons.delete_pair.position.x, "portrait places Delete after Shuffle")
+		_check(buttons.delete_pair.position.x < buttons.undo.position.x, "portrait keeps Undo rightmost")
 		var first_button_y: float = buttons.values()[0].position.y
 		for button in buttons.values():
 			_check(is_equal_approx(button.position.y, first_button_y), "portrait consumables remain in one bottom row")
+			_check(button.text.is_empty(), "portrait action touch targets do not draw generic Button text")
 	for first_index in range(controls.size()):
 		for second_index in range(first_index + 1, controls.size()):
 			var first_rect := Rect2(controls[first_index].position, controls[first_index].size)

@@ -1093,7 +1093,7 @@ func _apply_figma_portrait_layout(size: Vector2, compact: bool) -> void:
 	var top_start := content.position.y + banner_offset
 	var momentum_height := 81.0 * scale
 	var tray_height := 118.564 * scale
-	var consumables_height := 90.0 * scale
+	var consumables_height := 149.2696 * scale
 	var tray_top := top_start + momentum_height
 	var board_top := tray_top + tray_height
 	var consumables_top := content.end.y - consumables_height - margin * 0.5
