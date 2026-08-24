@@ -31,8 +31,9 @@ const PORTRAIT_REFERENCE_SIZE := Vector2(390.0, 844.0)
 const PORTRAIT_HUD_SCRIM_SIZE := Vector2(390.0, 167.0)
 const PORTRAIT_QUEUE_SOURCE_HEIGHT := 115.0
 const PORTRAIT_QUEUE_BOTTOM_TRANSPARENT := 15.0
-const PORTRAIT_QUEUE_TO_BOARD_GAP := 2.0
-const PORTRAIT_BOTTOM_DOCK_OFFSET := 15.0
+const PORTRAIT_QUEUE_TO_BOARD_GAP := -6.0
+const PORTRAIT_BOTTOM_DOCK_OFFSET := 17.0
+const PORTRAIT_BOARD_INTO_DOCK_PADDING := 8.0
 const START_SEED := 92817361
 const PAIR_LANDING_HOLD_SECONDS := 0.12
 const FLIPPED_REVEAL_SECONDS := 0.16
@@ -1110,7 +1111,7 @@ func _apply_figma_portrait_layout(size: Vector2, compact: bool) -> void:
 	var tray_top := top_start + momentum_height
 	var board_top := tray_top + tray_height
 	var consumables_top := content.end.y - consumables_height
-	var board_bottom := consumables_top + (PORTRAIT_BOTTOM_DOCK_OFFSET - 2.0) * scale
+	var board_bottom := consumables_top + (PORTRAIT_BOTTOM_DOCK_OFFSET + PORTRAIT_BOARD_INTO_DOCK_PADDING) * scale
 	var board_height := maxf(1.0, board_bottom - board_top)
 	_place(_regions.momentum, Rect2(content.position.x, top_start, content.size.x, momentum_height))
 	_place(_regions.tray, Rect2(content.position.x + margin, tray_top, usable_width, tray_height))

@@ -13,6 +13,7 @@ const FIGMA_CAP_SIZE := Vector2(24.968, 115.0)
 const FIGMA_SLOT_SIZE := Vector2(62.42, 115.0)
 const FIGMA_TILE_RECT := Rect2(7.11, 17.7, 46.685, 60.121)
 const QUEUE_ART_SEAM_OVERLAP := 1.0
+const PORTRAIT_TILE_X_NUDGE := -1.5
 
 var _game: Variant
 var _status_label: Label
@@ -268,7 +269,7 @@ func _layout_portrait() -> void:
 	for index in range(_slot_count()):
 		var repeat_origin := origin + Vector2((FIGMA_CAP_SIZE.x + FIGMA_SLOT_SIZE.x * index) * scale, 0.0)
 		var tile_center := repeat_origin + Vector2(
-			FIGMA_SLOT_SIZE.x * scale * 0.5,
+			(FIGMA_SLOT_SIZE.x * 0.5 + PORTRAIT_TILE_X_NUDGE) * scale,
 			FIGMA_TILE_RECT.get_center().y * scale
 		)
 		var slot_rect := Rect2(

@@ -644,10 +644,10 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 		_check_equal(tray_capacity, tray.call("_slot_count"), "portrait queue follows the live tray capacity")
 		for slot_index in range(tray_capacity):
 			var queue_scale: float = tray.get("_queue_repeats")[slot_index].size.y / 115.0
-			var expected_slot_center_x: float = tray.get("_queue_repeats")[slot_index].position.x + 62.42 * queue_scale * 0.5
+			var expected_slot_center_x: float = tray.get("_queue_repeats")[slot_index].position.x + (62.42 * 0.5 - 1.5) * queue_scale
 			_check(
 				is_equal_approx(tray.get("_slots")[slot_index].get_rect().get_center().x, expected_slot_center_x),
-				"portrait tray tile %d is centered in its visual queue slot" % (slot_index + 1)
+				"portrait tray tile %d keeps its approved slight left bias in the visual queue slot" % (slot_index + 1)
 			)
 		for slot_index in range(shell.get("_game").tray.tiles.size(), tray_capacity):
 			var empty_slot_style: StyleBoxFlat = tray.get("_slots")[slot_index].get_theme_stylebox("panel")

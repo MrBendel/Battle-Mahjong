@@ -57,7 +57,7 @@ Portrait layout is resolved inside the safe-area content rectangle:
 4. The existing Board consumes the flexible middle region.
 5. The portrait action dock recreates `bottom-menu-live` (`80:30`) above the bottom safe area. Its background stretches horizontally through the documented nine-patch, while four transparent touch targets compose the exported ceramic caps, icons, live quantity plaques, and Mila labels in Hint, Shuffle, Delete, Undo order.
 
-Live tray tiles are centered on the logical center of each repeated queue section. The Board may overlap the queue control's transparent lower source padding, but never its visible frame or tile targets. Similarly, the action-dock control extends into its transparent bottom padding so the visible gold frame sits against the bottom safe-area edge while all touch targets remain inside that edge.
+Live tray tiles use the logical center of each repeated queue section with a slight approved left optical correction. The Board may overlap the queue control's transparent lower source padding, but never its tile targets. Similarly, the action-dock control extends into its transparent bottom padding so the visible gold frame sits against the bottom safe-area edge while all touch targets remain inside that edge.
 
 The portrait bottom action bar uses the `2172 x 724` supplied master as a horizontally stretching nine-patch. Left and right patches are `30%` of source width (`652 px` each after rounding); top and bottom patches are `50%` of source height (`362 px` each). The complete node scales uniformly to the runtime dock height, so there is no vertical stretch, and only the horizontal center span expands to fill the available width.
 
