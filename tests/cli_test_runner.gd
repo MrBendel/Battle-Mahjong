@@ -579,8 +579,9 @@ func _run_momentum_tests() -> void:
 	])
 	var configuration: Dictionary = definition.configuration
 	_check_equal(11, definition.rules_version, "tray-staged flipped matching uses rules version 11")
-	_check_equal(1, MomentumRulesScript.multiplier_for(19999, configuration), "momentum below first threshold stays x1")
-	_check_equal(2, MomentumRulesScript.multiplier_for(20000, configuration), "first threshold enters x2")
+	_check_equal(1, MomentumRulesScript.multiplier_for(12499, configuration), "momentum below first threshold stays x1")
+	_check_equal(2, MomentumRulesScript.multiplier_for(12500, configuration), "first visible threshold enters x2")
+	_check_equal(8, MomentumRulesScript.multiplier_for(87500, configuration), "seventh visible threshold enters x8")
 	_check(
 		90000 - MomentumRulesScript.decay(90000, 100, configuration) \
 			> 30000 - MomentumRulesScript.decay(30000, 100, configuration),
@@ -596,16 +597,16 @@ func _run_momentum_tests() -> void:
 	_check_equal(GameStateScript.INVALID_SELECTION, game.call("select_tile", "missing", 50), "rejected selection awards no momentum")
 	_check_equal(0, game.call("current_snapshot").momentum_units, "rejected selection leaves momentum unchanged")
 	_check_equal(GameStateScript.SELECTED, game.call("select_tile", "first", 100), "timestamped first selection is accepted")
-	_check_equal(2500, game.call("current_snapshot").momentum_units, "accepted selection adds configured momentum")
-	_check_equal(2500, game.call("last_transaction").telemetry.momentum_selection_gain, "selection telemetry records its actual gain")
+	_check_equal(2000, game.call("current_snapshot").momentum_units, "accepted selection adds configured momentum")
+	_check_equal(2000, game.call("last_transaction").telemetry.momentum_selection_gain, "selection telemetry records its actual gain")
 	_check_equal(GameStateScript.PAIR_RESOLVED, game.call("select_tile", "second", 200), "timestamped pair resolves")
 	var snapshot: Variant = game.call("current_snapshot")
-	_check_equal(34500, snapshot.momentum_units, "pair includes both selection bumps and configured pair momentum")
+	_check_equal(13500, snapshot.momentum_units, "a fast pair advances approximately one multiplier tier")
 	_check_equal(100, snapshot.score, "completing selection does not increase its own pair multiplier")
 	_check_equal(200, snapshot.elapsed_time_ms, "accepted command materializes gameplay time")
 	_check_equal(2, snapshot.max_multiplier, "state records peak multiplier")
-	_check_equal(28900, game.call("momentum_at", 1000), "presentation preview applies deterministic decay")
-	_check_equal(34500, game.call("current_snapshot").momentum_units, "momentum preview does not mutate authoritative state")
+	_check_equal(9334, game.call("momentum_at", 1000), "presentation preview applies deterministic decay")
+	_check_equal(13500, game.call("current_snapshot").momentum_units, "momentum preview does not mutate authoritative state")
 
 	var pair_transaction: Variant = game.call("transactions")[-1]
 	_check_equal(200, pair_transaction.playback_time_ms, "transaction records command playback time")
@@ -639,7 +640,7 @@ func _run_momentum_tests() -> void:
 	_check_equal(GameStateScript.PAIR_RESOLVED, game.call("select_tile", "fourth", 400), "consistent second pair resolves")
 	var second_pair_transaction: Variant = game.call("last_transaction")
 	_check_equal(2, second_pair_transaction.telemetry.score_multiplier, "consistent second pair earns x2")
-	_check_equal(4, second_pair_transaction.telemetry.resulting_multiplier, "consistent selections and pair build x4 for the next pair")
+	_check_equal(3, second_pair_transaction.telemetry.resulting_multiplier, "consistent pairs advance the meter one visible tier at a time")
 	_check_equal(300, game.score, "gradual x1 then x2 awards accumulate")
 
 	var slow_game = GameStateScript.new(definition)
@@ -658,8 +659,8 @@ func _run_momentum_tuning_tests() -> void:
 	_check(default_tuning.call("validation_errors").is_empty(), "default MomentumTuning resource validates")
 	var default_overrides: Dictionary = default_tuning.call("configuration_overrides")
 	_check_equal(100000, default_overrides.momentum_max, "Inspector maximum maps to simulation configuration")
-	_check_equal(2500, default_overrides.momentum_selection_gain, "Inspector selection gain maps to simulation configuration")
-	_check_equal([5, 7, 10, 14, 19], default_overrides.momentum_decay_per_ms, "per-second Inspector decay converts exactly")
+	_check_equal(2000, default_overrides.momentum_selection_gain, "Inspector selection gain maps to simulation configuration")
+	_check_equal([5, 6, 7, 9, 11, 14, 17, 21], default_overrides.momentum_decay_per_ms, "per-second Inspector decay converts exactly")
 	_check_equal(MomentumTuningScript.default_overrides(), default_overrides, "Inspector defaults match headless simulation defaults")
 
 	var custom_tuning: Variant = MomentumTuningScript.new()

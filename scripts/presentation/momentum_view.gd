@@ -9,6 +9,7 @@ const MILA_REGULAR := preload("res://assets/fonts/mila-script-sans-regular.ttf")
 const MILA_BOLD := preload("res://assets/fonts/mila-script-sans-bold.ttf")
 
 const PORTRAIT_REFERENCE_SIZE := Vector2(322.0, 81.0)
+const PORTRAIT_FRAME_RECT := Rect2(118.0, 30.0, 173.3, 25.3)
 
 var _game: Variant
 var _portrait_style := false
@@ -35,6 +36,7 @@ func _init(game_state: Variant) -> void:
 
 
 func _ready() -> void:
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_build()
 	resized.connect(_layout)
 	_layout()
@@ -123,9 +125,9 @@ func _build() -> void:
 	_combo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_combo)
 
-	var colors := ["1e8b59", "88ad35", "f5ba33", "ea9734", "e07136", "e07136"]
-	for index in range(6):
-		var tick := _label("%dX" % (index + 1), MILA_BOLD, 9, Color(colors[index]))
+	var colors := ["1e8b59", "5b9f45", "88ad35", "f5ba33", "ea9734", "e07136", "d75348"]
+	for index in range(7):
+		var tick := _label("%dX" % (index + 2), MILA_BOLD, 8, Color(colors[index]))
 		tick.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		add_child(tick)
 		_ticks.append(tick)
@@ -173,21 +175,23 @@ func _layout() -> void:
 		_layout_legacy()
 		return
 	var scale := minf(size.x / PORTRAIT_REFERENCE_SIZE.x, size.y / PORTRAIT_REFERENCE_SIZE.y)
-	var origin := Vector2(0.0, (size.y - PORTRAIT_REFERENCE_SIZE.y * scale) * 0.5)
-	_place_scaled(_score_art, Rect2(2.0, 5.0, 115.5, 77.0), origin, scale)
-	_place_scaled(_score_title, Rect2(34.0, 15.0, 70.0, 13.0), origin, scale, 9)
-	_place_scaled(_score, Rect2(14.0, 25.0, 110.0, 22.0), origin, scale, 15)
-	_place_scaled(_timer, Rect2(35.0, 50.0, 70.0, 17.0), origin, scale, 11)
-	_place_scaled(_momentum_frame, Rect2(118.0, 30.0, 173.3, 25.3), origin, scale)
-	_place_scaled(_fill_clip, Rect2(122.7, 32.9, 162.9, 18.6), origin, scale)
+	var score_origin := Vector2(0.0, (size.y - PORTRAIT_REFERENCE_SIZE.y * scale) * 0.5)
+	var frame_center_x := PORTRAIT_FRAME_RECT.get_center().x * scale
+	var momentum_origin := score_origin + Vector2(size.x * 0.5 - frame_center_x, 0.0)
+	_place_scaled(_score_art, Rect2(2.0, 5.0, 115.5, 77.0), score_origin, scale)
+	_place_scaled(_score_title, Rect2(34.0, 15.0, 70.0, 13.0), score_origin, scale, 9)
+	_place_scaled(_score, Rect2(14.0, 25.0, 110.0, 22.0), score_origin, scale, 15)
+	_place_scaled(_timer, Rect2(35.0, 50.0, 70.0, 17.0), score_origin, scale, 11)
+	_place_scaled(_momentum_frame, PORTRAIT_FRAME_RECT, momentum_origin, scale)
+	_place_scaled(_fill_clip, Rect2(122.7, 32.9, 162.9, 18.6), momentum_origin, scale)
 	_momentum_fill.position = Vector2.ZERO
 	_momentum_fill.size = Vector2(162.9, 18.6) * scale
-	_place_scaled(_momentum_badge, Rect2(275.9, 25.8, 34.2, 34.2), origin, scale)
-	_place_scaled(_multiplier, Rect2(278.0, 31.0, 30.0, 22.0), origin, scale, 15)
-	_place_scaled(_combo, Rect2(155.0, 7.0, 92.0, 18.0), origin, scale, 12)
-	var tick_x := [127.0, 150.0, 174.0, 198.0, 222.0, 249.0]
+	_place_scaled(_momentum_badge, Rect2(275.9, 25.8, 34.2, 34.2), momentum_origin, scale)
+	_place_scaled(_multiplier, Rect2(278.0, 31.0, 30.0, 22.0), momentum_origin, scale, 15)
+	_place_scaled(_combo, Rect2(155.0, 7.0, 92.0, 18.0), momentum_origin, scale, 12)
 	for index in range(_ticks.size()):
-		_place_scaled(_ticks[index], Rect2(tick_x[index], 55.0, 24.0, 14.0), origin, scale, 9)
+		var tick_center_x := 122.7 + 162.9 * float(index + 1) / 8.0
+		_place_scaled(_ticks[index], Rect2(tick_center_x - 10.0, 55.0, 20.0, 14.0), momentum_origin, scale, 8)
 	refresh(_game.elapsed_time_ms)
 
 

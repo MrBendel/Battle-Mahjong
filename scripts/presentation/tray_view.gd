@@ -2,17 +2,16 @@ extends Control
 class_name TrayView
 
 const TileSkinScript := preload("res://scripts/presentation/tile_skin.gd")
-const QUEUE_REPEAT := preload("res://game-assets/ui/portrait/queue_repeat.png")
-const QUEUE_CAP := preload("res://game-assets/ui/portrait/queue_cap.png")
+const QUEUE_REPEAT := preload("res://assets/UI/tile-queue/queue-repeat.png")
+const QUEUE_CAP := preload("res://assets/UI/tile-queue/queue-cap.png")
 
 const MIN_SLOT_COUNT := 2
 const MAX_SLOT_COUNT := 6
 const MARGIN := 10.0
 const GAP := 8.0
-const FIGMA_CAP_SIZE := Vector2(25.315, 118.564)
-const FIGMA_SLOT_SIZE := Vector2(63.287, 118.564)
-const FIGMA_TILE_RECT := Rect2(7.21, 17.94, 47.334, 60.956)
-const FIGMA_REPEAT_REGION := Rect2(257.0, 0.0, 198.0, 370.0)
+const FIGMA_CAP_SIZE := Vector2(24.968, 114.411)
+const FIGMA_SLOT_SIZE := Vector2(62.42, 116.939)
+const FIGMA_TILE_RECT := Rect2(7.11, 17.7, 46.685, 60.121)
 
 var _game: Variant
 var _status_label: Label
@@ -129,7 +128,7 @@ func refresh() -> void:
 			modifier_label.visible = false
 			label.text = str(index + 1)
 			label.visible = not _portrait_style
-			_slots[index].add_theme_stylebox_override("panel", _empty_slot_style())
+			_slots[index].add_theme_stylebox_override("panel", _tile_style() if _portrait_style else _empty_slot_style())
 
 		label.add_theme_color_override("font_color", Color("202625") if presented else Color("68716f"))
 
@@ -168,7 +167,7 @@ func _build() -> void:
 	_queue_left_cap = _queue_art(QUEUE_CAP)
 	add_child(_queue_left_cap)
 	for index in range(MAX_SLOT_COUNT):
-		var repeat := _queue_art(_queue_repeat_texture())
+		var repeat := _queue_art(QUEUE_REPEAT)
 		add_child(repeat)
 		_queue_repeats.append(repeat)
 	_queue_right_cap = _queue_art(QUEUE_CAP)
@@ -365,18 +364,15 @@ func _update_style_visibility() -> void:
 
 func _queue_art(texture: Texture2D) -> TextureRect:
 	var art := TextureRect.new()
+	var material := CanvasItemMaterial.new()
+	material.blend_mode = CanvasItemMaterial.BLEND_MODE_MIX
+	art.material = material
 	art.texture = texture
 	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	art.stretch_mode = TextureRect.STRETCH_SCALE
+	art.texture_repeat = CanvasItem.TEXTURE_REPEAT_DISABLED
 	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return art
-
-
-func _queue_repeat_texture() -> AtlasTexture:
-	var texture := AtlasTexture.new()
-	texture.atlas = QUEUE_REPEAT
-	texture.region = FIGMA_REPEAT_REGION
-	return texture
 
 
 func _tile_style() -> StyleBoxFlat:

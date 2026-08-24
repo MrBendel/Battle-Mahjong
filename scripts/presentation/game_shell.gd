@@ -1091,8 +1091,7 @@ func _apply_figma_portrait_layout(size: Vector2, compact: bool) -> void:
 	var board_top := tray_top + tray_height
 	var consumables_top := content.end.y - consumables_height - margin * 0.5
 	var board_height := maxf(1.0, consumables_top - board_top - 6.0 * scale)
-	var pause_space := 54.0 * scale
-	_place(_regions.momentum, Rect2(content.position.x, top_start, maxf(220.0, content.size.x - pause_space), momentum_height))
+	_place(_regions.momentum, Rect2(content.position.x, top_start, content.size.x, momentum_height))
 	_place(_regions.tray, Rect2(content.position.x + margin, tray_top, usable_width, tray_height))
 	_place(_regions.board, Rect2(content.position.x + margin, board_top, usable_width, board_height))
 	_place(_regions.consumables, Rect2(content.position.x + margin, consumables_top, usable_width, consumables_height))

@@ -506,6 +506,9 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 		_check(momentum.get("_score_art").visible, "portrait shows the exported score-box artwork")
 		_check(momentum.get("_momentum_frame").visible, "portrait shows the exported Momentum frame")
 		_check(momentum.get("_momentum_badge").visible, "portrait shows the exported multiplier badge")
+		_check_equal(7, momentum.get("_ticks").size(), "portrait Momentum exposes seven visible multiplier upgrades")
+		for tick_index in range(momentum.get("_ticks").size()):
+			_check_equal("%dX" % (tick_index + 2), momentum.get("_ticks")[tick_index].text, "portrait Momentum tick %d skips the default x1 tier" % (tick_index + 1))
 		_check(momentum.get("_fill_clip").clip_contents, "portrait Momentum fill is clipped for runtime animation")
 		_check_equal(
 			load("res://assets/fonts/mila-script-sans-regular.ttf"),
@@ -522,6 +525,10 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 		_check(
 			is_equal_approx(momentum.size.y, 81.0 * expected_portrait_scale),
 			"portrait HUD scales from both safe display dimensions"
+		)
+		_check(
+			is_equal_approx(momentum.get("_momentum_frame").get_global_rect().get_center().x, safe_viewport.get_center().x),
+			"portrait Momentum frame stays centered in the safe display width"
 		)
 		_check(is_equal_approx(pause_button.size.x, pause_button.size.y), "portrait pause artwork preserves a square control")
 		_check(
@@ -562,6 +569,10 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 	if orientation == "portrait":
 		_check(tray.get("_portrait_style"), "portrait enables the Figma queue presentation")
 		_check(tray.get("_queue_left_cap").visible and tray.get("_queue_right_cap").visible, "portrait queue renders both exported end caps")
+		_check_equal(load("res://assets/UI/tile-queue/queue-cap.png"), tray.get("_queue_left_cap").texture, "portrait queue uses the supplied cap artwork")
+		_check_equal(load("res://assets/UI/tile-queue/queue-repeat.png"), tray.get("_queue_repeats")[0].texture, "portrait queue uses the supplied repeat artwork")
+		_check_equal(Vector2(63.0, 115.0), tray.get("_queue_repeats")[0].texture.get_size(), "portrait queue repeat keeps its supplied source dimensions")
+		_check(tray.get("_queue_right_cap").flip_h, "portrait queue mirrors the supplied cap on the right")
 		_check_equal(6, tray.get("_queue_repeats").size(), "portrait queue owns reusable artwork for its 2-6 slot range")
 		var visible_queue_sections := 0
 		for queue_section in tray.get("_queue_repeats"):
@@ -569,6 +580,9 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 		var tray_capacity: int = shell.get("_game").tray.capacity
 		_check_equal(tray_capacity, visible_queue_sections, "portrait queue renders one repeated section per active slot")
 		_check_equal(tray_capacity, tray.call("_slot_count"), "portrait queue follows the live tray capacity")
+		for slot_index in range(shell.get("_game").tray.tiles.size(), tray_capacity):
+			var empty_slot_style: StyleBoxFlat = tray.get("_slots")[slot_index].get_theme_stylebox("panel")
+			_check_equal(Color.TRANSPARENT, empty_slot_style.bg_color, "portrait empty slot %d is supplied only by Figma artwork" % (slot_index + 1))
 	else:
 		_check(not tray.get("_portrait_style"), "landscape retains the existing tray presentation")
 	for slot in tray.get("_slots"):
@@ -593,10 +607,11 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 		_check(regions.momentum.position.x + regions.momentum.size.x <= board.position.x, "landscape Momentum stays in the upper-left rail")
 		_check(is_equal_approx(tray.get_rect().get_center().x, board.get_rect().get_center().x), "landscape tray is centered over the Board")
 		_check(not regions.character.visible, "landscape decorative region yields to the central Board and side actions")
-	_check(
-		not Rect2(pause_button.position, pause_button.size).intersects(Rect2(regions.momentum.position, regions.momentum.size)),
-		"%s pause button does not cover Momentum" % orientation
-	)
+	var pause_rect := Rect2(pause_button.position, pause_button.size)
+	if orientation == "portrait":
+		_check(not pause_rect.intersects(momentum.get("_momentum_badge").get_global_rect()), "portrait pause button does not cover the centered Momentum presentation")
+	else:
+		_check(not pause_rect.intersects(Rect2(regions.momentum.position, regions.momentum.size)), "landscape pause button does not cover Momentum")
 
 	for first_index in range(names.size()):
 		for second_index in range(first_index + 1, names.size()):

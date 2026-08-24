@@ -67,10 +67,10 @@ Stopping to search causes momentum to fall.
 Status: Decided for the initial M3 tuning baseline
 
 - Momentum uses integer units from `0` to `100000`.
-- An accepted natural tile selection adds `2500` units; Undo removes the actual gain from the compensated selection after normal decay.
-- A pair adds `30000` units.
-- Thresholds at `0`, `20000`, `40000`, `60000`, and `80000` produce `x1` through `x5`.
-- Tier decay rates are `5`, `7`, `10`, `14`, and `19` units per millisecond, making higher tiers harder to maintain.
+- An accepted natural tile selection adds `2000` units; Undo removes the actual gain from the compensated selection after normal decay.
+- A pair adds `10000` units. Together with two fast selections, a clean pair advances approximately one multiplier tier.
+- `x1` is the unlabeled default. Thresholds every `12500` units produce the seven visible upgrades `x2` through `x8`.
+- Tier decay rates are `5`, `6`, `7`, `9`, `11`, `14`, `17`, and `21` units per millisecond, making higher tiers progressively harder to maintain.
 - A pair scores `100 * current multiplier` before the completing selection's gain, then selection and pair gains build the multiplier for later pairs.
 
 These values are stored in game configuration and remain provisional pending playtesting.
