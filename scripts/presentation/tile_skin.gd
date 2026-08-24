@@ -36,7 +36,7 @@ func validation_errors() -> Array[String]:
 			errors.append("Missing tile base variant: %s" % variant_id)
 			continue
 		var asset_path := str(variant.get("asset", ""))
-		if asset_path.is_empty() or not ResourceLoader.exists(asset_path):
+		if asset_path.is_empty() or not (ResourceLoader.exists(asset_path) or FileAccess.file_exists(asset_path)):
 			errors.append("Tile base variant '%s' has no runtime asset." % variant_id)
 		var source_size: Array = variant.get("source_size", [])
 		var safe_area: Array = variant.get("face_safe_area", [])
@@ -98,9 +98,7 @@ func texture_for_id(face_id: String) -> Texture2D:
 		return _textures[face_id]
 	var definition: Dictionary = faces.get(face_id, {})
 	var asset_path := str(definition.get("asset", ""))
-	var texture: Texture2D = null
-	if not asset_path.is_empty() and ResourceLoader.exists(asset_path):
-		texture = load(asset_path) as Texture2D
+	var texture := _load_texture(asset_path)
 	_textures[face_id] = texture
 	return texture
 
@@ -130,11 +128,21 @@ func tile_base_texture() -> Texture2D:
 		return _base_textures[orientation]
 	var active := active_geometry()
 	var asset_path := str(active.get("asset", ""))
-	var texture: Texture2D = null
-	if not asset_path.is_empty() and ResourceLoader.exists(asset_path):
-		texture = load(asset_path) as Texture2D
+	var texture := _load_texture(asset_path)
 	_base_textures[orientation] = texture
 	return texture
+
+
+func _load_texture(asset_path: String) -> Texture2D:
+	if asset_path.is_empty():
+		return null
+	if ResourceLoader.exists(asset_path):
+		return load(asset_path) as Texture2D
+	elif FileAccess.file_exists(asset_path):
+		var img := Image.load_from_file(asset_path)
+		if img != null:
+			return ImageTexture.create_from_image(img)
+	return null
 
 
 func configure_ink_outline(outline: TextureRect) -> void:
