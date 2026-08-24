@@ -218,6 +218,8 @@ Initial consumable identities:
 
 Lightbulb, eye, sparkle, magnifier, or related discovery language.
 
+The activated Board presentation uses a synchronized sinusoidal brightness/glow pulse and a subtle vertical bob on suggested tiles. It must not add a rectangular or bordered selection outline, and clearing the Hint must restore exact baseline position and brightness.
+
 ### Undo
 
 Reverse arrow or rewind language.

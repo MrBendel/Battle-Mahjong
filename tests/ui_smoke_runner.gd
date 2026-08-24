@@ -141,6 +141,29 @@ func _run() -> void:
 			_check(not reveal_art.visible and reveal_button.text.is_empty(), "flip-back presentation restores the blank tile back")
 			shell.call("_on_restart_requested")
 			live_game = shell.get("_game")
+	var board_view: Control = shell.get("_regions").board
+	shell.call("_on_hint_requested")
+	var animated_hint_id := ""
+	for hinted_tile_id in live_game.call("hinted_tile_ids"):
+		if live_game.board.call("is_tile_active", hinted_tile_id):
+			animated_hint_id = hinted_tile_id
+			break
+	_check(not animated_hint_id.is_empty(), "Hint identifies an active board tile for presentation")
+	if not animated_hint_id.is_empty():
+		var hinted_button: Button = board_view.get("_tile_buttons")[animated_hint_id]
+		var hinted_base_position: Vector2 = board_view.get("_tile_layout_positions")[animated_hint_id]
+		var hinted_base_brightness: float = float(hinted_button.get_meta("presentation_brightness", 1.0))
+		var hinted_style: StyleBoxFlat = hinted_button.get_theme_stylebox("normal")
+		board_view.call("_process", 0.3)
+		_check_equal(0, hinted_style.get_border_width(SIDE_LEFT), "Hint adds no tile outline")
+		_check(hinted_button.position.y < hinted_base_position.y, "Hint sinusoid lifts the suggested tile")
+		_check(hinted_button.modulate.r > hinted_base_brightness, "Hint sinusoid brightens the suggested tile")
+		_check(hinted_button.get_node("HintGlow").visible, "Hint displays the additive ceramic glow")
+		shell.call("_on_restart_requested")
+		live_game = shell.get("_game")
+		var restored_button: Button = board_view.get("_tile_buttons")[animated_hint_id]
+		_check(not restored_button.get_node("HintGlow").visible, "clearing Hint removes its glow")
+		_check_equal(board_view.get("_tile_layout_positions")[animated_hint_id], restored_button.position, "clearing Hint restores the tile position")
 	var stage_visuals := []
 	for rect in [Rect2(Vector2(32.0, 120.0), Vector2(42.0, 54.0)), Rect2(Vector2(root.size.x - 74.0, root.size.y - 180.0), Vector2(42.0, 54.0))]:
 		var preview := Panel.new()
@@ -438,7 +461,12 @@ func _run() -> void:
 
 	shell.set("_delete_pair_armed", false)
 	shell.get("_regions").board.call("set_delete_pair_armed", false)
-	if OS.get_cmdline_user_args().has("--callout-capture"):
+	if OS.get_cmdline_user_args().has("--hint-capture"):
+		shell.call("_on_restart_requested")
+		live_game = shell.get("_game")
+		shell.call("_on_hint_requested")
+		shell.get("_regions").board.call("_process", 0.3)
+	elif OS.get_cmdline_user_args().has("--callout-capture"):
 		shell.call("_on_restart_requested")
 		live_game = shell.get("_game")
 		shell.call("_apply_layout")
@@ -467,6 +495,7 @@ func _run() -> void:
 		var image := root.get_texture().get_image()
 		var capture_name := "end-game" if OS.get_cmdline_user_args().has("--end-game-capture") \
 			else "difficulty-callout" if OS.get_cmdline_user_args().has("--callout-capture") \
+			else "hint" if OS.get_cmdline_user_args().has("--hint-capture") \
 			else "pause-menu" if OS.get_cmdline_user_args().has("--pause-menu") \
 			else "small-phone" if OS.get_cmdline_user_args().has("--small-phone") \
 			else "safe-%s" % orientation if OS.get_cmdline_user_args().has("--safe-area") else orientation
