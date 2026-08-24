@@ -9,8 +9,8 @@ const MIN_SLOT_COUNT := 2
 const MAX_SLOT_COUNT := 6
 const MARGIN := 10.0
 const GAP := 8.0
-const FIGMA_CAP_SIZE := Vector2(24.968, 114.411)
-const FIGMA_SLOT_SIZE := Vector2(62.42, 116.939)
+const FIGMA_CAP_SIZE := Vector2(25.0, 115.0)
+const FIGMA_SLOT_SIZE := Vector2(63.0, 115.0)
 const FIGMA_TILE_RECT := Rect2(7.11, 17.7, 46.685, 60.121)
 
 var _game: Variant
