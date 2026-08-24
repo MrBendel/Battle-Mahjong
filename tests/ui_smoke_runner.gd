@@ -580,6 +580,9 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 		_check_equal(load("res://assets/UI/tile-queue/queue-cap.png"), tray.get("_queue_left_cap").texture, "portrait queue uses the supplied cap artwork")
 		_check_equal(load("res://assets/UI/tile-queue/queue-repeat.png"), tray.get("_queue_repeats")[0].texture, "portrait queue uses the supplied repeat artwork")
 		_check_equal(Vector2(63.0, 115.0), tray.get("_queue_repeats")[0].texture.get_size(), "portrait queue repeat keeps its supplied source dimensions")
+		var queue_repeat_image: Image = tray.get("_queue_repeats")[0].texture.get_image()
+		var repeat_right_stroke := queue_repeat_image.get_pixel(57, 58)
+		_check(repeat_right_stroke.a > 0.9 and repeat_right_stroke.r > 0.5, "portrait queue repeat retains its closing right-side gold stroke")
 		_check(tray.get("_queue_right_cap").flip_h, "portrait queue mirrors the supplied cap on the right")
 		_check_equal(6, tray.get("_queue_repeats").size(), "portrait queue owns reusable artwork for its 2-6 slot range")
 		var visible_queue_sections := 0
