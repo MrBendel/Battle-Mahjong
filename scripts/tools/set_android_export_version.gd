@@ -34,4 +34,16 @@ func _init() -> void:
 		printerr("Unable to save export_presets.cfg: %s" % error_string(save_error))
 		quit(1)
 		return
+
+	var version_json_file := FileAccess.open("res://version.json", FileAccess.WRITE)
+	if version_json_file != null:
+		var version_dict := {
+			"latest_version_code": version_code,
+			"latest_version_name": version_name,
+			"min_version_code": 0,
+			"store_url": "https://play.google.com/apps/internaltest/4701554282456194202"
+		}
+		version_json_file.store_string(JSON.stringify(version_dict, "\t") + "\n")
+		version_json_file.close()
+
 	quit()

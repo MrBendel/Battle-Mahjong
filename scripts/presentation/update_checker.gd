@@ -3,15 +3,25 @@ extends Node
 signal update_available(latest_version_name: String, store_url: String, is_mandatory: bool)
 signal check_completed(up_to_date: bool)
 
-const DEFAULT_STORE_URL := "https://play.google.com/apps/internaltest/4701554282456194202"
+const DEFAULT_STORE_URL: String = "https://play.google.com/apps/internaltest/4701554282456194202"
 
 @export var store_url: String = DEFAULT_STORE_URL
+@export var check_version_url: String = ""
 
 var _plugin_singleton: Object = null
+var _http_request: HTTPRequest = null
 
 
 func _ready() -> void:
 	_detect_play_core_plugin()
+	_setup_http_request()
+
+
+func _setup_http_request() -> void:
+	_http_request = HTTPRequest.new()
+	_http_request.name = "VersionHTTPRequest"
+	_http_request.request_completed.connect(_on_http_request_completed)
+	add_child(_http_request)
 
 
 func _detect_play_core_plugin() -> void:
@@ -37,6 +47,42 @@ func _connect_plugin_signals() -> void:
 		_plugin_singleton.connect("update_not_available", Callable(self, "_on_native_update_not_available"))
 
 
+func get_current_version_code() -> int:
+	if FileAccess.file_exists("res://export_presets.cfg"):
+		var presets := ConfigFile.new()
+		if presets.load("res://export_presets.cfg") == OK:
+			var code: Variant = presets.get_value("preset.0.options", "version/code", null)
+			if code != null and int(code) > 0:
+				return int(code)
+	if FileAccess.file_exists("res://version.json"):
+		var file := FileAccess.open("res://version.json", FileAccess.READ)
+		if file != null:
+			var json := JSON.new()
+			if json.parse(file.get_as_text()) == OK and json.data is Dictionary:
+				var code: int = int(json.data.get("latest_version_code", 0))
+				if code > 0:
+					return code
+	return 1
+
+
+func get_current_version_name() -> String:
+	if FileAccess.file_exists("res://export_presets.cfg"):
+		var presets := ConfigFile.new()
+		if presets.load("res://export_presets.cfg") == OK:
+			var vname: String = str(presets.get_value("preset.0.options", "version/name", ""))
+			if not vname.is_empty():
+				return vname
+	if FileAccess.file_exists("res://version.json"):
+		var file := FileAccess.open("res://version.json", FileAccess.READ)
+		if file != null:
+			var json := JSON.new()
+			if json.parse(file.get_as_text()) == OK and json.data is Dictionary:
+				var vname: String = str(json.data.get("latest_version_name", ""))
+				if not vname.is_empty():
+					return vname
+	return "0.1.0"
+
+
 func check_for_updates() -> void:
 	if _plugin_singleton != null:
 		if _plugin_singleton.has_method("checkForUpdate"):
@@ -46,7 +92,51 @@ func check_for_updates() -> void:
 			_plugin_singleton.call("check_for_update")
 			return
 
+	if not check_version_url.is_empty() and (check_version_url.begins_with("http://") or check_version_url.begins_with("https://")):
+		if _http_request != null:
+			var err := _http_request.request(check_version_url)
+			if err == OK:
+				return
+
+	_check_local_version_file()
+
+
+func _check_local_version_file() -> void:
+	if FileAccess.file_exists("res://version.json"):
+		var file := FileAccess.open("res://version.json", FileAccess.READ)
+		if file != null:
+			var json := JSON.new()
+			if json.parse(file.get_as_text()) == OK and json.data is Dictionary:
+				_evaluate_version_dict(json.data)
+				return
 	check_completed.emit(true)
+
+
+func _on_http_request_completed(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
+	if result == HTTPRequest.RESULT_SUCCESS and response_code == 200:
+		var json := JSON.new()
+		if json.parse(body.get_string_from_utf8()) == OK and json.data is Dictionary:
+			_evaluate_version_dict(json.data)
+			return
+
+	check_completed.emit(true)
+
+
+func _evaluate_version_dict(dict: Dictionary) -> void:
+	var remote_code: int = int(dict.get("latest_version_code", 0))
+	var remote_name: String = str(dict.get("latest_version_name", ""))
+	var min_code: int = int(dict.get("min_version_code", 0))
+	var remote_url: String = str(dict.get("store_url", store_url))
+	if remote_url.is_empty():
+		remote_url = DEFAULT_STORE_URL
+
+	var current_code := get_current_version_code()
+	if remote_code > current_code:
+		var mandatory := (current_code < min_code)
+		update_available.emit(remote_name, remote_url, mandatory)
+		check_completed.emit(false)
+	else:
+		check_completed.emit(true)
 
 
 func start_in_app_update(is_mandatory: bool = false) -> void:
@@ -58,8 +148,8 @@ func start_in_app_update(is_mandatory: bool = false) -> void:
 			_plugin_singleton.call("start_in_app_update", is_mandatory)
 			return
 
-	if not store_url.is_empty():
-		OS.shell_open(store_url)
+	var url := store_url if not store_url.is_empty() else DEFAULT_STORE_URL
+	OS.shell_open(url)
 
 
 func mock_trigger_update_available(version_name: String = "0.2.0", url: String = DEFAULT_STORE_URL, mandatory: bool = false) -> void:
@@ -67,11 +157,24 @@ func mock_trigger_update_available(version_name: String = "0.2.0", url: String =
 	check_completed.emit(false)
 
 
-func _on_native_update_available(version_name: String = "", mandatory: bool = false) -> void:
+func _on_native_update_available(arg1: Variant = null, arg2: Variant = null, _arg3: Variant = null) -> void:
+	var version_name := ""
+	var mandatory := false
+	if arg1 is Dictionary:
+		version_name = str(arg1.get("version_name", arg1.get("versionName", "")))
+		mandatory = bool(arg1.get("is_mandatory", arg1.get("mandatory", false)))
+	elif arg1 != null:
+		version_name = str(arg1)
+		if arg2 != null:
+			mandatory = bool(arg2)
+
+	if version_name.is_empty():
+		version_name = "0.2.0"
+
 	var url := store_url if not store_url.is_empty() else DEFAULT_STORE_URL
 	update_available.emit(version_name, url, mandatory)
 	check_completed.emit(false)
 
 
-func _on_native_update_not_available() -> void:
+func _on_native_update_not_available(_arg1: Variant = null) -> void:
 	check_completed.emit(true)

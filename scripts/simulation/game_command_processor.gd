@@ -518,6 +518,14 @@ func _build_undo(command: Variant, definition: Variant, state: Variant, timeline
 	var momentum_after_undo := MomentumRulesScript.remove_selection_gain(momentum_after_decay, selection_gain)
 	_append_counter_change(changes, "momentum_units", momentum_after_decay, momentum_after_undo)
 	combo_telemetry["momentum_selection_gain_reverted"] = momentum_after_decay - momentum_after_undo
+	for change in target_transaction.changes:
+		if change.type == GameChangeScript.FLIPPED_REVEALS:
+			changes.append(GameChangeScript.new(
+				GameChangeScript.FLIPPED_REVEALS,
+				"revealed_flipped_tile_ids",
+				state.revealed_flipped_tile_ids,
+				change.before
+			))
 	changes.append_array([
 		GameChangeScript.new(GameChangeScript.TILE_ZONE, tile_id, GameStateDataScript.ZONE_TRAY, GameStateDataScript.ZONE_BOARD),
 		GameChangeScript.new(GameChangeScript.TRAY, "tray_tile_ids", tray_before, tray_after),
