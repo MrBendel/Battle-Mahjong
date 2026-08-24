@@ -23,7 +23,12 @@ const GameStateDataScript := preload("res://scripts/simulation/game_state_data.g
 const UpdateBannerViewScript := preload("res://scripts/presentation/update_banner_view.gd")
 const UpdateCheckerScript := preload("res://scripts/presentation/update_checker.gd")
 const SafeAreaScript := preload("res://scripts/presentation/safe_area.gd")
-const GAMEPLAY_BACKGROUND := preload("res://game-assets/backgrounds/gameplay_brush_arcade.png")
+const PORTRAIT_BACKGROUND := preload("res://game-assets/ui/portrait/background.png")
+const BACKGROUND_PATCH_MARGIN := 48
+const PORTRAIT_PAUSE_BUTTON := preload("res://game-assets/ui/portrait/pause_button.png")
+const PORTRAIT_HUD_TOP_SCRIM := preload("res://game-assets/ui/portrait/hud_top_scrim.svg")
+const PORTRAIT_REFERENCE_SIZE := Vector2(390.0, 844.0)
+const PORTRAIT_HUD_SCRIM_SIZE := Vector2(390.0, 167.0)
 const START_SEED := 92817361
 const PAIR_LANDING_HOLD_SECONDS := 0.12
 const FLIPPED_REVEAL_SECONDS := 0.16
@@ -54,7 +59,9 @@ var _undo_motion_count := 0
 var _last_undo_motion_target := Rect2()
 var _tile_transfer_previews := {}
 var _tile_transfer_tweens := {}
-var _gameplay_background: TextureRect
+var _gameplay_background: NinePatchRect
+var _gameplay_background_wash: ColorRect
+var _portrait_hud_scrim: TextureRect
 var _pause_button: Button
 var _pause_menu: Control
 var _end_game_menu: Control
@@ -153,10 +160,14 @@ func _on_update_requested() -> void:
 func _build_pause_menu() -> void:
 	_pause_button = Button.new()
 	_pause_button.name = "PauseButton"
-	_pause_button.text = "Ⅱ"
+	_pause_button.text = ""
+	_pause_button.icon = PORTRAIT_PAUSE_BUTTON
+	_pause_button.expand_icon = true
 	_pause_button.tooltip_text = "Pause"
 	_pause_button.focus_mode = Control.FOCUS_NONE
 	_pause_button.z_index = 1500
+	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
+		_pause_button.add_theme_stylebox_override(state, StyleBoxEmpty.new())
 	_pause_button.pressed.connect(_on_pause_requested)
 	add_child(_pause_button)
 
@@ -185,21 +196,33 @@ func _on_end_game_undo_requested() -> void:
 
 
 func _build_gameplay_background() -> void:
-	_gameplay_background = TextureRect.new()
+	_gameplay_background = NinePatchRect.new()
 	_gameplay_background.name = "GameplayBackground"
 	_gameplay_background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_gameplay_background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_gameplay_background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	_gameplay_background.texture = GAMEPLAY_BACKGROUND
+	_gameplay_background.texture = PORTRAIT_BACKGROUND
+	_gameplay_background.set_patch_margin(SIDE_LEFT, BACKGROUND_PATCH_MARGIN)
+	_gameplay_background.set_patch_margin(SIDE_TOP, BACKGROUND_PATCH_MARGIN)
+	_gameplay_background.set_patch_margin(SIDE_RIGHT, BACKGROUND_PATCH_MARGIN)
+	_gameplay_background.set_patch_margin(SIDE_BOTTOM, BACKGROUND_PATCH_MARGIN)
+	_gameplay_background.axis_stretch_horizontal = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
+	_gameplay_background.axis_stretch_vertical = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
 	_gameplay_background.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_gameplay_background)
 
-	var wash := ColorRect.new()
-	wash.name = "GameplayBackgroundWash"
-	wash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	wash.color = Color(0.01, 0.025, 0.025, 0.24)
-	wash.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(wash)
+	_gameplay_background_wash = ColorRect.new()
+	_gameplay_background_wash.name = "GameplayBackgroundWash"
+	_gameplay_background_wash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_gameplay_background_wash.color = Color(0.01, 0.025, 0.025, 0.24)
+	_gameplay_background_wash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_gameplay_background_wash)
+
+	_portrait_hud_scrim = TextureRect.new()
+	_portrait_hud_scrim.name = "PortraitHudScrim"
+	_portrait_hud_scrim.texture = PORTRAIT_HUD_TOP_SCRIM
+	_portrait_hud_scrim.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_portrait_hud_scrim.stretch_mode = TextureRect.STRETCH_SCALE
+	_portrait_hud_scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_portrait_hud_scrim)
 
 
 func _create_game() -> Variant:
@@ -888,7 +911,13 @@ func _apply_layout() -> void:
 	var viewport_i := Vector2i(int(viewport_size.x), int(viewport_size.y))
 	var orientation := "Landscape" if viewport_size.x >= viewport_size.y else "Portrait"
 	_tile_skin.call("set_orientation", orientation.to_lower())
-	_regions.board.call("set_compact_mode", orientation == "Portrait" and viewport_size.y < 800.0)
+	var portrait := orientation == "Portrait"
+	_gameplay_background_wash.visible = false
+	_portrait_hud_scrim.visible = portrait
+	_regions.momentum.call("set_portrait_style", portrait)
+	_regions.tray.call("set_portrait_style", portrait)
+	_regions.consumables.call("set_horizontal_dock", portrait)
+	_regions.board.call("set_compact_mode", portrait)
 
 	for region in _regions.values():
 		region.visible = true
@@ -1042,68 +1071,54 @@ func _apply_landscape_layout(size: Vector2) -> void:
 
 
 func _apply_portrait_layout(size: Vector2) -> void:
-	var insets := _get_safe_area_insets()
-	var margin := 14.0
-	var gap := 10.0
-	var left_margin := margin + insets.position.x
-	var right_margin := margin + insets.size.x
-	var usable_width := size.x - left_margin - right_margin
-	var banner_offset := 0.0
-	if _update_banner != null and _update_banner.visible:
-		var banner_height := 44.0
-		_place(_update_banner, Rect2(left_margin, margin + insets.position.y, usable_width, banner_height))
-		banner_offset = banner_height + gap
-	var top_start := margin + insets.position.y + banner_offset
-	var bottom_limit := size.y - margin - insets.size.y
-	var momentum_height := 68.0
-	var tray_height := 82.0
-	var consumables_height := 76.0
-	var tray_top: float = top_start + momentum_height + gap
-	var board_top: float = tray_top + tray_height + gap
-	var consumables_top := bottom_limit - consumables_height
-	var board_height := consumables_top - gap - board_top
-
-	_place(_regions.momentum, Rect2(left_margin, top_start, usable_width - 52.0, momentum_height))
-	_place(_regions.tray, Rect2(left_margin, tray_top, usable_width, tray_height))
-	_place(_regions.board, Rect2(left_margin, board_top, usable_width, board_height))
-	_place(_regions.consumables, Rect2(left_margin, consumables_top, usable_width, consumables_height))
-	_regions.consumables.call("clear_action_rects")
-	_regions.character.visible = false
+	_apply_figma_portrait_layout(size, false)
 
 
 func _apply_compact_portrait_layout(size: Vector2) -> void:
+	_apply_figma_portrait_layout(size, true)
+	_debug_panel.visible = false
+
+
+func _apply_figma_portrait_layout(size: Vector2, compact: bool) -> void:
 	var insets := _get_safe_area_insets()
-	var margin := 8.0
-	var gap := 7.0
-	var left_margin := margin + insets.position.x
-	var right_margin := margin + insets.size.x
-	var usable_width := size.x - left_margin - right_margin
+	var content := SafeAreaScript.content_rect(size, insets)
+	var scale := _portrait_reference_scale(content)
+	var margin := (8.0 if compact else 12.0) * scale
+	var usable_width := maxf(1.0, content.size.x - margin * 2.0)
 	var banner_offset := 0.0
 	if _update_banner != null and _update_banner.visible:
-		var banner_height := 40.0
-		_place(_update_banner, Rect2(left_margin, margin + insets.position.y, usable_width, banner_height))
-		banner_offset = banner_height + gap
-	var top_start := margin + insets.position.y + banner_offset
-	var bottom_limit := size.y - margin - insets.size.y
-	var momentum_height := 54.0
-	var tray_height := 76.0
-	var consumables_height := 72.0
-	var tray_top := top_start + momentum_height + gap
-	var board_top := tray_top + tray_height + gap
-	var board_height := bottom_limit - board_top - gap - consumables_height
-	_place(_regions.momentum, Rect2(left_margin, top_start, usable_width - 50.0, momentum_height))
-	_place(_regions.tray, Rect2(left_margin, tray_top, usable_width, tray_height))
-	_place(_regions.board, Rect2(left_margin, board_top, usable_width, board_height))
-	_place(_regions.consumables, Rect2(left_margin, board_top + board_height + gap, usable_width, consumables_height))
+		var banner_height := 40.0 * scale
+		_place(_update_banner, Rect2(content.position.x + margin, content.position.y, usable_width, banner_height))
+		banner_offset = banner_height + 6.0 * scale
+	var top_start := content.position.y + banner_offset
+	var momentum_height := 81.0 * scale
+	var tray_height := 118.564 * scale
+	var consumables_height := 90.0 * scale
+	var tray_top := top_start + momentum_height
+	var board_top := tray_top + tray_height
+	var consumables_top := content.end.y - consumables_height - margin * 0.5
+	var board_height := maxf(1.0, consumables_top - board_top - 6.0 * scale)
+	_place(_regions.momentum, Rect2(content.position.x, top_start, content.size.x, momentum_height))
+	_place(_regions.tray, Rect2(content.position.x + margin, tray_top, usable_width, tray_height))
+	_place(_regions.board, Rect2(content.position.x + margin, board_top, usable_width, board_height))
+	_place(_regions.consumables, Rect2(content.position.x + margin, consumables_top, usable_width, consumables_height))
+	var scrim_height := size.x * PORTRAIT_HUD_SCRIM_SIZE.y / PORTRAIT_HUD_SCRIM_SIZE.x
+	_place(_portrait_hud_scrim, Rect2(0.0, 0.0, size.x, scrim_height))
 	_regions.consumables.call("clear_action_rects")
 	_regions.character.visible = false
-	_debug_panel.visible = false
 
 
 func _place(control: Control, rect: Rect2) -> void:
 	control.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	control.position = rect.position
 	control.size = rect.size
+
+
+func _portrait_reference_scale(content: Rect2) -> float:
+	return maxf(0.01, minf(
+		content.size.x / PORTRAIT_REFERENCE_SIZE.x,
+		content.size.y / PORTRAIT_REFERENCE_SIZE.y
+	))
 
 
 func _place_debug_panel(size: Vector2, orientation: String) -> void:
@@ -1131,5 +1146,12 @@ func _place_pause_button(size: Vector2) -> void:
 	if _update_banner != null and _update_banner.visible:
 		banner_y_offset = 54.0
 	_pause_button.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	_pause_button.position = Vector2(size.x - 54.0 - insets.size.x, 14.0 + insets.position.y + banner_y_offset)
-	_pause_button.size = Vector2(40.0, 40.0)
+	if size.x < size.y:
+		var content := SafeAreaScript.content_rect(size, insets)
+		var scale := _portrait_reference_scale(content)
+		var button_size := 48.0 * scale
+		_pause_button.position = Vector2(content.end.x - button_size - 6.0 * scale, content.position.y + 12.0 * scale + banner_y_offset)
+		_pause_button.size = Vector2(button_size, button_size)
+	else:
+		_pause_button.position = Vector2(size.x - 54.0 - insets.size.x, 14.0 + insets.position.y + banner_y_offset)
+		_pause_button.size = Vector2(40.0, 40.0)

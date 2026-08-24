@@ -7,15 +7,15 @@ const GameConfigurationScript := preload("res://scripts/simulation/game_configur
 ## Integer meter capacity used by deterministic simulation.
 @export_range(1, 1000000, 1) var maximum := 100000
 ## Momentum added after a pair scores, building the multiplier for the next pair.
-@export_range(1, 1000000, 1) var pair_gain := 30000
+@export_range(1, 1000000, 1) var pair_gain := 10000
 ## Small Momentum reward for each accepted natural tile selection.
-@export_range(0, 1000000, 1) var selection_gain := 2500
+@export_range(0, 1000000, 1) var selection_gain := 2000
 ## Inclusive lower bounds for x1, x2, and subsequent multiplier tiers. Must start at 0.
-@export var multiplier_thresholds: Array[int] = [0, 20000, 40000, 60000, 80000]
+@export var multiplier_thresholds: Array[int] = [0, 12500, 25000, 37500, 50000, 62500, 75000, 87500]
 
 @export_category("Decay")
 ## One rate per multiplier tier. Values must be positive multiples of 1000.
-@export var decay_per_second: Array[int] = [5000, 7000, 10000, 14000, 19000]
+@export var decay_per_second: Array[int] = [3000, 4000, 5000, 6000, 7000, 8000, 10000, 12000]
 
 @export_category("Scoring")
 ## Points awarded per pair before applying the current multiplier.

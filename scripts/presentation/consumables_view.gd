@@ -12,6 +12,7 @@ var _notice: Label
 var _background: Panel
 var _title: Label
 var _action_rects: Dictionary = {}
+var _horizontal_dock := false
 
 
 func _init(game_state: Variant) -> void:
@@ -98,6 +99,11 @@ func clear_action_rects() -> void:
 	_layout()
 
 
+func set_horizontal_dock(enabled: bool) -> void:
+	_horizontal_dock = enabled
+	_layout()
+
+
 func _add_button(consumable_type: String, label: String, callback: Callable) -> void:
 	var button := Button.new()
 	button.name = consumable_type.capitalize().replace("_", "")
@@ -125,7 +131,7 @@ func _layout() -> void:
 	_background.visible = true
 	_title.visible = false
 	_notice.size = Vector2(maxf(100.0, size.x - 24.0), 46.0)
-	var vertical := size.y > 180.0
+	var vertical := not _horizontal_dock and size.y > 180.0 and size.y > size.x
 	_notice.visible = vertical
 	var types := ["hint", "delete_pair", "shuffle", "undo"]
 	if vertical:

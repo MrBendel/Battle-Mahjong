@@ -12,7 +12,9 @@ func _init() -> void:
 
 func _run() -> void:
 	var requested_size := Vector2i(720, 1280)
-	if OS.get_cmdline_user_args().has("--small-phone"):
+	if OS.get_cmdline_user_args().has("--large-portrait"):
+		requested_size = Vector2i(1080, 2400)
+	elif OS.get_cmdline_user_args().has("--small-phone"):
 		requested_size = Vector2i(375, 667)
 	elif OS.get_cmdline_user_args().has("--landscape"):
 		requested_size = Vector2i(1280, 720)
@@ -48,13 +50,14 @@ func _run() -> void:
 			else Rect2(28.0, 54.0, 46.0, 30.0)
 		shell.call("set_safe_area_override_for_testing", test_insets)
 		await process_frame
-	var gameplay_background: TextureRect = shell.get("_gameplay_background")
+	var gameplay_background: NinePatchRect = shell.get("_gameplay_background")
 	_check(gameplay_background != null and gameplay_background.texture != null, "gameplay shell renders the M7 background asset")
-	_check_equal(
-		TextureRect.STRETCH_KEEP_ASPECT_COVERED,
-		gameplay_background.stretch_mode,
-		"gameplay background covers responsive viewports without distortion"
-	)
+	_check_equal(load("res://game-assets/ui/portrait/background.png"), gameplay_background.texture, "gameplay shell reuses the Figma background in every orientation")
+	_check_equal(Vector2(941.0, 1672.0), gameplay_background.texture.get_size(), "gameplay background retains the Figma master dimensions required by its scale-9 contract")
+	for side in [SIDE_LEFT, SIDE_TOP, SIDE_RIGHT, SIDE_BOTTOM]:
+		_check_equal(48, gameplay_background.get_patch_margin(side), "gameplay background preserves its 48 px scale-9 border")
+	_check_equal(NinePatchRect.AXIS_STRETCH_MODE_STRETCH, gameplay_background.axis_stretch_horizontal, "gameplay background stretches its scale-9 interior horizontally")
+	_check_equal(NinePatchRect.AXIS_STRETCH_MODE_STRETCH, gameplay_background.axis_stretch_vertical, "gameplay background stretches its scale-9 interior vertically")
 	var tuning: Resource = shell.get("momentum_tuning")
 	var modifier_tuning: Resource = shell.get("modifier_tuning")
 	var callout_tuning: Resource = shell.get("arcade_callout_tuning")
@@ -490,9 +493,66 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 	var debug_panel: Control = shell.get("_debug_panel")
 	var pause_button: Button = shell.get("_pause_button")
 	var momentum: Control = regions.momentum
+	var board: Control = regions.board
 	var combo_label: Label = momentum.get("_combo")
 	var momentum_meter: ProgressBar = momentum.get("_meter")
 	_check(not Rect2(combo_label.position, combo_label.size).intersects(Rect2(momentum_meter.position, momentum_meter.size)), "%s Combo readout does not cover Momentum meter" % orientation)
+	_check_equal(
+		load("res://game-assets/ui/portrait/background.png"),
+		shell.get("_gameplay_background").texture,
+		"%s uses the shared Figma gameplay background" % orientation
+	)
+	if orientation == "portrait":
+		var expected_portrait_scale := minf(safe_viewport.size.x / 390.0, safe_viewport.size.y / 844.0)
+		_check(not board.get("_title_label").visible and not board.get("_status_label").visible, "portrait removes the placeholder Board header to maximize tile space")
+		_check(board.get("_tile_layer").position.y <= 6.01, "portrait tile layout begins near the top of the Board region")
+		var hud_scrim: TextureRect = shell.get("_portrait_hud_scrim")
+		_check(hud_scrim.visible, "portrait displays the exported Figma HUD top scrim")
+		_check_equal(load("res://game-assets/ui/portrait/hud_top_scrim.svg"), hud_scrim.texture, "portrait uses the latest Figma HUD top scrim asset")
+		_check_equal(TextureRect.STRETCH_SCALE, hud_scrim.stretch_mode, "portrait HUD top scrim scales with the viewport width")
+		_check(is_equal_approx(hud_scrim.size.x, viewport_rect.size.x), "portrait HUD top scrim spans the full viewport width")
+		_check(is_equal_approx(hud_scrim.size.y, viewport_rect.size.x * 167.0 / 390.0), "portrait HUD top scrim preserves its Figma fade depth")
+		_check(momentum.get("_portrait_style"), "portrait enables the Figma Momentum presentation")
+		_check(momentum.get("_score_art").visible, "portrait shows the exported score-box artwork")
+		_check(momentum.get("_momentum_frame").visible, "portrait shows the exported Momentum frame")
+		_check(momentum.get("_momentum_badge").visible, "portrait shows the exported multiplier badge")
+		_check_equal(7, momentum.get("_ticks").size(), "portrait Momentum exposes seven visible multiplier upgrades")
+		for tick_index in range(momentum.get("_ticks").size()):
+			_check_equal("%dX" % (tick_index + 2), momentum.get("_ticks")[tick_index].text, "portrait Momentum tick %d skips the default x1 tier" % (tick_index + 1))
+		_check(momentum.get("_fill_clip").clip_contents, "portrait Momentum fill is clipped for runtime animation")
+		_check_equal(
+			load("res://assets/fonts/mila-script-sans-regular.ttf"),
+			momentum.get("_score").get_theme_font("font"),
+			"portrait score uses Mila Script Sans Regular"
+		)
+		_check_equal(
+			load("res://assets/fonts/mila-script-sans-bold.ttf"),
+			momentum.get("_score_title").get_theme_font("font"),
+			"portrait score heading uses Mila Script Sans Bold"
+		)
+		_check_equal("123,456,789", momentum.call("_format_score", 123456789), "portrait score formatting groups thousands")
+		_check_equal("01:02.34", momentum.call("_format_time", 62340), "portrait timer formats runtime playback")
+		_check(
+			is_equal_approx(momentum.size.y, 81.0 * expected_portrait_scale),
+			"portrait HUD scales from both safe display dimensions"
+		)
+		_check(
+			is_equal_approx(momentum.get("_momentum_frame").get_global_rect().get_center().x, safe_viewport.get_center().x),
+			"portrait Momentum frame stays centered in the safe display width"
+		)
+		_check(is_equal_approx(pause_button.size.x, pause_button.size.y), "portrait pause artwork preserves a square control")
+		_check(
+			is_equal_approx(pause_button.size.x, 48.0 * expected_portrait_scale),
+			"portrait pause control scales with the display resolution"
+		)
+		_check_equal(
+			load("res://game-assets/ui/portrait/pause_button.png"),
+			pause_button.icon,
+			"portrait pause button uses the exported Figma artwork"
+		)
+	else:
+		_check(not shell.get("_portrait_hud_scrim").visible, "landscape hides the portrait-only HUD top scrim")
+		_check(not momentum.get("_portrait_style"), "landscape retains the existing compact HUD presentation")
 	_check(viewport_rect.encloses(Rect2(pause_button.position, pause_button.size)), "%s pause button stays inside viewport" % orientation)
 	_check(safe_viewport.encloses(Rect2(pause_button.position, pause_button.size)), "%s pause button stays inside safe area" % orientation)
 	if debug_panel.visible:
@@ -515,8 +575,48 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 		)
 
 	var tray: Control = regions.tray
-	var board: Control = regions.board
 	var board_tile_size: Vector2 = board.call("tile_visual_size")
+	if orientation == "portrait":
+		_check(tray.get("_portrait_style"), "portrait enables the Figma queue presentation")
+		_check(tray.get("_queue_left_cap").visible and tray.get("_queue_right_cap").visible, "portrait queue renders both exported end caps")
+		_check_equal(load("res://assets/UI/tile-queue/queue-cap.png"), tray.get("_queue_left_cap").texture, "portrait queue uses the supplied cap artwork")
+		_check_equal(load("res://assets/UI/tile-queue/queue-repeat.png"), tray.get("_queue_repeats")[0].texture, "portrait queue uses the supplied repeat artwork")
+		_check_equal(Vector2(25.0, 115.0), tray.get("_queue_left_cap").texture.get_size(), "portrait queue cap keeps its supplied source dimensions")
+		_check_equal(Vector2(63.0, 115.0), tray.get("_queue_repeats")[0].texture.get_size(), "portrait queue repeat keeps its supplied source dimensions")
+		var queue_repeat_image: Image = tray.get("_queue_repeats")[0].texture.get_image()
+		var repeat_right_stroke := queue_repeat_image.get_pixel(57, 58)
+		_check(repeat_right_stroke.a > 0.9 and repeat_right_stroke.r > 0.5, "portrait queue repeat retains its closing right-side gold stroke")
+		var queue_cap_image: Image = tray.get("_queue_left_cap").texture.get_image()
+		var cap_inner_stroke := queue_cap_image.get_pixel(7, 58)
+		_check(cap_inner_stroke.a > 0.9 and cap_inner_stroke.r > 0.5, "portrait queue cap retains the latest matching inner gold stroke")
+		_check(tray.get("_queue_right_cap").flip_h, "portrait queue mirrors the supplied cap on the right")
+		var left_cap_rect: Rect2 = tray.get("_queue_left_cap").get_rect()
+		var right_cap_rect: Rect2 = tray.get("_queue_right_cap").get_rect()
+		for queue_section in tray.get("_queue_repeats"):
+			if queue_section.visible:
+				_check(is_equal_approx(queue_section.position.y, left_cap_rect.position.y), "portrait queue repeat aligns to the cap top edge")
+				_check(is_equal_approx(queue_section.size.y, left_cap_rect.size.y), "portrait queue repeat aligns to the cap bottom edge")
+		_check(is_equal_approx(right_cap_rect.position.y, left_cap_rect.position.y), "portrait queue right cap aligns to the left cap top edge")
+		_check(is_equal_approx(right_cap_rect.size.y, left_cap_rect.size.y), "portrait queue caps share the same rendered height")
+		_check_equal(6, tray.get("_queue_repeats").size(), "portrait queue owns reusable artwork for its 2-6 slot range")
+		var visible_queue_sections := 0
+		var previous_queue_section: TextureRect = null
+		for queue_section in tray.get("_queue_repeats"):
+			if queue_section.visible:
+				visible_queue_sections += 1
+				if previous_queue_section != null:
+					_check(previous_queue_section.get_rect().end.x > queue_section.position.x, "portrait queue repeat artwork overlaps its neighbor to prevent filtered seams")
+				previous_queue_section = queue_section
+		_check(tray.get("_queue_left_cap").get_rect().end.x > tray.get("_queue_repeats")[0].position.x, "portrait queue left cap overlaps the first repeat without changing its stride")
+		_check(previous_queue_section.get_rect().end.x > tray.get("_queue_right_cap").position.x, "portrait queue right cap overlaps the final repeat without changing its stride")
+		var tray_capacity: int = shell.get("_game").tray.capacity
+		_check_equal(tray_capacity, visible_queue_sections, "portrait queue renders one repeated section per active slot")
+		_check_equal(tray_capacity, tray.call("_slot_count"), "portrait queue follows the live tray capacity")
+		for slot_index in range(shell.get("_game").tray.tiles.size(), tray_capacity):
+			var empty_slot_style: StyleBoxFlat = tray.get("_slots")[slot_index].get_theme_stylebox("panel")
+			_check_equal(Color.TRANSPARENT, empty_slot_style.bg_color, "portrait empty slot %d is supplied only by Figma artwork" % (slot_index + 1))
+	else:
+		_check(not tray.get("_portrait_style"), "landscape retains the existing tray presentation")
 	for slot in tray.get("_slots"):
 		_check(slot.size.is_equal_approx(board_tile_size), "%s tray slot preserves board tile size" % orientation)
 	var callout: Control = shell.get("_performance_callout")
@@ -539,10 +639,11 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 		_check(regions.momentum.position.x + regions.momentum.size.x <= board.position.x, "landscape Momentum stays in the upper-left rail")
 		_check(is_equal_approx(tray.get_rect().get_center().x, board.get_rect().get_center().x), "landscape tray is centered over the Board")
 		_check(not regions.character.visible, "landscape decorative region yields to the central Board and side actions")
-	_check(
-		not Rect2(pause_button.position, pause_button.size).intersects(Rect2(regions.momentum.position, regions.momentum.size)),
-		"%s pause button does not cover Momentum" % orientation
-	)
+	var pause_rect := Rect2(pause_button.position, pause_button.size)
+	if orientation == "portrait":
+		_check(not pause_rect.intersects(momentum.get("_momentum_badge").get_global_rect()), "portrait pause button does not cover the centered Momentum presentation")
+	else:
+		_check(not pause_rect.intersects(Rect2(regions.momentum.position, regions.momentum.size)), "landscape pause button does not cover Momentum")
 
 	for first_index in range(names.size()):
 		for second_index in range(first_index + 1, names.size()):
@@ -666,6 +767,11 @@ func _validate_consumables(shell: Control, orientation: String) -> void:
 		controls.append(notice)
 	for control in controls:
 		_check(panel_rect.encloses(Rect2(control.position, control.size)), "%s consumable control stays inside its panel" % orientation)
+	if orientation == "portrait":
+		_check(consumables.get("_horizontal_dock"), "portrait keeps consumables in bottom-dock mode")
+		var first_button_y: float = buttons.values()[0].position.y
+		for button in buttons.values():
+			_check(is_equal_approx(button.position.y, first_button_y), "portrait consumables remain in one bottom row")
 	for first_index in range(controls.size()):
 		for second_index in range(first_index + 1, controls.size()):
 			var first_rect := Rect2(controls[first_index].position, controls[first_index].size)

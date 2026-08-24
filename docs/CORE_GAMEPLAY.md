@@ -67,13 +67,15 @@ Stopping to search causes momentum to fall.
 Status: Decided for the initial M3 tuning baseline
 
 - Momentum uses integer units from `0` to `100000`.
-- An accepted natural tile selection adds `2500` units; Undo removes the actual gain from the compensated selection after normal decay.
-- A pair adds `30000` units.
-- Thresholds at `0`, `20000`, `40000`, `60000`, and `80000` produce `x1` through `x5`.
-- Tier decay rates are `5`, `7`, `10`, `14`, and `19` units per millisecond, making higher tiers harder to maintain.
+- An accepted natural tile selection adds `2000` units; Undo removes the actual gain from the compensated selection after normal decay.
+- A pair adds `10000` units. Together with two fast selections, a clean pair advances approximately one multiplier tier.
+- `x1` is the unlabeled default. Thresholds every `12500` units produce the seven visible upgrades `x2` through `x8`.
+- Tier decay rates are `3`, `4`, `5`, `6`, `7`, `8`, `10`, and `12` units per millisecond, making higher tiers progressively harder to maintain while keeping consistent fast pairs net-positive through `x8`.
 - A pair scores `100 * current multiplier` before the completing selection's gain, then selection and pair gains build the multiplier for later pairs.
 
 These values are stored in game configuration and remain provisional pending playtesting.
+
+The defaults are editable in Godot by selecting `configuration/default_momentum_tuning.tres` in the FileSystem dock, or by selecting the `GameShell` root and opening its assigned `Momentum Tuning` resource in the Inspector. `Pair Gain`, `Selection Gain`, `Multiplier Thresholds`, and the per-tier `Decay Per Second` array are all exposed. A game snapshots these values when it is created, so restart the run after changing the resource.
 
 ## Win And Loss
 

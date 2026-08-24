@@ -6,6 +6,8 @@ Goal: establish the visual asset system and produce the minimum artwork required
 
 The first title treatment is tracked at `game-assets/art/title_logo.png`. It establishes the energetic brush-lettered brand direction for project descriptions and review material; responsive in-game title placement remains later M7 presentation work.
 
+The first portrait HUD implementation is tracked in [Figma Portrait Gameplay UI](../FIGMA_PORTRAIT_UI.md). It uses exported Figma artwork for the background, score, Momentum, pause, and composable queue while preserving runtime text, fill animation, live tray tiles, safe-area layout, and the existing gameplay state boundary.
+
 ## Current Review Captures
 
 These generated smoke-test captures show the current Batch A candidate rather than final visual polish. The portrait-authored board geometry remains unchanged across orientations, blocked tiles use a reusable darkened state, every visible face is supplied by the shared skin manifest, and the aspect-covered background keeps its visual energy outside the board.

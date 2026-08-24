@@ -4,14 +4,16 @@ The mobile/console-oriented shell follows two presentation compositions around t
 
 ## Portrait
 
-Portrait uses a strict vertical priority stack:
+Portrait uses the M7 Figma HUD documented in [Figma Portrait Gameplay UI](FIGMA_PORTRAIT_UI.md) and a strict vertical priority stack:
 
 1. Score, Momentum, multiplier, and Combo status.
-2. Four-slot tray.
+2. Two-to-six-slot tray (four slots in normal gameplay).
 3. The largest possible uninterrupted Board region.
 4. A bottom action dock ordered Hint, Delete Pair, Shuffle, Undo.
 
-The pause control stays in the upper-right safe area. The action dock uses one horizontal row of large touch targets. Decorative Character/FX and the debug panel are hidden by default so they cannot reduce the Board footprint. The debug panel remains available through the `show_debug_panel` Inspector property. The Tray reserves the full rendered tile and ink-outline height before the Board is placed; the Board yields vertical space when necessary so their rendered children cannot overlap.
+The aspect-covered Figma background may crop laterally but never stretches. Score and Momentum use exported frames with runtime Mila Script Sans text; the Momentum fill remains clipped and animated from live state. The pause control stays square in the upper-right safe area. The queue is centered and composed from exported caps plus one repeatable section for each of two through six live tray slots.
+
+The action dock uses one horizontal row of large touch targets. Decorative Character/FX and the debug panel are hidden by default so they cannot reduce the Board footprint. The debug panel remains available through the `show_debug_panel` Inspector property. The Tray reserves the full rendered tile and ink-outline height before the Board is placed; the Board yields vertical space when necessary so their rendered children cannot overlap.
 
 On compact phones below `800` logical pixels tall, the redundant Board title and tile-count header collapse before the tile field shrinks. This keeps the tall ceramic tiles above their `32 x 48` presentation minimum.
 
