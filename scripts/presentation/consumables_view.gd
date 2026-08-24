@@ -1,15 +1,15 @@
 extends Control
 class_name ConsumablesView
 
-const PORTRAIT_BACKGROUND := preload("res://game-assets/ui/portrait/bottom_tray_background.png")
-const PORTRAIT_TILE_CAP := preload("res://game-assets/ui/portrait/bottom_tray_tile_cap.png")
-const PORTRAIT_NUMBER_BACKGROUND := preload("res://game-assets/ui/portrait/bottom_tray_number_bg.png")
+const PORTRAIT_BACKGROUND := preload("res://assets/UI/bottom-bar/bottom-tray-background-export.png")
+const PORTRAIT_TILE_CAP := preload("res://assets/UI/bottom-bar/tile-cap.png")
+const PORTRAIT_NUMBER_BACKGROUND := preload("res://assets/UI/bottom-bar/count-bg.png")
 const PORTRAIT_FONT := preload("res://assets/fonts/mila-script-sans-bold.ttf")
 const PORTRAIT_ICONS := {
-	"hint": preload("res://game-assets/ui/portrait/bottom_tray_icon_hint.png"),
-	"shuffle": preload("res://game-assets/ui/portrait/bottom_tray_icon_shuffle.png"),
-	"delete_pair": preload("res://game-assets/ui/portrait/bottom_tray_icon_delete.png"),
-	"undo": preload("res://game-assets/ui/portrait/bottom_tray_icon_undo.png"),
+	"hint": preload("res://assets/UI/bottom-bar/icon-hint.png"),
+	"shuffle": preload("res://assets/UI/bottom-bar/icon-shuffle.png"),
+	"delete_pair": preload("res://assets/UI/bottom-bar/icon-delete.png"),
+	"undo": preload("res://assets/UI/bottom-bar/icon-undo.png"),
 }
 const HORIZONTAL_PATCH_RATIO := 0.30
 const VERTICAL_PATCH_RATIO := 0.50

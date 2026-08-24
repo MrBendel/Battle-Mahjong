@@ -509,7 +509,7 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 		var consumables: Control = regions.consumables
 		var bottom_background: NinePatchRect = consumables.get("_portrait_background")
 		_check(bottom_background.visible and not consumables.get("_background").visible, "portrait replaces the provisional consumables panel with supplied artwork")
-		_check_equal(load("res://game-assets/ui/portrait/bottom_tray_background.png"), bottom_background.texture, "portrait uses the supplied bottom bar background")
+		_check_equal(load("res://assets/UI/bottom-bar/bottom-tray-background-export.png"), bottom_background.texture, "portrait uses the supplied bottom bar background")
 		_check_equal(Vector2(2172.0, 724.0), bottom_background.texture.get_size(), "portrait bottom bar retains its authored source dimensions")
 		_check_equal(652, bottom_background.get_patch_margin(SIDE_LEFT), "portrait bottom bar preserves its 30 percent left patch")
 		_check_equal(652, bottom_background.get_patch_margin(SIDE_RIGHT), "portrait bottom bar preserves its 30 percent right patch")
@@ -520,17 +520,17 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 		_check(is_equal_approx(bottom_background.size.y * bottom_background.scale.y, 136.0 * bottom_component_scale), "portrait bottom bar preserves the Figma background height")
 		var portrait_art: Dictionary = consumables.get("_portrait_art")
 		var expected_icons := {
-			"hint": load("res://game-assets/ui/portrait/bottom_tray_icon_hint.png"),
-			"shuffle": load("res://game-assets/ui/portrait/bottom_tray_icon_shuffle.png"),
-			"delete_pair": load("res://game-assets/ui/portrait/bottom_tray_icon_delete.png"),
-			"undo": load("res://game-assets/ui/portrait/bottom_tray_icon_undo.png"),
+			"hint": load("res://assets/UI/bottom-bar/icon-hint.png"),
+			"shuffle": load("res://assets/UI/bottom-bar/icon-shuffle.png"),
+			"delete_pair": load("res://assets/UI/bottom-bar/icon-delete.png"),
+			"undo": load("res://assets/UI/bottom-bar/icon-undo.png"),
 		}
 		for consumable_type in ["hint", "shuffle", "delete_pair", "undo"]:
 			var art: Dictionary = portrait_art[consumable_type]
 			_check(art.root.visible, "portrait displays %s Figma action artwork" % consumable_type)
-			_check_equal(load("res://game-assets/ui/portrait/bottom_tray_tile_cap.png"), art.cap.texture, "portrait %s uses the Figma ceramic cap" % consumable_type)
+			_check_equal(load("res://assets/UI/bottom-bar/tile-cap.png"), art.cap.texture, "portrait %s uses the supplied ceramic cap" % consumable_type)
 			_check_equal(expected_icons[consumable_type], art.icon.texture, "portrait %s uses its exported Figma icon" % consumable_type)
-			_check_equal(load("res://game-assets/ui/portrait/bottom_tray_number_bg.png"), art.number_background.texture, "portrait %s uses the Figma quantity plaque" % consumable_type)
+			_check_equal(load("res://assets/UI/bottom-bar/count-bg.png"), art.number_background.texture, "portrait %s uses the supplied quantity plaque" % consumable_type)
 			_check_equal(load("res://assets/fonts/mila-script-sans-bold.ttf"), art.title.get_theme_font("font"), "portrait %s label uses Mila Script Sans Bold" % consumable_type)
 			_check_equal(str(shell.get("_game").call("consumable_count", consumable_type)), art.quantity.text, "portrait %s shows its live quantity" % consumable_type)
 		var hud_scrim: TextureRect = shell.get("_portrait_hud_scrim")
