@@ -1,6 +1,10 @@
 extends Control
 class_name ConsumablesView
 
+const PORTRAIT_BACKGROUND := preload("res://game-assets/ui/portrait/bottom_tray_background.png")
+const HORIZONTAL_PATCH_RATIO := 0.30
+const VERTICAL_PATCH_RATIO := 0.50
+
 signal hint_requested
 signal delete_pair_requested
 signal shuffle_requested
@@ -10,6 +14,7 @@ var _game: Variant
 var _buttons: Dictionary = {}
 var _notice: Label
 var _background: Panel
+var _portrait_background: NinePatchRect
 var _title: Label
 var _action_rects: Dictionary = {}
 var _horizontal_dock := false
@@ -31,6 +36,17 @@ func _ready() -> void:
 	style.set_corner_radius_all(8)
 	_background.add_theme_stylebox_override("panel", style)
 	add_child(_background)
+	_portrait_background = NinePatchRect.new()
+	_portrait_background.name = "PortraitBackground"
+	_portrait_background.texture = PORTRAIT_BACKGROUND
+	_portrait_background.set_patch_margin(SIDE_LEFT, roundi(PORTRAIT_BACKGROUND.get_width() * HORIZONTAL_PATCH_RATIO))
+	_portrait_background.set_patch_margin(SIDE_RIGHT, roundi(PORTRAIT_BACKGROUND.get_width() * HORIZONTAL_PATCH_RATIO))
+	_portrait_background.set_patch_margin(SIDE_TOP, roundi(PORTRAIT_BACKGROUND.get_height() * VERTICAL_PATCH_RATIO))
+	_portrait_background.set_patch_margin(SIDE_BOTTOM, roundi(PORTRAIT_BACKGROUND.get_height() * VERTICAL_PATCH_RATIO))
+	_portrait_background.axis_stretch_horizontal = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
+	_portrait_background.axis_stretch_vertical = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
+	_portrait_background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_portrait_background)
 	_title = Label.new()
 	_title.text = "Consumables"
 	_title.position = Vector2(12.0, 8.0)
@@ -119,6 +135,7 @@ func _layout() -> void:
 		return
 	if not _action_rects.is_empty():
 		_background.visible = false
+		_portrait_background.visible = false
 		_title.visible = false
 		_notice.visible = false
 		for consumable_type in _buttons:
@@ -128,7 +145,10 @@ func _layout() -> void:
 			_buttons[consumable_type].add_theme_font_size_override("font_size", 16)
 		refresh()
 		return
-	_background.visible = true
+	_background.visible = not _horizontal_dock
+	_portrait_background.visible = _horizontal_dock
+	if _horizontal_dock:
+		_layout_portrait_background()
 	_title.visible = false
 	_notice.size = Vector2(maxf(100.0, size.x - 24.0), 46.0)
 	var vertical := not _horizontal_dock and size.y > 180.0 and size.y > size.x
@@ -151,3 +171,13 @@ func _layout() -> void:
 			_buttons[types[index]].add_theme_font_size_override("font_size", 14)
 			button_x += button_width + gap
 	refresh()
+
+
+func _layout_portrait_background() -> void:
+	if size.x <= 0.0 or size.y <= 0.0:
+		return
+	var source_size := PORTRAIT_BACKGROUND.get_size()
+	var art_scale := size.y / source_size.y
+	_portrait_background.position = Vector2.ZERO
+	_portrait_background.size = Vector2(size.x / art_scale, source_size.y)
+	_portrait_background.scale = Vector2.ONE * art_scale
