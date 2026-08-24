@@ -493,6 +493,7 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 	var debug_panel: Control = shell.get("_debug_panel")
 	var pause_button: Button = shell.get("_pause_button")
 	var momentum: Control = regions.momentum
+	var board: Control = regions.board
 	var combo_label: Label = momentum.get("_combo")
 	var momentum_meter: ProgressBar = momentum.get("_meter")
 	_check(not Rect2(combo_label.position, combo_label.size).intersects(Rect2(momentum_meter.position, momentum_meter.size)), "%s Combo readout does not cover Momentum meter" % orientation)
@@ -503,6 +504,8 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 	)
 	if orientation == "portrait":
 		var expected_portrait_scale := minf(safe_viewport.size.x / 390.0, safe_viewport.size.y / 844.0)
+		_check(not board.get("_title_label").visible and not board.get("_status_label").visible, "portrait removes the placeholder Board header to maximize tile space")
+		_check(board.get("_tile_layer").position.y <= 6.01, "portrait tile layout begins near the top of the Board region")
 		var hud_scrim: TextureRect = shell.get("_portrait_hud_scrim")
 		_check(hud_scrim.visible, "portrait displays the exported Figma HUD top scrim")
 		_check_equal(load("res://game-assets/ui/portrait/hud_top_scrim.svg"), hud_scrim.texture, "portrait uses the latest Figma HUD top scrim asset")
@@ -572,7 +575,6 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 		)
 
 	var tray: Control = regions.tray
-	var board: Control = regions.board
 	var board_tile_size: Vector2 = board.call("tile_visual_size")
 	if orientation == "portrait":
 		_check(tray.get("_portrait_style"), "portrait enables the Figma queue presentation")

@@ -917,7 +917,7 @@ func _apply_layout() -> void:
 	_regions.momentum.call("set_portrait_style", portrait)
 	_regions.tray.call("set_portrait_style", portrait)
 	_regions.consumables.call("set_horizontal_dock", portrait)
-	_regions.board.call("set_compact_mode", orientation == "Portrait" and viewport_size.y < 800.0)
+	_regions.board.call("set_compact_mode", portrait)
 
 	for region in _regions.values():
 		region.visible = true

@@ -65,6 +65,7 @@ Project-level instructions for Codex working on Battle Mahjong.
 - Momentum uses eight gameplay tiers: unlabeled default `x1` plus seven visible HUD upgrades `x2` through `x8`. Default thresholds are spaced every `12500` units; a fast natural pair advances approximately one tier under the default tuning.
 - The `941 x 1672` Figma gameplay background is shared across orientations through scale-9 rendering with fixed `48 px` source margins on all sides. Stretch its interior rather than aspect-covering or cropping the gold border and corners.
 - Portrait HUD shading uses the exact `390 x 167` `hud-top-scrim` vector from Figma node `68:4`, scaled to the full viewport width. Do not replace its top-to-transparent fade with a uniform color rectangle; landscape hides it.
+- Portrait Board presentation uses compact internal geometry and hides the prototype Board title/status header so tiles receive the flexible space between the queue and bottom action dock. Landscape retains the diagnostic Board header.
 - Deterministic tile and pair difficulty analysis runs before each accepted natural selection and records derived transaction telemetry. The provisional geometry-only formula is documented in `docs/PAIR_DIFFICULTY.md`; it must remain orientation- and skin-independent and must not affect rewards until playtest validation.
 - Cross-game state boundaries are documented in `docs/PLAYER_PROFILE.md`. M9 will implement local profiles and a durable game library before replay presentation, game modes, backend work, or progression.
 
