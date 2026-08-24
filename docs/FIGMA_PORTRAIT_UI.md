@@ -42,7 +42,7 @@ Runtime UI:
 - live tray tiles and modifiers;
 - pause interaction.
 
-The Momentum fill is clipped inside the exported frame and scales horizontally from simulation state. The queue is assembled from a left cap, one repeated section per active capacity, and a mirrored right cap. The exported repeat artwork owns the complete empty-slot appearance; Godot slot controls remain transparent positioning and animation targets until they contain a live Board tile. The queue supports capacities from two through six while the reference game remains at four.
+The Momentum fill is clipped inside the exported frame and scales horizontally from simulation state. The queue is assembled from a left cap, one repeated section per active capacity, and a mirrored right cap. Cap and repeat exports share a `115 px` source height and render on the same top/bottom edges. Adjacent artwork overlaps by one source pixel while retaining its authored horizontal stride; this prevents bilinear filtering from exposing each transparent crop boundary as a dark vertical seam. The exported repeat artwork owns the complete empty-slot appearance; Godot slot controls remain transparent positioning and animation targets until they contain a live Board tile. The queue supports capacities from two through six while the reference game remains at four.
 
 ## Responsive Contract
 

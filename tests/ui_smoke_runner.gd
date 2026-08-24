@@ -584,6 +584,9 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 		var queue_repeat_image: Image = tray.get("_queue_repeats")[0].texture.get_image()
 		var repeat_right_stroke := queue_repeat_image.get_pixel(57, 58)
 		_check(repeat_right_stroke.a > 0.9 and repeat_right_stroke.r > 0.5, "portrait queue repeat retains its closing right-side gold stroke")
+		var queue_cap_image: Image = tray.get("_queue_left_cap").texture.get_image()
+		var cap_inner_stroke := queue_cap_image.get_pixel(7, 58)
+		_check(cap_inner_stroke.a > 0.9 and cap_inner_stroke.r > 0.5, "portrait queue cap retains the latest matching inner gold stroke")
 		_check(tray.get("_queue_right_cap").flip_h, "portrait queue mirrors the supplied cap on the right")
 		var left_cap_rect: Rect2 = tray.get("_queue_left_cap").get_rect()
 		var right_cap_rect: Rect2 = tray.get("_queue_right_cap").get_rect()
@@ -595,8 +598,15 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 		_check(is_equal_approx(right_cap_rect.size.y, left_cap_rect.size.y), "portrait queue caps share the same rendered height")
 		_check_equal(6, tray.get("_queue_repeats").size(), "portrait queue owns reusable artwork for its 2-6 slot range")
 		var visible_queue_sections := 0
+		var previous_queue_section: TextureRect = null
 		for queue_section in tray.get("_queue_repeats"):
-			visible_queue_sections += 1 if queue_section.visible else 0
+			if queue_section.visible:
+				visible_queue_sections += 1
+				if previous_queue_section != null:
+					_check(previous_queue_section.get_rect().end.x > queue_section.position.x, "portrait queue repeat artwork overlaps its neighbor to prevent filtered seams")
+				previous_queue_section = queue_section
+		_check(tray.get("_queue_left_cap").get_rect().end.x > tray.get("_queue_repeats")[0].position.x, "portrait queue left cap overlaps the first repeat without changing its stride")
+		_check(previous_queue_section.get_rect().end.x > tray.get("_queue_right_cap").position.x, "portrait queue right cap overlaps the final repeat without changing its stride")
 		var tray_capacity: int = shell.get("_game").tray.capacity
 		_check_equal(tray_capacity, visible_queue_sections, "portrait queue renders one repeated section per active slot")
 		_check_equal(tray_capacity, tray.call("_slot_count"), "portrait queue follows the live tray capacity")

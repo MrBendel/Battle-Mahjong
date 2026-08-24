@@ -9,9 +9,10 @@ const MIN_SLOT_COUNT := 2
 const MAX_SLOT_COUNT := 6
 const MARGIN := 10.0
 const GAP := 8.0
-const FIGMA_CAP_SIZE := Vector2(25.0, 115.0)
-const FIGMA_SLOT_SIZE := Vector2(63.0, 115.0)
+const FIGMA_CAP_SIZE := Vector2(24.968, 115.0)
+const FIGMA_SLOT_SIZE := Vector2(62.42, 115.0)
 const FIGMA_TILE_RECT := Rect2(7.11, 17.7, 46.685, 60.121)
+const QUEUE_ART_SEAM_OVERLAP := 1.0
 
 var _game: Variant
 var _status_label: Label
@@ -254,12 +255,12 @@ func _layout_portrait() -> void:
 	var queue_height := FIGMA_CAP_SIZE.y * scale
 	var origin := Vector2((size.x - queue_width) * 0.5, (size.y - queue_height) * 0.5)
 	_queue_left_cap.position = origin
-	_queue_left_cap.size = FIGMA_CAP_SIZE * scale
+	_queue_left_cap.size = Vector2(FIGMA_CAP_SIZE.x + QUEUE_ART_SEAM_OVERLAP, FIGMA_CAP_SIZE.y) * scale
 	for index in range(MAX_SLOT_COUNT):
 		_queue_repeats[index].position = origin + Vector2((FIGMA_CAP_SIZE.x + FIGMA_SLOT_SIZE.x * index) * scale, 0.0)
-		_queue_repeats[index].size = FIGMA_SLOT_SIZE * scale
-	_queue_right_cap.position = origin + Vector2((FIGMA_CAP_SIZE.x + FIGMA_SLOT_SIZE.x * _slot_count()) * scale, 0.0)
-	_queue_right_cap.size = FIGMA_CAP_SIZE * scale
+		_queue_repeats[index].size = Vector2(FIGMA_SLOT_SIZE.x + QUEUE_ART_SEAM_OVERLAP, FIGMA_SLOT_SIZE.y) * scale
+	_queue_right_cap.position = origin + Vector2((FIGMA_CAP_SIZE.x + FIGMA_SLOT_SIZE.x * _slot_count() - QUEUE_ART_SEAM_OVERLAP) * scale, 0.0)
+	_queue_right_cap.size = Vector2(FIGMA_CAP_SIZE.x + QUEUE_ART_SEAM_OVERLAP, FIGMA_CAP_SIZE.y) * scale
 
 	var active_geometry: Dictionary = _tile_skin.active_geometry()
 	var safe_area: Array = active_geometry.get("face_safe_area", [92, 104, 328, 400])
