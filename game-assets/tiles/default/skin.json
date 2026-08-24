@@ -16,6 +16,7 @@
       "source_size": [1024, 1536],
       "runtime_size": [512, 768],
       "face_safe_area": [152, 190, 720, 1050],
+      "back_design_safe_area": [208, 430, 608, 608],
       "minimum_runtime_size": [32, 48]
     },
     "landscape": {
@@ -23,7 +24,19 @@
       "source_size": [1536, 1024],
       "runtime_size": [768, 512],
       "face_safe_area": [250, 100, 1036, 740],
+      "back_design_safe_area": [464, 208, 608, 608],
       "minimum_runtime_size": [48, 32]
+    }
+  },
+  "back_variants": {
+    "portrait": "res://game-assets/tiles/default/backs/tile_back_portrait.png",
+    "landscape": "res://game-assets/tiles/default/backs/tile_back_landscape.png"
+  },
+  "default_back_id": "arcade_spark",
+  "back_designs": {
+    "arcade_spark": {
+      "display_name": "Arcade Spark",
+      "asset": "res://game-assets/tiles/default/back-designs/arcade_spark.png"
     }
   },
   "depth_presentation": {

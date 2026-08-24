@@ -98,8 +98,10 @@ func reveal_tile(tile_id: String, playback_time_ms: int = -1) -> String:
 
 
 func tap_tile(tile_id: String, playback_time_ms: int = -1) -> String:
-	if board.call("is_tile_face_down", tile_id) \
-			or board.call("is_tile_revealed_flipped", tile_id) \
+	if board.call("is_tile_face_down", tile_id):
+		return reveal_tile(tile_id, playback_time_ms)
+	if definition.rules_version < 12 \
+			and board.call("is_tile_revealed_flipped", tile_id) \
 			and not flipped_match_candidate(tile_id).is_empty():
 		return reveal_tile(tile_id, playback_time_ms)
 	return select_tile(tile_id, playback_time_ms)

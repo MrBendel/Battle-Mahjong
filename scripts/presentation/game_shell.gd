@@ -298,11 +298,13 @@ func _on_tile_selected(tile_id: String) -> void:
 	else:
 		var face_down: bool = _game.board.call("is_tile_face_down", tile_id)
 		var flipped_candidate: Dictionary = _game.call("flipped_match_candidate", tile_id)
-		if face_down or not flipped_candidate.is_empty():
+		var legacy_direct_flipped_match: bool = _game.definition.rules_version < 12 \
+			and not flipped_candidate.is_empty()
+		if face_down or legacy_direct_flipped_match:
 			var direct_visuals := _capture_board_visuals([tile_id], face_down)
 			var direct_matching_zone := ""
 			var direct_target_rect := Rect2()
-			if not flipped_candidate.is_empty():
+			if legacy_direct_flipped_match:
 				var matching_tile_id := str(flipped_candidate.tile_id)
 				direct_matching_zone = str(flipped_candidate.zone)
 				if direct_matching_zone == GameStateDataScript.ZONE_BOARD:
@@ -325,7 +327,7 @@ func _on_tile_selected(tile_id: String) -> void:
 			if result == GameStateScript.TILE_REVEALED:
 				for visual in direct_visuals:
 					visual.preview.queue_free()
-				_regions.board.call("play_flip", tile_id)
+				_regions.board.call("play_flip", tile_id, true)
 			elif result == GameStateScript.FLIPPED_PAIR_RESOLVED:
 				if direct_matching_zone == GameStateDataScript.ZONE_TRAY:
 					_play_flipped_match_to_tray(direct_visuals, direct_target_rect, face_down)
@@ -392,7 +394,7 @@ func _active_revealed_flipped_tile_ids() -> Array[String]:
 func _play_flip_backs(previously_revealed_ids: Array[String]) -> void:
 	for tile_id in previously_revealed_ids:
 		if _game.board.call("is_tile_face_down", tile_id):
-			_regions.board.call("play_flip", tile_id)
+			_regions.board.call("play_flip", tile_id, false)
 
 
 func _on_locked_tile_tapped(tile_id: String) -> void:

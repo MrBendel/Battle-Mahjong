@@ -24,6 +24,8 @@ var _tile_buttons: Dictionary = {}
 var _shadow_art: Dictionary = {}
 var _ink_outlines: Dictionary = {}
 var _base_art: Dictionary = {}
+var _back_art: Dictionary = {}
+var _back_design_art: Dictionary = {}
 var _face_art: Dictionary = {}
 var _hint_glows: Dictionary = {}
 var _blocked_overlays: Dictionary = {}
@@ -41,6 +43,7 @@ var _compact_mode := false
 var _hinted_tile_ids := {}
 var _tile_layout_positions := {}
 var _hint_elapsed := 0.0
+var _flip_tweens: Dictionary = {}
 
 
 func _init(game_state: Variant, tile_skin: Variant = null) -> void:
@@ -135,6 +138,10 @@ func _build() -> void:
 
 
 func _rebuild_tiles() -> void:
+	for tween in _flip_tweens.values():
+		if tween != null and tween.is_valid():
+			tween.kill()
+	_flip_tweens.clear()
 	for button in _tile_buttons.values():
 		if button.get_parent() == _tile_layer:
 			_tile_layer.remove_child(button)
@@ -143,6 +150,8 @@ func _rebuild_tiles() -> void:
 	_shadow_art.clear()
 	_ink_outlines.clear()
 	_base_art.clear()
+	_back_art.clear()
+	_back_design_art.clear()
 	_face_art.clear()
 	_hint_glows.clear()
 	_blocked_overlays.clear()
@@ -184,6 +193,19 @@ func _rebuild_tiles() -> void:
 		base_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		base_art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		button.add_child(base_art)
+
+		var back_art := TextureRect.new()
+		back_art.name = "BackArt"
+		back_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		back_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		back_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		back_art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		button.add_child(back_art)
+
+		var back_design_art := TextureRect.new()
+		back_design_art.name = "BackDesignArt"
+		_tile_skin.configure_back_design(back_design_art)
+		button.add_child(back_design_art)
 
 		var face_art := TextureRect.new()
 		face_art.name = "FaceArt"
@@ -228,6 +250,8 @@ func _rebuild_tiles() -> void:
 		_shadow_art[tile.id] = shadow_art
 		_ink_outlines[tile.id] = ink_outline
 		_base_art[tile.id] = base_art
+		_back_art[tile.id] = back_art
+		_back_design_art[tile.id] = back_design_art
 		_face_art[tile.id] = face_art
 		_hint_glows[tile.id] = hint_glow
 		_blocked_overlays[tile.id] = blocked_overlay
@@ -269,9 +293,13 @@ func refresh() -> void:
 		var revealed_flipped: bool = _game.board.call("is_tile_revealed_flipped", tile.id)
 		var revealed_tray_match: bool = revealed_flipped \
 			and not _game.call("flipped_match_candidate", tile.id).is_empty()
+		var revealed_playable: bool = revealed_flipped \
+			and _game.definition.rules_version >= 12 \
+			and _game.board.call("is_tile_accessible", tile.id)
 		var selectable: bool = (_delete_pair_armed and visible_ids.has(tile.id) and not face_down \
 			or not _delete_pair_armed and (selectable_ids.has(tile.id) \
-				or revealable_ids.has(tile.id) or revealed_tray_match)) \
+				or revealable_ids.has(tile.id) or revealed_playable \
+				or _game.definition.rules_version < 12 and revealed_tray_match)) \
 			and _game.status == "playing"
 		var visually_active: bool = selectable or revealed_flipped
 		button.tooltip_text = _tile_tooltip(tile)
@@ -297,7 +325,13 @@ func refresh() -> void:
 		_tile_skin.configure_ink_outline(ink_outline)
 		var base_art: TextureRect = _base_art[tile.id]
 		base_art.texture = _tile_skin.tile_base_texture()
-		base_art.visible = base_art.texture != null
+		var back_art: TextureRect = _back_art[tile.id]
+		back_art.texture = _tile_skin.tile_back_texture()
+		back_art.visible = face_down and back_art.texture != null
+		var back_design_art: TextureRect = _back_design_art[tile.id]
+		_tile_skin.configure_back_design(back_design_art)
+		back_design_art.visible = face_down and back_design_art.texture != null
+		base_art.visible = (not face_down or back_art.texture == null) and base_art.texture != null
 		var face_art: TextureRect = _face_art[tile.id]
 		face_art.texture = texture
 		face_art.visible = not face_down and texture != null
@@ -326,9 +360,16 @@ func _on_tile_pressed(tile_id: String) -> void:
 		and not _game.board.call("is_tile_face_down", tile_id)) if _delete_pair_armed \
 		else (_game.board.call("is_tile_selectable", tile_id) \
 			or _game.board.call("is_tile_revealable", tile_id) \
-			or _game.board.call("is_tile_revealed_flipped", tile_id) \
+			or _game.definition.rules_version >= 12 \
+				and _game.board.call("is_tile_revealed_flipped", tile_id) \
+				and _game.board.call("is_tile_accessible", tile_id) \
+			or _game.definition.rules_version < 12 \
+				and _game.board.call("is_tile_revealed_flipped", tile_id) \
 				and not _game.call("flipped_match_candidate", tile_id).is_empty())
 	if _game.status != "playing":
+		return
+	var button: Button = _tile_buttons.get(tile_id)
+	if button != null and bool(button.get_meta("flip_animating", false)):
 		return
 	if not targetable:
 		if not _delete_pair_armed:
@@ -383,11 +424,17 @@ func create_tile_preview(tile_id: String, force_face_up: bool = false) -> Contro
 	preview.add_child(ink_outline)
 	var base_art := TextureRect.new()
 	base_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	base_art.texture = _tile_skin.tile_base_texture()
+	base_art.texture = _tile_skin.tile_base_texture() if force_face_up \
+		or not bool(button.get_meta("face_down", false)) else _tile_skin.tile_back_texture()
 	base_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	base_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	base_art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	preview.add_child(base_art)
+	if not force_face_up and bool(button.get_meta("face_down", false)):
+		var back_design_art := TextureRect.new()
+		back_design_art.name = "BackDesignArt"
+		_tile_skin.configure_back_design(back_design_art)
+		preview.add_child(back_design_art)
 	var source_art: TextureRect = _face_art[tile_id]
 	if (not bool(button.get_meta("face_down", false)) or force_face_up) and source_art.texture != null:
 		var face_art := TextureRect.new()
@@ -434,14 +481,73 @@ func negative_feedback_count() -> int:
 	return _negative_feedback_count
 
 
-func play_flip(tile_id: String) -> void:
+func play_flip(tile_id: String, revealing: bool = true) -> void:
 	var button: Button = _tile_buttons.get(tile_id)
 	if button == null or not button.visible:
 		return
+	if _flip_tweens.has(tile_id):
+		var active_tween: Tween = _flip_tweens[tile_id]
+		if active_tween != null and active_tween.is_valid():
+			active_tween.kill()
+	_set_flip_side(tile_id, not revealing)
 	button.pivot_offset = button.size * 0.5
-	button.scale = Vector2(0.08, 1.0)
-	var tween := create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tween.tween_property(button, "scale", Vector2.ONE, 0.16)
+	button.scale = Vector2.ONE
+	button.set_meta("flip_animating", true)
+	var tween := create_tween()
+	_flip_tweens[tile_id] = tween
+	tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.tween_property(button, "scale:x", 0.06, 0.075)
+	tween.tween_callback(_set_flip_side.bind(tile_id, revealing))
+	tween.tween_callback(_show_flip_blur.bind(tile_id))
+	tween.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(button, "scale:x", 1.0, 0.11)
+	tween.tween_callback(_finish_flip.bind(tile_id))
+
+
+func _set_flip_side(tile_id: String, face_up: bool) -> void:
+	var base_art: TextureRect = _base_art.get(tile_id)
+	var back_art: TextureRect = _back_art.get(tile_id)
+	var back_design_art: TextureRect = _back_design_art.get(tile_id)
+	var face_art: TextureRect = _face_art.get(tile_id)
+	if base_art == null or back_art == null or back_design_art == null or face_art == null:
+		return
+	back_art.visible = not face_up and back_art.texture != null
+	back_design_art.visible = not face_up and back_design_art.texture != null
+	base_art.visible = (face_up or back_art.texture == null) and base_art.texture != null
+	face_art.visible = face_up and face_art.texture != null
+
+
+func _show_flip_blur(tile_id: String) -> void:
+	var button: Button = _tile_buttons.get(tile_id)
+	if button == null:
+		return
+	var blur := TextureRect.new()
+	blur.name = "FlipBlur"
+	blur.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	blur.texture = _tile_skin.tile_base_texture()
+	blur.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	blur.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	blur.anchor_left = -0.12
+	blur.anchor_top = -0.02
+	blur.anchor_right = 1.12
+	blur.anchor_bottom = 1.02
+	blur.modulate = Color(1.0, 0.94, 0.78, 0.24)
+	var material := CanvasItemMaterial.new()
+	material.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+	blur.material = material
+	button.add_child(blur)
+	var blur_tween := create_tween()
+	blur_tween.tween_property(blur, "modulate:a", 0.0, 0.10)
+	blur_tween.tween_callback(blur.queue_free)
+
+
+func _finish_flip(tile_id: String) -> void:
+	_flip_tweens.erase(tile_id)
+	var button: Button = _tile_buttons.get(tile_id)
+	if button == null:
+		return
+	button.scale = Vector2.ONE
+	button.set_meta("flip_animating", false)
 
 
 func _play_negative_feedback(tile_id: String) -> void:

@@ -41,7 +41,10 @@ func verify_solution(definition: Variant, tile_ids: Array) -> Dictionary:
 		]:
 			return {"valid": false, "reason": "route tile %d was rejected" % index}
 		var staged_result := _resolve_ready_flipped_match(game)
-		if not staged_result.is_empty() and staged_result != GameStateScript.FLIPPED_PAIR_RESOLVED:
+		if not staged_result.is_empty() and staged_result not in [
+			GameStateScript.PAIR_RESOLVED,
+			GameStateScript.FLIPPED_PAIR_RESOLVED,
+		]:
 			return {"valid": false, "reason": "staged flipped match after tile %d was rejected" % index}
 
 	return {"valid": game.status == GameStateScript.WON, "reason": "" if game.status == GameStateScript.WON else "solution did not win"}
@@ -83,7 +86,10 @@ func _resolve_ready_flipped_match(game: Variant) -> String:
 		if (game.board.call("is_tile_revealable", tile_id) \
 				or game.board.call("is_tile_revealed_flipped", tile_id)) \
 				and not game.call("flipped_match_candidate", tile_id).is_empty():
-			return game.call("tap_tile", tile_id)
+			var result: String = game.call("tap_tile", tile_id)
+			if result == GameStateScript.TILE_REVEALED and game.definition.rules_version >= 12:
+				return game.call("tap_tile", tile_id)
+			return result
 	return ""
 
 
@@ -101,8 +107,11 @@ func _submit_ready_flipped_match(definition: Variant, store: Variant, state: Var
 				break
 		if not has_tray_match:
 			continue
+		var was_face_down: bool = board.call("is_tile_face_down", tile_id)
+		var command_type := GameCommandScript.REVEAL_TILE if was_face_down \
+			else GameCommandScript.SELECT_TILE
 		var command := GameCommandScript.new(
-			GameCommandScript.REVEAL_TILE,
+			command_type,
 			{"tile_id": tile_id},
 			state.revision,
 			"verify_staged_%06d" % route_index,
@@ -110,6 +119,17 @@ func _submit_ready_flipped_match(definition: Variant, store: Variant, state: Var
 			state.elapsed_time_ms
 		)
 		var submitted: Dictionary = store.call("submit_command", command)
+		if bool(submitted.accepted) and was_face_down and definition.rules_version >= 12:
+			state = store.call("current_state")
+			var select_command := GameCommandScript.new(
+				GameCommandScript.SELECT_TILE,
+				{"tile_id": tile_id},
+				state.revision,
+				"verify_staged_select_%06d" % route_index,
+				"solver",
+				state.elapsed_time_ms
+			)
+			submitted = store.call("submit_command", select_command)
 		return {"accepted": bool(submitted.accepted), "reason": "staged flipped match was rejected"}
 	return {"accepted": true, "reason": ""}
 
