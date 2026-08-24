@@ -2,13 +2,22 @@ extends Control
 class_name TrayView
 
 const TileSkinScript := preload("res://scripts/presentation/tile_skin.gd")
+const QUEUE_REPEAT := preload("res://game-assets/ui/portrait/queue_repeat.png")
+const QUEUE_CAP := preload("res://game-assets/ui/portrait/queue_cap.png")
 
-const SLOT_COUNT := 4
+const MIN_SLOT_COUNT := 2
+const MAX_SLOT_COUNT := 6
 const MARGIN := 10.0
 const GAP := 8.0
+const FIGMA_CAP_SIZE := Vector2(25.315, 118.564)
+const FIGMA_SLOT_SIZE := Vector2(63.287, 118.564)
+const FIGMA_TILE_RECT := Rect2(7.21, 17.94, 47.334, 60.956)
+const FIGMA_REPEAT_REGION := Rect2(257.0, 0.0, 198.0, 370.0)
 
 var _game: Variant
 var _status_label: Label
+var _legacy_background: Panel
+var _title_label: Label
 var _slots: Array[Panel] = []
 var _slot_ink_outlines: Array[TextureRect] = []
 var _slot_bases: Array[TextureRect] = []
@@ -18,6 +27,10 @@ var _slot_modifiers: Array[Label] = []
 var _tile_skin: Variant
 var _tile_visual_size := Vector2(32.0, 40.0)
 var _suppressed_tile_ids := {}
+var _portrait_style := false
+var _queue_left_cap: TextureRect
+var _queue_right_cap: TextureRect
+var _queue_repeats: Array[TextureRect] = []
 
 
 func _init(game_state: Variant, tile_skin: Variant = null) -> void:
@@ -38,6 +51,12 @@ func set_game_state(game_state: Variant) -> void:
 	refresh()
 
 
+func set_portrait_style(enabled: bool) -> void:
+	_portrait_style = enabled
+	_update_style_visibility()
+	_layout()
+
+
 func set_tile_visual_size(tile_size: Vector2) -> void:
 	if tile_size.x <= 0.0 or tile_size.y <= 0.0:
 		return
@@ -46,6 +65,8 @@ func set_tile_visual_size(tile_size: Vector2) -> void:
 
 
 func minimum_height_for_tile(tile_size: Vector2) -> float:
+	if _portrait_style:
+		return ceilf(FIGMA_CAP_SIZE.y * _portrait_scale(tile_size))
 	var expansion: Array = _tile_skin.layout_presentation.get("ink_outline_expansion_ratio", [0.055, 0.04])
 	var offset: Array = _tile_skin.layout_presentation.get("ink_outline_offset_ratio", [-0.004, 0.006])
 	var outline_bottom_ratio := float(expansion[1]) * 0.5 + maxf(0.0, float(offset[1]))
@@ -53,8 +74,10 @@ func minimum_height_for_tile(tile_size: Vector2) -> float:
 
 
 func minimum_width_for_tile(tile_size: Vector2) -> float:
+	if _portrait_style:
+		return ceilf((FIGMA_CAP_SIZE.x * 2.0 + FIGMA_SLOT_SIZE.x * _slot_count()) * _portrait_scale(tile_size))
 	var expansion: Array = _tile_skin.layout_presentation.get("ink_outline_expansion_ratio", [0.055, 0.04])
-	return ceilf(tile_size.x * (float(SLOT_COUNT) + float(expansion[0])) + GAP * float(SLOT_COUNT - 1))
+	return ceilf(tile_size.x * (float(_slot_count()) + float(expansion[0])) + GAP * float(_slot_count() - 1))
 
 
 func suppress_tile(tile_id: String) -> void:
@@ -71,7 +94,12 @@ func refresh() -> void:
 	if _game == null or _slots.is_empty():
 		return
 
-	for index in range(SLOT_COUNT):
+	for index in range(MAX_SLOT_COUNT):
+		var enabled := index < _slot_count()
+		_slots[index].visible = enabled
+		_queue_repeats[index].visible = _portrait_style and enabled
+		if not enabled:
+			continue
 		var occupied: bool = index < _game.tray.tiles.size()
 		var label := _slot_labels[index]
 		var ink_outline := _slot_ink_outlines[index]
@@ -100,7 +128,7 @@ func refresh() -> void:
 			modifier_label.text = _modifier_symbol(tile) if occupied else ""
 			modifier_label.visible = false
 			label.text = str(index + 1)
-			label.visible = true
+			label.visible = not _portrait_style
 			_slots[index].add_theme_stylebox_override("panel", _empty_slot_style())
 
 		label.add_theme_color_override("font_color", Color("202625") if presented else Color("68716f"))
@@ -119,17 +147,17 @@ func refresh() -> void:
 
 
 func _build() -> void:
-	var background := Panel.new()
-	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	background.add_theme_stylebox_override("panel", _panel_style())
-	add_child(background)
+	_legacy_background = Panel.new()
+	_legacy_background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_legacy_background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_legacy_background.add_theme_stylebox_override("panel", _panel_style())
+	add_child(_legacy_background)
 
-	var title_label := Label.new()
-	title_label.text = "Tray"
-	title_label.position = Vector2(MARGIN, 4.0)
-	title_label.add_theme_font_size_override("font_size", 18)
-	add_child(title_label)
+	_title_label = Label.new()
+	_title_label.text = "Tray"
+	_title_label.position = Vector2(MARGIN, 4.0)
+	_title_label.add_theme_font_size_override("font_size", 18)
+	add_child(_title_label)
 
 	_status_label = Label.new()
 	_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -137,7 +165,17 @@ func _build() -> void:
 	_status_label.add_theme_color_override("font_color", Color("bdc9c6"))
 	add_child(_status_label)
 
-	for index in range(SLOT_COUNT):
+	_queue_left_cap = _queue_art(QUEUE_CAP)
+	add_child(_queue_left_cap)
+	for index in range(MAX_SLOT_COUNT):
+		var repeat := _queue_art(_queue_repeat_texture())
+		add_child(repeat)
+		_queue_repeats.append(repeat)
+	_queue_right_cap = _queue_art(QUEUE_CAP)
+	_queue_right_cap.flip_h = true
+	add_child(_queue_right_cap)
+
+	for index in range(MAX_SLOT_COUNT):
 		var slot := Panel.new()
 		var ink_outline := TextureRect.new()
 		ink_outline.name = "InkOutline"
@@ -171,21 +209,27 @@ func _build() -> void:
 		_slot_labels.append(label)
 		_slot_art.append(face_art)
 		_slot_modifiers.append(modifier_label)
+	_update_style_visibility()
 
 
 func _layout() -> void:
 	if _slots.is_empty():
 		return
+	for slot in _slots:
+		slot.size = _tile_visual_size
+	if _portrait_style:
+		_layout_portrait()
+		return
 
 	_status_label.size = Vector2(maxf(80.0, size.x - 80.0 - MARGIN), 24.0)
-	var group_width := _tile_visual_size.x * SLOT_COUNT + GAP * (SLOT_COUNT - 1)
+	var group_width := _tile_visual_size.x * _slot_count() + GAP * (_slot_count() - 1)
 	var group_x := (size.x - group_width) * 0.5
 	var body_y := maxf(26.0, size.y - _tile_visual_size.y - 6.0)
 	var active_geometry: Dictionary = _tile_skin.active_geometry()
 	var safe_area: Array = active_geometry.get("face_safe_area", [92, 104, 328, 400])
 	var source_size: Array = active_geometry.get("source_size", [512, 640])
 
-	for index in range(SLOT_COUNT):
+	for index in range(_slot_count()):
 		_slots[index].position = Vector2(group_x + index * (_tile_visual_size.x + GAP), body_y)
 		_slots[index].size = _tile_visual_size
 		_slot_bases[index].position = Vector2.ZERO
@@ -205,20 +249,61 @@ func _layout() -> void:
 		_slot_modifiers[index].add_theme_font_size_override("font_size", clampi(int(_tile_visual_size.x * 0.19), 8, 15))
 
 
+func _layout_portrait() -> void:
+	var scale := minf(_portrait_scale(_tile_visual_size), size.y / FIGMA_CAP_SIZE.y)
+	var queue_width := (FIGMA_CAP_SIZE.x * 2.0 + FIGMA_SLOT_SIZE.x * _slot_count()) * scale
+	var queue_height := FIGMA_CAP_SIZE.y * scale
+	var origin := Vector2((size.x - queue_width) * 0.5, (size.y - queue_height) * 0.5)
+	_queue_left_cap.position = origin
+	_queue_left_cap.size = FIGMA_CAP_SIZE * scale
+	for index in range(MAX_SLOT_COUNT):
+		_queue_repeats[index].position = origin + Vector2((FIGMA_CAP_SIZE.x + FIGMA_SLOT_SIZE.x * index) * scale, 0.0)
+		_queue_repeats[index].size = FIGMA_SLOT_SIZE * scale
+	_queue_right_cap.position = origin + Vector2((FIGMA_CAP_SIZE.x + FIGMA_SLOT_SIZE.x * _slot_count()) * scale, 0.0)
+	_queue_right_cap.size = FIGMA_CAP_SIZE * scale
+
+	var active_geometry: Dictionary = _tile_skin.active_geometry()
+	var safe_area: Array = active_geometry.get("face_safe_area", [92, 104, 328, 400])
+	var source_size: Array = active_geometry.get("source_size", [512, 640])
+	for index in range(_slot_count()):
+		var slot_rect := Rect2(
+			origin + Vector2((FIGMA_CAP_SIZE.x + FIGMA_SLOT_SIZE.x * index + FIGMA_TILE_RECT.position.x) * scale, FIGMA_TILE_RECT.position.y * scale),
+			_tile_visual_size
+		)
+		_slots[index].position = slot_rect.position
+		_slots[index].size = slot_rect.size
+		_slots[index].add_theme_stylebox_override("panel", _tile_style())
+		_slot_bases[index].position = Vector2.ZERO
+		_slot_bases[index].size = slot_rect.size
+		_slot_art[index].position = Vector2(
+			float(safe_area[0]) / float(source_size[0]) * slot_rect.size.x,
+			float(safe_area[1]) / float(source_size[1]) * slot_rect.size.y
+		)
+		_slot_art[index].size = Vector2(
+			float(safe_area[2]) / float(source_size[0]) * slot_rect.size.x,
+			float(safe_area[3]) / float(source_size[1]) * slot_rect.size.y
+		)
+		_slot_labels[index].position = Vector2.ZERO
+		_slot_labels[index].size = slot_rect.size
+		_slot_modifiers[index].position = Vector2(slot_rect.size.x * 0.68, slot_rect.size.y * 0.02)
+		_slot_modifiers[index].size = Vector2(slot_rect.size.x * 0.30, slot_rect.size.y * 0.23)
+		_slot_modifiers[index].add_theme_font_size_override("font_size", clampi(int(slot_rect.size.x * 0.19), 8, 15))
+
+
 func slot_global_rect(index: int) -> Rect2:
-	if index < 0 or index >= _slots.size():
+	if index < 0 or index >= _slot_count():
 		return Rect2()
 	return _slots[index].get_global_rect()
 
 
 func slot_visual_global_rect(index: int) -> Rect2:
-	if index < 0 or index >= _slots.size():
+	if index < 0 or index >= _slot_count():
 		return Rect2()
 	return _slots[index].get_global_rect().merge(_slot_ink_outlines[index].get_global_rect())
 
 
 func create_tile_preview(index: int) -> Control:
-	if index < 0 or index >= _slots.size() or index >= _game.tray.tiles.size():
+	if index < 0 or index >= _slot_count() or index >= _game.tray.tiles.size():
 		return null
 	var preview := Panel.new()
 	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -256,6 +341,42 @@ func create_tile_preview(index: int) -> Control:
 		modifier.add_theme_font_size_override("font_size", source_modifier.get_theme_font_size("font_size"))
 		preview.add_child(modifier)
 	return preview
+
+
+func _slot_count() -> int:
+	return clampi(_game.tray.capacity, MIN_SLOT_COUNT, MAX_SLOT_COUNT)
+
+
+func _portrait_scale(tile_size: Vector2) -> float:
+	return maxf(tile_size.x / FIGMA_TILE_RECT.size.x, tile_size.y / FIGMA_TILE_RECT.size.y)
+
+
+func _update_style_visibility() -> void:
+	if _legacy_background == null:
+		return
+	_legacy_background.visible = not _portrait_style
+	_title_label.visible = not _portrait_style
+	_status_label.visible = not _portrait_style
+	_queue_left_cap.visible = _portrait_style
+	_queue_right_cap.visible = _portrait_style
+	for index in range(_queue_repeats.size()):
+		_queue_repeats[index].visible = _portrait_style and index < _slot_count()
+
+
+func _queue_art(texture: Texture2D) -> TextureRect:
+	var art := TextureRect.new()
+	art.texture = texture
+	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	art.stretch_mode = TextureRect.STRETCH_SCALE
+	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return art
+
+
+func _queue_repeat_texture() -> AtlasTexture:
+	var texture := AtlasTexture.new()
+	texture.atlas = QUEUE_REPEAT
+	texture.region = FIGMA_REPEAT_REGION
+	return texture
 
 
 func _tile_style() -> StyleBoxFlat:

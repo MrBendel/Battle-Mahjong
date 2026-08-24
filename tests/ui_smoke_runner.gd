@@ -493,6 +493,37 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 	var combo_label: Label = momentum.get("_combo")
 	var momentum_meter: ProgressBar = momentum.get("_meter")
 	_check(not Rect2(combo_label.position, combo_label.size).intersects(Rect2(momentum_meter.position, momentum_meter.size)), "%s Combo readout does not cover Momentum meter" % orientation)
+	if orientation == "portrait":
+		_check_equal(
+			load("res://game-assets/ui/portrait/background.png"),
+			shell.get("_gameplay_background").texture,
+			"portrait uses the Figma gameplay background"
+		)
+		_check(momentum.get("_portrait_style"), "portrait enables the Figma Momentum presentation")
+		_check(momentum.get("_score_art").visible, "portrait shows the exported score-box artwork")
+		_check(momentum.get("_momentum_frame").visible, "portrait shows the exported Momentum frame")
+		_check(momentum.get("_momentum_badge").visible, "portrait shows the exported multiplier badge")
+		_check(momentum.get("_fill_clip").clip_contents, "portrait Momentum fill is clipped for runtime animation")
+		_check_equal(
+			load("res://assets/fonts/mila-script-sans-regular.ttf"),
+			momentum.get("_score").get_theme_font("font"),
+			"portrait score uses Mila Script Sans Regular"
+		)
+		_check_equal(
+			load("res://assets/fonts/mila-script-sans-bold.ttf"),
+			momentum.get("_score_title").get_theme_font("font"),
+			"portrait score heading uses Mila Script Sans Bold"
+		)
+		_check_equal("123,456,789", momentum.call("_format_score", 123456789), "portrait score formatting groups thousands")
+		_check_equal("01:02.34", momentum.call("_format_time", 62340), "portrait timer formats runtime playback")
+		_check(is_equal_approx(pause_button.size.x, pause_button.size.y), "portrait pause artwork preserves a square control")
+		_check_equal(
+			load("res://game-assets/ui/portrait/pause_button.png"),
+			pause_button.icon,
+			"portrait pause button uses the exported Figma artwork"
+		)
+	else:
+		_check(not momentum.get("_portrait_style"), "landscape retains the existing compact HUD presentation")
 	_check(viewport_rect.encloses(Rect2(pause_button.position, pause_button.size)), "%s pause button stays inside viewport" % orientation)
 	_check(safe_viewport.encloses(Rect2(pause_button.position, pause_button.size)), "%s pause button stays inside safe area" % orientation)
 	if debug_panel.visible:
@@ -517,6 +548,18 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 	var tray: Control = regions.tray
 	var board: Control = regions.board
 	var board_tile_size: Vector2 = board.call("tile_visual_size")
+	if orientation == "portrait":
+		_check(tray.get("_portrait_style"), "portrait enables the Figma queue presentation")
+		_check(tray.get("_queue_left_cap").visible and tray.get("_queue_right_cap").visible, "portrait queue renders both exported end caps")
+		_check_equal(6, tray.get("_queue_repeats").size(), "portrait queue owns reusable artwork for its 2-6 slot range")
+		var visible_queue_sections := 0
+		for queue_section in tray.get("_queue_repeats"):
+			visible_queue_sections += 1 if queue_section.visible else 0
+		var tray_capacity: int = shell.get("_game").tray.capacity
+		_check_equal(tray_capacity, visible_queue_sections, "portrait queue renders one repeated section per active slot")
+		_check_equal(tray_capacity, tray.call("_slot_count"), "portrait queue follows the live tray capacity")
+	else:
+		_check(not tray.get("_portrait_style"), "landscape retains the existing tray presentation")
 	for slot in tray.get("_slots"):
 		_check(slot.size.is_equal_approx(board_tile_size), "%s tray slot preserves board tile size" % orientation)
 	var callout: Control = shell.get("_performance_callout")

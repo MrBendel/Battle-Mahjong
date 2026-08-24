@@ -148,6 +148,7 @@ Status: Initial M7 Direction
 - The first gameplay background uses a calm charcoal and ink-green center with crimson, cyan, and warm-yellow dry-brush energy at the perimeter. It is aspect-covered and center-cropped so the portrait master also supports landscape.
 - Compact portrait support is validated at `375 x 667`; decorative character and debug regions disappear before gameplay regions shrink below their contract.
 - The gameplay shell follows the portrait bottom-dock and landscape split-side action composition documented in [Responsive Game Shell](RESPONSIVE_GAME_SHELL.md).
+- The first production-style portrait HUD is sourced from Figma and keeps score, timer, Momentum, multiplier, pause, and the composable two-to-six-slot queue as independent runtime components. Export ownership and responsive behavior are documented in [Figma Portrait Gameplay UI](FIGMA_PORTRAIT_UI.md).
 
 Status: Open Question
 

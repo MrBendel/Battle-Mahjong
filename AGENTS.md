@@ -59,6 +59,7 @@ Project-level instructions for Codex working on Battle Mahjong.
 - `UpdateChecker` is currently an adapter contract only; no native Google Play Core in-app-update plugin is included in Android exports. Version bumps and monotonic Play codes do not make the in-app prompt functional without that future integration.
 - The Default skin has orientation-specific supplied ceramic bases: tall in portrait and wide in landscape. The active base, face safe area, board footprint, tray footprint, and animation previews change together without changing stable layout slots or simulation rules.
 - The M3 scoring model uses a mistake-driven Combo chain. Natural pairs extend Combo; ordinary unmatched selections and elapsed time preserve it; live locked-tile taps and successful consumables break it through replay-safe transactions. Combo remains separate from the pair-difficulty score reward.
+- The M7 portrait HUD uses exported Figma artwork from `gameplay-portrait-components-v1` (`68:2`) with runtime Mila Script Sans text, clipped Momentum fill, a square pause control, and a composable two-to-six-slot queue. Full-resolution exports live under `art-source/ui/portrait/`; optimized assets live under `game-assets/ui/portrait/`. Landscape retains the existing split-side shell.
 - Deterministic tile and pair difficulty analysis runs before each accepted natural selection and records derived transaction telemetry. The provisional geometry-only formula is documented in `docs/PAIR_DIFFICULTY.md`; it must remain orientation- and skin-independent and must not affect rewards until playtest validation.
 - Cross-game state boundaries are documented in `docs/PLAYER_PROFILE.md`. M9 will implement local profiles and a durable game library before replay presentation, game modes, backend work, or progression.
 
@@ -94,6 +95,7 @@ For documentation-only changes, `git diff --check` is sufficient unless the docu
 - `docs/FLIPPED_TILES.md`: seeded face-down assignment, reveal, direct-match, consumable, and replay rules.
 - `docs/ARCADE_CALLOUTS.md`: single-lane alert arbitration, Combo cadence, score milestones, and profile boundary.
 - `docs/RESPONSIVE_GAME_SHELL.md`: portrait stack, landscape side rails, safe-area priorities, and input boundary.
+- `docs/FIGMA_PORTRAIT_UI.md`: Figma source node, portrait asset boundary, dynamic HUD contract, and first-pass gaps.
 - `docs/ART_DIRECTION.md`: canonical visual direction.
 - `docs/ANDROID_PUBLISHING.md`: signed Android AAB export and Play Internal testing workflow.
 - `docs/ANDROID_SCREENSHOT_TESTING.md`: emulator-based portrait, landscape, rotation, and safe-area screenshot checks.
