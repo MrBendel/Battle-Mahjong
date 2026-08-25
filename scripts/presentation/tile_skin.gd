@@ -63,6 +63,7 @@ func validation_errors() -> Array[String]:
 	var blocked_overlay: Array = depth_presentation.get("blocked_overlay_color", [])
 	var shadow_opacity := float(depth_presentation.get("shadow_opacity", -1.0))
 	var shadow_offset: Array = depth_presentation.get("shadow_offset_ratio", [])
+	var layer_offset: Array = depth_presentation.get("layer_offset_ratio", [])
 	if depth_floor <= 0.0 or depth_floor > 1.0:
 		errors.append("Tile depth brightness must be in (0, 1].")
 	if blocked_overlay.size() != 4:
@@ -76,6 +77,7 @@ func validation_errors() -> Array[String]:
 		errors.append("Tile shadow opacity must be in [0, 1].")
 	if shadow_offset.size() != 2:
 		errors.append("Tile shadow offset ratio must contain x and y values.")
+	_validate_ratio_pair(layer_offset, "Tile layer offset", errors, true)
 	var adjacent_gap_ratio := float(layout_presentation.get("adjacent_gap_ratio", -1.0))
 	if adjacent_gap_ratio < -0.1 or adjacent_gap_ratio > 0.25:
 		errors.append("Adjacent tile gap ratio must be in [-0.1, 0.25].")

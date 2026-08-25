@@ -124,9 +124,13 @@ func _run_tile_skin_contract_tests() -> void:
 	_check(skin.call("tile_base_texture") != null, "active landscape ceramic base loads")
 	_check_equal(4, skin.active_geometry().back_design_safe_area.size(), "landscape back design has an explicit compositing safe area")
 	_check(
-		float(skin.depth_presentation.lowest_layer_brightness) <= 0.5,
-		"Default skin preserves strong contrast between the highest and lowest authored layers"
+		float(skin.depth_presentation.lowest_layer_brightness) >= 0.55 \
+			and float(skin.depth_presentation.lowest_layer_brightness) < 1.0,
+		"Default skin keeps covered lower layers distinct without making them excessively dark"
 	)
+	var layer_offset: Array = skin.depth_presentation.layer_offset_ratio
+	_check_equal(2, layer_offset.size(), "Default skin exposes a two-axis authored-layer offset")
+	_check(float(layer_offset[1]) <= -0.1, "Default skin gives each higher layer a visible upward lift")
 	var blocked_overlay: Array = skin.depth_presentation.blocked_overlay_color
 	_check(
 		float(blocked_overlay[1]) > float(blocked_overlay[0]) \

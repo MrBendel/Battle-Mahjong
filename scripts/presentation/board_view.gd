@@ -601,21 +601,35 @@ func _layout_tiles() -> void:
 	var max_depth := 0
 	for tile in _game.board.tiles:
 		max_depth = maxi(max_depth, tile.position.z)
-	var depth_extent := Vector2(float(max_depth) * 4.0, float(max_depth) * 5.0)
+	var layer_offset_ratio: Array = _tile_skin.depth_presentation.get(
+		"layer_offset_ratio",
+		[0.05, -0.08]
+	)
 	var control_allowance := Vector2(12.0, 12.0)
+	var depth_width_units := float(max_depth) * absf(float(layer_offset_ratio[0]))
+	var depth_height_units := float(max_depth) * absf(float(layer_offset_ratio[1]))
 	var tile_width: float = minf(
-		(area.size.x - depth_extent.x - control_allowance.x) / grid_width,
-		(area.size.y - depth_extent.y - control_allowance.y) / (grid_height * _tile_skin.tile_aspect())
+		(area.size.x - control_allowance.x) / (grid_width + depth_width_units),
+		(area.size.y - control_allowance.y) \
+			/ ((grid_height + depth_height_units) * _tile_skin.tile_aspect())
 	)
 	var tile_size := Vector2(maxf(16.0, tile_width), maxf(16.0, tile_width * _tile_skin.tile_aspect()))
 	var adjacent_gap_ratio := float(_tile_skin.layout_presentation.get("adjacent_gap_ratio", 0.0))
 	var tile_gap := tile_size * adjacent_gap_ratio
 	var board_size := Vector2(tile_size.x * grid_width, tile_size.y * grid_height)
-	var origin := (area.size - board_size - depth_extent) * 0.5 + Vector2(0.0, depth_extent.y)
+	var per_layer_offset := Vector2(
+		tile_size.x * float(layer_offset_ratio[0]),
+		tile_size.y * float(layer_offset_ratio[1])
+	)
+	var maximum_depth_offset := per_layer_offset * float(max_depth)
+	var depth_min := Vector2(minf(0.0, maximum_depth_offset.x), minf(0.0, maximum_depth_offset.y))
+	var depth_max := Vector2(maxf(0.0, maximum_depth_offset.x), maxf(0.0, maximum_depth_offset.y))
+	var depth_extent := depth_max - depth_min
+	var origin := (area.size - board_size - depth_extent) * 0.5 - depth_min
 
 	for tile in _game.board.tiles:
 		var button: Button = _tile_buttons[tile.id]
-		var depth_offset := Vector2(tile.position.z * 4.0, tile.position.z * -5.0)
+		var depth_offset := per_layer_offset * float(tile.position.z)
 		button.position = origin + Vector2(
 			float(tile.position.x - bounds.position.x) * tile_size.x * 0.5,
 			float(tile.position.y - bounds.position.y) * tile_size.y * 0.5
