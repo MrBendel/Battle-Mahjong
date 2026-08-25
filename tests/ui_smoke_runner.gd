@@ -290,16 +290,27 @@ func _run() -> void:
 		stale_touch.position = Vector2(120.0, 240.0)
 		stale_touch.pressed = true
 		shell.call("_input", stale_touch)
+		shell.call("_on_delete_pair_requested")
+		_check(shell.get("_delete_pair_armed"), "Delete Pair mode can be armed before lifecycle interruption")
+		var stale_delete_button: Button = shell.get("_regions").consumables.get("_buttons").delete_pair
 		var recovery_before: int = shell.get("_input_recovery_count")
 		for cycle in range(3):
 			shell.call("_on_application_backgrounded")
 			_check(shell.get("_pause_menu").visible, "background cycle %d opens the pause menu" % cycle)
 			_check_equal(lifecycle_revision, live_game.revision, "background cycle %d preserves game state" % cycle)
+			_check(shell.get("_lifecycle_input_suspended"), "background cycle %d blocks gameplay pointer input" % cycle)
+			_check(not shell.get("_delete_pair_armed"), "background cycle %d clears Delete Pair targeting" % cycle)
+			_check(stale_delete_button.get_parent() == null, "background cycle %d detaches stale action controls immediately" % cycle)
+			shell.call("_on_delete_pair_requested")
+			_check(not shell.get("_delete_pair_armed"), "background cycle %d rejects buffered Delete Pair activation" % cycle)
 			shell.call("_on_application_foregrounded")
 			await process_frame
 			await process_frame
+			await process_frame
+			_check(not shell.get("_lifecycle_input_suspended"), "foreground cycle %d re-enables pointer input after recovery" % cycle)
 			if cycle < 2:
 				shell.get("_pause_menu").emit_signal("resumed")
+				stale_delete_button = shell.get("_regions").consumables.get("_buttons").delete_pair
 		_check_equal(recovery_before + 3, shell.get("_input_recovery_count"), "each foreground cycle recovers pointer input")
 		_check(shell.get("_active_screen_touches").is_empty(), "foreground recovery cancels stale screen touches")
 		shell.get("_pause_menu").emit_signal("resumed")

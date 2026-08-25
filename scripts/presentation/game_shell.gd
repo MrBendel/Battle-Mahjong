@@ -81,6 +81,7 @@ var _safe_area_override := Rect2(-1.0, -1.0, -1.0, -1.0)
 var _android_capture_frames_remaining := 0
 var _active_screen_touches: Dictionary = {}
 var _application_backgrounded := false
+var _lifecycle_input_suspended := false
 var _input_recovery_count := 0
 
 func _ready() -> void:
@@ -104,6 +105,9 @@ func _input(event: InputEvent) -> void:
 			_active_screen_touches[event.index] = event.position
 		else:
 			_active_screen_touches.erase(event.index)
+	if _lifecycle_input_suspended and (event is InputEventScreenTouch \
+			or event is InputEventMouseButton or event is InputEventMouseMotion):
+		get_viewport().set_input_as_handled()
 
 
 func _build_shell() -> void:
@@ -273,7 +277,7 @@ func _create_game() -> Variant:
 
 
 func _on_tile_selected(tile_id: String) -> void:
-	if _pause_started_at_ms >= 0 or _game_over_time_ms >= 0 or _game.status != GameStateScript.PLAYING:
+	if _gameplay_input_blocked():
 		return
 	var revealed_before := _active_revealed_flipped_tile_ids()
 	var result: String
@@ -398,14 +402,14 @@ func _play_flip_backs(previously_revealed_ids: Array[String]) -> void:
 
 
 func _on_locked_tile_tapped(tile_id: String) -> void:
-	if _pause_started_at_ms >= 0 or _game_over_time_ms >= 0 or _game.status != GameStateScript.PLAYING:
+	if _gameplay_input_blocked():
 		return
 	_game.call("break_combo_for_locked_tile", tile_id, _playback_time_ms())
 	_regions.momentum.call("refresh", _playback_time_ms())
 
 
 func _on_undo_requested() -> void:
-	if _pause_started_at_ms >= 0:
+	if _lifecycle_input_suspended or _application_backgrounded or _pause_started_at_ms >= 0:
 		return
 	var tray_index: int = _game.tray.tiles.size() - 1
 	var tile_id := ""
@@ -430,7 +434,7 @@ func _on_undo_requested() -> void:
 
 
 func _on_hint_requested() -> void:
-	if _pause_started_at_ms >= 0 or _game_over_time_ms >= 0 or _game.status != GameStateScript.PLAYING:
+	if _gameplay_input_blocked():
 		return
 	var result: String = _game.call("request_hint", _playback_time_ms())
 	if result == GameStateScript.NO_HINT_AVAILABLE:
@@ -441,7 +445,7 @@ func _on_hint_requested() -> void:
 
 
 func _on_delete_pair_requested() -> void:
-	if _pause_started_at_ms >= 0 or _game_over_time_ms >= 0 or _game.status != GameStateScript.PLAYING:
+	if _gameplay_input_blocked():
 		return
 	_delete_pair_armed = true
 	_regions.board.call("set_delete_pair_armed", true)
@@ -449,7 +453,7 @@ func _on_delete_pair_requested() -> void:
 
 
 func _on_shuffle_requested() -> void:
-	if _pause_started_at_ms >= 0 or _game_over_time_ms >= 0 or _game.status != GameStateScript.PLAYING:
+	if _gameplay_input_blocked():
 		return
 	_delete_pair_armed = false
 	_regions.board.call("set_delete_pair_armed", false)
@@ -503,6 +507,11 @@ func _on_application_backgrounded() -> void:
 	if _application_backgrounded:
 		return
 	_application_backgrounded = true
+	_lifecycle_input_suspended = true
+	_cancel_active_pointer_events()
+	Input.flush_buffered_events()
+	_clear_transient_input_state()
+	_rebuild_interactive_controls()
 	if _pause_started_at_ms < 0 and _game_over_time_ms < 0 \
 			and _game != null and _game.status == GameStateScript.PLAYING:
 		_on_pause_requested()
@@ -518,12 +527,32 @@ func _on_application_foregrounded() -> void:
 func _recover_input_after_foreground() -> void:
 	_cancel_active_pointer_events()
 	Input.flush_buffered_events()
+	_clear_transient_input_state()
+	_rebuild_interactive_controls()
+	_apply_layout()
+	await get_tree().process_frame
+	_apply_layout()
+	_lifecycle_input_suspended = false
+	_input_recovery_count += 1
+
+
+func _clear_transient_input_state() -> void:
+	_delete_pair_armed = false
+	if _regions.has("board"):
+		_regions.board.call("set_delete_pair_armed", false)
+
+
+func _rebuild_interactive_controls() -> void:
 	if _regions.has("board"):
 		_regions.board.call("reset_input_state")
 	if _regions.has("consumables"):
 		_regions.consumables.call("reset_input_state")
-	_apply_layout()
-	_input_recovery_count += 1
+
+
+func _gameplay_input_blocked() -> bool:
+	return _lifecycle_input_suspended or _application_backgrounded \
+		or _pause_started_at_ms >= 0 or _game_over_time_ms >= 0 \
+		or _game == null or _game.status != GameStateScript.PLAYING
 
 
 func _cancel_active_pointer_events() -> void:
