@@ -36,7 +36,6 @@ const PORTRAIT_BOTTOM_DOCK_OFFSET := 17.0
 const PORTRAIT_BOARD_INTO_DOCK_PADDING := 8.0
 const START_SEED := 92817361
 const PAIR_LANDING_HOLD_SECONDS := 0.12
-const FLIPPED_REVEAL_SECONDS := 0.16
 
 @export var momentum_tuning: Resource
 @export var modifier_tuning: Resource
@@ -47,6 +46,8 @@ const FLIPPED_REVEAL_SECONDS := 0.16
 @export_range(0.60, 1.00, 0.01) var tray_tile_scale := 0.80
 ## Travel time for Board-to-Tray, flipped staging, and Undo return presentation.
 @export_range(0.12, 0.40, 0.01) var tile_transfer_seconds := 0.24
+## Full back-to-front or front-to-back Board flip duration.
+@export_range(0.20, 0.80, 0.01) var tile_flip_seconds := 0.50
 @export var show_debug_panel := false
 
 var _rng: RefCounted = DeterministicRngScript.new(START_SEED)
@@ -120,6 +121,7 @@ func _build_shell() -> void:
 	_tile_skin = TileSkinScript.new()
 	_game_started_at_ms = Time.get_ticks_msec()
 	_regions.board = BoardViewScript.new(_game, _tile_skin)
+	_regions.board.call("set_flip_duration", tile_flip_seconds)
 	_regions.momentum = MomentumViewScript.new(_game)
 	_regions.tray = TrayViewScript.new(_game, _tile_skin)
 	_regions.consumables = ConsumablesViewScript.new(_game)
@@ -729,7 +731,7 @@ func _play_flipped_match_to_tray(visuals: Array, target_rect: Rect2, reveal_inco
 		return
 	incoming.scale = Vector2(0.08, 1.0)
 	var reveal_tween := create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	reveal_tween.tween_property(incoming, "scale", Vector2.ONE, FLIPPED_REVEAL_SECONDS)
+	reveal_tween.tween_property(incoming, "scale", Vector2.ONE, tile_flip_seconds * 0.5)
 	reveal_tween.finished.connect(
 		_start_pair_to_tray_motion.bind(incoming, held, target_rect, held_source_rect)
 	)
@@ -797,7 +799,7 @@ func _play_flipped_pair_via_open_slots(visuals: Array, reveal_incoming: bool = f
 	if reveal_incoming:
 		previews[0].scale = Vector2(0.08, 1.0)
 		var reveal_tween := create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		reveal_tween.tween_property(previews[0], "scale", Vector2.ONE, FLIPPED_REVEAL_SECONDS)
+		reveal_tween.tween_property(previews[0], "scale", Vector2.ONE, tile_flip_seconds * 0.5)
 		reveal_tween.finished.connect(_stage_flipped_pair_in_tray.bind(previews, targets))
 	else:
 		_stage_flipped_pair_in_tray(previews, targets)
