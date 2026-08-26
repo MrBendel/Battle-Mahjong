@@ -191,7 +191,7 @@ func _run() -> void:
 	_check_equal(stage_targets, shell.get("_last_flipped_pair_stage_targets"), "flipped pair records both open tray targets")
 	await create_timer(0.24).timeout
 	_check_equal(stage_collision_before, shell.get("_pair_collision_count"), "flipped pair holds in the tray before collision")
-	await create_timer(0.20).timeout
+	await create_timer(0.26).timeout
 	var expected_stage_collision := (stage_targets[0].get_center() + stage_targets[1].get_center()) * 0.5
 	_check_equal(stage_collision_before + 1, shell.get("_pair_collision_count"), "flipped pair collides after tray staging")
 	_check_equal(expected_stage_collision, shell.get("_last_pair_collision_position"), "flipped pair collides between its staging slots")
@@ -256,6 +256,10 @@ func _run() -> void:
 		_check(
 			not is_instance_valid(transfer_preview) or is_equal_approx(transfer_preview.modulate.a, 1.0),
 			"board-to-tray transfer never fades through a transparent landing frame"
+		)
+		_check(
+			is_instance_valid(transfer_preview) and transfer_preview.scale.x < 1.0,
+			"board-to-tray transfer visibly scales toward the smaller tray footprint"
 		)
 		await create_timer(0.12).timeout
 		_check(first_slot_art.visible and first_slot_art.texture != null, "arrival reveals the selected face artwork")
@@ -658,6 +662,9 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 
 	var tray: Control = regions.tray
 	var board_tile_size: Vector2 = board.call("tile_visual_size")
+	var tray_tile_scale: float = shell.get("tray_tile_scale")
+	_check(is_equal_approx(tray_tile_scale, 0.80), "%s uses the tuned 80 percent tray tile scale" % orientation)
+	_check(is_equal_approx(float(shell.get("tile_transfer_seconds")), 0.24), "%s uses the slower tray transfer beat" % orientation)
 	if orientation == "portrait":
 		_check(tray.get("_portrait_style"), "portrait enables the Figma queue presentation")
 		_check(tray.get("_queue_left_cap").visible and tray.get("_queue_right_cap").visible, "portrait queue renders both exported end caps")
@@ -707,7 +714,7 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 	else:
 		_check(not tray.get("_portrait_style"), "landscape retains the existing tray presentation")
 	for slot in tray.get("_slots"):
-		_check(slot.size.is_equal_approx(board_tile_size), "%s tray slot preserves board tile size" % orientation)
+		_check(slot.size.is_equal_approx(board_tile_size * tray_tile_scale), "%s tray slot scales down from the board tile footprint" % orientation)
 	var callout: Control = shell.get("_performance_callout")
 	var callout_label: Label = callout.get("_label")
 	_check_equal(Rect2(board.position, board.size), Rect2(callout.position, callout.size), "%s callout tracks the board region" % orientation)

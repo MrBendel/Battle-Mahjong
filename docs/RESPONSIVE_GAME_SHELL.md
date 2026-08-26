@@ -13,7 +13,7 @@ Portrait uses the M7 Figma HUD documented in [Figma Portrait Gameplay UI](FIGMA_
 
 The aspect-covered Figma background may crop laterally but never stretches. Score and Momentum use exported frames with runtime Mila Script Sans text; the Momentum fill remains clipped and animated from live state. The pause control stays square in the upper-right safe area. The queue is centered and composed from exported caps plus one repeatable section for each of two through six live tray slots.
 
-The action dock uses one horizontal row of large touch targets. Decorative Character/FX and the debug panel are hidden by default so they cannot reduce the Board footprint. The debug panel remains available through the `show_debug_panel` Inspector property. The Tray reserves the full rendered tile and ink-outline height before the Board is placed; the Board yields vertical space when necessary so their rendered children cannot overlap.
+The action dock uses one horizontal row of large touch targets. Decorative Character/FX and the debug panel are hidden by default so they cannot reduce the Board footprint. The debug panel remains available through the `show_debug_panel` Inspector property. The Tray derives a scaled tile footprint from the Board through the shell's `tray_tile_scale` Inspector property, then reserves the corresponding rendered tile, ink outline, and queue-art height before the Board is placed. The Board yields vertical space when necessary so their rendered children cannot overlap.
 
 On compact phones below `800` logical pixels tall, the redundant Board title and tile-count header collapse before the tile field shrinks. This keeps the tall ceramic tiles above their `32 x 48` presentation minimum.
 
@@ -38,7 +38,7 @@ Safe-area insets are applied before margins and region allocation. When space be
 2. Debug information.
 3. Nonessential region labels and notices.
 
-Board tiles, tray tiles, Momentum, score, pause, and consumable actions remain readable and operable. Tray tiles continue to use the Board's rendered tile footprint.
+Board tiles, tray tiles, Momentum, score, pause, and consumable actions remain readable and operable. Tray tiles preserve the active orientation geometry while scaling uniformly from the Board footprint; transfer previews animate into that smaller target using the shell's `tile_transfer_seconds` presentation setting.
 
 On mobile application pause or focus loss, the shell pauses gameplay without changing authoritative game state. Foreground recovery cancels stale touch and emulated-mouse presses, refreshes interactive presentation controls, and leaves the pause menu open until the player explicitly resumes. This prevents a touch release lost during Android suspension from leaving later taps partially unresponsive.
 

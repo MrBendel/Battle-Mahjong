@@ -43,6 +43,10 @@ const FLIPPED_REVEAL_SECONDS := 0.16
 @export var arcade_callout_tuning: Resource
 @export var layout_id: String = BoardLayoutCatalogScript.DEFAULT_LAYOUT_ID
 @export_range(0, 48, 1) var flipped_tile_count := 12
+## Uniform tray-tile scale relative to the current rendered Board tile footprint.
+@export_range(0.60, 1.00, 0.01) var tray_tile_scale := 0.80
+## Travel time for Board-to-Tray, flipped staging, and Undo return presentation.
+@export_range(0.12, 0.40, 0.01) var tile_transfer_seconds := 0.24
 @export var show_debug_panel := false
 
 var _rng: RefCounted = DeterministicRngScript.new(START_SEED)
@@ -617,7 +621,8 @@ func _play_tile_to_tray(preview: Control, source_rect: Rect2, target_rect: Rect2
 	_tile_transfer_previews[tile_id] = preview
 	_tile_transfer_tweens[tile_id] = tween
 	tween.set_parallel(true)
-	tween.tween_property(preview, "position", target_position, 0.18)
+	tween.tween_property(preview, "position", target_position, tile_transfer_seconds)
+	tween.tween_property(preview, "scale", _preview_scale_for_rect(preview, target_rect), tile_transfer_seconds)
 	tween.finished.connect(_finish_tile_to_tray.bind(preview, tile_id))
 
 
@@ -655,9 +660,12 @@ func _play_undo_to_board(preview: Control, source_rect: Rect2, target_rect: Rect
 	_last_undo_motion_target = target_rect
 	var tween := create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
 	tween.set_parallel(true)
-	tween.tween_property(preview, "position", target_position, 0.18)
-	tween.tween_property(preview, "rotation", deg_to_rad(3.0), 0.09)
-	tween.chain().tween_property(preview, "rotation", 0.0, 0.09)
+	tween.tween_property(preview, "position", target_position, tile_transfer_seconds)
+	tween.tween_property(preview, "scale", _preview_scale_for_rect(preview, target_rect), tile_transfer_seconds)
+	var rotation_half := tile_transfer_seconds * 0.5
+	var rotation_tween := create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
+	rotation_tween.tween_property(preview, "rotation", deg_to_rad(3.0), rotation_half)
+	rotation_tween.tween_property(preview, "rotation", 0.0, rotation_half)
 	tween.finished.connect(_finish_undo_to_board.bind(preview, tile_id))
 
 
@@ -700,8 +708,9 @@ func _start_pair_to_tray_motion(incoming: Control, held: Control, target_rect: R
 	var target_position := _global_to_local(target_rect.get_center()) - incoming.size * 0.5
 	var tween := create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	tween.set_parallel(true)
-	tween.tween_property(incoming, "position", target_position, 0.15)
-	tween.tween_property(incoming, "rotation", deg_to_rad(4.0), 0.15)
+	tween.tween_property(incoming, "position", target_position, tile_transfer_seconds)
+	tween.tween_property(incoming, "scale", _preview_scale_for_rect(incoming, target_rect), tile_transfer_seconds)
+	tween.tween_property(incoming, "rotation", deg_to_rad(4.0), tile_transfer_seconds)
 	tween.chain().tween_interval(PAIR_LANDING_HOLD_SECONDS)
 	tween.finished.connect(_play_pair_collision.bind(incoming, held, target_rect, held_source_rect))
 
@@ -735,14 +744,16 @@ func _play_pair_collision(incoming: Control, held: Control, incoming_rect: Rect2
 	_last_pair_collision_position = collision_center
 	var incoming_target := _global_to_local(collision_center) - incoming.size * 0.5
 	var held_target := _global_to_local(collision_center) - held.size * 0.5
+	var incoming_collision_scale := incoming.scale * 1.08
+	var held_collision_scale := held.scale * 1.08
 	var tween := create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	tween.set_parallel(true)
 	tween.tween_property(incoming, "position", incoming_target, 0.10)
 	tween.tween_property(held, "position", held_target, 0.10)
 	tween.tween_property(incoming, "rotation", deg_to_rad(-5.0), 0.10)
 	tween.tween_property(held, "rotation", deg_to_rad(5.0), 0.10)
-	tween.tween_property(incoming, "scale", Vector2(1.08, 1.08), 0.10)
-	tween.tween_property(held, "scale", Vector2(1.08, 1.08), 0.10)
+	tween.tween_property(incoming, "scale", incoming_collision_scale, 0.10)
+	tween.tween_property(held, "scale", held_collision_scale, 0.10)
 	tween.finished.connect(_play_pair_pop.bind([incoming, held], collision_center))
 
 
@@ -807,8 +818,9 @@ func _stage_flipped_pair_in_tray(previews: Array, targets: Array[Rect2]) -> void
 	for index in previews.size():
 		var preview: Control = previews[index]
 		var target_position := _global_to_local(targets[index].get_center()) - preview.size * 0.5
-		tween.tween_property(preview, "position", target_position, 0.18)
-		tween.tween_property(preview, "rotation", deg_to_rad(-3.0 if index == 0 else 3.0), 0.18)
+		tween.tween_property(preview, "position", target_position, tile_transfer_seconds)
+		tween.tween_property(preview, "scale", _preview_scale_for_rect(preview, targets[index]), tile_transfer_seconds)
+		tween.tween_property(preview, "rotation", deg_to_rad(-3.0 if index == 0 else 3.0), tile_transfer_seconds)
 	tween.chain().tween_interval(PAIR_LANDING_HOLD_SECONDS)
 	tween.finished.connect(_play_pair_collision.bind(previews[0], previews[1], targets[0], targets[1]))
 
@@ -827,14 +839,21 @@ func _play_pair_pop(previews: Array, global_center: Vector2) -> void:
 	for preview in previews:
 		if preview == null or not is_instance_valid(preview):
 			continue
+		var landed_scale: Vector2 = preview.scale
 		var tween := create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		tween.set_parallel(true)
-		tween.tween_property(preview, "scale", Vector2(1.18, 1.18), 0.08)
+		tween.tween_property(preview, "scale", landed_scale * 1.09, 0.08)
 		tween.tween_property(preview, "rotation", 0.0, 0.08)
 		tween.chain().set_parallel(true)
-		tween.tween_property(preview, "scale", Vector2(0.72, 0.72), 0.13)
+		tween.tween_property(preview, "scale", landed_scale * 0.67, 0.13)
 		tween.tween_property(preview, "modulate:a", 0.0, 0.13)
 		tween.finished.connect(preview.queue_free)
+
+
+func _preview_scale_for_rect(preview: Control, target_rect: Rect2) -> Vector2:
+	if preview.size.x <= 0.0 or preview.size.y <= 0.0:
+		return Vector2.ONE
+	return target_rect.size / preview.size
 
 
 func _spawn_match_burst(global_center: Vector2) -> void:
@@ -967,15 +986,16 @@ func _apply_layout() -> void:
 		_apply_portrait_layout(viewport_size)
 	_regions.board.call("refresh")
 	var tile_visual_size: Vector2 = _regions.board.call("tile_visual_size")
-	var required_tray_height := float(_regions.tray.call("minimum_height_for_tile", tile_visual_size))
-	var required_tray_width := float(_regions.tray.call("minimum_width_for_tile", tile_visual_size))
+	var tray_visual_size := tile_visual_size * tray_tile_scale
+	var required_tray_height := float(_regions.tray.call("minimum_height_for_tile", tray_visual_size))
+	var required_tray_width := float(_regions.tray.call("minimum_width_for_tile", tray_visual_size))
 	_reflow_for_tray_clearance(orientation, required_tray_height, required_tray_width)
 
 	if _debug_panel.visible:
 		_place_debug_panel(viewport_size, orientation)
 	_place_pause_button(viewport_size)
 	_regions.board.call("refresh")
-	_regions.tray.call("set_tile_visual_size", _regions.board.call("tile_visual_size"))
+	_regions.tray.call("set_tile_visual_size", _regions.board.call("tile_visual_size") * tray_tile_scale)
 	_regions.tray.call("refresh")
 	_performance_callout.call("place_over", Rect2(_regions.board.position, _regions.board.size))
 	_debug_panel.call(
