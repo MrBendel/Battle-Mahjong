@@ -363,6 +363,50 @@ func _run() -> void:
 		_check(shell.get("_regions").board.get("_tile_buttons")[undo_tile_id].visible, "restored board tile appears when Undo animation lands")
 		shell.call("_on_restart_requested")
 		live_game = shell.get("_game")
+	var compaction_pair := _find_rewardable_pair(live_game)
+	_check_equal(2, compaction_pair.size(), "reference game exposes a pair for queue-compaction validation")
+	if compaction_pair.size() == 2:
+		shell.call("_on_tile_selected", compaction_pair[0])
+		await create_timer(0.30).timeout
+		var second_tray_tile_id := _find_selectable_distinct_from_tray(live_game, compaction_pair[1])
+		_check(not second_tray_tile_id.is_empty(), "queue-compaction setup finds a distinct second tray tile")
+		if not second_tray_tile_id.is_empty():
+			shell.call("_on_tile_selected", second_tray_tile_id)
+			await create_timer(0.30).timeout
+		var third_tray_tile_id := _find_selectable_distinct_from_tray(live_game, compaction_pair[1])
+		_check(not third_tray_tile_id.is_empty(), "queue-compaction setup finds a distinct third tray tile")
+		if not third_tray_tile_id.is_empty():
+			shell.call("_on_tile_selected", third_tray_tile_id)
+			await create_timer(0.30).timeout
+		if live_game.tray.tiles.size() == 3:
+			var survivor_ids: Array[String] = [live_game.tray.tiles[1].id, live_game.tray.tiles[2].id]
+			var compaction_before: int = shell.get("_tray_compaction_count")
+			shell.call("_on_tile_selected", compaction_pair[1])
+			_check_equal(2, live_game.tray.tiles.size(), "interior match compacts authoritative tray immediately")
+			_check_equal(survivor_ids[0], live_game.tray.tiles[0].id, "first survivor owns the first authoritative tray slot")
+			_check_equal(survivor_ids[1], live_game.tray.tiles[1].id, "second survivor owns the second authoritative tray slot")
+			_check_equal(compaction_before + 2, shell.get("_tray_compaction_count"), "interior match starts one compaction motion per survivor")
+			var compaction_targets: Array[Rect2] = shell.get("_last_tray_compaction_targets")
+			_check_equal(shell.get("_regions").tray.call("slot_global_rect", 0), compaction_targets[0], "first survivor compacts into slot one")
+			_check_equal(shell.get("_regions").tray.call("slot_global_rect", 1), compaction_targets[1], "second survivor compacts into slot two")
+			var first_preview: Control = shell.get("_tray_compaction_previews").get(survivor_ids[0])
+			var second_preview: Control = shell.get("_tray_compaction_previews").get(survivor_ids[1])
+			_check(first_preview != null and second_preview != null, "survivors retain visual previews at their old slots")
+			var first_start_x := first_preview.position.x
+			var second_start_x := second_preview.position.x
+			var suppressed: Dictionary = shell.get("_regions").tray.get("_suppressed_tile_ids")
+			_check(suppressed.has(survivor_ids[0]) and suppressed.has(survivor_ids[1]), "destination tiles stay hidden behind compaction previews")
+			await create_timer(0.52).timeout
+			_check(first_preview.position.x < first_start_x and second_preview.position.x < second_start_x, "survivor previews visibly travel left after the pair collision")
+			await create_timer(0.18).timeout
+			_check(not shell.get("_tray_compaction_previews").has(survivor_ids[0]), "first survivor hands rendering back to its tray slot")
+			_check(not shell.get("_tray_compaction_previews").has(survivor_ids[1]), "second survivor hands rendering back to its tray slot")
+			_check(not shell.get("_regions").tray.get("_suppressed_tile_ids").has(survivor_ids[0]), "first compacted tray tile is revealed")
+			_check(not shell.get("_regions").tray.get("_suppressed_tile_ids").has(survivor_ids[1]), "second compacted tray tile is revealed")
+		else:
+			_fail("queue-compaction setup fills three distinct tray slots")
+		shell.call("_on_restart_requested")
+		live_game = shell.get("_game")
 	var selectable_pair := _find_rewardable_pair(live_game)
 	_check_equal(2, selectable_pair.size(), "reference game exposes a rewardable pair for feedback validation")
 	if selectable_pair.size() == 2:
@@ -673,6 +717,7 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 	_check(is_equal_approx(tray_tile_scale, 0.80), "%s uses the tuned 80 percent tray tile scale" % orientation)
 	_check(is_equal_approx(float(shell.get("tile_transfer_seconds")), 0.24), "%s uses the slower tray transfer beat" % orientation)
 	_check(is_equal_approx(float(shell.get("tile_flip_seconds")), 0.25), "%s uses the tuned quarter-second tile flip" % orientation)
+	_check(is_equal_approx(float(shell.get("tray_compaction_seconds")), 0.16), "%s uses the tuned queue-compaction beat" % orientation)
 	if orientation == "portrait":
 		_check(tray.get("_portrait_style"), "portrait enables the Figma queue presentation")
 		_check(tray.get("_queue_left_cap").visible and tray.get("_queue_right_cap").visible, "portrait queue renders both exported end caps")
@@ -948,6 +993,20 @@ func _find_rewardable_pair(game: Variant) -> Array[String]:
 			ids.assign(pair.tile_ids)
 			return ids
 	return []
+
+
+func _find_selectable_distinct_from_tray(game: Variant, excluded_tile_id: String) -> String:
+	for candidate in game.board.call("selectable_tiles"):
+		if candidate.id == excluded_tile_id:
+			continue
+		var matches_held_tile := false
+		for held in game.tray.tiles:
+			if held.face.family == candidate.face.family and held.face.value == candidate.face.value:
+				matches_held_tile = true
+				break
+		if not matches_held_tile:
+			return candidate.id
+	return ""
 
 
 func _find_visible_pair(game: Variant) -> Array[String]:

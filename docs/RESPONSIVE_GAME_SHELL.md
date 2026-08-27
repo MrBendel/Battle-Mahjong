@@ -38,7 +38,7 @@ Safe-area insets are applied before margins and region allocation. When space be
 2. Debug information.
 3. Nonessential region labels and notices.
 
-Board tiles, tray tiles, Momentum, score, pause, and consumable actions remain readable and operable. Tray tiles preserve the active orientation geometry while scaling uniformly from the Board footprint; transfer previews animate into that smaller target using the shell's `tile_transfer_seconds` presentation setting.
+Board tiles, tray tiles, Momentum, score, pause, and consumable actions remain readable and operable. Tray tiles preserve the active orientation geometry while scaling uniformly from the Board footprint; transfer previews animate into that smaller target using the shell's `tile_transfer_seconds` presentation setting. When resolving a held tile compacts later tray entries, presentation previews preserve their old positions through the pair collision and then slide left over `tray_compaction_seconds`; authoritative tray order still updates immediately.
 
 On mobile application pause or focus loss, the shell pauses gameplay without changing authoritative game state. Foreground recovery cancels stale touch and emulated-mouse presses, refreshes interactive presentation controls, and leaves the pause menu open until the player explicitly resumes. This prevents a touch release lost during Android suspension from leaving later taps partially unresponsive.
 
