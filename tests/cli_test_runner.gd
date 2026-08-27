@@ -121,12 +121,18 @@ func _run_tile_skin_contract_tests() -> void:
 		_check(skin.call("modifier_texture", modifier_id) != null, "%s modifier tile overlay loads" % modifier_id)
 	_check(ResourceLoader.exists(str(skin.base_variants.portrait.asset)) or FileAccess.file_exists(str(skin.base_variants.portrait.asset)), "portrait ceramic base runtime asset exists")
 	_check(ResourceLoader.exists(str(skin.base_variants.landscape.asset)) or FileAccess.file_exists(str(skin.base_variants.landscape.asset)), "landscape ceramic base runtime asset exists")
-	_check_equal(4, skin.active_geometry().modifier_bounds.size(), "portrait modifier has explicit attachment bounds")
+	var portrait_modifier_bounds: Array = skin.active_geometry().modifier_bounds
+	_check_equal(4, portrait_modifier_bounds.size(), "portrait modifier has explicit attachment bounds")
+	_check(float(portrait_modifier_bounds[0]) < 102.4, "portrait modifier is anchored in the upper-left")
+	_check(float(portrait_modifier_bounds[2]) >= 384.0, "portrait modifier is large enough to read on phone tiles")
 	_check(skin.call("tile_aspect") > 1.0, "portrait ceramic base uses a tall footprint")
 	skin.call("set_orientation", "landscape")
 	_check(skin.call("tile_aspect") < 1.0, "landscape ceramic base uses a wide footprint")
 	_check(skin.call("tile_base_texture") != null, "active landscape ceramic base loads")
-	_check_equal(4, skin.active_geometry().modifier_bounds.size(), "landscape modifier has explicit attachment bounds")
+	var landscape_modifier_bounds: Array = skin.active_geometry().modifier_bounds
+	_check_equal(4, landscape_modifier_bounds.size(), "landscape modifier has explicit attachment bounds")
+	_check(float(landscape_modifier_bounds[0]) < 153.6, "landscape modifier is anchored in the upper-left")
+	_check(float(landscape_modifier_bounds[2]) >= 384.0, "landscape modifier is large enough to read on wide tiles")
 	_check_equal(4, skin.active_geometry().back_design_safe_area.size(), "landscape back design has an explicit compositing safe area")
 	_check(
 		float(skin.depth_presentation.lowest_layer_brightness) >= 0.55 \

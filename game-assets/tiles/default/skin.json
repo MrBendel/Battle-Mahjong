@@ -6,7 +6,7 @@
     "source_size": [512, 640],
     "runtime_size": [256, 320],
     "face_safe_area": [92, 104, 328, 400],
-    "modifier_bounds": [384, 32, 96, 96],
+    "modifier_bounds": [24, 24, 192, 192],
     "atlas_padding": 8,
     "minimum_runtime_size": [32, 40]
   },
@@ -16,7 +16,7 @@
       "source_size": [1024, 1536],
       "runtime_size": [512, 768],
       "face_safe_area": [152, 190, 720, 1050],
-      "modifier_bounds": [760, 72, 208, 208],
+      "modifier_bounds": [48, 48, 384, 384],
       "back_design_safe_area": [208, 430, 608, 608],
       "minimum_runtime_size": [32, 48]
     },
@@ -25,7 +25,7 @@
       "source_size": [1536, 1024],
       "runtime_size": [768, 512],
       "face_safe_area": [250, 100, 1036, 740],
-      "modifier_bounds": [1216, 48, 224, 224],
+      "modifier_bounds": [48, 32, 384, 384],
       "back_design_safe_area": [464, 208, 608, 608],
       "minimum_runtime_size": [48, 32]
     }
