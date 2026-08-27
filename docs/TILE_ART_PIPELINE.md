@@ -94,6 +94,8 @@ Tile-back designs use the same separation principle. `default_back_id` chooses a
 
 Tile-attached modifiers use the manifest's `modifiers` catalog and each orientation variant's `modifier_bounds`. The first shared overlay set uses an enamel arcade badge language: a pink heart for Extra Life, cyan snowflake for Cold Snap, amber impact `X` for Score Multiplier, and green expanding tray for Tray +1. Board tiles, tray tiles, and moving previews all resolve the same texture by modifier type. The artwork never enters simulation identity, attachment placement, transaction data, or replay state.
 
+For visual and activation review, the gameplay shell exposes `playtest_all_modifiers` in the Inspector. When enabled, the run snapshots all four level-0 modifiers and places one on the first tile of each of the opening four solver pairs. This authoring-only path is deterministic and raises that run's loadout capacity to four; the default remains off and production reference games retain the single starter Score Multiplier with normal seeded placement.
+
 Missing face art intentionally falls back to live text during production. A skin is not production-complete until every identity used by a game definition has artwork and both text fallback and placeholder mappings are disabled for release.
 
 ## Current Default Assets

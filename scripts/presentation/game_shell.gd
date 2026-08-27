@@ -51,6 +51,9 @@ const PAIR_COLLISION_SECONDS := 0.10
 @export_range(0.20, 0.80, 0.01) var tile_flip_seconds := 0.25
 ## Leftward queue-compaction travel after a held pair resolves.
 @export_range(0.08, 0.30, 0.01) var tray_compaction_seconds := 0.16
+## Equip all four modifiers on early solver-route pairs for visual and activation testing.
+## This is authoring support only; normal games retain the production starter loadout.
+@export var playtest_all_modifiers := false
 @export var show_debug_panel := false
 
 var _rng: RefCounted = DeterministicRngScript.new(START_SEED)
@@ -270,8 +273,9 @@ func _create_game() -> Variant:
 		else:
 			push_error("Invalid ModifierTuning; using simulation defaults: %s" % " ".join(modifier_errors))
 	var factory := ReferenceGameFactoryScript.new()
+	var factory_method := "create_modifier_playtest_definition" if playtest_all_modifiers else "create_definition"
 	var definition: Variant = factory.call(
-		"create_definition",
+		factory_method,
 		_rng.call("get_seed"),
 		GameStateScript.BASE_TRAY_CAPACITY,
 		tuning_overrides,
@@ -280,7 +284,7 @@ func _create_game() -> Variant:
 	if definition == null and layout_id != BoardLayoutCatalogScript.DEFAULT_LAYOUT_ID:
 		push_error("Unknown or invalid layout '%s'; using default." % layout_id)
 		definition = factory.call(
-			"create_definition",
+			factory_method,
 			_rng.call("get_seed"),
 			GameStateScript.BASE_TRAY_CAPACITY,
 			tuning_overrides,

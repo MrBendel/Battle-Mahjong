@@ -22,6 +22,8 @@ func _run() -> void:
 		requested_size = Vector2i(430, 932)
 	root.size = requested_size
 	var shell: Control = load("res://scenes/main.tscn").instantiate()
+	var modifier_playtest := OS.get_cmdline_user_args().has("--modifier-playtest")
+	shell.set("playtest_all_modifiers", modifier_playtest)
 	root.add_child(shell)
 	await process_frame
 	var banner_view: Control = shell.get("_update_banner")
@@ -84,19 +86,37 @@ func _run() -> void:
 		"main scene copies selection gain into game definition"
 	)
 	_check_equal(
-		int(modifier_tuning.get("loadout_capacity")),
+		4 if modifier_playtest else int(modifier_tuning.get("loadout_capacity")),
 		int(live_game.definition.configuration.modifier_loadout_capacity),
-		"main scene copies modifier tuning into game definition"
+		"main scene uses the expected production or playtest modifier capacity"
 	)
+	_check_equal(4 if modifier_playtest else 1, live_game.definition.modifier_attachments.size(), "main scene equips the requested modifier loadout")
 	var attached_tile_id: String = str(live_game.definition.modifier_attachments.keys()[0])
 	var attached_button: Button = shell.get("_regions").board.get("_tile_buttons")[attached_tile_id]
 	var modifier_art: TextureRect = attached_button.get_node("ModifierArt")
 	_check(modifier_art.visible and modifier_art.texture != null, "starter modifier uses separate visible tile artwork")
 	_check_equal(
-		load("res://game-assets/modifiers/tile-overlays/score_multiplier.png"),
+		load("res://game-assets/modifiers/tile-overlays/extra_life.png") if modifier_playtest \
+			else load("res://game-assets/modifiers/tile-overlays/score_multiplier.png"),
 		modifier_art.texture,
-		"starter score modifier resolves through the tile skin"
+		"first equipped modifier resolves through the tile skin"
 	)
+	if modifier_playtest:
+		var expected_modifier_textures := {
+			"extra_life": load("res://game-assets/modifiers/tile-overlays/extra_life.png"),
+			"cold_snap": load("res://game-assets/modifiers/tile-overlays/cold_snap.png"),
+			"score_multiplier": load("res://game-assets/modifiers/tile-overlays/score_multiplier.png"),
+			"tray_plus_one": load("res://game-assets/modifiers/tile-overlays/tray_plus_one.png"),
+		}
+		for modifier_tile_id in live_game.definition.modifier_attachments:
+			var attachment: Dictionary = live_game.definition.modifier_attachments[modifier_tile_id]
+			var modifier_button: Button = shell.get("_regions").board.get("_tile_buttons")[modifier_tile_id]
+			var attached_art: TextureRect = modifier_button.get_node("ModifierArt")
+			_check_equal(
+				expected_modifier_textures[attachment.type],
+				attached_art.texture,
+				"playtest %s attachment renders on its board tile" % attachment.type
+			)
 	var modifier_preview: Control = shell.get("_regions").board.call("create_tile_preview", attached_tile_id, true)
 	var preview_modifier: TextureRect = modifier_preview.get_node("ModifierArt")
 	_check_equal(modifier_art.texture, preview_modifier.texture, "moving tile preview preserves attached modifier artwork")
@@ -571,7 +591,7 @@ func _run() -> void:
 			await create_timer(0.2).timeout
 			shell.call("_on_tile_selected", capture_pair[1])
 			await create_timer(0.18).timeout
-	else:
+	elif not modifier_playtest:
 		var capture_tile_id := ""
 		for tile in live_game.board.call("selectable_tiles"):
 			capture_tile_id = tile.id
@@ -592,6 +612,7 @@ func _run() -> void:
 			else "difficulty-callout" if OS.get_cmdline_user_args().has("--callout-capture") \
 			else "hint" if OS.get_cmdline_user_args().has("--hint-capture") \
 			else "pause-menu" if OS.get_cmdline_user_args().has("--pause-menu") \
+			else "modifier-playtest" if modifier_playtest \
 			else "small-phone" if OS.get_cmdline_user_args().has("--small-phone") \
 			else "safe-%s" % orientation if OS.get_cmdline_user_args().has("--safe-area") else orientation
 		var output_path := "user://m7_%s.png" % capture_name

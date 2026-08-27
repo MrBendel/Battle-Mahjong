@@ -16,6 +16,17 @@ static func starter() -> Array:
 	}]
 
 
+static func playtest_all() -> Array:
+	var loadout: Array = []
+	for type in TYPES:
+		loadout.append({
+			"modifier_id": "playtest_%s" % type,
+			"type": type,
+			"level": 0,
+		})
+	return loadout
+
+
 static func normalize(entries: Array, capacity: int) -> Dictionary:
 	var errors: Array[String] = []
 	var normalized: Array = []

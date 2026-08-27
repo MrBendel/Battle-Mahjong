@@ -927,6 +927,17 @@ func _run_modifier_tests() -> void:
 	var starter: Array = ModifierLoadoutScript.starter()
 	_check_equal(1, starter.size(), "new-player loadout contains one starter modifier")
 	_check_equal(ModifierLoadoutScript.SCORE_MULTIPLIER, starter[0].type, "starter modifier is the score multiplier")
+	var playtest_loadout: Array = ModifierLoadoutScript.playtest_all()
+	_check_equal(4, playtest_loadout.size(), "modifier playtest loadout contains all four modifier types")
+	_check_equal(
+		ModifierLoadoutScript.TYPES,
+		playtest_loadout.map(func(entry: Dictionary) -> String: return entry.type),
+		"modifier playtest loadout preserves the canonical type order"
+	)
+	_check(
+		ModifierLoadoutScript.normalize(playtest_loadout, 4).errors.is_empty(),
+		"modifier playtest loadout validates at its run-scoped capacity"
+	)
 	var level_two_effect: Dictionary = ModifierRulesScript.effect_for(
 		{"type": ModifierLoadoutScript.SCORE_MULTIPLIER, "level": 2},
 		GameConfigurationScript.create()
@@ -1036,6 +1047,22 @@ func _run_modifier_tests() -> void:
 	var placed_b: Variant = factory.call("create_definition", 99)
 	_check_equal(starter, placed_a.modifier_loadout, "reference games use the starter loadout by default")
 	_check_equal(placed_a.modifier_attachments, placed_b.modifier_attachments, "same seed places equipped modifiers identically")
+	var playtest_definition: Variant = factory.call("create_modifier_playtest_definition", 99)
+	_check_equal(playtest_loadout, playtest_definition.modifier_loadout, "modifier playtest games snapshot all four modifiers")
+	_check_equal(4, playtest_definition.configuration.modifier_loadout_capacity, "modifier playtest games expand only their snapshotted loadout capacity")
+	_check_equal(4, playtest_definition.modifier_attachments.size(), "modifier playtest games attach every equipped modifier")
+	var playtest_solution: Array = factory.call("create_generated", 99).solution
+	var expected_early_route_ids := [
+		playtest_solution[0],
+		playtest_solution[2],
+		playtest_solution[4],
+		playtest_solution[6],
+	]
+	_check_equal(
+		expected_early_route_ids,
+		playtest_definition.modifier_attachments.keys(),
+		"modifier playtest attachments follow the first tile of the opening four solver pairs"
+	)
 	var serialized_definition: Variant = JSON.parse_string(JSON.stringify(placed_a.to_dict()))
 	var parsed_definition: Variant = GameDefinitionScript.from_dict(serialized_definition)
 	_check_equal(placed_a.modifier_attachments, parsed_definition.modifier_attachments, "modifier attachments round-trip with the game definition")
