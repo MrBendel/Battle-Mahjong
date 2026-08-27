@@ -12,6 +12,8 @@ Only one alert may be shown at a time. A pair transaction is reduced to at most 
 
 The renderer owns one live-text label. A new accepted alert replaces the active presentation rather than creating an overlapping label. Text is not baked into bitmap assets so localization and future announcer packs can consume the same event keys.
 
+Callout typography, outline weight, vertical motion, and lane height scale from the rendered Board dimensions. Long localized or system copy is fitted to the available width after scaling, preserving legibility on high-resolution phones without clipping compact portrait layouts.
+
 ## Combo Cadence
 
 Combo values through 10 never create large arcade callouts. The default first alert is 11, followed by each multiple of five (`15`, `20`, `25`, and so on). The compact Momentum-region Combo readout remains visible at lower values.

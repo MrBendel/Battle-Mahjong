@@ -787,6 +787,34 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 	var callout_label: Label = callout.get("_label")
 	_check_equal(Rect2(board.position, board.size), Rect2(callout.position, callout.size), "%s callout tracks the board region" % orientation)
 	_check(Rect2(Vector2.ZERO, callout.size).encloses(Rect2(callout_label.position, callout_label.size)), "%s callout text stays inside the board overlay" % orientation)
+	callout.call("play_alert", {
+		"type": "board_progress",
+		"key": "all_tiles_revealed",
+		"text": "ALL TILES REVEALED!",
+	})
+	var expected_callout_scale := maxf(0.72, minf(board.size.x / 390.0, board.size.y / 560.0))
+	var callout_font_size := callout_label.get_theme_font_size("font_size")
+	var rendered_callout_width := callout_label.get_theme_font("font").get_string_size(
+		callout_label.text,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1,
+		callout_font_size
+	).x
+	_check(callout_label.visible, "%s board-progress callout is accepted by the shared lane" % orientation)
+	_check_equal("board_progress", callout.get("last_alert_type"), "%s board-progress callout records its alert type" % orientation)
+	_check(
+		callout_font_size >= floori(20.0 * expected_callout_scale),
+		"%s callout typography scales with the rendered Board (font=%d scale=%.2f)" % [
+			orientation,
+			callout_font_size,
+			expected_callout_scale,
+		]
+	)
+	_check(
+		callout_label.get_theme_constant("outline_size") >= floori(7.0 * expected_callout_scale),
+		"%s callout outline scales with the rendered Board" % orientation
+	)
+	_check(rendered_callout_width <= callout_label.size.x * 0.95, "%s long callout copy fits its responsive lane" % orientation)
 	if orientation == "portrait":
 		_check(board.position.y < tray.position.y + tray.size.y, "portrait Board reclaims the queue artwork's transparent lower padding")
 	else:
