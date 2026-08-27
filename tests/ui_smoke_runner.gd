@@ -129,13 +129,15 @@ func _run() -> void:
 		_check_equal(tray_before_reveal, live_game.tray.tiles.size(), "shell reveal leaves tray occupancy unchanged")
 		_check_equal(motion_before_reveal, shell.get("_tile_motion_count"), "shell reveal does not start tray transfer")
 		_check(reveal_back.visible, "flip animation starts on the tile back")
-		await create_timer(0.16).timeout
-		_check(reveal_button.scale.x < 0.8 and reveal_back.visible, "flip visibly compresses the tile back toward its edge")
-		await create_timer(0.14).timeout
+		await create_timer(0.15).timeout
+		_check(
+			reveal_art.visible and absf(reveal_button.scale.x - 1.0) > 0.05,
+			"flip swaps to the face before its horizontal expansion completes"
+		)
+		await create_timer(0.12).timeout
 		_check(reveal_art.visible and reveal_button.text.is_empty(), "revealed tile displays its face in place")
 		_check_equal(Color.WHITE, reveal_button.modulate, "revealed flipped tile uses canonical available-tile brightness")
 		_check(bool(reveal_button.get_meta("targetable")), "revealed flipped tile becomes playable into the tray")
-		await create_timer(0.24).timeout
 		_check(is_equal_approx(reveal_button.scale.x, 1.0), "flip expands the revealed face back to full width")
 		var nonmatching_tile_id := ""
 		var revealed_face: Variant = live_game.definition.get_tile(revealable_tile_id).face
@@ -147,13 +149,13 @@ func _run() -> void:
 		if not nonmatching_tile_id.is_empty():
 			shell.call("_on_tile_selected", nonmatching_tile_id)
 			_check(live_game.board.call("is_tile_face_down", revealable_tile_id), "ordinary non-match re-hides the revealed tile")
-			await create_timer(0.30).timeout
+			await create_timer(0.15).timeout
 			_check(reveal_back.visible and reveal_back_design.visible and not reveal_art.visible and reveal_button.text.is_empty(), "flip-back presentation restores both tile-back layers")
-			await create_timer(0.24).timeout
+			await create_timer(0.12).timeout
 		shell.call("_on_restart_requested")
 		live_game = shell.get("_game")
 		shell.call("_on_tile_selected", revealable_tile_id)
-		await create_timer(0.54).timeout
+		await create_timer(0.27).timeout
 		var revealed_motion_before: int = shell.get("_tile_motion_count")
 		shell.call("_on_tile_selected", revealable_tile_id)
 		_check(revealable_tile_id in live_game.call("current_snapshot").tray_tile_ids, "second flipped-tile tap occupies an authoritative tray slot")
@@ -215,10 +217,10 @@ func _run() -> void:
 	var tray_incoming: Control = tray_visuals[0].preview
 	var tray_start: Vector2 = tray_incoming.position
 	_check(tray_incoming.scale.x < 0.1, "matching flipped tile begins its face reveal edge-on")
-	await create_timer(0.12).timeout
+	await create_timer(0.06).timeout
 	_check_equal(tray_start, tray_incoming.position, "matching flipped tile reveals in place before tray motion")
 	_check(tray_incoming.scale.x > 0.1, "matching flipped tile face becomes visible during the reveal beat")
-	await create_timer(0.16).timeout
+	await create_timer(0.08).timeout
 	_check_equal(tray_motion_before + 1, shell.get("_tile_motion_count"), "revealed flipped tile starts one normal tray transfer")
 	_check_equal(flipped_target_rect, shell.get("_last_tile_motion_target"), "revealed flipped tile targets the open slot")
 	_check_equal(tray_collision_before, shell.get("_pair_collision_count"), "flipped tile begins tray travel only after revealing")
@@ -670,7 +672,7 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 	var tray_tile_scale: float = shell.get("tray_tile_scale")
 	_check(is_equal_approx(tray_tile_scale, 0.80), "%s uses the tuned 80 percent tray tile scale" % orientation)
 	_check(is_equal_approx(float(shell.get("tile_transfer_seconds")), 0.24), "%s uses the slower tray transfer beat" % orientation)
-	_check(is_equal_approx(float(shell.get("tile_flip_seconds")), 0.50), "%s uses the readable half-second tile flip" % orientation)
+	_check(is_equal_approx(float(shell.get("tile_flip_seconds")), 0.25), "%s uses the tuned quarter-second tile flip" % orientation)
 	if orientation == "portrait":
 		_check(tray.get("_portrait_style"), "portrait enables the Figma queue presentation")
 		_check(tray.get("_queue_left_cap").visible and tray.get("_queue_right_cap").visible, "portrait queue renders both exported end caps")

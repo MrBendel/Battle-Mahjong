@@ -46,7 +46,7 @@ var _hinted_tile_ids := {}
 var _tile_layout_positions := {}
 var _hint_elapsed := 0.0
 var _flip_tweens: Dictionary = {}
-var _flip_duration_seconds := 0.50
+var _flip_duration_seconds := 0.25
 
 
 func _init(game_state: Variant, tile_skin: Variant = null) -> void:

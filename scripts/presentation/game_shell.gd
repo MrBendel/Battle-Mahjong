@@ -47,7 +47,7 @@ const PAIR_LANDING_HOLD_SECONDS := 0.12
 ## Travel time for Board-to-Tray, flipped staging, and Undo return presentation.
 @export_range(0.12, 0.40, 0.01) var tile_transfer_seconds := 0.24
 ## Full back-to-front or front-to-back Board flip duration.
-@export_range(0.20, 0.80, 0.01) var tile_flip_seconds := 0.50
+@export_range(0.20, 0.80, 0.01) var tile_flip_seconds := 0.25
 @export var show_debug_panel := false
 
 var _rng: RefCounted = DeterministicRngScript.new(START_SEED)
