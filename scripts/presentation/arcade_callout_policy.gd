@@ -1,6 +1,12 @@
 extends RefCounted
 class_name ArcadeCalloutPolicy
 
+func choose_for_transaction(telemetry: Dictionary, score_after: int, tuning: Resource) -> Dictionary:
+	if bool(telemetry.get("all_flipped_tiles_revealed", false)):
+		return _alert("board_progress", "all_tiles_revealed", "ALL TILES REVEALED!")
+	return choose_for_pair(telemetry, score_after, tuning)
+
+
 func choose_for_pair(telemetry: Dictionary, score_after: int, tuning: Resource) -> Dictionary:
 	if tuning == null or tuning.combo_alert_interval <= 0 or tuning.first_combo_alert <= 10:
 		return {}

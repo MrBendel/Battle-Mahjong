@@ -29,5 +29,6 @@ Score milestones recognize progress inside the active run. Durable high-score ca
 - Top-percentile exceptional pair: `AMAZING FIND!`.
 - Combo milestones beginning above 10.
 - Configurable current-run score milestones.
+- One-time flipped-tile completion: `ALL TILES REVEALED!`.
 
 The visual treatment is intentionally an extensible first slice. Additional phrases, announcer audio, and richer reusable FX may respond to the same alert dictionary without changing simulation transactions.

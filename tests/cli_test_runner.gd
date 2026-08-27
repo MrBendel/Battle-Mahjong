@@ -183,6 +183,12 @@ func _run_arcade_callout_tests() -> void:
 	}, 10100, tuning)
 	_check_equal("difficulty", priority_alert.type, "coincident pair events choose exactly one specific difficulty alert")
 	_check_equal("EAGLE EYES!", priority_alert.text, "difficulty event wins callout arbitration")
+	var reveal_alert: Dictionary = policy.call("choose_for_transaction", {
+		"all_flipped_tiles_revealed": true,
+	}, 0, tuning)
+	_check_equal("board_progress", reveal_alert.type, "final flipped reveal uses the board-progress callout lane")
+	_check_equal("all_tiles_revealed", reveal_alert.key, "final flipped reveal emits a stable callout key")
+	_check_equal("ALL TILES REVEALED!", reveal_alert.text, "final flipped reveal uses the approved arcade copy")
 	tuning.first_combo_alert = 10
 	tuning.score_milestones.assign([10000, 5000])
 	_check_equal(2, tuning.call("validation_errors").size(), "invalid callout thresholds report actionable errors")
@@ -355,6 +361,7 @@ func _run_flipped_tile_tests() -> void:
 	_check(direct_game.board.call("is_tile_revealable", "flipped"), "accessible face-down tile is revealable")
 	_check(not direct_game.board.call("is_tile_selectable", "flipped"), "face-down tile cannot enter the tray")
 	_check_equal(GameStateScript.TILE_REVEALED, direct_game.call("reveal_tile", "flipped", 100), "accessible face-down tile reveals in place")
+	_check(bool(direct_game.call("last_transaction").telemetry.all_flipped_tiles_revealed), "single flipped tile completes reveal progress")
 	_check(direct_game.board.call("is_tile_revealed_flipped", "flipped"), "revealed flipped tile remains active on the board")
 	_check_equal(0, direct_game.tray.tiles.size(), "reveal does not occupy a tray slot")
 	_check_equal(GameStateScript.SELECTED, direct_game.call("tap_tile", "flipped", 125), "second tap sends a revealed flipped tile to the tray")
@@ -441,10 +448,17 @@ func _run_flipped_tile_tests() -> void:
 
 	var two_flip_game := GameStateScript.new(_definition_with_flips(memory_tiles, ["memory_flip", "other"]))
 	_check_equal(GameStateScript.TILE_REVEALED, two_flip_game.call("reveal_tile", "memory_flip"), "first non-matching flipped tile reveals")
+	_check_equal(1, two_flip_game.call("last_transaction").telemetry.revealed_flipped_tile_count, "first unique reveal records progress")
+	_check(not bool(two_flip_game.call("last_transaction").telemetry.all_flipped_tiles_revealed), "first of two flipped tiles does not complete reveal progress")
 	_check_equal(GameStateScript.TILE_REVEALED, two_flip_game.call("reveal_tile", "other"), "second non-matching flipped tile reveals")
+	_check_equal(2, two_flip_game.call("last_transaction").telemetry.revealed_flipped_tile_count, "second unique reveal records complete progress")
+	_check(bool(two_flip_game.call("last_transaction").telemetry.all_flipped_tiles_revealed), "final unique flipped tile completes reveal progress")
 	_check(two_flip_game.board.call("is_tile_face_down", "memory_flip"), "second non-match turns the first flipped tile face-down")
 	_check(two_flip_game.board.call("is_tile_revealed_flipped", "other"), "second non-match remains exposed")
 	_check_equal(["other"], two_flip_game.call("current_snapshot").revealed_flipped_tile_ids, "only one unmatched flipped face remains exposed")
+	_check_equal(GameStateScript.TILE_REVEALED, two_flip_game.call("reveal_tile", "memory_flip"), "previously seen flipped tile can reveal again")
+	_check(not bool(two_flip_game.call("last_transaction").telemetry.first_reveal_of_flipped_tile), "repeat flip is not counted as a new reveal")
+	_check(not bool(two_flip_game.call("last_transaction").telemetry.all_flipped_tiles_revealed), "repeat flip does not retrigger completion")
 
 	var duplicate_flip_definition: Variant = _definition_with_flips(direct_tiles, ["ordinary", "flipped"])
 	_check_equal(["flipped"], duplicate_flip_definition.flipped_tile_ids, "current rules keep at most one flipped tile per face")

@@ -346,6 +346,7 @@ func _on_tile_selected(tile_id: String) -> void:
 				for visual in direct_visuals:
 					visual.preview.queue_free()
 				_regions.board.call("play_flip", tile_id, true)
+				_play_transaction_callout(direct_transaction)
 			elif result == GameStateScript.FLIPPED_PAIR_RESOLVED:
 				if direct_matching_zone == GameStateDataScript.ZONE_TRAY:
 					_play_flipped_match_to_tray(direct_visuals, direct_target_rect, face_down)
@@ -397,7 +398,7 @@ func _play_transaction_callout(transaction: Variant) -> void:
 		return
 	var score_after := int(_game.call("current_snapshot").score)
 	var alert: Dictionary = _arcade_callout_policy.call(
-		"choose_for_pair",
+		"choose_for_transaction",
 		transaction.telemetry,
 		score_after,
 		arcade_callout_tuning
