@@ -18,6 +18,8 @@ const HINT_BRIGHTNESS_GAIN := 0.10
 const HINT_GLOW_MIN_ALPHA := 0.04
 const HINT_GLOW_MAX_ALPHA := 0.18
 const HINT_BOB_RATIO := 0.035
+const FLIP_CLOSE_RATIO := 0.42
+const FLIP_EDGE_HOLD_RATIO := 0.08
 
 var _game: Variant
 var _tile_buttons: Dictionary = {}
@@ -44,6 +46,7 @@ var _hinted_tile_ids := {}
 var _tile_layout_positions := {}
 var _hint_elapsed := 0.0
 var _flip_tweens: Dictionary = {}
+var _flip_duration_seconds := 0.25
 
 
 func _init(game_state: Variant, tile_skin: Variant = null) -> void:
@@ -70,6 +73,10 @@ func set_game_state(game_state: Variant) -> void:
 	_suppressed_tile_ids.clear()
 	_rebuild_tiles()
 	_layout_tiles()
+
+
+func set_flip_duration(seconds: float) -> void:
+	_flip_duration_seconds = clampf(seconds, 0.20, 0.80)
 
 
 func reset_input_state() -> void:
@@ -495,12 +502,16 @@ func play_flip(tile_id: String, revealing: bool = true) -> void:
 	button.set_meta("flip_animating", true)
 	var tween := create_tween()
 	_flip_tweens[tile_id] = tween
+	var close_seconds := _flip_duration_seconds * FLIP_CLOSE_RATIO
+	var edge_hold_seconds := _flip_duration_seconds * FLIP_EDGE_HOLD_RATIO
+	var open_seconds := _flip_duration_seconds - close_seconds - edge_hold_seconds
 	tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	tween.tween_property(button, "scale:x", 0.06, 0.075)
+	tween.tween_property(button, "scale:x", 0.06, close_seconds)
 	tween.tween_callback(_set_flip_side.bind(tile_id, revealing))
 	tween.tween_callback(_show_flip_blur.bind(tile_id))
+	tween.tween_interval(edge_hold_seconds)
 	tween.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tween.tween_property(button, "scale:x", 1.0, 0.11)
+	tween.tween_property(button, "scale:x", 1.0, open_seconds)
 	tween.tween_callback(_finish_flip.bind(tile_id))
 
 
@@ -537,7 +548,7 @@ func _show_flip_blur(tile_id: String) -> void:
 	blur.material = material
 	button.add_child(blur)
 	var blur_tween := create_tween()
-	blur_tween.tween_property(blur, "modulate:a", 0.0, 0.10)
+	blur_tween.tween_property(blur, "modulate:a", 0.0, _flip_duration_seconds * 0.40)
 	blur_tween.tween_callback(blur.queue_free)
 
 

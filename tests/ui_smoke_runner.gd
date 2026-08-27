@@ -129,10 +129,16 @@ func _run() -> void:
 		_check_equal(tray_before_reveal, live_game.tray.tiles.size(), "shell reveal leaves tray occupancy unchanged")
 		_check_equal(motion_before_reveal, shell.get("_tile_motion_count"), "shell reveal does not start tray transfer")
 		_check(reveal_back.visible, "flip animation starts on the tile back")
-		await create_timer(0.20).timeout
+		await create_timer(0.15).timeout
+		_check(
+			reveal_art.visible and absf(reveal_button.scale.x - 1.0) > 0.05,
+			"flip swaps to the face before its horizontal expansion completes"
+		)
+		await create_timer(0.12).timeout
 		_check(reveal_art.visible and reveal_button.text.is_empty(), "revealed tile displays its face in place")
 		_check_equal(Color.WHITE, reveal_button.modulate, "revealed flipped tile uses canonical available-tile brightness")
 		_check(bool(reveal_button.get_meta("targetable")), "revealed flipped tile becomes playable into the tray")
+		_check(is_equal_approx(reveal_button.scale.x, 1.0), "flip expands the revealed face back to full width")
 		var nonmatching_tile_id := ""
 		var revealed_face: Variant = live_game.definition.get_tile(revealable_tile_id).face
 		for candidate in live_game.board.call("selectable_tiles"):
@@ -143,12 +149,13 @@ func _run() -> void:
 		if not nonmatching_tile_id.is_empty():
 			shell.call("_on_tile_selected", nonmatching_tile_id)
 			_check(live_game.board.call("is_tile_face_down", revealable_tile_id), "ordinary non-match re-hides the revealed tile")
-			await create_timer(0.10).timeout
+			await create_timer(0.15).timeout
 			_check(reveal_back.visible and reveal_back_design.visible and not reveal_art.visible and reveal_button.text.is_empty(), "flip-back presentation restores both tile-back layers")
+			await create_timer(0.12).timeout
 		shell.call("_on_restart_requested")
 		live_game = shell.get("_game")
 		shell.call("_on_tile_selected", revealable_tile_id)
-		await create_timer(0.20).timeout
+		await create_timer(0.27).timeout
 		var revealed_motion_before: int = shell.get("_tile_motion_count")
 		shell.call("_on_tile_selected", revealable_tile_id)
 		_check(revealable_tile_id in live_game.call("current_snapshot").tray_tile_ids, "second flipped-tile tap occupies an authoritative tray slot")
@@ -191,7 +198,7 @@ func _run() -> void:
 	_check_equal(stage_targets, shell.get("_last_flipped_pair_stage_targets"), "flipped pair records both open tray targets")
 	await create_timer(0.24).timeout
 	_check_equal(stage_collision_before, shell.get("_pair_collision_count"), "flipped pair holds in the tray before collision")
-	await create_timer(0.20).timeout
+	await create_timer(0.26).timeout
 	var expected_stage_collision := (stage_targets[0].get_center() + stage_targets[1].get_center()) * 0.5
 	_check_equal(stage_collision_before + 1, shell.get("_pair_collision_count"), "flipped pair collides after tray staging")
 	_check_equal(expected_stage_collision, shell.get("_last_pair_collision_position"), "flipped pair collides between its staging slots")
@@ -210,10 +217,10 @@ func _run() -> void:
 	var tray_incoming: Control = tray_visuals[0].preview
 	var tray_start: Vector2 = tray_incoming.position
 	_check(tray_incoming.scale.x < 0.1, "matching flipped tile begins its face reveal edge-on")
-	await create_timer(0.10).timeout
+	await create_timer(0.06).timeout
 	_check_equal(tray_start, tray_incoming.position, "matching flipped tile reveals in place before tray motion")
 	_check(tray_incoming.scale.x > 0.1, "matching flipped tile face becomes visible during the reveal beat")
-	await create_timer(0.10).timeout
+	await create_timer(0.08).timeout
 	_check_equal(tray_motion_before + 1, shell.get("_tile_motion_count"), "revealed flipped tile starts one normal tray transfer")
 	_check_equal(flipped_target_rect, shell.get("_last_tile_motion_target"), "revealed flipped tile targets the open slot")
 	_check_equal(tray_collision_before, shell.get("_pair_collision_count"), "flipped tile begins tray travel only after revealing")
@@ -256,6 +263,10 @@ func _run() -> void:
 		_check(
 			not is_instance_valid(transfer_preview) or is_equal_approx(transfer_preview.modulate.a, 1.0),
 			"board-to-tray transfer never fades through a transparent landing frame"
+		)
+		_check(
+			is_instance_valid(transfer_preview) and transfer_preview.scale.x < 1.0,
+			"board-to-tray transfer visibly scales toward the smaller tray footprint"
 		)
 		await create_timer(0.12).timeout
 		_check(first_slot_art.visible and first_slot_art.texture != null, "arrival reveals the selected face artwork")
@@ -350,6 +361,50 @@ func _run() -> void:
 		_check(not shell.get("_regions").board.get("_tile_buttons")[undo_tile_id].visible, "restored board tile stays hidden during return motion")
 		await create_timer(0.32).timeout
 		_check(shell.get("_regions").board.get("_tile_buttons")[undo_tile_id].visible, "restored board tile appears when Undo animation lands")
+		shell.call("_on_restart_requested")
+		live_game = shell.get("_game")
+	var compaction_pair := _find_rewardable_pair(live_game)
+	_check_equal(2, compaction_pair.size(), "reference game exposes a pair for queue-compaction validation")
+	if compaction_pair.size() == 2:
+		shell.call("_on_tile_selected", compaction_pair[0])
+		await create_timer(0.30).timeout
+		var second_tray_tile_id := _find_selectable_distinct_from_tray(live_game, compaction_pair[1])
+		_check(not second_tray_tile_id.is_empty(), "queue-compaction setup finds a distinct second tray tile")
+		if not second_tray_tile_id.is_empty():
+			shell.call("_on_tile_selected", second_tray_tile_id)
+			await create_timer(0.30).timeout
+		var third_tray_tile_id := _find_selectable_distinct_from_tray(live_game, compaction_pair[1])
+		_check(not third_tray_tile_id.is_empty(), "queue-compaction setup finds a distinct third tray tile")
+		if not third_tray_tile_id.is_empty():
+			shell.call("_on_tile_selected", third_tray_tile_id)
+			await create_timer(0.30).timeout
+		if live_game.tray.tiles.size() == 3:
+			var survivor_ids: Array[String] = [live_game.tray.tiles[1].id, live_game.tray.tiles[2].id]
+			var compaction_before: int = shell.get("_tray_compaction_count")
+			shell.call("_on_tile_selected", compaction_pair[1])
+			_check_equal(2, live_game.tray.tiles.size(), "interior match compacts authoritative tray immediately")
+			_check_equal(survivor_ids[0], live_game.tray.tiles[0].id, "first survivor owns the first authoritative tray slot")
+			_check_equal(survivor_ids[1], live_game.tray.tiles[1].id, "second survivor owns the second authoritative tray slot")
+			_check_equal(compaction_before + 2, shell.get("_tray_compaction_count"), "interior match starts one compaction motion per survivor")
+			var compaction_targets: Array[Rect2] = shell.get("_last_tray_compaction_targets")
+			_check_equal(shell.get("_regions").tray.call("slot_global_rect", 0), compaction_targets[0], "first survivor compacts into slot one")
+			_check_equal(shell.get("_regions").tray.call("slot_global_rect", 1), compaction_targets[1], "second survivor compacts into slot two")
+			var first_preview: Control = shell.get("_tray_compaction_previews").get(survivor_ids[0])
+			var second_preview: Control = shell.get("_tray_compaction_previews").get(survivor_ids[1])
+			_check(first_preview != null and second_preview != null, "survivors retain visual previews at their old slots")
+			var first_start_x := first_preview.position.x
+			var second_start_x := second_preview.position.x
+			var suppressed: Dictionary = shell.get("_regions").tray.get("_suppressed_tile_ids")
+			_check(suppressed.has(survivor_ids[0]) and suppressed.has(survivor_ids[1]), "destination tiles stay hidden behind compaction previews")
+			await create_timer(0.52).timeout
+			_check(first_preview.position.x < first_start_x and second_preview.position.x < second_start_x, "survivor previews visibly travel left after the pair collision")
+			await create_timer(0.18).timeout
+			_check(not shell.get("_tray_compaction_previews").has(survivor_ids[0]), "first survivor hands rendering back to its tray slot")
+			_check(not shell.get("_tray_compaction_previews").has(survivor_ids[1]), "second survivor hands rendering back to its tray slot")
+			_check(not shell.get("_regions").tray.get("_suppressed_tile_ids").has(survivor_ids[0]), "first compacted tray tile is revealed")
+			_check(not shell.get("_regions").tray.get("_suppressed_tile_ids").has(survivor_ids[1]), "second compacted tray tile is revealed")
+		else:
+			_fail("queue-compaction setup fills three distinct tray slots")
 		shell.call("_on_restart_requested")
 		live_game = shell.get("_game")
 	var selectable_pair := _find_rewardable_pair(live_game)
@@ -658,6 +713,11 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 
 	var tray: Control = regions.tray
 	var board_tile_size: Vector2 = board.call("tile_visual_size")
+	var tray_tile_scale: float = shell.get("tray_tile_scale")
+	_check(is_equal_approx(tray_tile_scale, 0.80), "%s uses the tuned 80 percent tray tile scale" % orientation)
+	_check(is_equal_approx(float(shell.get("tile_transfer_seconds")), 0.24), "%s uses the slower tray transfer beat" % orientation)
+	_check(is_equal_approx(float(shell.get("tile_flip_seconds")), 0.25), "%s uses the tuned quarter-second tile flip" % orientation)
+	_check(is_equal_approx(float(shell.get("tray_compaction_seconds")), 0.16), "%s uses the tuned queue-compaction beat" % orientation)
 	if orientation == "portrait":
 		_check(tray.get("_portrait_style"), "portrait enables the Figma queue presentation")
 		_check(tray.get("_queue_left_cap").visible and tray.get("_queue_right_cap").visible, "portrait queue renders both exported end caps")
@@ -707,7 +767,7 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 	else:
 		_check(not tray.get("_portrait_style"), "landscape retains the existing tray presentation")
 	for slot in tray.get("_slots"):
-		_check(slot.size.is_equal_approx(board_tile_size), "%s tray slot preserves board tile size" % orientation)
+		_check(slot.size.is_equal_approx(board_tile_size * tray_tile_scale), "%s tray slot scales down from the board tile footprint" % orientation)
 	var callout: Control = shell.get("_performance_callout")
 	var callout_label: Label = callout.get("_label")
 	_check_equal(Rect2(board.position, board.size), Rect2(callout.position, callout.size), "%s callout tracks the board region" % orientation)
@@ -933,6 +993,20 @@ func _find_rewardable_pair(game: Variant) -> Array[String]:
 			ids.assign(pair.tile_ids)
 			return ids
 	return []
+
+
+func _find_selectable_distinct_from_tray(game: Variant, excluded_tile_id: String) -> String:
+	for candidate in game.board.call("selectable_tiles"):
+		if candidate.id == excluded_tile_id:
+			continue
+		var matches_held_tile := false
+		for held in game.tray.tiles:
+			if held.face.family == candidate.face.family and held.face.value == candidate.face.value:
+				matches_held_tile = true
+				break
+		if not matches_held_tile:
+			return candidate.id
+	return ""
 
 
 func _find_visible_pair(game: Variant) -> Array[String]:

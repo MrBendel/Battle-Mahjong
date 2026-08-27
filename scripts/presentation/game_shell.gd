@@ -36,13 +36,21 @@ const PORTRAIT_BOTTOM_DOCK_OFFSET := 17.0
 const PORTRAIT_BOARD_INTO_DOCK_PADDING := 8.0
 const START_SEED := 92817361
 const PAIR_LANDING_HOLD_SECONDS := 0.12
-const FLIPPED_REVEAL_SECONDS := 0.16
+const PAIR_COLLISION_SECONDS := 0.10
 
 @export var momentum_tuning: Resource
 @export var modifier_tuning: Resource
 @export var arcade_callout_tuning: Resource
 @export var layout_id: String = BoardLayoutCatalogScript.DEFAULT_LAYOUT_ID
 @export_range(0, 48, 1) var flipped_tile_count := 12
+## Uniform tray-tile scale relative to the current rendered Board tile footprint.
+@export_range(0.60, 1.00, 0.01) var tray_tile_scale := 0.80
+## Travel time for Board-to-Tray, flipped staging, and Undo return presentation.
+@export_range(0.12, 0.40, 0.01) var tile_transfer_seconds := 0.24
+## Full back-to-front or front-to-back Board flip duration.
+@export_range(0.20, 0.80, 0.01) var tile_flip_seconds := 0.25
+## Leftward queue-compaction travel after a held pair resolves.
+@export_range(0.08, 0.30, 0.01) var tray_compaction_seconds := 0.16
 @export var show_debug_panel := false
 
 var _rng: RefCounted = DeterministicRngScript.new(START_SEED)
@@ -64,6 +72,10 @@ var _undo_motion_count := 0
 var _last_undo_motion_target := Rect2()
 var _tile_transfer_previews := {}
 var _tile_transfer_tweens := {}
+var _tray_compaction_previews := {}
+var _tray_compaction_tweens := {}
+var _tray_compaction_count := 0
+var _last_tray_compaction_targets: Array[Rect2] = []
 var _gameplay_background: NinePatchRect
 var _gameplay_background_wash: ColorRect
 var _portrait_hud_scrim: TextureRect
@@ -116,6 +128,7 @@ func _build_shell() -> void:
 	_tile_skin = TileSkinScript.new()
 	_game_started_at_ms = Time.get_ticks_msec()
 	_regions.board = BoardViewScript.new(_game, _tile_skin)
+	_regions.board.call("set_flip_duration", tile_flip_seconds)
 	_regions.momentum = MomentumViewScript.new(_game)
 	_regions.tray = TrayViewScript.new(_game, _tile_skin)
 	_regions.consumables = ConsumablesViewScript.new(_game)
@@ -283,6 +296,7 @@ func _on_tile_selected(tile_id: String) -> void:
 	var result: String
 	var tile_preview: Control = null
 	var matching_preview: Control = null
+	var tray_compaction_visuals: Array = []
 	var source_rect := Rect2()
 	var target_rect := Rect2()
 	var matching_source_rect := Rect2()
@@ -349,8 +363,10 @@ func _on_tile_selected(tile_id: String) -> void:
 		var target_index: int = mini(_game.tray.tiles.size(), 3)
 		target_rect = _regions.tray.call("slot_global_rect", target_index)
 		if matching_index >= 0:
-			matching_preview = _regions.tray.call("create_tile_preview", matching_index)
-			matching_source_rect = _regions.tray.call("slot_global_rect", matching_index)
+			var matching_visual := _capture_tray_visual(matching_index)
+			matching_preview = matching_visual.get("preview")
+			matching_source_rect = matching_visual.get("rect", Rect2())
+			tray_compaction_visuals = _capture_tray_compaction_visuals(matching_index)
 		result = _game.call("select_tile", tile_id, _playback_time_ms())
 		if _tray_contains_tile(tile_id):
 			_regions.tray.call("suppress_tile", tile_id)
@@ -361,12 +377,15 @@ func _on_tile_selected(tile_id: String) -> void:
 	if tile_preview != null and result != GameStateScript.INVALID_SELECTION:
 		if result == GameStateScript.PAIR_RESOLVED:
 			_play_pair_to_tray(tile_preview, matching_preview, source_rect, target_rect, matching_source_rect)
+			_play_tray_compaction(tray_compaction_visuals)
 		else:
 			_play_tile_to_tray(tile_preview, source_rect, target_rect, tile_id)
 	elif tile_preview != null:
 		tile_preview.queue_free()
 	if matching_preview != null and result != GameStateScript.PAIR_RESOLVED:
 		matching_preview.queue_free()
+	if result != GameStateScript.PAIR_RESOLVED:
+		_free_visual_previews(tray_compaction_visuals)
 	if result == GameStateScript.PAIR_RESOLVED:
 		var transaction: Variant = _game.call("last_transaction")
 		_regions.momentum.call("play_pair_feedback", int(transaction.telemetry.resulting_multiplier))
@@ -466,6 +485,7 @@ func _on_shuffle_requested() -> void:
 
 
 func _on_restart_requested() -> void:
+	_clear_tray_compaction_previews()
 	_pause_started_at_ms = -1
 	_game_over_time_ms = -1
 	_paused_duration_ms = 0
@@ -617,7 +637,8 @@ func _play_tile_to_tray(preview: Control, source_rect: Rect2, target_rect: Rect2
 	_tile_transfer_previews[tile_id] = preview
 	_tile_transfer_tweens[tile_id] = tween
 	tween.set_parallel(true)
-	tween.tween_property(preview, "position", target_position, 0.18)
+	tween.tween_property(preview, "position", target_position, tile_transfer_seconds)
+	tween.tween_property(preview, "scale", _preview_scale_for_rect(preview, target_rect), tile_transfer_seconds)
 	tween.finished.connect(_finish_tile_to_tray.bind(preview, tile_id))
 
 
@@ -655,9 +676,12 @@ func _play_undo_to_board(preview: Control, source_rect: Rect2, target_rect: Rect
 	_last_undo_motion_target = target_rect
 	var tween := create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
 	tween.set_parallel(true)
-	tween.tween_property(preview, "position", target_position, 0.18)
-	tween.tween_property(preview, "rotation", deg_to_rad(3.0), 0.09)
-	tween.chain().tween_property(preview, "rotation", 0.0, 0.09)
+	tween.tween_property(preview, "position", target_position, tile_transfer_seconds)
+	tween.tween_property(preview, "scale", _preview_scale_for_rect(preview, target_rect), tile_transfer_seconds)
+	var rotation_half := tile_transfer_seconds * 0.5
+	var rotation_tween := create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
+	rotation_tween.tween_property(preview, "rotation", deg_to_rad(3.0), rotation_half)
+	rotation_tween.tween_property(preview, "rotation", 0.0, rotation_half)
 	tween.finished.connect(_finish_undo_to_board.bind(preview, tile_id))
 
 
@@ -685,7 +709,8 @@ func _prepare_pair_to_tray(incoming: Control, held: Control, source_rect: Rect2,
 	incoming.pivot_offset = incoming.size * 0.5
 	incoming.z_index = 1000
 	if held != null:
-		add_child(held)
+		if held.get_parent() == null:
+			add_child(held)
 		held.position = _global_to_local(held_source_rect.position)
 		held.size = held_source_rect.size
 		held.pivot_offset = held.size * 0.5
@@ -700,8 +725,9 @@ func _start_pair_to_tray_motion(incoming: Control, held: Control, target_rect: R
 	var target_position := _global_to_local(target_rect.get_center()) - incoming.size * 0.5
 	var tween := create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	tween.set_parallel(true)
-	tween.tween_property(incoming, "position", target_position, 0.15)
-	tween.tween_property(incoming, "rotation", deg_to_rad(4.0), 0.15)
+	tween.tween_property(incoming, "position", target_position, tile_transfer_seconds)
+	tween.tween_property(incoming, "scale", _preview_scale_for_rect(incoming, target_rect), tile_transfer_seconds)
+	tween.tween_property(incoming, "rotation", deg_to_rad(4.0), tile_transfer_seconds)
 	tween.chain().tween_interval(PAIR_LANDING_HOLD_SECONDS)
 	tween.finished.connect(_play_pair_collision.bind(incoming, held, target_rect, held_source_rect))
 
@@ -720,7 +746,7 @@ func _play_flipped_match_to_tray(visuals: Array, target_rect: Rect2, reveal_inco
 		return
 	incoming.scale = Vector2(0.08, 1.0)
 	var reveal_tween := create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	reveal_tween.tween_property(incoming, "scale", Vector2.ONE, FLIPPED_REVEAL_SECONDS)
+	reveal_tween.tween_property(incoming, "scale", Vector2.ONE, tile_flip_seconds * 0.5)
 	reveal_tween.finished.connect(
 		_start_pair_to_tray_motion.bind(incoming, held, target_rect, held_source_rect)
 	)
@@ -735,14 +761,16 @@ func _play_pair_collision(incoming: Control, held: Control, incoming_rect: Rect2
 	_last_pair_collision_position = collision_center
 	var incoming_target := _global_to_local(collision_center) - incoming.size * 0.5
 	var held_target := _global_to_local(collision_center) - held.size * 0.5
+	var incoming_collision_scale := incoming.scale * 1.08
+	var held_collision_scale := held.scale * 1.08
 	var tween := create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	tween.set_parallel(true)
-	tween.tween_property(incoming, "position", incoming_target, 0.10)
-	tween.tween_property(held, "position", held_target, 0.10)
-	tween.tween_property(incoming, "rotation", deg_to_rad(-5.0), 0.10)
-	tween.tween_property(held, "rotation", deg_to_rad(5.0), 0.10)
-	tween.tween_property(incoming, "scale", Vector2(1.08, 1.08), 0.10)
-	tween.tween_property(held, "scale", Vector2(1.08, 1.08), 0.10)
+	tween.tween_property(incoming, "position", incoming_target, PAIR_COLLISION_SECONDS)
+	tween.tween_property(held, "position", held_target, PAIR_COLLISION_SECONDS)
+	tween.tween_property(incoming, "rotation", deg_to_rad(-5.0), PAIR_COLLISION_SECONDS)
+	tween.tween_property(held, "rotation", deg_to_rad(5.0), PAIR_COLLISION_SECONDS)
+	tween.tween_property(incoming, "scale", incoming_collision_scale, PAIR_COLLISION_SECONDS)
+	tween.tween_property(held, "scale", held_collision_scale, PAIR_COLLISION_SECONDS)
 	tween.finished.connect(_play_pair_pop.bind([incoming, held], collision_center))
 
 
@@ -786,7 +814,7 @@ func _play_flipped_pair_via_open_slots(visuals: Array, reveal_incoming: bool = f
 	if reveal_incoming:
 		previews[0].scale = Vector2(0.08, 1.0)
 		var reveal_tween := create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		reveal_tween.tween_property(previews[0], "scale", Vector2.ONE, FLIPPED_REVEAL_SECONDS)
+		reveal_tween.tween_property(previews[0], "scale", Vector2.ONE, tile_flip_seconds * 0.5)
 		reveal_tween.finished.connect(_stage_flipped_pair_in_tray.bind(previews, targets))
 	else:
 		_stage_flipped_pair_in_tray(previews, targets)
@@ -807,8 +835,9 @@ func _stage_flipped_pair_in_tray(previews: Array, targets: Array[Rect2]) -> void
 	for index in previews.size():
 		var preview: Control = previews[index]
 		var target_position := _global_to_local(targets[index].get_center()) - preview.size * 0.5
-		tween.tween_property(preview, "position", target_position, 0.18)
-		tween.tween_property(preview, "rotation", deg_to_rad(-3.0 if index == 0 else 3.0), 0.18)
+		tween.tween_property(preview, "position", target_position, tile_transfer_seconds)
+		tween.tween_property(preview, "scale", _preview_scale_for_rect(preview, targets[index]), tile_transfer_seconds)
+		tween.tween_property(preview, "rotation", deg_to_rad(-3.0 if index == 0 else 3.0), tile_transfer_seconds)
 	tween.chain().tween_interval(PAIR_LANDING_HOLD_SECONDS)
 	tween.finished.connect(_play_pair_collision.bind(previews[0], previews[1], targets[0], targets[1]))
 
@@ -827,14 +856,111 @@ func _play_pair_pop(previews: Array, global_center: Vector2) -> void:
 	for preview in previews:
 		if preview == null or not is_instance_valid(preview):
 			continue
+		var landed_scale: Vector2 = preview.scale
 		var tween := create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		tween.set_parallel(true)
-		tween.tween_property(preview, "scale", Vector2(1.18, 1.18), 0.08)
+		tween.tween_property(preview, "scale", landed_scale * 1.09, 0.08)
 		tween.tween_property(preview, "rotation", 0.0, 0.08)
 		tween.chain().set_parallel(true)
-		tween.tween_property(preview, "scale", Vector2(0.72, 0.72), 0.13)
+		tween.tween_property(preview, "scale", landed_scale * 0.67, 0.13)
 		tween.tween_property(preview, "modulate:a", 0.0, 0.13)
 		tween.finished.connect(preview.queue_free)
+
+
+func _preview_scale_for_rect(preview: Control, target_rect: Rect2) -> Vector2:
+	if preview.size.x <= 0.0 or preview.size.y <= 0.0:
+		return Vector2.ONE
+	return target_rect.size / preview.size
+
+
+func _capture_tray_visual(index: int) -> Dictionary:
+	if index < 0 or index >= _game.tray.tiles.size():
+		return {}
+	var tile_id := str(_game.tray.tiles[index].id)
+	var preview: Control = _take_active_tray_compaction(tile_id)
+	var source_rect: Rect2 = preview.get_global_rect() if preview != null \
+		else _regions.tray.call("slot_global_rect", index)
+	if preview == null:
+		preview = _regions.tray.call("create_tile_preview", index)
+	return {"tile_id": tile_id, "preview": preview, "rect": source_rect}
+
+
+func _capture_tray_compaction_visuals(resolved_index: int) -> Array:
+	var visuals: Array = []
+	for index in range(resolved_index + 1, _game.tray.tiles.size()):
+		var visual: Dictionary = _capture_tray_visual(index)
+		if visual.get("preview") != null:
+			visuals.append(visual)
+	return visuals
+
+
+func _play_tray_compaction(visuals: Array) -> void:
+	_last_tray_compaction_targets.clear()
+	for visual in visuals:
+		var tile_id := str(visual.tile_id)
+		var destination_index := _tray_index_for_tile(tile_id)
+		var preview: Control = visual.preview
+		if destination_index < 0 or preview == null:
+			if preview != null:
+				preview.queue_free()
+			continue
+		var source_rect: Rect2 = visual.rect
+		var target_rect: Rect2 = _regions.tray.call("slot_global_rect", destination_index)
+		_regions.tray.call("suppress_tile", tile_id)
+		if preview.get_parent() == null:
+			add_child(preview)
+		preview.position = _global_to_local(source_rect.position)
+		preview.size = source_rect.size
+		preview.pivot_offset = preview.size * 0.5
+		preview.z_index = 998
+		var target_position := _global_to_local(target_rect.position)
+		var tween := create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
+		tween.tween_interval(tile_transfer_seconds + PAIR_LANDING_HOLD_SECONDS + PAIR_COLLISION_SECONDS)
+		tween.tween_property(preview, "position", target_position, tray_compaction_seconds)
+		tween.finished.connect(_finish_tray_compaction.bind(tile_id, preview))
+		_tray_compaction_previews[tile_id] = preview
+		_tray_compaction_tweens[tile_id] = tween
+		_last_tray_compaction_targets.append(target_rect)
+		_tray_compaction_count += 1
+
+
+func _finish_tray_compaction(tile_id: String, preview: Control) -> void:
+	_tray_compaction_previews.erase(tile_id)
+	_tray_compaction_tweens.erase(tile_id)
+	if _tray_contains_tile(tile_id):
+		_regions.tray.call("reveal_tile", tile_id)
+	if is_instance_valid(preview):
+		preview.queue_free()
+
+
+func _take_active_tray_compaction(tile_id: String) -> Control:
+	var preview: Control = _tray_compaction_previews.get(tile_id)
+	if preview == null:
+		return null
+	var tween: Tween = _tray_compaction_tweens.get(tile_id)
+	if tween != null and tween.is_valid():
+		tween.kill()
+	_tray_compaction_previews.erase(tile_id)
+	_tray_compaction_tweens.erase(tile_id)
+	return preview
+
+
+func _clear_tray_compaction_previews() -> void:
+	for tween in _tray_compaction_tweens.values():
+		if tween != null and tween.is_valid():
+			tween.kill()
+	for preview in _tray_compaction_previews.values():
+		if is_instance_valid(preview):
+			preview.queue_free()
+	_tray_compaction_previews.clear()
+	_tray_compaction_tweens.clear()
+
+
+func _free_visual_previews(visuals: Array) -> void:
+	for visual in visuals:
+		var preview: Control = visual.get("preview")
+		if preview != null and is_instance_valid(preview):
+			preview.queue_free()
 
 
 func _spawn_match_burst(global_center: Vector2) -> void:
@@ -967,15 +1093,16 @@ func _apply_layout() -> void:
 		_apply_portrait_layout(viewport_size)
 	_regions.board.call("refresh")
 	var tile_visual_size: Vector2 = _regions.board.call("tile_visual_size")
-	var required_tray_height := float(_regions.tray.call("minimum_height_for_tile", tile_visual_size))
-	var required_tray_width := float(_regions.tray.call("minimum_width_for_tile", tile_visual_size))
+	var tray_visual_size := tile_visual_size * tray_tile_scale
+	var required_tray_height := float(_regions.tray.call("minimum_height_for_tile", tray_visual_size))
+	var required_tray_width := float(_regions.tray.call("minimum_width_for_tile", tray_visual_size))
 	_reflow_for_tray_clearance(orientation, required_tray_height, required_tray_width)
 
 	if _debug_panel.visible:
 		_place_debug_panel(viewport_size, orientation)
 	_place_pause_button(viewport_size)
 	_regions.board.call("refresh")
-	_regions.tray.call("set_tile_visual_size", _regions.board.call("tile_visual_size"))
+	_regions.tray.call("set_tile_visual_size", _regions.board.call("tile_visual_size") * tray_tile_scale)
 	_regions.tray.call("refresh")
 	_performance_callout.call("place_over", Rect2(_regions.board.position, _regions.board.size))
 	_debug_panel.call(
