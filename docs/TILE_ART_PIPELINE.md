@@ -54,7 +54,7 @@ Tile Base
 + FX
 ```
 
-The current Godot proof renders the responsive ceramic base as a texture, places imported face art inside the safe area, and places modifier text in the independent modifier bounds.
+The current Godot proof renders the responsive ceramic base as a texture, places imported face art inside the safe area, and places skin-declared modifier artwork in independent orientation-specific modifier bounds.
 
 ### Authored Depth Presentation
 
@@ -68,7 +68,7 @@ The same section defines a dark warm manga-ink silhouette using `ink_outline_col
 
 ## Source And Runtime Assets
 
-Editable masters live under `art-source/tiles/<skin>/`. Godot runtime exports live under `game-assets/tiles/<skin>/`.
+Editable tile masters live under `art-source/tiles/<skin>/`. Godot runtime tile exports live under `game-assets/tiles/<skin>/`. Shared modifier masters live under `art-source/modifiers/tile-overlays/`, with runtime exports under `game-assets/modifiers/tile-overlays/`.
 
 Rules:
 
@@ -78,7 +78,7 @@ Rules:
 - File names are stable logical face IDs such as `bamboo_1.svg` and `red_dragon.svg`.
 - Runtime PNG files are generated outputs and must not be edited directly. The tile exporter downsamples raster base masters alongside SVG face masters.
 - Run `godot --headless --path . --script res://scripts/tools/generate_default_tile_faces.gd` to regenerate the brush-arcade Default SVG candidate set.
-- Run `godot --headless --path . --script res://scripts/tools/export_tile_art.gd` after changing tile SVG masters.
+- Run `godot --headless --path . --script res://scripts/tools/export_tile_art.gd` after changing tile or modifier SVG masters.
 - Run `godot --headless --editor --path . --quit` after export on a fresh checkout so Godot imports every runtime PNG before headless tests.
 - Small vector masters and runtime exports remain in Git. Large character, background, audio, and layered-painting storage remains an M7 production decision.
 
@@ -91,6 +91,8 @@ Each skin owns a versioned `skin.json` containing skin identity, geometry, guara
 The loader requires the initial 34 IDs but does not reject additional face definitions. This allows the vocabulary to grow without changing the renderer contract.
 
 Tile-back designs use the same separation principle. `default_back_id` chooses an entry from `back_designs`; each entry supplies transparent ornament artwork only. `base_variants.<orientation>.back_design_safe_area` defines where that ornament is composited over the blank ceramic back. Back-design selection is cosmetic and must never enter matching, board, transaction, or replay logic. Durable player ownership and selection remain deferred to the profile milestone.
+
+Tile-attached modifiers use the manifest's `modifiers` catalog and each orientation variant's `modifier_bounds`. The first shared overlay set uses an enamel arcade badge language: a pink heart for Extra Life, cyan snowflake for Cold Snap, amber impact `X` for Score Multiplier, and green expanding tray for Tray +1. Board tiles, tray tiles, and moving previews all resolve the same texture by modifier type. The artwork never enters simulation identity, attachment placement, transaction data, or replay state.
 
 Missing face art intentionally falls back to live text during production. A skin is not production-complete until every identity used by a game definition has artwork and both text fallback and placeholder mappings are disabled for release.
 

@@ -128,13 +128,13 @@ Detailed contract: [M06 Consumables](milestones/M06_CONSUMABLES.md)
 
 Status: In progress. The Batch A visual-slice candidate is implemented: canonical tile geometry, an extensible 34-face manifest, the complete Default face set, source/runtime exports, responsive board and tray rendering, selection/rejection motion, transaction-driven pair removal, and the first production-style gameplay background.
 
-The gameplay foundation also supports seeded flipped tiles. Rules version 11 keeps reveals transactional and outside the tray, but requires an ordinary board mate to enter the tray before the flipped tile can be tapped to resolve it. Detailed contract: [Flipped Tiles](FLIPPED_TILES.md).
+The gameplay foundation also supports seeded flipped tiles. Rules version 13 requires player-driven reveals and routes a revealed tile through ordinary tray selection, capacity, matching, animation, and Undo behavior. Detailed contract: [Flipped Tiles](FLIPPED_TILES.md).
 
 The first live-text arcade callout lane recognizes difficult pairs, current-run score milestones, and Combo milestones above 10 while arbitrating coincident events into one visible alert. Durable high-score triggering remains deferred to M9 profile ownership. Detailed contract: [Arcade Callouts](ARCADE_CALLOUTS.md).
 
 The gameplay shell follows a mobile-first portrait stack with a bottom action dock, while landscape preserves the portrait-authored board and moves actions into console-friendly side rails. Detailed contract: [Responsive Game Shell](RESPONSIVE_GAME_SHELL.md).
 
-Next production work moves into Batch B system artwork for modifiers, consumables, momentum, and multiplier before broader FX, character work, and the Neon skin proof.
+Batch B is in progress: the responsive Momentum/multiplier HUD, portrait consumable controls, and all four tile-attached modifier identities have first production-style artwork. Modifier HUD/reward presentation and activation sequences remain before broader FX, character work, and the Neon skin proof.
 
 Detailed contracts: [M07 Art Foundation](milestones/M07_ART_FOUNDATION.md) and [Tile Art Pipeline](TILE_ART_PIPELINE.md)
 

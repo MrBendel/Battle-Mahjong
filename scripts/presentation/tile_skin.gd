@@ -2,6 +2,7 @@ extends RefCounted
 class_name TileSkin
 
 const DEFAULT_MANIFEST_PATH := "res://game-assets/tiles/default/skin.json"
+const REQUIRED_MODIFIER_IDS := ["extra_life", "cold_snap", "score_multiplier", "tray_plus_one"]
 
 var id := ""
 var display_name := ""
@@ -10,6 +11,7 @@ var base_variants: Dictionary = {}
 var back_variants: Dictionary = {}
 var default_back_id := ""
 var back_designs: Dictionary = {}
+var modifiers: Dictionary = {}
 var depth_presentation: Dictionary = {}
 var layout_presentation: Dictionary = {}
 var canonical_face_ids: Array[String] = []
@@ -22,6 +24,7 @@ var _textures: Dictionary = {}
 var _base_textures: Dictionary = {}
 var _back_textures: Dictionary = {}
 var _back_design_textures: Dictionary = {}
+var _modifier_textures: Dictionary = {}
 var _load_errors: Array[String] = []
 
 
@@ -59,6 +62,11 @@ func validation_errors() -> Array[String]:
 		var design_path := str(design.get("asset", ""))
 		if design_path.is_empty() or not (ResourceLoader.exists(design_path) or FileAccess.file_exists(design_path)):
 			errors.append("Tile-back design '%s' has no runtime asset." % design_id)
+	for modifier_id in REQUIRED_MODIFIER_IDS:
+		var modifier: Dictionary = modifiers.get(modifier_id, {})
+		var modifier_path := str(modifier.get("asset", ""))
+		if modifier_path.is_empty() or not (ResourceLoader.exists(modifier_path) or FileAccess.file_exists(modifier_path)):
+			errors.append("Modifier '%s' has no runtime tile overlay." % modifier_id)
 	var depth_floor := float(depth_presentation.get("lowest_layer_brightness", 0.0))
 	var blocked_overlay: Array = depth_presentation.get("blocked_overlay_color", [])
 	var shadow_opacity := float(depth_presentation.get("shadow_opacity", -1.0))
@@ -176,6 +184,32 @@ func back_design_texture() -> Texture2D:
 	return texture
 
 
+func modifier_texture(modifier_id: String) -> Texture2D:
+	if _modifier_textures.has(modifier_id):
+		return _modifier_textures[modifier_id]
+	var definition: Dictionary = modifiers.get(modifier_id, {})
+	var texture := _load_texture(str(definition.get("asset", "")))
+	_modifier_textures[modifier_id] = texture
+	return texture
+
+
+func configure_modifier_art(modifier_art: TextureRect) -> void:
+	var active := active_geometry()
+	var source_size: Array = active.get("source_size", geometry.get("source_size", [512, 640]))
+	var bounds: Array = active.get("modifier_bounds", geometry.get("modifier_bounds", [384, 32, 96, 96]))
+	modifier_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	modifier_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	modifier_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	modifier_art.anchor_left = float(bounds[0]) / float(source_size[0])
+	modifier_art.anchor_top = float(bounds[1]) / float(source_size[1])
+	modifier_art.anchor_right = float(bounds[0] + bounds[2]) / float(source_size[0])
+	modifier_art.anchor_bottom = float(bounds[1] + bounds[3]) / float(source_size[1])
+	modifier_art.offset_left = 0.0
+	modifier_art.offset_top = 0.0
+	modifier_art.offset_right = 0.0
+	modifier_art.offset_bottom = 0.0
+
+
 func configure_back_design(design_art: TextureRect) -> void:
 	var active := active_geometry()
 	var source_size: Array = active.get("source_size", [512, 640])
@@ -273,6 +307,7 @@ func _load_manifest(manifest_path: String) -> void:
 	back_variants = parsed.get("back_variants", {}).duplicate(true)
 	default_back_id = str(parsed.get("default_back_id", ""))
 	back_designs = parsed.get("back_designs", {}).duplicate(true)
+	modifiers = parsed.get("modifiers", {}).duplicate(true)
 	back_design_id = default_back_id
 	depth_presentation = parsed.get("depth_presentation", {}).duplicate(true)
 	layout_presentation = parsed.get("layout_presentation", {}).duplicate(true)

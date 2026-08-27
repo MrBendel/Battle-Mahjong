@@ -16,6 +16,7 @@
       "source_size": [1024, 1536],
       "runtime_size": [512, 768],
       "face_safe_area": [152, 190, 720, 1050],
+      "modifier_bounds": [760, 72, 208, 208],
       "back_design_safe_area": [208, 430, 608, 608],
       "minimum_runtime_size": [32, 48]
     },
@@ -24,6 +25,7 @@
       "source_size": [1536, 1024],
       "runtime_size": [768, 512],
       "face_safe_area": [250, 100, 1036, 740],
+      "modifier_bounds": [1216, 48, 224, 224],
       "back_design_safe_area": [464, 208, 608, 608],
       "minimum_runtime_size": [48, 32]
     }
@@ -38,6 +40,12 @@
       "display_name": "Arcade Spark",
       "asset": "res://game-assets/tiles/default/back-designs/arcade_spark.png"
     }
+  },
+  "modifiers": {
+    "extra_life": {"display_name": "Extra Life", "asset": "res://game-assets/modifiers/tile-overlays/extra_life.png"},
+    "cold_snap": {"display_name": "Cold Snap", "asset": "res://game-assets/modifiers/tile-overlays/cold_snap.png"},
+    "score_multiplier": {"display_name": "Score Multiplier", "asset": "res://game-assets/modifiers/tile-overlays/score_multiplier.png"},
+    "tray_plus_one": {"display_name": "Tray +1", "asset": "res://game-assets/modifiers/tile-overlays/tray_plus_one.png"}
   },
   "depth_presentation": {
     "lowest_layer_brightness": 0.62,

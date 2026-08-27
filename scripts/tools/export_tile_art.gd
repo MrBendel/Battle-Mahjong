@@ -1,12 +1,16 @@
 extends SceneTree
 
-const SOURCE_ROOT := "res://art-source/tiles"
-const RUNTIME_ROOT := "res://game-assets/tiles"
+const EXPORT_ROOTS := [
+	["res://art-source/tiles", "res://game-assets/tiles"],
+	["res://art-source/modifiers", "res://game-assets/modifiers"],
+]
 const RUNTIME_SCALE := 0.5
 
 
 func _init() -> void:
-	var failures := _export_directory(SOURCE_ROOT)
+	var failures := 0
+	for roots in EXPORT_ROOTS:
+		failures += _export_directory(roots[0], roots[0], roots[1])
 	if failures == 0:
 		printerr("Exported tile SVG masters to runtime PNG assets.")
 	else:
@@ -14,14 +18,14 @@ func _init() -> void:
 	quit(1 if failures > 0 else 0)
 
 
-func _export_directory(source_directory: String) -> int:
+func _export_directory(source_directory: String, source_root: String, runtime_root: String) -> int:
 	var failures := 0
 	for directory_name in DirAccess.get_directories_at(source_directory):
-		failures += _export_directory(source_directory.path_join(directory_name))
+		failures += _export_directory(source_directory.path_join(directory_name), source_root, runtime_root)
 	for file_name in DirAccess.get_files_at(source_directory):
 		var source_path := source_directory.path_join(file_name)
-		var relative_path := source_path.trim_prefix(SOURCE_ROOT + "/")
-		var output_path := RUNTIME_ROOT.path_join(relative_path.get_basename() + ".png")
+		var relative_path := source_path.trim_prefix(source_root + "/")
+		var output_path := runtime_root.path_join(relative_path.get_basename() + ".png")
 		match file_name.get_extension().to_lower():
 			"svg":
 				if not _export_svg(source_path, output_path):

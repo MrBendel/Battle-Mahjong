@@ -90,8 +90,23 @@ func _run() -> void:
 	)
 	var attached_tile_id: String = str(live_game.definition.modifier_attachments.keys()[0])
 	var attached_button: Button = shell.get("_regions").board.get("_tile_buttons")[attached_tile_id]
-	var modifier_label: Label = attached_button.get_node("Modifier")
-	_check("×" in modifier_label.text and modifier_label.visible, "starter modifier remains a separate visible tile overlay")
+	var modifier_art: TextureRect = attached_button.get_node("ModifierArt")
+	_check(modifier_art.visible and modifier_art.texture != null, "starter modifier uses separate visible tile artwork")
+	_check_equal(
+		load("res://game-assets/modifiers/tile-overlays/score_multiplier.png"),
+		modifier_art.texture,
+		"starter score modifier resolves through the tile skin"
+	)
+	var modifier_preview: Control = shell.get("_regions").board.call("create_tile_preview", attached_tile_id, true)
+	var preview_modifier: TextureRect = modifier_preview.get_node("ModifierArt")
+	_check_equal(modifier_art.texture, preview_modifier.texture, "moving tile preview preserves attached modifier artwork")
+	modifier_preview.queue_free()
+	var tile_skin: Variant = shell.get("_tile_skin")
+	for modifier_id in ["extra_life", "cold_snap", "score_multiplier", "tray_plus_one"]:
+		_check(
+			tile_skin.call("modifier_texture", modifier_id) != null,
+			"%s has runtime tile-attached artwork" % modifier_id
+		)
 	var revealable_tile_id := ""
 	for tile in live_game.board.call("revealable_tiles"):
 		revealable_tile_id = tile.id

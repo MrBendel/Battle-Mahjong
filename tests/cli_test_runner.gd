@@ -116,12 +116,17 @@ func _run_tile_skin_contract_tests() -> void:
 	_check_equal("arcade_spark", skin.default_back_id, "Default skin selects the Arcade Spark back design")
 	_check_equal(1, skin.back_designs.size(), "tile backs use a replaceable cosmetic design catalog")
 	_check(skin.call("back_design_texture") != null, "Default tile-back design loads independently from its ceramic base")
+	_check_equal(4, skin.modifiers.size(), "Default skin declares all four tile-attached modifier identities")
+	for modifier_id in ["extra_life", "cold_snap", "score_multiplier", "tray_plus_one"]:
+		_check(skin.call("modifier_texture", modifier_id) != null, "%s modifier tile overlay loads" % modifier_id)
 	_check(ResourceLoader.exists(str(skin.base_variants.portrait.asset)) or FileAccess.file_exists(str(skin.base_variants.portrait.asset)), "portrait ceramic base runtime asset exists")
 	_check(ResourceLoader.exists(str(skin.base_variants.landscape.asset)) or FileAccess.file_exists(str(skin.base_variants.landscape.asset)), "landscape ceramic base runtime asset exists")
+	_check_equal(4, skin.active_geometry().modifier_bounds.size(), "portrait modifier has explicit attachment bounds")
 	_check(skin.call("tile_aspect") > 1.0, "portrait ceramic base uses a tall footprint")
 	skin.call("set_orientation", "landscape")
 	_check(skin.call("tile_aspect") < 1.0, "landscape ceramic base uses a wide footprint")
 	_check(skin.call("tile_base_texture") != null, "active landscape ceramic base loads")
+	_check_equal(4, skin.active_geometry().modifier_bounds.size(), "landscape modifier has explicit attachment bounds")
 	_check_equal(4, skin.active_geometry().back_design_safe_area.size(), "landscape back design has an explicit compositing safe area")
 	_check(
 		float(skin.depth_presentation.lowest_layer_brightness) >= 0.55 \
