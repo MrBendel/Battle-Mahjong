@@ -23,15 +23,15 @@ const GameConfigurationScript := preload("res://scripts/simulation/game_configur
 
 @export_category("Pair Difficulty Rewards")
 ## Minimum absolute pair score for a GREAT recognition event.
-@export_range(0, 1000, 1) var difficulty_notable_min_score := 160
+@export_range(0, 1000, 1) var difficulty_notable_min_score := 130
 ## Minimum contextual percentile for GREAT, expressed as 0..10000 basis points.
-@export_range(0, 10000, 100) var difficulty_notable_min_percentile_basis_points := 7500
+@export_range(0, 10000, 100) var difficulty_notable_min_percentile_basis_points := 6000
 ## Additional score percentage for GREAT, expressed as basis points (2500 = 25%).
 @export_range(0, 10000, 100) var difficulty_notable_bonus_basis_points := 2500
 ## Minimum absolute pair score for an EAGLE EYES recognition event.
-@export_range(0, 1000, 1) var difficulty_exceptional_min_score := 220
+@export_range(0, 1000, 1) var difficulty_exceptional_min_score := 190
 ## Minimum contextual percentile for EAGLE EYES, expressed as 0..10000 basis points.
-@export_range(0, 10000, 100) var difficulty_exceptional_min_percentile_basis_points := 9000
+@export_range(0, 10000, 100) var difficulty_exceptional_min_percentile_basis_points := 8500
 ## Additional score percentage for EAGLE EYES, expressed as basis points (5000 = 50%).
 @export_range(0, 20000, 100) var difficulty_exceptional_bonus_basis_points := 5000
 

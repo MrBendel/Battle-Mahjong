@@ -1,6 +1,15 @@
 extends RefCounted
 class_name ArcadeCalloutPolicy
 
+func choose_for_transaction(telemetry: Dictionary, score_after: int, tuning: Resource) -> Dictionary:
+	var modifier_alert := _choose_modifier_reward(telemetry)
+	if not modifier_alert.is_empty():
+		return modifier_alert
+	if bool(telemetry.get("all_flipped_tiles_revealed", false)):
+		return _alert("board_progress", "all_tiles_revealed", "ALL TILES REVEALED!")
+	return choose_for_pair(telemetry, score_after, tuning)
+
+
 func choose_for_pair(telemetry: Dictionary, score_after: int, tuning: Resource) -> Dictionary:
 	if tuning == null or tuning.combo_alert_interval <= 0 or tuning.first_combo_alert <= 10:
 		return {}
@@ -37,6 +46,55 @@ func _is_combo_milestone(combo: int, tuning: Resource) -> bool:
 
 func _alert(type: String, key: String, text: String) -> Dictionary:
 	return {"type": type, "key": key, "text": text}
+
+
+func _choose_modifier_reward(telemetry: Dictionary) -> Dictionary:
+	var triggered: Array = telemetry.get("modifiers_triggered", [])
+	if triggered.is_empty() or not triggered[0] is Dictionary:
+		return {}
+	var modifier: Dictionary = triggered[0]
+	var modifier_type := str(modifier.get("type", ""))
+	var effect: Dictionary = modifier.get("effect", {})
+	match modifier_type:
+		"extra_life":
+			return _alert(
+				"modifier_reward",
+				"extra_life",
+				"EXTRA LIFE +%d" % int(effect.get("charges", 1))
+			)
+		"cold_snap":
+			return _alert(
+				"modifier_reward",
+				"cold_snap",
+				"MOMENTUM FROZEN %s" % _format_duration(int(effect.get("duration_ms", 0)))
+			)
+		"score_multiplier":
+			return _alert(
+				"modifier_reward",
+				"score_multiplier",
+				"SCORE BOOST %s" % _format_basis_points(int(effect.get("basis_points", 1000)))
+			)
+		"tray_plus_one":
+			return _alert(
+				"modifier_reward",
+				"tray_plus_one",
+				"TRAY +1 FOR %d PAIRS" % int(effect.get("pair_duration", 0))
+			)
+	return {}
+
+
+func _format_duration(duration_ms: int) -> String:
+	if duration_ms % 1000 == 0:
+		return "%dS" % int(duration_ms / 1000)
+	return "%.1fS" % (float(duration_ms) / 1000.0)
+
+
+func _format_basis_points(basis_points: int) -> String:
+	var whole := int(basis_points / 1000)
+	var fractional := basis_points % 1000
+	if fractional % 100 == 0:
+		return "%d.%dX" % [whole, int(fractional / 100)]
+	return "%d.%03dX" % [whole, fractional]
 
 
 func _compact_score(score: int) -> String:

@@ -22,6 +22,9 @@ func _run() -> void:
 		requested_size = Vector2i(430, 932)
 	root.size = requested_size
 	var shell: Control = load("res://scenes/main.tscn").instantiate()
+	var modifier_playtest := OS.get_cmdline_user_args().has("--modifier-playtest") \
+		or OS.get_cmdline_user_args().has("--modifier-callout-capture")
+	shell.set("playtest_all_modifiers", modifier_playtest)
 	root.add_child(shell)
 	await process_frame
 	var banner_view: Control = shell.get("_update_banner")
@@ -84,14 +87,47 @@ func _run() -> void:
 		"main scene copies selection gain into game definition"
 	)
 	_check_equal(
-		int(modifier_tuning.get("loadout_capacity")),
+		4 if modifier_playtest else int(modifier_tuning.get("loadout_capacity")),
 		int(live_game.definition.configuration.modifier_loadout_capacity),
-		"main scene copies modifier tuning into game definition"
+		"main scene uses the expected production or playtest modifier capacity"
 	)
+	_check_equal(4 if modifier_playtest else 1, live_game.definition.modifier_attachments.size(), "main scene equips the requested modifier loadout")
 	var attached_tile_id: String = str(live_game.definition.modifier_attachments.keys()[0])
 	var attached_button: Button = shell.get("_regions").board.get("_tile_buttons")[attached_tile_id]
-	var modifier_label: Label = attached_button.get_node("Modifier")
-	_check("×" in modifier_label.text and modifier_label.visible, "starter modifier remains a separate visible tile overlay")
+	var modifier_art: TextureRect = attached_button.get_node("ModifierArt")
+	_check(modifier_art.visible and modifier_art.texture != null, "starter modifier uses separate visible tile artwork")
+	_check_equal(
+		load("res://game-assets/modifiers/tile-overlays/extra_life.png") if modifier_playtest \
+			else load("res://game-assets/modifiers/tile-overlays/score_multiplier.png"),
+		modifier_art.texture,
+		"first equipped modifier resolves through the tile skin"
+	)
+	if modifier_playtest:
+		var expected_modifier_textures := {
+			"extra_life": load("res://game-assets/modifiers/tile-overlays/extra_life.png"),
+			"cold_snap": load("res://game-assets/modifiers/tile-overlays/cold_snap.png"),
+			"score_multiplier": load("res://game-assets/modifiers/tile-overlays/score_multiplier.png"),
+			"tray_plus_one": load("res://game-assets/modifiers/tile-overlays/tray_plus_one.png"),
+		}
+		for modifier_tile_id in live_game.definition.modifier_attachments:
+			var attachment: Dictionary = live_game.definition.modifier_attachments[modifier_tile_id]
+			var modifier_button: Button = shell.get("_regions").board.get("_tile_buttons")[modifier_tile_id]
+			var attached_art: TextureRect = modifier_button.get_node("ModifierArt")
+			_check_equal(
+				expected_modifier_textures[attachment.type],
+				attached_art.texture,
+				"playtest %s attachment renders on its board tile" % attachment.type
+			)
+	var modifier_preview: Control = shell.get("_regions").board.call("create_tile_preview", attached_tile_id, true)
+	var preview_modifier: TextureRect = modifier_preview.get_node("ModifierArt")
+	_check_equal(modifier_art.texture, preview_modifier.texture, "moving tile preview preserves attached modifier artwork")
+	modifier_preview.queue_free()
+	var tile_skin: Variant = shell.get("_tile_skin")
+	for modifier_id in ["extra_life", "cold_snap", "score_multiplier", "tray_plus_one"]:
+		_check(
+			tile_skin.call("modifier_texture", modifier_id) != null,
+			"%s has runtime tile-attached artwork" % modifier_id
+		)
 	var revealable_tile_id := ""
 	for tile in live_game.board.call("revealable_tiles"):
 		revealable_tile_id = tile.id
@@ -438,6 +474,8 @@ func _run() -> void:
 		_check_equal(callout_children_before, callout.get_child_count(), "rapid alerts reuse the single callout lane without stacking labels")
 		_check_equal("score", callout.get("last_alert_type"), "latest alert exclusively owns the callout lane")
 		_check_equal("SCORE 10K!", callout.get("last_text"), "single callout lane supports dynamic score text")
+		callout.call("play_alert", {"type": "modifier_reward", "key": "extra_life", "text": "EXTRA LIFE +1"})
+		_check_equal("modifier_reward", callout.get("last_alert_type"), "single callout lane accepts modifier reward presentation")
 	var visible_blocked_tile_id := ""
 	for tile in live_game.board.tiles:
 		if live_game.board.call("is_tile_visible", tile.id) \
@@ -466,7 +504,12 @@ func _run() -> void:
 
 	shell.call("_on_restart_requested")
 	live_game = shell.get("_game")
-	var deletable_pair := _find_visible_pair(live_game)
+	var deletable_pair: Array[String] = []
+	if modifier_playtest:
+		var delete_modifier_tile_id: String = str(live_game.definition.modifier_attachments.keys()[0])
+		deletable_pair = _find_selectable_pair_for_tile(live_game, delete_modifier_tile_id)
+	else:
+		deletable_pair = _find_visible_pair(live_game)
 	_check_equal(2, deletable_pair.size(), "reference game exposes a visible pair for Delete Pair feedback")
 	if deletable_pair.size() == 2:
 		var delete_feedback_before: int = shell.get("_pair_feedback_count")
@@ -475,6 +518,8 @@ func _run() -> void:
 		await create_timer(0.25).timeout
 		_check_equal(delete_feedback_before + 1, shell.get("_pair_feedback_count"), "Delete Pair composes the shared removal burst")
 		_check_equal(1, live_game.tray.resolved_pair_count, "Delete Pair feedback follows a committed transaction")
+		if modifier_playtest:
+			_check_equal("modifier_reward", shell.get("_performance_callout").get("last_alert_type"), "Delete Pair announces an attached modifier reward")
 
 	var shuffle_revision: int = live_game.revision
 	shell.call("_on_shuffle_requested")
@@ -546,6 +591,17 @@ func _run() -> void:
 		live_game = shell.get("_game")
 		shell.call("_on_hint_requested")
 		shell.get("_regions").board.call("_process", 0.3)
+	elif OS.get_cmdline_user_args().has("--modifier-callout-capture"):
+		shell.call("_on_restart_requested")
+		live_game = shell.get("_game")
+		var modifier_tile_id: String = str(live_game.definition.modifier_attachments.keys()[0])
+		var modifier_pair := _find_selectable_pair_for_tile(live_game, modifier_tile_id)
+		if modifier_pair.size() == 2:
+			shell.call("_on_tile_selected", modifier_pair[0])
+			await create_timer(0.28).timeout
+			shell.call("_on_tile_selected", modifier_pair[1])
+			await create_timer(0.18).timeout
+			_check_equal("modifier_reward", shell.get("_performance_callout").get("last_alert_type"), "resolved modifier pair displays its reward callout")
 	elif OS.get_cmdline_user_args().has("--callout-capture"):
 		shell.call("_on_restart_requested")
 		live_game = shell.get("_game")
@@ -556,7 +612,7 @@ func _run() -> void:
 			await create_timer(0.2).timeout
 			shell.call("_on_tile_selected", capture_pair[1])
 			await create_timer(0.18).timeout
-	else:
+	elif not modifier_playtest:
 		var capture_tile_id := ""
 		for tile in live_game.board.call("selectable_tiles"):
 			capture_tile_id = tile.id
@@ -575,8 +631,10 @@ func _run() -> void:
 		var image := root.get_texture().get_image()
 		var capture_name := "end-game" if OS.get_cmdline_user_args().has("--end-game-capture") \
 			else "difficulty-callout" if OS.get_cmdline_user_args().has("--callout-capture") \
+			else "modifier-callout" if OS.get_cmdline_user_args().has("--modifier-callout-capture") \
 			else "hint" if OS.get_cmdline_user_args().has("--hint-capture") \
 			else "pause-menu" if OS.get_cmdline_user_args().has("--pause-menu") \
+			else "modifier-playtest" if modifier_playtest \
 			else "small-phone" if OS.get_cmdline_user_args().has("--small-phone") \
 			else "safe-%s" % orientation if OS.get_cmdline_user_args().has("--safe-area") else orientation
 		var output_path := "user://m7_%s.png" % capture_name
@@ -772,6 +830,34 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 	var callout_label: Label = callout.get("_label")
 	_check_equal(Rect2(board.position, board.size), Rect2(callout.position, callout.size), "%s callout tracks the board region" % orientation)
 	_check(Rect2(Vector2.ZERO, callout.size).encloses(Rect2(callout_label.position, callout_label.size)), "%s callout text stays inside the board overlay" % orientation)
+	callout.call("play_alert", {
+		"type": "board_progress",
+		"key": "all_tiles_revealed",
+		"text": "ALL TILES REVEALED!",
+	})
+	var expected_callout_scale := maxf(0.72, minf(board.size.x / 390.0, board.size.y / 560.0))
+	var callout_font_size := callout_label.get_theme_font_size("font_size")
+	var rendered_callout_width := callout_label.get_theme_font("font").get_string_size(
+		callout_label.text,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1,
+		callout_font_size
+	).x
+	_check(callout_label.visible, "%s board-progress callout is accepted by the shared lane" % orientation)
+	_check_equal("board_progress", callout.get("last_alert_type"), "%s board-progress callout records its alert type" % orientation)
+	_check(
+		callout_font_size >= floori(20.0 * expected_callout_scale),
+		"%s callout typography scales with the rendered Board (font=%d scale=%.2f)" % [
+			orientation,
+			callout_font_size,
+			expected_callout_scale,
+		]
+	)
+	_check(
+		callout_label.get_theme_constant("outline_size") >= floori(7.0 * expected_callout_scale),
+		"%s callout outline scales with the rendered Board" % orientation
+	)
+	_check(rendered_callout_width <= callout_label.size.x * 0.95, "%s long callout copy fits its responsive lane" % orientation)
 	if orientation == "portrait":
 		_check(board.position.y < tray.position.y + tray.size.y, "portrait Board reclaims the queue artwork's transparent lower padding")
 	else:
@@ -992,6 +1078,16 @@ func _find_rewardable_pair(game: Variant) -> Array[String]:
 			var ids: Array[String] = []
 			ids.assign(pair.tile_ids)
 			return ids
+	return []
+
+
+func _find_selectable_pair_for_tile(game: Variant, tile_id: String) -> Array[String]:
+	var tile: Variant = game.board.call("get_tile", tile_id)
+	if tile == null or not game.board.call("is_tile_selectable", tile_id):
+		return []
+	for candidate in game.board.call("selectable_tiles"):
+		if candidate.id != tile_id and candidate.face.equals(tile.face):
+			return [tile_id, candidate.id]
 	return []
 
 

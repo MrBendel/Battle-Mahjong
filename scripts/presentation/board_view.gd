@@ -31,7 +31,7 @@ var _back_design_art: Dictionary = {}
 var _face_art: Dictionary = {}
 var _hint_glows: Dictionary = {}
 var _blocked_overlays: Dictionary = {}
-var _modifier_labels: Dictionary = {}
+var _modifier_art: Dictionary = {}
 var _title_label: Label
 var _status_label: Label
 var _tile_layer: Control
@@ -162,7 +162,7 @@ func _rebuild_tiles() -> void:
 	_face_art.clear()
 	_hint_glows.clear()
 	_blocked_overlays.clear()
-	_modifier_labels.clear()
+	_modifier_art.clear()
 	_tile_layout_positions.clear()
 	_hinted_tile_ids.clear()
 	_hint_elapsed = 0.0
@@ -241,16 +241,10 @@ func _rebuild_tiles() -> void:
 		blocked_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		button.add_child(blocked_overlay)
 
-		var modifier_label := Label.new()
-		modifier_label.name = "Modifier"
-		modifier_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		modifier_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		modifier_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		modifier_label.add_theme_color_override("font_color", Color("fff7cf"))
-		modifier_label.add_theme_color_override("font_shadow_color", Color("17343b"))
-		modifier_label.add_theme_constant_override("shadow_offset_x", 1)
-		modifier_label.add_theme_constant_override("shadow_offset_y", 1)
-		button.add_child(modifier_label)
+		var modifier_art := TextureRect.new()
+		modifier_art.name = "ModifierArt"
+		_tile_skin.configure_modifier_art(modifier_art)
+		button.add_child(modifier_art)
 
 		_tile_layer.add_child(button)
 		_tile_buttons[tile.id] = button
@@ -262,7 +256,7 @@ func _rebuild_tiles() -> void:
 		_face_art[tile.id] = face_art
 		_hint_glows[tile.id] = hint_glow
 		_blocked_overlays[tile.id] = blocked_overlay
-		_modifier_labels[tile.id] = modifier_label
+		_modifier_art[tile.id] = modifier_art
 
 	refresh()
 
@@ -350,9 +344,11 @@ func refresh() -> void:
 		blocked_overlay.modulate = _blocked_overlay_color()
 		blocked_overlay.visible = not visually_active
 		button.text = "" if face_down or texture != null else _tile_label(tile)
-		var modifier_label: Label = _modifier_labels[tile.id]
-		modifier_label.text = _modifier_symbol(tile)
-		modifier_label.visible = not modifier_label.text.is_empty()
+		var modifier_art: TextureRect = _modifier_art[tile.id]
+		var modifier: Dictionary = _game.definition.modifier_for_tile(tile.id)
+		_tile_skin.configure_modifier_art(modifier_art)
+		modifier_art.texture = null if modifier.is_empty() else _tile_skin.modifier_texture(str(modifier.type))
+		modifier_art.visible = modifier_art.texture != null
 
 	if active_count == 0:
 		_status_label.text = "Board cleared"
@@ -458,18 +454,13 @@ func create_tile_preview(tile_id: String, force_face_up: bool = false) -> Contro
 		face_art.anchor_bottom = float(safe_area[1] + safe_area[3]) / float(source_size[1])
 		preview.add_child(face_art)
 		face_art.texture = source_art.texture
-	var source_modifier: Label = _modifier_labels[tile_id]
-	if source_modifier.visible:
-		var modifier := Label.new()
-		modifier.text = source_modifier.text
-		modifier.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		modifier.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		modifier.anchor_left = 0.68
-		modifier.anchor_top = 0.02
-		modifier.anchor_right = 0.98
-		modifier.anchor_bottom = 0.25
-		modifier.add_theme_color_override("font_color", Color("fff7cf"))
-		preview.add_child(modifier)
+	var source_modifier: TextureRect = _modifier_art[tile_id]
+	if source_modifier.visible and source_modifier.texture != null:
+		var modifier_art := TextureRect.new()
+		modifier_art.name = "ModifierArt"
+		_tile_skin.configure_modifier_art(modifier_art)
+		modifier_art.texture = source_modifier.texture
+		preview.add_child(modifier_art)
 	return preview
 
 
@@ -668,10 +659,7 @@ func _layout_tiles() -> void:
 			float(safe_area[2]) / float(source_size[0]) * button.size.x,
 			float(safe_area[3]) / float(source_size[1]) * button.size.y
 		)
-		var modifier_label: Label = _modifier_labels[tile.id]
-		modifier_label.position = Vector2(button.size.x * 0.68, button.size.y * 0.02)
-		modifier_label.size = Vector2(button.size.x * 0.30, button.size.y * 0.23)
-		modifier_label.add_theme_font_size_override("font_size", clampi(int(tile_size.x * 0.19), 8, 15))
+		_tile_skin.configure_modifier_art(_modifier_art[tile.id])
 	_sync_tile_input_order()
 	_apply_hint_presentation()
 
@@ -724,19 +712,6 @@ func _grid_bounds() -> Rect2i:
 
 func _tile_label(tile: Variant) -> String:
 	return _tile_skin.label_for_face(tile.face)
-
-
-func _modifier_symbol(tile: Variant) -> String:
-	var modifier: Dictionary = _game.definition.modifier_for_tile(tile.id)
-	if modifier.is_empty():
-		return ""
-	var symbols := {
-		"extra_life": "♥",
-		"cold_snap": "❄",
-		"score_multiplier": "×",
-		"tray_plus_one": "+1",
-	}
-	return "%s%d" % [symbols.get(modifier.type, "★"), int(modifier.level)]
 
 
 func _tile_tooltip(tile: Variant) -> String:

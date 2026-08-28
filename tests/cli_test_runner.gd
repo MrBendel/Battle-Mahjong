@@ -116,12 +116,23 @@ func _run_tile_skin_contract_tests() -> void:
 	_check_equal("arcade_spark", skin.default_back_id, "Default skin selects the Arcade Spark back design")
 	_check_equal(1, skin.back_designs.size(), "tile backs use a replaceable cosmetic design catalog")
 	_check(skin.call("back_design_texture") != null, "Default tile-back design loads independently from its ceramic base")
+	_check_equal(4, skin.modifiers.size(), "Default skin declares all four tile-attached modifier identities")
+	for modifier_id in ["extra_life", "cold_snap", "score_multiplier", "tray_plus_one"]:
+		_check(skin.call("modifier_texture", modifier_id) != null, "%s modifier tile overlay loads" % modifier_id)
 	_check(ResourceLoader.exists(str(skin.base_variants.portrait.asset)) or FileAccess.file_exists(str(skin.base_variants.portrait.asset)), "portrait ceramic base runtime asset exists")
 	_check(ResourceLoader.exists(str(skin.base_variants.landscape.asset)) or FileAccess.file_exists(str(skin.base_variants.landscape.asset)), "landscape ceramic base runtime asset exists")
+	var portrait_modifier_bounds: Array = skin.active_geometry().modifier_bounds
+	_check_equal(4, portrait_modifier_bounds.size(), "portrait modifier has explicit attachment bounds")
+	_check(float(portrait_modifier_bounds[0]) < 102.4, "portrait modifier is anchored in the upper-left")
+	_check(float(portrait_modifier_bounds[2]) >= 384.0, "portrait modifier is large enough to read on phone tiles")
 	_check(skin.call("tile_aspect") > 1.0, "portrait ceramic base uses a tall footprint")
 	skin.call("set_orientation", "landscape")
 	_check(skin.call("tile_aspect") < 1.0, "landscape ceramic base uses a wide footprint")
 	_check(skin.call("tile_base_texture") != null, "active landscape ceramic base loads")
+	var landscape_modifier_bounds: Array = skin.active_geometry().modifier_bounds
+	_check_equal(4, landscape_modifier_bounds.size(), "landscape modifier has explicit attachment bounds")
+	_check(float(landscape_modifier_bounds[0]) < 153.6, "landscape modifier is anchored in the upper-left")
+	_check(float(landscape_modifier_bounds[2]) >= 384.0, "landscape modifier is large enough to read on wide tiles")
 	_check_equal(4, skin.active_geometry().back_design_safe_area.size(), "landscape back design has an explicit compositing safe area")
 	_check(
 		float(skin.depth_presentation.lowest_layer_brightness) >= 0.55 \
@@ -178,6 +189,44 @@ func _run_arcade_callout_tests() -> void:
 	}, 10100, tuning)
 	_check_equal("difficulty", priority_alert.type, "coincident pair events choose exactly one specific difficulty alert")
 	_check_equal("EAGLE EYES!", priority_alert.text, "difficulty event wins callout arbitration")
+	var reveal_alert: Dictionary = policy.call("choose_for_transaction", {
+		"all_flipped_tiles_revealed": true,
+	}, 0, tuning)
+	_check_equal("board_progress", reveal_alert.type, "final flipped reveal uses the board-progress callout lane")
+	_check_equal("all_tiles_revealed", reveal_alert.key, "final flipped reveal emits a stable callout key")
+	_check_equal("ALL TILES REVEALED!", reveal_alert.text, "final flipped reveal uses the approved arcade copy")
+	var modifier_alerts := [
+		policy.call("choose_for_transaction", {"modifiers_triggered": [{
+			"type": ModifierLoadoutScript.EXTRA_LIFE,
+			"effect": {"charges": 1},
+		}]}, 0, tuning),
+		policy.call("choose_for_transaction", {"modifiers_triggered": [{
+			"type": ModifierLoadoutScript.COLD_SNAP,
+			"effect": {"duration_ms": 8500},
+		}]}, 0, tuning),
+		policy.call("choose_for_transaction", {"modifiers_triggered": [{
+			"type": ModifierLoadoutScript.SCORE_MULTIPLIER,
+			"effect": {"basis_points": 2100},
+		}]}, 0, tuning),
+		policy.call("choose_for_transaction", {"modifiers_triggered": [{
+			"type": ModifierLoadoutScript.TRAY_PLUS_ONE,
+			"effect": {"pair_duration": 3},
+		}]}, 0, tuning),
+	]
+	_check_equal("EXTRA LIFE +1", modifier_alerts[0].text, "Extra Life announces its awarded charge")
+	_check_equal("MOMENTUM FROZEN 8.5S", modifier_alerts[1].text, "Cold Snap announces its tuned duration")
+	_check_equal("SCORE BOOST 2.1X", modifier_alerts[2].text, "Score Multiplier announces its tuned multiplier")
+	_check_equal("TRAY +1 FOR 3 PAIRS", modifier_alerts[3].text, "Tray +1 announces its tuned pair duration")
+	var modifier_priority_alert: Dictionary = policy.call("choose_for_transaction", {
+		"modifiers_triggered": [{
+			"type": ModifierLoadoutScript.EXTRA_LIFE,
+			"effect": {"charges": 1},
+		}],
+		"difficulty_reward": {"callout_key": "eagle_eyes"},
+		"combo_before": 10,
+		"combo_after": 11,
+	}, 0, tuning)
+	_check_equal("modifier_reward", modifier_priority_alert.type, "modifier reward owns the single lane over pair recognition")
 	tuning.first_combo_alert = 10
 	tuning.score_milestones.assign([10000, 5000])
 	_check_equal(2, tuning.call("validation_errors").size(), "invalid callout thresholds report actionable errors")
@@ -350,6 +399,7 @@ func _run_flipped_tile_tests() -> void:
 	_check(direct_game.board.call("is_tile_revealable", "flipped"), "accessible face-down tile is revealable")
 	_check(not direct_game.board.call("is_tile_selectable", "flipped"), "face-down tile cannot enter the tray")
 	_check_equal(GameStateScript.TILE_REVEALED, direct_game.call("reveal_tile", "flipped", 100), "accessible face-down tile reveals in place")
+	_check(bool(direct_game.call("last_transaction").telemetry.all_flipped_tiles_revealed), "single flipped tile completes reveal progress")
 	_check(direct_game.board.call("is_tile_revealed_flipped", "flipped"), "revealed flipped tile remains active on the board")
 	_check_equal(0, direct_game.tray.tiles.size(), "reveal does not occupy a tray slot")
 	_check_equal(GameStateScript.SELECTED, direct_game.call("tap_tile", "flipped", 125), "second tap sends a revealed flipped tile to the tray")
@@ -436,10 +486,17 @@ func _run_flipped_tile_tests() -> void:
 
 	var two_flip_game := GameStateScript.new(_definition_with_flips(memory_tiles, ["memory_flip", "other"]))
 	_check_equal(GameStateScript.TILE_REVEALED, two_flip_game.call("reveal_tile", "memory_flip"), "first non-matching flipped tile reveals")
+	_check_equal(1, two_flip_game.call("last_transaction").telemetry.revealed_flipped_tile_count, "first unique reveal records progress")
+	_check(not bool(two_flip_game.call("last_transaction").telemetry.all_flipped_tiles_revealed), "first of two flipped tiles does not complete reveal progress")
 	_check_equal(GameStateScript.TILE_REVEALED, two_flip_game.call("reveal_tile", "other"), "second non-matching flipped tile reveals")
+	_check_equal(2, two_flip_game.call("last_transaction").telemetry.revealed_flipped_tile_count, "second unique reveal records complete progress")
+	_check(bool(two_flip_game.call("last_transaction").telemetry.all_flipped_tiles_revealed), "final unique flipped tile completes reveal progress")
 	_check(two_flip_game.board.call("is_tile_face_down", "memory_flip"), "second non-match turns the first flipped tile face-down")
 	_check(two_flip_game.board.call("is_tile_revealed_flipped", "other"), "second non-match remains exposed")
 	_check_equal(["other"], two_flip_game.call("current_snapshot").revealed_flipped_tile_ids, "only one unmatched flipped face remains exposed")
+	_check_equal(GameStateScript.TILE_REVEALED, two_flip_game.call("reveal_tile", "memory_flip"), "previously seen flipped tile can reveal again")
+	_check(not bool(two_flip_game.call("last_transaction").telemetry.first_reveal_of_flipped_tile), "repeat flip is not counted as a new reveal")
+	_check(not bool(two_flip_game.call("last_transaction").telemetry.all_flipped_tiles_revealed), "repeat flip does not retrigger completion")
 
 	var duplicate_flip_definition: Variant = _definition_with_flips(direct_tiles, ["ordinary", "flipped"])
 	_check_equal(["flipped"], duplicate_flip_definition.flipped_tile_ids, "current rules keep at most one flipped tile per face")
@@ -685,6 +742,10 @@ func _run_momentum_tuning_tests() -> void:
 	_check_equal(100000, default_overrides.momentum_max, "Inspector maximum maps to simulation configuration")
 	_check_equal(2000, default_overrides.momentum_selection_gain, "Inspector selection gain maps to simulation configuration")
 	_check_equal([3, 4, 5, 6, 7, 8, 10, 12], default_overrides.momentum_decay_per_ms, "per-second Inspector decay converts exactly")
+	_check_equal(130, default_overrides.difficulty_notable_min_score, "default notable difficulty uses the lively score floor")
+	_check_equal(6000, default_overrides.difficulty_notable_min_percentile_basis_points, "default notable difficulty recognizes the upper 40 percent")
+	_check_equal(190, default_overrides.difficulty_exceptional_min_score, "default exceptional difficulty preserves a higher score floor")
+	_check_equal(8500, default_overrides.difficulty_exceptional_min_percentile_basis_points, "default exceptional difficulty recognizes the upper 15 percent")
 	_check_equal(MomentumTuningScript.default_overrides(), default_overrides, "Inspector defaults match headless simulation defaults")
 
 	var custom_tuning: Variant = MomentumTuningScript.new()
@@ -702,7 +763,7 @@ func _run_momentum_tuning_tests() -> void:
 	_check_equal(120000, custom_definition.configuration.momentum_max, "factory applies Inspector maximum")
 	_check_equal(1250, custom_definition.configuration.momentum_selection_gain, "factory applies Inspector selection gain")
 	_check_equal(250, custom_definition.configuration.pair_base_score, "factory applies Inspector scoring")
-	_check_equal(160, custom_definition.configuration.difficulty_notable_min_score, "factory applies Inspector difficulty thresholds")
+	_check_equal(130, custom_definition.configuration.difficulty_notable_min_score, "factory applies Inspector difficulty thresholds")
 	_check(default_definition.definition_hash() != custom_definition.definition_hash(), "custom tuning changes definition hash")
 	custom_overrides.momentum_thresholds[1] = 1
 	_check_equal(30000, custom_tuning.multiplier_thresholds[1], "simulation override cannot mutate Inspector resource")
@@ -908,6 +969,17 @@ func _run_modifier_tests() -> void:
 	var starter: Array = ModifierLoadoutScript.starter()
 	_check_equal(1, starter.size(), "new-player loadout contains one starter modifier")
 	_check_equal(ModifierLoadoutScript.SCORE_MULTIPLIER, starter[0].type, "starter modifier is the score multiplier")
+	var playtest_loadout: Array = ModifierLoadoutScript.playtest_all()
+	_check_equal(4, playtest_loadout.size(), "modifier playtest loadout contains all four modifier types")
+	_check_equal(
+		ModifierLoadoutScript.TYPES,
+		playtest_loadout.map(func(entry: Dictionary) -> String: return entry.type),
+		"modifier playtest loadout preserves the canonical type order"
+	)
+	_check(
+		ModifierLoadoutScript.normalize(playtest_loadout, 4).errors.is_empty(),
+		"modifier playtest loadout validates at its run-scoped capacity"
+	)
 	var level_two_effect: Dictionary = ModifierRulesScript.effect_for(
 		{"type": ModifierLoadoutScript.SCORE_MULTIPLIER, "level": 2},
 		GameConfigurationScript.create()
@@ -1017,6 +1089,22 @@ func _run_modifier_tests() -> void:
 	var placed_b: Variant = factory.call("create_definition", 99)
 	_check_equal(starter, placed_a.modifier_loadout, "reference games use the starter loadout by default")
 	_check_equal(placed_a.modifier_attachments, placed_b.modifier_attachments, "same seed places equipped modifiers identically")
+	var playtest_definition: Variant = factory.call("create_modifier_playtest_definition", 99)
+	_check_equal(playtest_loadout, playtest_definition.modifier_loadout, "modifier playtest games snapshot all four modifiers")
+	_check_equal(4, playtest_definition.configuration.modifier_loadout_capacity, "modifier playtest games expand only their snapshotted loadout capacity")
+	_check_equal(4, playtest_definition.modifier_attachments.size(), "modifier playtest games attach every equipped modifier")
+	var playtest_solution: Array = factory.call("create_generated", 99).solution
+	var expected_early_route_ids := [
+		playtest_solution[0],
+		playtest_solution[2],
+		playtest_solution[4],
+		playtest_solution[6],
+	]
+	_check_equal(
+		expected_early_route_ids,
+		playtest_definition.modifier_attachments.keys(),
+		"modifier playtest attachments follow the first tile of the opening four solver pairs"
+	)
 	var serialized_definition: Variant = JSON.parse_string(JSON.stringify(placed_a.to_dict()))
 	var parsed_definition: Variant = GameDefinitionScript.from_dict(serialized_definition)
 	_check_equal(placed_a.modifier_attachments, parsed_definition.modifier_attachments, "modifier attachments round-trip with the game definition")

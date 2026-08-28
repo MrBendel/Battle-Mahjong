@@ -24,6 +24,31 @@ func create_definition(
 	return create_generated(seed, tray_capacity, configuration_overrides, layout_id, modifier_loadout).get("definition")
 
 
+func create_modifier_playtest_definition(
+		seed: int,
+		tray_capacity: int = 4,
+		configuration_overrides: Dictionary = {},
+		layout_id: String = BoardLayoutCatalogScript.DEFAULT_LAYOUT_ID
+) -> Variant:
+	var layout: Variant = BoardLayoutCatalogScript.new().call("get_layout", layout_id)
+	if layout == null:
+		push_error("Unknown board layout: %s" % layout_id)
+		return null
+	var overrides := configuration_overrides.duplicate(true)
+	overrides["modifier_loadout_capacity"] = maxi(
+		int(overrides.get("modifier_loadout_capacity", 0)),
+		ModifierLoadoutScript.TYPES.size()
+	)
+	return create_generated_for_layout(
+		seed,
+		layout,
+		tray_capacity,
+		overrides,
+		ModifierLoadoutScript.playtest_all(),
+		true
+	).get("definition")
+
+
 func create_generated(
 		seed: int,
 		tray_capacity: int = 4,
@@ -43,7 +68,8 @@ func create_generated_for_layout(
 		layout: Variant,
 		tray_capacity: int = 4,
 		configuration_overrides: Dictionary = {},
-		modifier_loadout: Variant = null
+		modifier_loadout: Variant = null,
+		place_modifiers_on_early_route := false
 ) -> Dictionary:
 	if layout == null or not layout.call("validation_errors").is_empty():
 		push_error("Cannot create a game from an invalid board layout")
@@ -94,7 +120,12 @@ func create_generated_for_layout(
 	if normalized.loadout.size() > tiles.size():
 		push_error("Modifier loadout cannot fit on the generated board.")
 		return {}
-	var attachments := _place_modifiers(seed, tiles, normalized.loadout)
+	var preferred_modifier_tile_ids: Array[String] = []
+	if place_modifiers_on_early_route:
+		for pair_index in range(mini(normalized.loadout.size(), placement_pairs.size())):
+			var position_indexes: Array = placement_pairs[pair_index]
+			preferred_modifier_tile_ids.append(tiles[position_indexes[0]].id)
+	var attachments := _place_modifiers(seed, tiles, normalized.loadout, preferred_modifier_tile_ids)
 	return {
 		"definition": GameDefinitionScript.new(
 			seed,
@@ -128,15 +159,23 @@ func _shuffle(values: Array, rng: Variant) -> void:
 		values[swap_index] = value
 
 
-func _place_modifiers(seed: int, tiles: Array, loadout: Array) -> Dictionary:
+func _place_modifiers(
+		seed: int,
+		tiles: Array,
+		loadout: Array,
+		preferred_tile_ids: Array[String] = []
+) -> Dictionary:
 	var tile_ids: Array = []
 	for tile in tiles:
-		tile_ids.append(tile.id)
+		if tile.id not in preferred_tile_ids:
+			tile_ids.append(tile.id)
 	tile_ids.sort()
 	_shuffle(tile_ids, DeterministicRngScript.new(seed + 130363))
+	var placement_ids: Array = preferred_tile_ids.duplicate()
+	placement_ids.append_array(tile_ids)
 	var attachments := {}
 	for index in range(loadout.size()):
-		attachments[tile_ids[index]] = loadout[index].duplicate(true)
+		attachments[placement_ids[index]] = loadout[index].duplicate(true)
 	return attachments
 
 

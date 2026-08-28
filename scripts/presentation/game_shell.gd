@@ -51,6 +51,9 @@ const PAIR_COLLISION_SECONDS := 0.10
 @export_range(0.20, 0.80, 0.01) var tile_flip_seconds := 0.25
 ## Leftward queue-compaction travel after a held pair resolves.
 @export_range(0.08, 0.30, 0.01) var tray_compaction_seconds := 0.16
+## Equip all four modifiers on early solver-route pairs for visual and activation testing.
+## This is authoring support only; normal games retain the production starter loadout.
+@export var playtest_all_modifiers := false
 @export var show_debug_panel := false
 
 var _rng: RefCounted = DeterministicRngScript.new(START_SEED)
@@ -270,8 +273,9 @@ func _create_game() -> Variant:
 		else:
 			push_error("Invalid ModifierTuning; using simulation defaults: %s" % " ".join(modifier_errors))
 	var factory := ReferenceGameFactoryScript.new()
+	var factory_method := "create_modifier_playtest_definition" if playtest_all_modifiers else "create_definition"
 	var definition: Variant = factory.call(
-		"create_definition",
+		factory_method,
 		_rng.call("get_seed"),
 		GameStateScript.BASE_TRAY_CAPACITY,
 		tuning_overrides,
@@ -280,7 +284,7 @@ func _create_game() -> Variant:
 	if definition == null and layout_id != BoardLayoutCatalogScript.DEFAULT_LAYOUT_ID:
 		push_error("Unknown or invalid layout '%s'; using default." % layout_id)
 		definition = factory.call(
-			"create_definition",
+			factory_method,
 			_rng.call("get_seed"),
 			GameStateScript.BASE_TRAY_CAPACITY,
 			tuning_overrides,
@@ -312,6 +316,7 @@ func _on_tile_selected(tile_id: String) -> void:
 			_refresh_game_views()
 			_play_transaction_auto_reveals(transaction)
 			_play_board_pair_removal(removal_visuals)
+			_play_transaction_callout(transaction)
 			return
 	else:
 		var face_down: bool = _game.board.call("is_tile_face_down", tile_id)
@@ -346,6 +351,7 @@ func _on_tile_selected(tile_id: String) -> void:
 				for visual in direct_visuals:
 					visual.preview.queue_free()
 				_regions.board.call("play_flip", tile_id, true)
+				_play_transaction_callout(direct_transaction)
 			elif result == GameStateScript.FLIPPED_PAIR_RESOLVED:
 				if direct_matching_zone == GameStateDataScript.ZONE_TRAY:
 					_play_flipped_match_to_tray(direct_visuals, direct_target_rect, face_down)
@@ -397,7 +403,7 @@ func _play_transaction_callout(transaction: Variant) -> void:
 		return
 	var score_after := int(_game.call("current_snapshot").score)
 	var alert: Dictionary = _arcade_callout_policy.call(
-		"choose_for_pair",
+		"choose_for_transaction",
 		transaction.telemetry,
 		score_after,
 		arcade_callout_tuning

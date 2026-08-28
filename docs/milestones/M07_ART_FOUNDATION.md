@@ -564,6 +564,8 @@ Produce:
 
 Goal: give the current gameplay systems a consistent visual language.
 
+Current status: in progress. The responsive Momentum/multiplier HUD and portrait consumable controls use production-style exported artwork. All four modifiers now have a first tile-attached visual identity rendered as skin-declared overlays across Board, Tray, and moving previews. Live-text reward callouts announce each triggered modifier's snapshotted effect. Persistent HUD treatments and richer activated-state sequences remain outstanding.
+
 ### Batch C - Feel
 
 Produce or prototype:
@@ -610,7 +612,7 @@ Implemented geometry, formats, naming, export ownership, and current proof limit
 
 ### Multiplier Range
 
-The current provisional M3 tuning caps the multiplier at `x5`. The art direction above reserves escalation bands through `x10+`. M7 may design an extensible intensity system, but it must not silently change the gameplay multiplier cap. Extending the cap requires a separate gameplay and tuning decision with deterministic tests.
+The current M3 tuning defines eight tiers from the default `x1` state through `x8`; the portrait HUD labels the seven earned upgrades from `x2` through `x8`. The art direction above still reserves escalation bands through `x10+`. Extending the gameplay cap beyond `x8` remains a separate gameplay and tuning decision requiring deterministic tests.
 
 ### Modifier And Consumable Behavior
 

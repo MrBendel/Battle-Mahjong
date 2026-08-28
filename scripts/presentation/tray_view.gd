@@ -24,7 +24,7 @@ var _slot_ink_outlines: Array[TextureRect] = []
 var _slot_bases: Array[TextureRect] = []
 var _slot_labels: Array[Label] = []
 var _slot_art: Array[TextureRect] = []
-var _slot_modifiers: Array[Label] = []
+var _slot_modifiers: Array[TextureRect] = []
 var _tile_skin: Variant
 var _tile_visual_size := Vector2(32.0, 40.0)
 var _suppressed_tile_ids := {}
@@ -106,7 +106,7 @@ func refresh() -> void:
 		var ink_outline := _slot_ink_outlines[index]
 		var base_art := _slot_bases[index]
 		var face_art := _slot_art[index]
-		var modifier_label := _slot_modifiers[index]
+		var modifier_art: TextureRect = _slot_modifiers[index]
 		var tile: Variant = _game.tray.tiles[index] if occupied else null
 		var presented: bool = occupied and not _suppressed_tile_ids.has(tile.id)
 		if presented:
@@ -117,8 +117,10 @@ func refresh() -> void:
 			face_art.visible = face_art.texture != null
 			label.text = _tile_skin.label_for_face(tile.face)
 			label.visible = not face_art.visible
-			modifier_label.text = _modifier_symbol(tile)
-			modifier_label.visible = not modifier_label.text.is_empty()
+			var modifier: Dictionary = _game.definition.modifier_for_tile(tile.id)
+			_tile_skin.configure_modifier_art(modifier_art)
+			modifier_art.texture = null if modifier.is_empty() else _tile_skin.modifier_texture(str(modifier.type))
+			modifier_art.visible = modifier_art.texture != null
 			_slots[index].add_theme_stylebox_override("panel", _tile_style())
 		else:
 			ink_outline.visible = false
@@ -126,8 +128,8 @@ func refresh() -> void:
 			base_art.visible = false
 			face_art.texture = _tile_skin.texture_for_face(tile.face) if occupied else null
 			face_art.visible = false
-			modifier_label.text = _modifier_symbol(tile) if occupied else ""
-			modifier_label.visible = false
+			modifier_art.texture = null
+			modifier_art.visible = false
 			label.text = str(index + 1)
 			label.visible = not _portrait_style
 			_slots[index].add_theme_stylebox_override("panel", _tile_style() if _portrait_style else _empty_slot_style())
@@ -194,22 +196,21 @@ func _build() -> void:
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		label.add_theme_font_size_override("font_size", 12)
-		var modifier_label := Label.new()
-		modifier_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		modifier_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		modifier_label.add_theme_color_override("font_color", Color("fff7cf"))
+		var modifier_art := TextureRect.new()
+		modifier_art.name = "ModifierArt"
+		_tile_skin.configure_modifier_art(modifier_art)
 		slot.add_child(ink_outline)
 		slot.add_child(base_art)
 		slot.add_child(face_art)
 		slot.add_child(label)
-		slot.add_child(modifier_label)
+		slot.add_child(modifier_art)
 		add_child(slot)
 		_slots.append(slot)
 		_slot_ink_outlines.append(ink_outline)
 		_slot_bases.append(base_art)
 		_slot_labels.append(label)
 		_slot_art.append(face_art)
-		_slot_modifiers.append(modifier_label)
+		_slot_modifiers.append(modifier_art)
 	_update_style_visibility()
 
 
@@ -245,9 +246,7 @@ func _layout() -> void:
 		)
 		_slot_labels[index].position = Vector2.ZERO
 		_slot_labels[index].size = _tile_visual_size
-		_slot_modifiers[index].position = Vector2(_tile_visual_size.x * 0.68, _tile_visual_size.y * 0.02)
-		_slot_modifiers[index].size = Vector2(_tile_visual_size.x * 0.30, _tile_visual_size.y * 0.23)
-		_slot_modifiers[index].add_theme_font_size_override("font_size", clampi(int(_tile_visual_size.x * 0.19), 8, 15))
+		_tile_skin.configure_modifier_art(_slot_modifiers[index])
 
 
 func _layout_portrait() -> void:
@@ -291,9 +290,7 @@ func _layout_portrait() -> void:
 		)
 		_slot_labels[index].position = Vector2.ZERO
 		_slot_labels[index].size = slot_rect.size
-		_slot_modifiers[index].position = Vector2(slot_rect.size.x * 0.68, slot_rect.size.y * 0.02)
-		_slot_modifiers[index].size = Vector2(slot_rect.size.x * 0.30, slot_rect.size.y * 0.23)
-		_slot_modifiers[index].add_theme_font_size_override("font_size", clampi(int(slot_rect.size.x * 0.19), 8, 15))
+		_tile_skin.configure_modifier_art(_slot_modifiers[index])
 
 
 func slot_global_rect(index: int) -> Rect2:
@@ -335,17 +332,13 @@ func create_tile_preview(index: int) -> Control:
 		face_art.size = source_art.size
 		preview.add_child(face_art)
 		face_art.texture = source_art.texture
-	var source_modifier: Label = _slot_modifiers[index]
-	if not source_modifier.text.is_empty():
-		var modifier := Label.new()
-		modifier.text = source_modifier.text
-		modifier.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		modifier.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		modifier.position = source_modifier.position
-		modifier.size = source_modifier.size
-		modifier.add_theme_color_override("font_color", Color("fff7cf"))
-		modifier.add_theme_font_size_override("font_size", source_modifier.get_theme_font_size("font_size"))
-		preview.add_child(modifier)
+	var source_modifier: TextureRect = _slot_modifiers[index]
+	if source_modifier.visible and source_modifier.texture != null:
+		var modifier_art := TextureRect.new()
+		modifier_art.name = "ModifierArt"
+		_tile_skin.configure_modifier_art(modifier_art)
+		modifier_art.texture = source_modifier.texture
+		preview.add_child(modifier_art)
 	return preview
 
 
@@ -396,19 +389,6 @@ func _empty_slot_style() -> StyleBoxFlat:
 	style.set_border_width_all(2)
 	style.set_corner_radius_all(5)
 	return style
-
-
-func _modifier_symbol(tile: Variant) -> String:
-	var modifier: Dictionary = _game.definition.modifier_for_tile(tile.id)
-	if modifier.is_empty():
-		return ""
-	var symbols := {
-		"extra_life": "♥",
-		"cold_snap": "❄",
-		"score_multiplier": "×",
-		"tray_plus_one": "+1",
-	}
-	return "%s%d" % [symbols.get(modifier.type, "★"), int(modifier.level)]
 
 
 func _panel_style() -> StyleBoxFlat:

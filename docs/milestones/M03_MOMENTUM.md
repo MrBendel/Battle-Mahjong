@@ -55,8 +55,8 @@ Fast look-ahead play feels meaningfully different from slow stop-and-search play
 - Multiplier thresholds: `0`, `20000`, `40000`, `60000`, `80000` for `x1` through `x5`.
 - Decay by tier: `5`, `7`, `10`, `14`, `19` units per millisecond.
 - Pair score: `100 * current multiplier`; the first pair scores at `x1` and builds momentum toward later tiers.
-- Notable difficulty: score `160`, percentile `7500`, and a 25 percent bonus.
-- Exceptional difficulty: score `220`, percentile `9000`, and a 50 percent bonus.
+- Notable difficulty: score `130`, percentile `6000`, and a 25 percent bonus.
+- Exceptional difficulty: score `190`, percentile `8500`, and a 50 percent bonus.
 
 These values are configuration embedded in the game definition. They establish an M3 test baseline, not a final scoring economy.
 

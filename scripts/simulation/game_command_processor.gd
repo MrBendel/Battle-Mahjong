@@ -46,7 +46,7 @@ func build_transaction(command: Variant, definition: Variant, state: Variant, ti
 		GameCommandScript.SELECT_TILE:
 			return _build_select(command, definition, state, timeline)
 		GameCommandScript.REVEAL_TILE:
-			return _build_reveal(command, definition, state)
+			return _build_reveal(command, definition, state, timeline)
 		GameCommandScript.UNDO:
 			return _build_undo(command, definition, state, timeline)
 		GameCommandScript.HINT:
@@ -353,7 +353,7 @@ func _build_select(command: Variant, definition: Variant, state: Variant, timeli
 	return {"result": result, "transaction": transaction}
 
 
-func _build_reveal(command: Variant, definition: Variant, state: Variant) -> Dictionary:
+func _build_reveal(command: Variant, definition: Variant, state: Variant, timeline: Array) -> Dictionary:
 	if state.status != GameStateDataScript.PLAYING:
 		return {"result": GAME_OVER}
 
@@ -392,10 +392,12 @@ func _build_reveal(command: Variant, definition: Variant, state: Variant) -> Dic
 	if matching_tile_id.is_empty():
 		var reveal_transaction := GameTransactionScript.new(command, changes, TILE_REVEALED)
 		reveal_transaction.definition_hash = definition.definition_hash()
-		reveal_transaction.telemetry = {
+		var reveal_telemetry := {
 			"revealed_tile_id": tile_id,
 			"face_id": definition.get_tile(tile_id).face.logical_id(),
 		}
+		reveal_telemetry.merge(_flipped_reveal_progress(definition, timeline, tile_id))
+		reveal_transaction.telemetry = reveal_telemetry
 		return {"result": TILE_REVEALED, "transaction": reveal_transaction}
 
 	var tray_before: Array[String] = []
@@ -505,6 +507,27 @@ func _build_reveal(command: Variant, definition: Variant, state: Variant) -> Dic
 	transaction.definition_hash = definition.definition_hash()
 	transaction.telemetry = telemetry
 	return {"result": FLIPPED_PAIR_RESOLVED, "transaction": transaction}
+
+
+func _flipped_reveal_progress(definition: Variant, timeline: Array, tile_id: String) -> Dictionary:
+	var revealed_once := {}
+	for transaction in timeline:
+		var previously_revealed_id := str(transaction.telemetry.get("revealed_tile_id", ""))
+		if previously_revealed_id in definition.flipped_tile_ids:
+			revealed_once[previously_revealed_id] = true
+		for auto_revealed_id in transaction.telemetry.get("auto_revealed_tile_ids", []):
+			if auto_revealed_id in definition.flipped_tile_ids:
+				revealed_once[str(auto_revealed_id)] = true
+	var first_reveal := not revealed_once.has(tile_id)
+	revealed_once[tile_id] = true
+	var total_count: int = definition.flipped_tile_ids.size()
+	return {
+		"first_reveal_of_flipped_tile": first_reveal,
+		"revealed_flipped_tile_count": revealed_once.size(),
+		"flipped_tile_count": total_count,
+		"all_flipped_tiles_revealed": first_reveal and total_count > 0 \
+			and revealed_once.size() == total_count,
+	}
 
 
 func _build_undo(command: Variant, definition: Variant, state: Variant, timeline: Array) -> Dictionary:
