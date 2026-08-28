@@ -742,6 +742,10 @@ func _run_momentum_tuning_tests() -> void:
 	_check_equal(100000, default_overrides.momentum_max, "Inspector maximum maps to simulation configuration")
 	_check_equal(2000, default_overrides.momentum_selection_gain, "Inspector selection gain maps to simulation configuration")
 	_check_equal([3, 4, 5, 6, 7, 8, 10, 12], default_overrides.momentum_decay_per_ms, "per-second Inspector decay converts exactly")
+	_check_equal(130, default_overrides.difficulty_notable_min_score, "default notable difficulty uses the lively score floor")
+	_check_equal(6000, default_overrides.difficulty_notable_min_percentile_basis_points, "default notable difficulty recognizes the upper 40 percent")
+	_check_equal(190, default_overrides.difficulty_exceptional_min_score, "default exceptional difficulty preserves a higher score floor")
+	_check_equal(8500, default_overrides.difficulty_exceptional_min_percentile_basis_points, "default exceptional difficulty recognizes the upper 15 percent")
 	_check_equal(MomentumTuningScript.default_overrides(), default_overrides, "Inspector defaults match headless simulation defaults")
 
 	var custom_tuning: Variant = MomentumTuningScript.new()
@@ -759,7 +763,7 @@ func _run_momentum_tuning_tests() -> void:
 	_check_equal(120000, custom_definition.configuration.momentum_max, "factory applies Inspector maximum")
 	_check_equal(1250, custom_definition.configuration.momentum_selection_gain, "factory applies Inspector selection gain")
 	_check_equal(250, custom_definition.configuration.pair_base_score, "factory applies Inspector scoring")
-	_check_equal(160, custom_definition.configuration.difficulty_notable_min_score, "factory applies Inspector difficulty thresholds")
+	_check_equal(130, custom_definition.configuration.difficulty_notable_min_score, "factory applies Inspector difficulty thresholds")
 	_check(default_definition.definition_hash() != custom_definition.definition_hash(), "custom tuning changes definition hash")
 	custom_overrides.momentum_thresholds[1] = 1
 	_check_equal(30000, custom_tuning.multiplier_thresholds[1], "simulation override cannot mutate Inspector resource")

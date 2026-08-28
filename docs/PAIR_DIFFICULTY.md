@@ -52,10 +52,10 @@ Only opportunities recorded with `source: board_pair` are eligible. Tray complet
 
 Default tiers:
 
-- `notable`: score at least `160` and percentile at least `7500`; emits `great` and adds 25 percent;
-- `exceptional`: score at least `220` and percentile at least `9000`; emits `eagle_eyes` and adds 50 percent.
+- `notable`: score at least `130` and percentile at least `6000`; emits `great` and adds 25 percent;
+- `exceptional`: score at least `190` and percentile at least `8500`; emits `eagle_eyes` and adds 50 percent.
 
-The exceptional tier is evaluated first. Thresholds and bonus basis points are exposed through the `MomentumTuning` Inspector resource and copied into the immutable game definition.
+The exceptional tier is evaluated first. These deliberately lively playtest thresholds target recognition more often than the original `160/7500` and `220/9000` gates. Thresholds and bonus basis points are exposed through the `MomentumTuning` Inspector resource and copied into the immutable game definition.
 
 The score before difficulty is the normal pair award after Momentum and active score-modifier multiplication. Difficulty adds:
 
