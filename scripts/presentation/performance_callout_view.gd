@@ -12,6 +12,7 @@ const TYPE_COLORS := {
 	"combo": Color("7af2bd"),
 	"score": Color("72d8ff"),
 	"board_progress": Color("ff91bd"),
+	"modifier_reward": Color("ffbd5a"),
 }
 
 var play_count := 0

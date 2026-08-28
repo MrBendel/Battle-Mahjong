@@ -22,7 +22,8 @@ func _run() -> void:
 		requested_size = Vector2i(430, 932)
 	root.size = requested_size
 	var shell: Control = load("res://scenes/main.tscn").instantiate()
-	var modifier_playtest := OS.get_cmdline_user_args().has("--modifier-playtest")
+	var modifier_playtest := OS.get_cmdline_user_args().has("--modifier-playtest") \
+		or OS.get_cmdline_user_args().has("--modifier-callout-capture")
 	shell.set("playtest_all_modifiers", modifier_playtest)
 	root.add_child(shell)
 	await process_frame
@@ -473,6 +474,8 @@ func _run() -> void:
 		_check_equal(callout_children_before, callout.get_child_count(), "rapid alerts reuse the single callout lane without stacking labels")
 		_check_equal("score", callout.get("last_alert_type"), "latest alert exclusively owns the callout lane")
 		_check_equal("SCORE 10K!", callout.get("last_text"), "single callout lane supports dynamic score text")
+		callout.call("play_alert", {"type": "modifier_reward", "key": "extra_life", "text": "EXTRA LIFE +1"})
+		_check_equal("modifier_reward", callout.get("last_alert_type"), "single callout lane accepts modifier reward presentation")
 	var visible_blocked_tile_id := ""
 	for tile in live_game.board.tiles:
 		if live_game.board.call("is_tile_visible", tile.id) \
@@ -501,7 +504,12 @@ func _run() -> void:
 
 	shell.call("_on_restart_requested")
 	live_game = shell.get("_game")
-	var deletable_pair := _find_visible_pair(live_game)
+	var deletable_pair: Array[String] = []
+	if modifier_playtest:
+		var delete_modifier_tile_id: String = str(live_game.definition.modifier_attachments.keys()[0])
+		deletable_pair = _find_selectable_pair_for_tile(live_game, delete_modifier_tile_id)
+	else:
+		deletable_pair = _find_visible_pair(live_game)
 	_check_equal(2, deletable_pair.size(), "reference game exposes a visible pair for Delete Pair feedback")
 	if deletable_pair.size() == 2:
 		var delete_feedback_before: int = shell.get("_pair_feedback_count")
@@ -510,6 +518,8 @@ func _run() -> void:
 		await create_timer(0.25).timeout
 		_check_equal(delete_feedback_before + 1, shell.get("_pair_feedback_count"), "Delete Pair composes the shared removal burst")
 		_check_equal(1, live_game.tray.resolved_pair_count, "Delete Pair feedback follows a committed transaction")
+		if modifier_playtest:
+			_check_equal("modifier_reward", shell.get("_performance_callout").get("last_alert_type"), "Delete Pair announces an attached modifier reward")
 
 	var shuffle_revision: int = live_game.revision
 	shell.call("_on_shuffle_requested")
@@ -581,6 +591,17 @@ func _run() -> void:
 		live_game = shell.get("_game")
 		shell.call("_on_hint_requested")
 		shell.get("_regions").board.call("_process", 0.3)
+	elif OS.get_cmdline_user_args().has("--modifier-callout-capture"):
+		shell.call("_on_restart_requested")
+		live_game = shell.get("_game")
+		var modifier_tile_id: String = str(live_game.definition.modifier_attachments.keys()[0])
+		var modifier_pair := _find_selectable_pair_for_tile(live_game, modifier_tile_id)
+		if modifier_pair.size() == 2:
+			shell.call("_on_tile_selected", modifier_pair[0])
+			await create_timer(0.28).timeout
+			shell.call("_on_tile_selected", modifier_pair[1])
+			await create_timer(0.18).timeout
+			_check_equal("modifier_reward", shell.get("_performance_callout").get("last_alert_type"), "resolved modifier pair displays its reward callout")
 	elif OS.get_cmdline_user_args().has("--callout-capture"):
 		shell.call("_on_restart_requested")
 		live_game = shell.get("_game")
@@ -610,6 +631,7 @@ func _run() -> void:
 		var image := root.get_texture().get_image()
 		var capture_name := "end-game" if OS.get_cmdline_user_args().has("--end-game-capture") \
 			else "difficulty-callout" if OS.get_cmdline_user_args().has("--callout-capture") \
+			else "modifier-callout" if OS.get_cmdline_user_args().has("--modifier-callout-capture") \
 			else "hint" if OS.get_cmdline_user_args().has("--hint-capture") \
 			else "pause-menu" if OS.get_cmdline_user_args().has("--pause-menu") \
 			else "modifier-playtest" if modifier_playtest \
@@ -1056,6 +1078,16 @@ func _find_rewardable_pair(game: Variant) -> Array[String]:
 			var ids: Array[String] = []
 			ids.assign(pair.tile_ids)
 			return ids
+	return []
+
+
+func _find_selectable_pair_for_tile(game: Variant, tile_id: String) -> Array[String]:
+	var tile: Variant = game.board.call("get_tile", tile_id)
+	if tile == null or not game.board.call("is_tile_selectable", tile_id):
+		return []
+	for candidate in game.board.call("selectable_tiles"):
+		if candidate.id != tile_id and candidate.face.equals(tile.face):
+			return [tile_id, candidate.id]
 	return []
 
 

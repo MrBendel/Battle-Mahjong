@@ -316,6 +316,7 @@ func _on_tile_selected(tile_id: String) -> void:
 			_refresh_game_views()
 			_play_transaction_auto_reveals(transaction)
 			_play_board_pair_removal(removal_visuals)
+			_play_transaction_callout(transaction)
 			return
 	else:
 		var face_down: bool = _game.board.call("is_tile_face_down", tile_id)

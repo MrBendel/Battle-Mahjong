@@ -564,7 +564,7 @@ Produce:
 
 Goal: give the current gameplay systems a consistent visual language.
 
-Current status: in progress. The responsive Momentum/multiplier HUD and portrait consumable controls use production-style exported artwork. All four modifiers now have a first tile-attached visual identity rendered as skin-declared overlays across Board, Tray, and moving previews. HUD/reward presentations and activated-state sequences remain outstanding.
+Current status: in progress. The responsive Momentum/multiplier HUD and portrait consumable controls use production-style exported artwork. All four modifiers now have a first tile-attached visual identity rendered as skin-declared overlays across Board, Tray, and moving previews. Live-text reward callouts announce each triggered modifier's snapshotted effect. Persistent HUD treatments and richer activated-state sequences remain outstanding.
 
 ### Batch C - Feel
 

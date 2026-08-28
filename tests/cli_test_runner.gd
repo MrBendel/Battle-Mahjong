@@ -195,6 +195,38 @@ func _run_arcade_callout_tests() -> void:
 	_check_equal("board_progress", reveal_alert.type, "final flipped reveal uses the board-progress callout lane")
 	_check_equal("all_tiles_revealed", reveal_alert.key, "final flipped reveal emits a stable callout key")
 	_check_equal("ALL TILES REVEALED!", reveal_alert.text, "final flipped reveal uses the approved arcade copy")
+	var modifier_alerts := [
+		policy.call("choose_for_transaction", {"modifiers_triggered": [{
+			"type": ModifierLoadoutScript.EXTRA_LIFE,
+			"effect": {"charges": 1},
+		}]}, 0, tuning),
+		policy.call("choose_for_transaction", {"modifiers_triggered": [{
+			"type": ModifierLoadoutScript.COLD_SNAP,
+			"effect": {"duration_ms": 8500},
+		}]}, 0, tuning),
+		policy.call("choose_for_transaction", {"modifiers_triggered": [{
+			"type": ModifierLoadoutScript.SCORE_MULTIPLIER,
+			"effect": {"basis_points": 2100},
+		}]}, 0, tuning),
+		policy.call("choose_for_transaction", {"modifiers_triggered": [{
+			"type": ModifierLoadoutScript.TRAY_PLUS_ONE,
+			"effect": {"pair_duration": 3},
+		}]}, 0, tuning),
+	]
+	_check_equal("EXTRA LIFE +1", modifier_alerts[0].text, "Extra Life announces its awarded charge")
+	_check_equal("MOMENTUM FROZEN 8.5S", modifier_alerts[1].text, "Cold Snap announces its tuned duration")
+	_check_equal("SCORE BOOST 2.1X", modifier_alerts[2].text, "Score Multiplier announces its tuned multiplier")
+	_check_equal("TRAY +1 FOR 3 PAIRS", modifier_alerts[3].text, "Tray +1 announces its tuned pair duration")
+	var modifier_priority_alert: Dictionary = policy.call("choose_for_transaction", {
+		"modifiers_triggered": [{
+			"type": ModifierLoadoutScript.EXTRA_LIFE,
+			"effect": {"charges": 1},
+		}],
+		"difficulty_reward": {"callout_key": "eagle_eyes"},
+		"combo_before": 10,
+		"combo_after": 11,
+	}, 0, tuning)
+	_check_equal("modifier_reward", modifier_priority_alert.type, "modifier reward owns the single lane over pair recognition")
 	tuning.first_combo_alert = 10
 	tuning.score_milestones.assign([10000, 5000])
 	_check_equal(2, tuning.call("validation_errors").size(), "invalid callout thresholds report actionable errors")
