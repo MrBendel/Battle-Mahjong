@@ -2,39 +2,61 @@ extends Control
 class_name PairMatchFx
 
 const DEFAULT_SIZE := Vector2(104.0, 104.0)
+const SMOKE_TUFT := preload("res://game-assets/fx/match_smoke_tuft.png")
+const SMOKE_PARTICLE_COUNT := 6
 
-var _accent := Color("ffd166")
+static var _shared_smoke_material: ParticleProcessMaterial
 
-
-func _init(effect_size: Vector2 = DEFAULT_SIZE, accent: Color = Color("ffd166")) -> void:
+func _init(effect_size: Vector2 = DEFAULT_SIZE) -> void:
 	size = effect_size
 	pivot_offset = effect_size * 0.5
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_accent = accent
 
 
 func _ready() -> void:
-	modulate.a = 0.0
-	scale = Vector2(0.35, 0.35)
-	queue_redraw()
+	var particles := GPUParticles2D.new()
+	particles.name = "SmokeParticles"
+	particles.position = size * 0.5
+	particles.amount = SMOKE_PARTICLE_COUNT
+	particles.lifetime = 0.28
+	particles.one_shot = true
+	particles.explosiveness = 1.0
+	particles.randomness = 0.64
+	particles.visibility_rect = Rect2(-64.0, -64.0, 128.0, 128.0)
+	particles.texture = SMOKE_TUFT
+	particles.process_material = _smoke_material()
+	add_child(particles)
+	particles.restart()
 	var tween := create_tween()
-	tween.set_parallel(true)
-	tween.tween_property(self, "modulate:a", 1.0, 0.04)
-	tween.tween_property(self, "scale", Vector2.ONE, 0.10).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tween.chain().tween_interval(0.05)
-	tween.chain().set_parallel(true)
-	tween.tween_property(self, "modulate:a", 0.0, 0.14)
-	tween.tween_property(self, "scale", Vector2(1.35, 1.35), 0.14).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_interval(0.31)
 	tween.finished.connect(queue_free)
 
 
-func _draw() -> void:
-	var center := size * 0.5
-	for index in range(12):
-		var angle := TAU * float(index) / 12.0
-		var direction := Vector2.from_angle(angle)
-		var inner_radius := 22.0 if index % 2 == 0 else 29.0
-		var outer_radius := 46.0 if index % 2 == 0 else 40.0
-		draw_line(center + direction * inner_radius, center + direction * outer_radius, _accent, 3.0, true)
-	draw_arc(center, 24.0, 0.0, TAU, 32, Color(_accent, 0.78), 4.0, true)
-	draw_circle(center, 8.0, Color("fff8df"))
+static func _smoke_material() -> ParticleProcessMaterial:
+	if _shared_smoke_material != null:
+		return _shared_smoke_material
+	var material := ParticleProcessMaterial.new()
+	material.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_POINT
+	material.direction = Vector3(1.0, 0.0, 0.0)
+	material.spread = 180.0
+	material.initial_velocity_min = 38.0
+	material.initial_velocity_max = 64.0
+	material.gravity = Vector3(0.0, -10.0, 0.0)
+	material.damping_min = 15.0
+	material.damping_max = 24.0
+	material.angular_velocity_min = -80.0
+	material.angular_velocity_max = 80.0
+	material.scale_min = 0.50
+	material.scale_max = 0.76
+	var gradient := Gradient.new()
+	gradient.offsets = PackedFloat32Array([0.0, 0.58, 1.0])
+	gradient.colors = PackedColorArray([
+		Color(1.0, 1.0, 1.0, 0.0),
+		Color(1.0, 1.0, 1.0, 0.62),
+		Color(0.72, 0.82, 0.80, 0.0),
+	])
+	var color_ramp := GradientTexture1D.new()
+	color_ramp.gradient = gradient
+	material.color_ramp = color_ramp
+	_shared_smoke_material = material
+	return _shared_smoke_material

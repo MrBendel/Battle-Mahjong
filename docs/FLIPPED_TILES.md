@@ -66,6 +66,6 @@ This ordering is simulation data, not presentation behavior.
 
 ## Presentation Contract
 
-The Default skin supplies dedicated portrait and landscape tile-back artwork. Unmatched peeks use the full horizontal flip treatment. A reveal that auto-matches uses a shorter readability beat: the face opens from edge-on, moves into the open queue slot, pauses, and collides with its held mate through the shared tray animation. Presentation never adds temporary authoritative occupancy.
+The Default skin supplies dedicated portrait and landscape tile-back artwork. Unmatched peeks use the full horizontal flip treatment. A reveal that auto-matches opens from edge-on, holds fully face-up for an Inspector-tunable readability beat, then moves into the open queue slot, pauses, and collides with its held mate through the shared tray animation. A live `MATCH!` callout explains the immediate resolution unless a modifier reward or one-time board-progress alert owns the single presentation lane. Presentation never adds temporary authoritative occupancy.
 
 The final unique flipped-tile reveal sends `ALL TILES REVEALED!` through the shared single arcade-callout lane. The callout is live text derived from committed transaction telemetry, so replay presentation can reproduce it without changing simulation state.

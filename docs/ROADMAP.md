@@ -134,7 +134,7 @@ The first live-text arcade callout lane recognizes difficult pairs, current-run 
 
 The gameplay shell follows a mobile-first portrait stack with a bottom action dock, while landscape preserves the portrait-authored board and moves actions into console-friendly side rails. Detailed contract: [Responsive Game Shell](RESPONSIVE_GAME_SHELL.md).
 
-Batch B is in progress: the responsive Momentum/multiplier HUD, portrait consumable controls, and all four tile-attached modifier identities have first production-style artwork. Modifier HUD/reward presentation and activation sequences remain before broader FX, character work, and the Neon skin proof.
+Batch B has a complete candidate: the responsive Momentum/multiplier HUD, portrait consumable controls, all four tile-attached modifier identities, live reward callouts, persistent modifier status, and lightweight activation sequences are implemented. Tray +1 expands the composable queue artwork and responsive shell rather than overlaying a synthetic slot. Final visual approval remains before broader FX, character work, and the Neon skin proof.
 
 Mobile rendering optimization is tracked in [`PERFORMANCE_OPTIMIZATION.md`](PERFORMANCE_OPTIMIZATION.md). That work begins with representative Android measurements, then addresses Board refresh/allocation cost, transparent overdraw, and tile atlasing before considering a custom renderer.
 

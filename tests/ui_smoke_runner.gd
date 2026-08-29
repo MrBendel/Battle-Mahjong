@@ -2,6 +2,9 @@ extends SceneTree
 
 const PairDifficultyRewardsScript := preload("res://scripts/simulation/pair_difficulty_rewards.gd")
 const SafeAreaScript := preload("res://scripts/presentation/safe_area.gd")
+const BoardLayoutCatalogScript := preload("res://scripts/simulation/board_layout_catalog.gd")
+const LayoutSolutionPlannerScript := preload("res://scripts/simulation/layout_solution_planner.gd")
+const MatchSmokeTuft := preload("res://game-assets/fx/match_smoke_tuft.png")
 
 var _failures := 0
 
@@ -118,6 +121,12 @@ func _run() -> void:
 				attached_art.texture,
 				"playtest %s attachment renders on its board tile" % attachment.type
 			)
+		await _verify_modifier_activation_feedback(shell)
+		shell.call("_on_restart_requested")
+		live_game = shell.get("_game")
+		attached_tile_id = str(live_game.definition.modifier_attachments.keys()[0])
+		attached_button = shell.get("_regions").board.get("_tile_buttons")[attached_tile_id]
+		modifier_art = attached_button.get_node("ModifierArt")
 	var modifier_preview: Control = shell.get("_regions").board.call("create_tile_preview", attached_tile_id, true)
 	var preview_modifier: TextureRect = modifier_preview.get_node("ModifierArt")
 	_check_equal(modifier_art.texture, preview_modifier.texture, "moving tile preview preserves attached modifier artwork")
@@ -253,14 +262,17 @@ func _run() -> void:
 	var tray_incoming: Control = tray_visuals[0].preview
 	var tray_start: Vector2 = tray_incoming.position
 	_check(tray_incoming.scale.x < 0.1, "matching flipped tile begins its face reveal edge-on")
-	await create_timer(0.06).timeout
+	await create_timer(0.13).timeout
 	_check_equal(tray_start, tray_incoming.position, "matching flipped tile reveals in place before tray motion")
 	_check(tray_incoming.scale.x > 0.1, "matching flipped tile face becomes visible during the reveal beat")
-	await create_timer(0.08).timeout
+	await create_timer(0.14).timeout
+	_check(is_equal_approx(tray_incoming.scale.x, 1.0), "matching flipped tile reaches a fully readable face before moving")
+	_check_equal(tray_motion_before, shell.get("_tile_motion_count"), "matching flipped tile holds face-up before tray motion")
+	await create_timer(float(shell.get("flipped_auto_match_hold_seconds")) + 0.03).timeout
 	_check_equal(tray_motion_before + 1, shell.get("_tile_motion_count"), "revealed flipped tile starts one normal tray transfer")
 	_check_equal(flipped_target_rect, shell.get("_last_tile_motion_target"), "revealed flipped tile targets the open slot")
 	_check_equal(tray_collision_before, shell.get("_pair_collision_count"), "flipped tile begins tray travel only after revealing")
-	await create_timer(0.43).timeout
+	await create_timer(0.47).timeout
 	_check_equal(tray_collision_before + 1, shell.get("_pair_collision_count"), "flipped tile collides with its held mate")
 	var expected_tray_collision := (flipped_target_rect.get_center() + tray_match_rect.get_center()) * 0.5
 	_check_equal(expected_tray_collision, shell.get("_last_pair_collision_position"), "flipped-to-tray collision matches ordinary tray behavior")
@@ -511,6 +523,18 @@ func _run() -> void:
 		await create_timer(0.30).timeout
 		_check_equal(pair_collision_before + 1, shell.get("_pair_collision_count"), "pair performs one collision before removal pop")
 		_check_equal(pair_feedback_before + 1, shell.get("_pair_feedback_count"), "resolved pair emits one reusable match burst")
+		var live_smoke_emitters := shell.find_children("SmokeParticles", "GPUParticles2D", true, false)
+		_check(not live_smoke_emitters.is_empty(), "pair collision composes a shared spark-and-smoke effect")
+		_check_equal(Vector2(64.0, 64.0), MatchSmokeTuft.get_size(), "match particles use the compact smoke-tuft texture")
+		if not live_smoke_emitters.is_empty():
+			var smoke_particles: GPUParticles2D = live_smoke_emitters[-1]
+			_check(not smoke_particles.get_parent().is_processing(), "match smoke uses no per-frame GDScript processing")
+			_check_equal(1, smoke_particles.get_parent().get_child_count(), "each match burst owns one smoke emitter")
+			_check_equal(6, smoke_particles.amount, "match smoke stays within its six-particle mobile budget")
+			_check(smoke_particles.one_shot, "match smoke uses one-shot particle emission")
+			_check_equal(MatchSmokeTuft, smoke_particles.texture, "match smoke particles share one tuft texture")
+			var smoke_material: ParticleProcessMaterial = smoke_particles.process_material
+			_check(is_equal_approx(float(smoke_material.scale_min), 0.50), "match smoke tufts remain readable at gameplay scale")
 		_check_equal(1, live_game.tray.resolved_pair_count, "match feedback follows a committed pair transaction")
 		_check_equal(1, live_game.call("combo_at", shell.call("_playback_time_ms")), "natural pair starts the live Combo readout")
 		var reward: Dictionary = live_game.call("last_transaction").telemetry.get("difficulty_reward", {})
@@ -885,6 +909,7 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 	_check(is_equal_approx(tray_tile_scale, 0.80), "%s uses the tuned 80 percent tray tile scale" % orientation)
 	_check(is_equal_approx(float(shell.get("tile_transfer_seconds")), 0.24), "%s uses the slower tray transfer beat" % orientation)
 	_check(is_equal_approx(float(shell.get("tile_flip_seconds")), 0.25), "%s uses the tuned quarter-second tile flip" % orientation)
+	_check(is_equal_approx(float(shell.get("flipped_auto_match_hold_seconds")), 0.24), "%s holds an auto-matching flipped face long enough to read" % orientation)
 	_check(is_equal_approx(float(shell.get("tray_compaction_seconds")), 0.16), "%s uses the tuned queue-compaction beat" % orientation)
 	if orientation == "portrait":
 		_check(tray.get("_portrait_style"), "portrait enables the Figma queue presentation")
@@ -1102,6 +1127,14 @@ func _validate_board_tiles(shell: Control, orientation: String) -> void:
 			_check(brightness > previous_brightness, "%s authored layer %d is brighter than layer %d" % [orientation, depth, depth - 1])
 			previous_brightness = brightness
 		_check(is_equal_approx(previous_brightness, 1.0), "%s highest authored layer remains fully lit" % orientation)
+		if maximum_depth > 1:
+			_check(
+				is_equal_approx(
+					float(board.call("_depth_brightness", maximum_depth - 1, maximum_depth)),
+					float(skin.depth_presentation.near_top_layer_brightness)
+				),
+				"%s layer directly below the top uses the lighter skin-defined brightness" % orientation
+			)
 	if orientation == "portrait":
 		_check(minimum_tile_size.y > minimum_tile_size.x, "portrait uses tall tile artwork (%s)" % minimum_tile_size)
 	else:
@@ -1188,6 +1221,81 @@ func _find_rewardable_pair(game: Variant) -> Array[String]:
 			var ids: Array[String] = []
 			ids.assign(pair.tile_ids)
 			return ids
+	return []
+
+
+func _verify_modifier_activation_feedback(shell: Control) -> void:
+	var game: Variant = shell.get("_game")
+	var feedback: Control = shell.get("_modifier_feedback")
+	var momentum: Control = shell.get("_regions").momentum
+	var tray: Control = shell.get("_regions").tray
+	var expected_types := ["extra_life", "cold_snap", "score_multiplier", "tray_plus_one"]
+	for modifier_type in expected_types:
+		var modifier_tile_id := _find_modifier_tile_id(game, modifier_type)
+		var pair := _find_solver_pair_for_tile(game, modifier_tile_id)
+		_check_equal(2, pair.size(), "%s playtest modifier sits on the next solver-route pair" % modifier_type)
+		if pair.size() != 2:
+			continue
+		var feedback_before: int = feedback.get("play_count")
+		var capacity_feedback_before: int = tray.get("capacity_feedback_count")
+		shell.call("_on_tile_selected", pair[0])
+		await create_timer(0.28).timeout
+		shell.call("_on_tile_selected", pair[1])
+		await process_frame
+		_check_equal(feedback_before + 1, feedback.get("play_count"), "%s starts one shared activation sequence" % modifier_type)
+		_check_equal(modifier_type, feedback.get("last_modifier_type"), "%s selects its activation treatment" % modifier_type)
+		_check_equal("modifier_reward", shell.get("_performance_callout").get("last_alert_type"), "%s owns the live-text callout lane" % modifier_type)
+		var snapshot: Variant = game.call("current_snapshot")
+		match modifier_type:
+			"extra_life":
+				_check(int(snapshot.extra_life_charges) > 0, "Extra Life persists as an available charge")
+				_check(momentum.get("_extra_life_icon").visible, "Extra Life status appears beside Score")
+				_check_equal(str(snapshot.extra_life_charges), momentum.get("_extra_life_count").text, "Extra Life HUD shows its live charge count")
+			"cold_snap":
+				_check(int(snapshot.cold_snap_until_ms) > shell.call("_playback_time_ms"), "Cold Snap persists with a live expiry")
+				_check("FROZEN" in momentum.get("_effect_status").text, "Cold Snap status appears on Momentum")
+			"score_multiplier":
+				_check(int(snapshot.score_multiplier_until_ms) > shell.call("_playback_time_ms"), "Score Multiplier persists with a live expiry")
+				_check("SCORE" in momentum.get("_effect_status").text, "Score Multiplier status appears on Momentum")
+			"tray_plus_one":
+				_check_equal(5, game.tray.capacity, "Tray +1 expands the authoritative tray to five slots")
+				_check_equal(capacity_feedback_before + 1, tray.get("capacity_feedback_count"), "Tray +1 emphasizes the new queue section")
+				if tray.get("_portrait_style"):
+					_check(tray.get("_queue_repeats")[4].visible, "Tray +1 reveals a fifth repeat section in the existing queue artwork")
+				else:
+					_check(tray.get("_slots")[4].visible, "Tray +1 reveals a fifth live slot in the landscape queue")
+				_check(tray.get("_bonus_icon").visible, "Tray +1 marks the expanded queue section")
+				_check("PAIRS" in tray.get("_bonus_label").text, "Tray +1 displays its remaining pair duration")
+				_check(shell.get_viewport_rect().encloses(tray.get_global_rect()), "expanded tray remains inside the responsive viewport")
+		await create_timer(0.55).timeout
+
+
+func _find_modifier_tile_id(game: Variant, modifier_type: String) -> String:
+	for tile_id in game.definition.modifier_attachments:
+		if str(game.definition.modifier_attachments[tile_id].type) == modifier_type:
+			return str(tile_id)
+	return ""
+
+
+func _find_solver_pair_for_tile(game: Variant, tile_id: String) -> Array[String]:
+	var layout: Variant = BoardLayoutCatalogScript.new().call(
+		"get_layout",
+		game.definition.configuration.layout_id
+	)
+	var plan: Array = LayoutSolutionPlannerScript.new().call("build_plan", layout)
+	var tile_index := -1
+	for index in range(game.definition.tiles.size()):
+		if game.definition.tiles[index].id == tile_id:
+			tile_index = index
+			break
+	for pair_indexes in plan:
+		if tile_index in pair_indexes:
+			var first_id: String = game.definition.tiles[int(pair_indexes[0])].id
+			var second_id: String = game.definition.tiles[int(pair_indexes[1])].id
+			if game.board.call("is_tile_selectable", first_id) \
+					and game.board.call("is_tile_selectable", second_id):
+				return [first_id, second_id]
+			return []
 	return []
 
 

@@ -823,7 +823,15 @@ func _depth_brightness(depth: int, max_depth: int) -> float:
 	if max_depth <= 0:
 		return 1.0
 	var floor := float(_tile_skin.depth_presentation.get("lowest_layer_brightness", 0.70))
-	return lerpf(floor, 1.0, float(depth) / float(max_depth))
+	if max_depth == 1:
+		return lerpf(floor, 1.0, float(depth))
+	var near_top := float(_tile_skin.depth_presentation.get(
+		"near_top_layer_brightness",
+		lerpf(floor, 1.0, float(max_depth - 1) / float(max_depth))
+	))
+	if depth >= max_depth - 1:
+		return lerpf(near_top, 1.0, float(depth - (max_depth - 1)))
+	return lerpf(floor, near_top, float(depth) / float(max_depth - 1))
 
 
 func _blocked_overlay_color() -> Color:

@@ -68,12 +68,15 @@ func validation_errors() -> Array[String]:
 		if modifier_path.is_empty() or not (ResourceLoader.exists(modifier_path) or FileAccess.file_exists(modifier_path)):
 			errors.append("Modifier '%s' has no runtime tile overlay." % modifier_id)
 	var depth_floor := float(depth_presentation.get("lowest_layer_brightness", 0.0))
+	var near_top_brightness := float(depth_presentation.get("near_top_layer_brightness", 1.0))
 	var blocked_overlay: Array = depth_presentation.get("blocked_overlay_color", [])
 	var shadow_opacity := float(depth_presentation.get("shadow_opacity", -1.0))
 	var shadow_offset: Array = depth_presentation.get("shadow_offset_ratio", [])
 	var layer_offset: Array = depth_presentation.get("layer_offset_ratio", [])
 	if depth_floor <= 0.0 or depth_floor > 1.0:
 		errors.append("Tile depth brightness must be in (0, 1].")
+	if near_top_brightness <= depth_floor or near_top_brightness > 1.0:
+		errors.append("Near-top tile brightness must be above the lowest layer and at most 1.")
 	if blocked_overlay.size() != 4:
 		errors.append("Blocked tile overlay color must contain RGBA values.")
 	else:

@@ -5,6 +5,7 @@ const SCORE_BOX := preload("res://game-assets/ui/portrait/score_box.png")
 const MOMENTUM_FRAME := preload("res://game-assets/ui/portrait/momentum_frame.png")
 const MOMENTUM_FILL := preload("res://game-assets/ui/portrait/momentum_fill.png")
 const MOMENTUM_BADGE := preload("res://game-assets/ui/portrait/momentum_badge.png")
+const EXTRA_LIFE_ICON := preload("res://game-assets/modifiers/tile-overlays/extra_life.png")
 const MILA_REGULAR := preload("res://assets/fonts/mila-script-sans-regular-tight.tres")
 const MILA_BOLD := preload("res://assets/fonts/mila-script-sans-bold-tight.tres")
 
@@ -26,9 +27,15 @@ var _momentum_frame: TextureRect
 var _fill_clip: Control
 var _momentum_fill: TextureRect
 var _momentum_badge: TextureRect
+var _extra_life_icon: TextureRect
+var _extra_life_count: Label
+var _effect_status: Label
 var _ticks: Array[Label] = []
 var _audio_player: AudioStreamPlayer
 var _audio_playback: Variant
+var _modifier_tween: Tween
+var modifier_feedback_count := 0
+var last_modifier_feedback := ""
 
 
 func _init(game_state: Variant) -> void:
@@ -71,6 +78,29 @@ func refresh(playback_time_ms: int) -> void:
 		else "Combo x%d" % combo if combo > 0 else "Combo ready"
 	var ratio := clampf(float(momentum) / float(maximum), 0.0, 1.0) if maximum > 0 else 0.0
 	_fill_clip.size.x = _momentum_fill.size.x * ratio
+	var snapshot: Variant = _game.call("current_snapshot")
+	var cold_remaining := maxi(0, int(snapshot.cold_snap_until_ms) - playback_time_ms)
+	var score_remaining := maxi(0, int(snapshot.score_multiplier_until_ms) - playback_time_ms)
+	var status_parts: Array[String] = []
+	if cold_remaining > 0:
+		status_parts.append("FROZEN %s" % _format_remaining(cold_remaining))
+	if score_remaining > 0:
+		status_parts.append("SCORE %s %s" % [
+			_format_basis_points(int(snapshot.score_multiplier_basis_points)),
+			_format_remaining(score_remaining),
+		])
+	_effect_status.text = "  |  ".join(status_parts)
+	_effect_status.visible = not status_parts.is_empty()
+	_extra_life_icon.visible = int(snapshot.extra_life_charges) > 0
+	_extra_life_count.visible = _extra_life_icon.visible
+	_extra_life_count.text = str(snapshot.extra_life_charges)
+	var freeze_wave := 0.5 + 0.5 * sin(float(playback_time_ms) * 0.008)
+	_momentum_fill.modulate = Color(0.68, 0.95, 1.0, 0.88 + freeze_wave * 0.12) \
+		if cold_remaining > 0 else Color.WHITE
+	_momentum_frame.modulate = Color("b8f4ff") if cold_remaining > 0 else Color.WHITE
+	_momentum_badge.modulate = Color("ffd36a") if score_remaining > 0 else Color.WHITE
+	_meter.modulate = Color("b8f4ff") if cold_remaining > 0 else Color.WHITE
+	_multiplier.modulate = Color("ffd36a") if score_remaining > 0 else Color.WHITE
 
 
 func play_pair_feedback(multiplier: int) -> void:
@@ -80,6 +110,28 @@ func play_pair_feedback(multiplier: int) -> void:
 	tween.tween_property(_multiplier, "modulate", Color("7af2bd"), 0.06)
 	tween.tween_property(_multiplier, "modulate", Color.WHITE, 0.18)
 	_play_tone(multiplier)
+
+
+func play_modifier_activation(modifier_type: String) -> void:
+	var target: Control
+	match modifier_type:
+		"extra_life", "extra_life_save":
+			target = _extra_life_icon
+		"cold_snap":
+			target = _momentum_frame if _portrait_style else _meter
+		"score_multiplier":
+			target = _momentum_badge if _portrait_style else _multiplier
+		_:
+			return
+	if _modifier_tween != null and _modifier_tween.is_valid():
+		_modifier_tween.kill()
+	_modifier_tween = create_tween()
+	modifier_feedback_count += 1
+	last_modifier_feedback = modifier_type
+	target.scale = Vector2(0.72, 0.72)
+	_modifier_tween.tween_property(target, "scale", Vector2(1.18, 1.18), 0.14) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_modifier_tween.tween_property(target, "scale", Vector2.ONE, 0.12)
 
 
 func _build() -> void:
@@ -106,6 +158,8 @@ func _build() -> void:
 	_fill_clip.add_child(_momentum_fill)
 	_momentum_badge = _art(MOMENTUM_BADGE)
 	add_child(_momentum_badge)
+	_extra_life_icon = _art(EXTRA_LIFE_ICON)
+	add_child(_extra_life_icon)
 
 	_title = _label("Momentum", MILA_REGULAR, 14, Color("cbbbd3"))
 	add_child(_title)
@@ -124,6 +178,16 @@ func _build() -> void:
 	_combo = _label("", MILA_BOLD, 12, Color("fcf0d6"))
 	_combo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_combo)
+	_extra_life_count = _label("", MILA_BOLD, 10, Color("fff4dc"))
+	_extra_life_count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_extra_life_count.add_theme_color_override("font_outline_color", Color("28151e"))
+	_extra_life_count.add_theme_constant_override("outline_size", 3)
+	add_child(_extra_life_count)
+	_effect_status = _label("", MILA_BOLD, 8, Color("f6fbff"))
+	_effect_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_effect_status.add_theme_color_override("font_outline_color", Color("07181b"))
+	_effect_status.add_theme_constant_override("outline_size", 3)
+	add_child(_effect_status)
 
 	var colors := ["1e8b59", "5b9f45", "88ad35", "f5ba33", "ea9734", "e07136", "d75348"]
 	for index in range(7):
@@ -164,6 +228,9 @@ func _update_style_visibility() -> void:
 	_momentum_frame.visible = _portrait_style
 	_fill_clip.visible = _portrait_style
 	_momentum_badge.visible = _portrait_style
+	_extra_life_icon.visible = false
+	_extra_life_count.visible = false
+	_effect_status.visible = false
 	for tick in _ticks:
 		tick.visible = _portrait_style
 
@@ -187,8 +254,13 @@ func _layout() -> void:
 	_momentum_fill.position = Vector2.ZERO
 	_momentum_fill.size = Vector2(162.9, 18.6) * scale
 	_place_scaled(_momentum_badge, Rect2(275.9, 25.8, 34.2, 34.2), momentum_origin, scale)
+	_place_scaled(_extra_life_icon, Rect2(99.0, 7.0, 22.0, 22.0), score_origin, scale)
+	_place_scaled(_extra_life_count, Rect2(108.0, 8.0, 16.0, 16.0), score_origin, scale, 10)
 	_place_scaled(_multiplier, Rect2(278.0, 31.0, 30.0, 22.0), momentum_origin, scale, 15)
 	_place_scaled(_combo, Rect2(155.0, 7.0, 92.0, 18.0), momentum_origin, scale, 12)
+	_place_scaled(_effect_status, Rect2(125.0, 34.0, 147.0, 15.0), momentum_origin, scale, 8)
+	for control in [_momentum_frame, _momentum_badge, _extra_life_icon]:
+		control.pivot_offset = control.size * 0.5
 	for index in range(_ticks.size()):
 		var tick_center_x := 122.7 + 162.9 * float(index + 1) / 8.0
 		_place_scaled(_ticks[index], Rect2(tick_center_x - 10.0, 55.0, 20.0, 14.0), momentum_origin, scale, 8)
@@ -203,11 +275,20 @@ func _layout_legacy() -> void:
 	_multiplier.position = Vector2(96.0, 1.0 if compact else 5.0)
 	_multiplier.size = Vector2(58.0, 34.0)
 	_score.position = Vector2(154.0, 5.0 if compact else 8.0)
-	_score.size = Vector2(maxf(56.0, size.x - 164.0), 20.0)
+	_score.size = Vector2(maxf(56.0, size.x - 198.0), 20.0)
 	_combo.position = Vector2(154.0, 24.0 if compact else 30.0)
 	_combo.size = Vector2(maxf(56.0, size.x - 164.0), 18.0)
 	_meter.position = Vector2(margin, 44.0 if compact else 55.0)
 	_meter.size = Vector2(maxf(1.0, size.x - margin * 2.0), 12.0 if compact else 18.0)
+	_extra_life_icon.position = Vector2(maxf(164.0, size.x - 31.0), 3.0 if compact else 6.0)
+	_extra_life_icon.size = Vector2(24.0, 24.0)
+	_extra_life_icon.pivot_offset = _extra_life_icon.size * 0.5
+	_extra_life_count.position = _extra_life_icon.position + Vector2(12.0, 9.0)
+	_extra_life_count.size = Vector2(18.0, 16.0)
+	_extra_life_count.add_theme_font_size_override("font_size", 10)
+	_effect_status.position = Vector2(margin, 24.0 if compact else 31.0)
+	_effect_status.size = Vector2(140.0, 16.0)
+	_effect_status.add_theme_font_size_override("font_size", 8)
 
 
 func _place_scaled(control: Control, rect: Rect2, origin: Vector2, scale: float, font_size := 0) -> void:
@@ -252,6 +333,14 @@ func _format_time(playback_time_ms: int) -> String:
 	var seconds := total_centiseconds / 100 % 60
 	var centiseconds := total_centiseconds % 100
 	return "%02d:%02d.%02d" % [minutes, seconds, centiseconds]
+
+
+func _format_remaining(remaining_ms: int) -> String:
+	return "%.1fS" % (float(remaining_ms) / 1000.0)
+
+
+func _format_basis_points(basis_points: int) -> String:
+	return "%.1fX" % (float(basis_points) / 1000.0)
 
 
 func _meter_style(color: Color) -> StyleBoxFlat:

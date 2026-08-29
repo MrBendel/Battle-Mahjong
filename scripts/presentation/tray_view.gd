@@ -4,6 +4,8 @@ class_name TrayView
 const TileSkinScript := preload("res://scripts/presentation/tile_skin.gd")
 const QUEUE_REPEAT := preload("res://assets/UI/tile-queue/queue-repeat.png")
 const QUEUE_CAP := preload("res://assets/UI/tile-queue/queue-cap.png")
+const TRAY_PLUS_ONE_ICON := preload("res://game-assets/modifiers/tile-overlays/tray_plus_one.png")
+const MILA_BOLD := preload("res://assets/fonts/mila-script-sans-bold-tight.tres")
 
 const MIN_SLOT_COUNT := 2
 const MAX_SLOT_COUNT := 6
@@ -32,6 +34,11 @@ var _portrait_style := false
 var _queue_left_cap: TextureRect
 var _queue_right_cap: TextureRect
 var _queue_repeats: Array[TextureRect] = []
+var _bonus_icon: TextureRect
+var _bonus_label: Label
+var _rendered_capacity := -1
+var _bonus_tween: Tween
+var capacity_feedback_count := 0
 
 
 func _init(game_state: Variant, tile_skin: Variant = null) -> void:
@@ -94,11 +101,17 @@ func reveal_tile(tile_id: String) -> void:
 func refresh() -> void:
 	if _game == null or _slots.is_empty():
 		return
+	var current_capacity := _slot_count()
+	if current_capacity != _rendered_capacity:
+		_rendered_capacity = current_capacity
+		_layout()
 
 	for index in range(MAX_SLOT_COUNT):
-		var enabled := index < _slot_count()
+		var enabled := index < current_capacity
 		_slots[index].visible = enabled
 		_queue_repeats[index].visible = _portrait_style and enabled
+		_queue_repeats[index].modulate = Color("baffd8") \
+			if _is_bonus_slot(index) else Color.WHITE
 		if not enabled:
 			continue
 		var occupied: bool = index < _game.tray.tiles.size()
@@ -135,6 +148,11 @@ func refresh() -> void:
 			_slots[index].add_theme_stylebox_override("panel", _tile_style() if _portrait_style else _empty_slot_style())
 
 		label.add_theme_color_override("font_color", Color("202625") if presented else Color("68716f"))
+	var snapshot: Variant = _game.call("current_snapshot")
+	var bonus_active := int(snapshot.tray_bonus_capacity) > 0
+	_bonus_icon.visible = bonus_active
+	_bonus_label.visible = bonus_active
+	_bonus_label.text = "+1  %d PAIRS" % int(snapshot.tray_bonus_pairs_remaining)
 
 	match _game.status:
 		"won":
@@ -177,6 +195,20 @@ func _build() -> void:
 	_queue_right_cap = _queue_art(QUEUE_CAP)
 	_queue_right_cap.flip_h = true
 	add_child(_queue_right_cap)
+	_bonus_icon = _queue_art(TRAY_PLUS_ONE_ICON)
+	_bonus_icon.visible = false
+	add_child(_bonus_icon)
+	_bonus_label = Label.new()
+	_bonus_label.add_theme_font_override("font", MILA_BOLD)
+	_bonus_label.add_theme_font_size_override("font_size", 9)
+	_bonus_label.add_theme_color_override("font_color", Color("baffd8"))
+	_bonus_label.add_theme_color_override("font_outline_color", Color("081a12"))
+	_bonus_label.add_theme_constant_override("outline_size", 3)
+	_bonus_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_bonus_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_bonus_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_bonus_label.visible = false
+	add_child(_bonus_label)
 
 	for index in range(MAX_SLOT_COUNT):
 		var slot := Panel.new()
@@ -211,6 +243,8 @@ func _build() -> void:
 		_slot_labels.append(label)
 		_slot_art.append(face_art)
 		_slot_modifiers.append(modifier_art)
+	move_child(_bonus_icon, get_child_count() - 1)
+	move_child(_bonus_label, get_child_count() - 1)
 	_update_style_visibility()
 
 
@@ -247,6 +281,7 @@ func _layout() -> void:
 		_slot_labels[index].position = Vector2.ZERO
 		_slot_labels[index].size = _tile_visual_size
 		_tile_skin.configure_modifier_art(_slot_modifiers[index])
+	_layout_bonus_legacy(group_x, body_y)
 
 
 func _layout_portrait() -> void:
@@ -291,6 +326,21 @@ func _layout_portrait() -> void:
 		_slot_labels[index].position = Vector2.ZERO
 		_slot_labels[index].size = slot_rect.size
 		_tile_skin.configure_modifier_art(_slot_modifiers[index])
+	_layout_bonus_portrait(origin, scale)
+
+
+func play_capacity_feedback() -> void:
+	if not _bonus_icon.visible:
+		return
+	if _bonus_tween != null and _bonus_tween.is_valid():
+		_bonus_tween.kill()
+	capacity_feedback_count += 1
+	_bonus_icon.pivot_offset = _bonus_icon.size * 0.5
+	_bonus_icon.scale = Vector2(0.45, 0.45)
+	_bonus_tween = create_tween()
+	_bonus_tween.tween_property(_bonus_icon, "scale", Vector2(1.22, 1.22), 0.16) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_bonus_tween.tween_property(_bonus_icon, "scale", Vector2.ONE, 0.12)
 
 
 func slot_global_rect(index: int) -> Rect2:
@@ -344,6 +394,40 @@ func create_tile_preview(index: int) -> Control:
 
 func _slot_count() -> int:
 	return clampi(_game.tray.capacity, MIN_SLOT_COUNT, MAX_SLOT_COUNT)
+
+
+func _is_bonus_slot(index: int) -> bool:
+	if _game == null:
+		return false
+	var snapshot: Variant = _game.call("current_snapshot")
+	return int(snapshot.tray_bonus_capacity) > 0 \
+		and index == int(_game.definition.tray_capacity())
+
+
+func _layout_bonus_portrait(origin: Vector2, scale: float) -> void:
+	if not _bonus_icon.visible and int(_game.call("current_snapshot").tray_bonus_capacity) <= 0:
+		return
+	var bonus_index := clampi(int(_game.definition.tray_capacity()), 0, MAX_SLOT_COUNT - 1)
+	var repeat_origin := origin + Vector2(
+		(FIGMA_CAP_SIZE.x + FIGMA_SLOT_SIZE.x * bonus_index) * scale,
+		0.0
+	)
+	_bonus_icon.position = repeat_origin + Vector2(5.0, 86.0) * scale
+	_bonus_icon.size = Vector2(17.0, 17.0) * scale
+	_bonus_label.position = repeat_origin + Vector2(20.0, 86.0) * scale
+	_bonus_label.size = Vector2(39.0, 17.0) * scale
+	_bonus_label.add_theme_font_size_override("font_size", maxi(7, roundi(8.0 * scale)))
+
+
+func _layout_bonus_legacy(group_x: float, body_y: float) -> void:
+	var bonus_index := clampi(int(_game.definition.tray_capacity()), 0, MAX_SLOT_COUNT - 1)
+	_bonus_icon.position = Vector2(
+		group_x + bonus_index * (_tile_visual_size.x + GAP),
+		body_y - 18.0
+	)
+	_bonus_icon.size = Vector2(18.0, 18.0)
+	_bonus_label.position = _bonus_icon.position + Vector2(17.0, 0.0)
+	_bonus_label.size = Vector2(maxf(38.0, _tile_visual_size.x - 17.0), 18.0)
 
 
 func _portrait_scale(tile_size: Vector2) -> float:

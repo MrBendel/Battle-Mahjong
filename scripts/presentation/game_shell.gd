@@ -14,6 +14,7 @@ const ConsumablesViewScript := preload("res://scripts/presentation/consumables_v
 const TileSkinScript := preload("res://scripts/presentation/tile_skin.gd")
 const PairMatchFxScript := preload("res://scripts/presentation/pair_match_fx.gd")
 const PerformanceCalloutScript := preload("res://scripts/presentation/performance_callout_view.gd")
+const ModifierFeedbackViewScript := preload("res://scripts/presentation/modifier_feedback_view.gd")
 const ArcadeCalloutPolicyScript := preload("res://scripts/presentation/arcade_callout_policy.gd")
 const ArcadeCalloutTuningScript := preload("res://scripts/configuration/arcade_callout_tuning.gd")
 const PauseMenuScript := preload("res://scripts/presentation/pause_menu.gd")
@@ -49,6 +50,8 @@ const PAIR_COLLISION_SECONDS := 0.10
 @export_range(0.12, 0.40, 0.01) var tile_transfer_seconds := 0.24
 ## Full back-to-front or front-to-back Board flip duration.
 @export_range(0.20, 0.80, 0.01) var tile_flip_seconds := 0.25
+## Face-up hold before an auto-matching flipped tile starts moving to the tray.
+@export_range(0.10, 0.50, 0.01) var flipped_auto_match_hold_seconds := 0.24
 ## Leftward queue-compaction travel after a held pair resolves.
 @export_range(0.08, 0.30, 0.01) var tray_compaction_seconds := 0.16
 ## Travel time for tiles to settle into their shuffled positions.
@@ -98,6 +101,7 @@ var _pause_started_at_ms := -1
 var _game_over_time_ms := -1
 var _paused_duration_ms := 0
 var _performance_callout: Control
+var _modifier_feedback: Control
 var _arcade_callout_policy := ArcadeCalloutPolicyScript.new()
 var _update_banner: PanelContainer
 var _update_checker: Node
@@ -114,6 +118,7 @@ var _last_haptic_kind := ""
 var _shuffle_animation_active := false
 var _shuffle_animation_count := 0
 var _shuffle_animation_generation := 0
+var _last_tray_capacity := 0
 
 func _ready() -> void:
 	_sound_enabled = sound_enabled_on_start
@@ -160,6 +165,9 @@ func _build_shell() -> void:
 		add_child(region)
 	_performance_callout = PerformanceCalloutScript.new()
 	add_child(_performance_callout)
+	_modifier_feedback = ModifierFeedbackViewScript.new()
+	add_child(_modifier_feedback)
+	_last_tray_capacity = _game.tray.capacity
 	if arcade_callout_tuning == null or arcade_callout_tuning.get_script() != ArcadeCalloutTuningScript:
 		push_error("No valid ArcadeCalloutTuning resource assigned.")
 	elif not arcade_callout_tuning.call("validation_errors").is_empty():
@@ -409,6 +417,8 @@ func _on_tile_selected(tile_id: String) -> void:
 		if result == GameStateScript.PAIR_RESOLVED:
 			_play_pair_to_tray(tile_preview, matching_preview, source_rect, target_rect, matching_source_rect)
 			_play_tray_compaction(tray_compaction_visuals)
+		elif result == GameStateScript.EXTRA_LIFE_USED:
+			tile_preview.queue_free()
 		else:
 			_play_tile_to_tray(tile_preview, source_rect, target_rect, tile_id)
 	elif tile_preview != null:
@@ -422,6 +432,9 @@ func _on_tile_selected(tile_id: String) -> void:
 		var transaction: Variant = _game.call("last_transaction")
 		_regions.momentum.call("play_pair_feedback", int(transaction.telemetry.resulting_multiplier))
 		_play_transaction_callout(transaction)
+	elif result == GameStateScript.EXTRA_LIFE_USED:
+		_play_haptic("pair")
+		_play_transaction_callout(selection_transaction)
 	elif result != GameStateScript.INVALID_SELECTION:
 		_play_haptic("selection")
 
@@ -452,6 +465,7 @@ func _play_haptic(kind: String) -> void:
 
 
 func _play_transaction_callout(transaction: Variant) -> void:
+	_play_modifier_feedback(transaction.telemetry)
 	if arcade_callout_tuning == null:
 		return
 	var score_after := int(_game.call("current_snapshot").score)
@@ -463,6 +477,20 @@ func _play_transaction_callout(transaction: Variant) -> void:
 	)
 	if not alert.is_empty():
 		_performance_callout.call("play_alert", alert)
+
+
+func _play_modifier_feedback(telemetry: Dictionary) -> void:
+	var modifier_type := "extra_life_save" if bool(telemetry.get("extra_life_consumed", false)) else ""
+	var triggered: Array = telemetry.get("modifiers_triggered", [])
+	if modifier_type.is_empty() and not triggered.is_empty() and triggered[0] is Dictionary:
+		modifier_type = str(triggered[0].get("type", ""))
+	if modifier_type.is_empty():
+		return
+	_modifier_feedback.call("play_activation", modifier_type)
+	if modifier_type == "tray_plus_one":
+		_regions.tray.call("play_capacity_feedback")
+	else:
+		_regions.momentum.call("play_modifier_activation", modifier_type)
 
 
 func _active_revealed_flipped_tile_ids() -> Array[String]:
@@ -574,12 +602,14 @@ func _on_restart_requested() -> void:
 	if _pause_button != null:
 		_pause_button.visible = true
 	_game = _create_game()
+	_last_tray_capacity = _game.tray.capacity
 	_game_started_at_ms = Time.get_ticks_msec()
 	_regions.board.call("set_game_state", _game)
 	_regions.tray.call("set_game_state", _game)
 	_regions.momentum.call("set_game_state", _game)
 	_regions.consumables.call("set_game_state", _game)
 	_performance_callout.call("reset")
+	_modifier_feedback.call("reset")
 	_delete_pair_armed = false
 	_regions.board.call("set_delete_pair_armed", false)
 
@@ -686,7 +716,12 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _refresh_game_views() -> void:
 	_regions.board.call("refresh")
-	_regions.tray.call("refresh")
+	var current_capacity: int = _game.tray.capacity
+	if current_capacity != _last_tray_capacity:
+		_last_tray_capacity = current_capacity
+		_apply_layout()
+	else:
+		_regions.tray.call("refresh")
 	_regions.momentum.call("refresh", _playback_time_ms())
 	_regions.consumables.call("refresh")
 	_check_game_over()
@@ -825,7 +860,8 @@ func _play_flipped_match_to_tray(visuals: Array, target_rect: Rect2, reveal_inco
 		return
 	incoming.scale = Vector2(0.08, 1.0)
 	var reveal_tween := create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	reveal_tween.tween_property(incoming, "scale", Vector2.ONE, tile_flip_seconds * 0.5)
+	reveal_tween.tween_property(incoming, "scale", Vector2.ONE, tile_flip_seconds)
+	reveal_tween.tween_interval(flipped_auto_match_hold_seconds)
 	reveal_tween.finished.connect(
 		_start_pair_to_tray_motion.bind(incoming, held, target_rect, held_source_rect)
 	)
@@ -893,7 +929,8 @@ func _play_flipped_pair_via_open_slots(visuals: Array, reveal_incoming: bool = f
 	if reveal_incoming:
 		previews[0].scale = Vector2(0.08, 1.0)
 		var reveal_tween := create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		reveal_tween.tween_property(previews[0], "scale", Vector2.ONE, tile_flip_seconds * 0.5)
+		reveal_tween.tween_property(previews[0], "scale", Vector2.ONE, tile_flip_seconds)
+		reveal_tween.tween_interval(flipped_auto_match_hold_seconds)
 		reveal_tween.finished.connect(_stage_flipped_pair_in_tray.bind(previews, targets))
 	else:
 		_stage_flipped_pair_in_tray(previews, targets)
@@ -1186,6 +1223,7 @@ func _apply_layout() -> void:
 	_regions.tray.call("set_tile_visual_size", _regions.board.call("tile_visual_size") * tray_tile_scale)
 	_regions.tray.call("refresh")
 	_performance_callout.call("place_over", Rect2(_regions.board.position, _regions.board.size))
+	_modifier_feedback.call("place_over", Rect2(_regions.board.position, _regions.board.size))
 	_debug_panel.call(
 		"set_info",
 		_rng.call("get_seed"),

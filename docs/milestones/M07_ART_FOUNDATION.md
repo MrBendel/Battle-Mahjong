@@ -564,7 +564,7 @@ Produce:
 
 Goal: give the current gameplay systems a consistent visual language.
 
-Current status: in progress. The responsive Momentum/multiplier HUD and portrait consumable controls use production-style exported artwork. All four modifiers now have a first tile-attached visual identity rendered as skin-declared overlays across Board, Tray, and moving previews. Live-text reward callouts announce each triggered modifier's snapshotted effect. Persistent HUD treatments and richer activated-state sequences remain outstanding.
+Current status: complete candidate. The responsive Momentum/multiplier HUD and portrait consumable controls use production-style exported artwork. All four modifiers have a tile-attached visual identity rendered as skin-declared overlays across Board, Tray, and moving previews. A shared lightweight Board-edge flash and icon beat announces activation while live text reports the snapshotted reward. Persistent state stays attached to the system it affects: Extra Life beside Score, Cold Snap and Score Multiplier on Momentum, and Tray +1 on the expandable queue. Tray +1 appends a repeat section to the existing queue artwork, moves the end cap, and shows the remaining pair duration without drawing a competing slot background. Final visual approval remains part of M7 review.
 
 ### Batch C - Feel
 
@@ -580,6 +580,8 @@ Produce or prototype:
 - screen-shake profiles.
 
 Goal: establish the arcade and anime feedback loop.
+
+Current status: in progress. Pair collision uses a restrained six-particle radial smoke burst with larger, independently moving tufts for gameplay-scale readability. Its full-resolution transparent master lives under `art-source/fx/`; runtime particles share one compact `64 x 64` tuft texture. The transient effect owns one short lifetime Tween and one one-shot GPU emitter with no central cloud stamp, radial blast drawing, or per-frame GDScript work. Richer reusable FX remain outstanding.
 
 ### Batch D - Personality
 
