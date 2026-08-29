@@ -142,6 +142,7 @@ func _run_tile_skin_contract_tests() -> void:
 			and float(skin.depth_presentation.lowest_layer_brightness) < 1.0,
 		"Default skin keeps covered lower layers distinct without making them excessively dark"
 	)
+	_check_equal(0.94, float(skin.depth_presentation.near_top_layer_brightness), "Default skin keeps the layer below the top substantially lighter")
 	var layer_offset: Array = skin.depth_presentation.layer_offset_ratio
 	_check_equal(2, layer_offset.size(), "Default skin exposes a two-axis authored-layer offset")
 	_check(float(layer_offset[1]) <= -0.1, "Default skin gives each higher layer a visible upward lift")
@@ -198,6 +199,19 @@ func _run_arcade_callout_tests() -> void:
 	_check_equal("board_progress", reveal_alert.type, "final flipped reveal uses the board-progress callout lane")
 	_check_equal("all_tiles_revealed", reveal_alert.key, "final flipped reveal emits a stable callout key")
 	_check_equal("ALL TILES REVEALED!", reveal_alert.text, "final flipped reveal uses the approved arcade copy")
+	var flipped_match_alert: Dictionary = policy.call("choose_for_transaction", {
+		"flipped_pair": true,
+		"revealed_tile_id": "flipped",
+	}, 0, tuning)
+	_check_equal("match", flipped_match_alert.type, "auto-matching reveal uses the match callout lane")
+	_check_equal("flipped_auto_match", flipped_match_alert.key, "auto-matching reveal emits a stable callout key")
+	_check_equal("MATCH!", flipped_match_alert.text, "auto-matching reveal explains the immediate resolution")
+	var completed_flipped_match_alert: Dictionary = policy.call("choose_for_transaction", {
+		"flipped_pair": true,
+		"revealed_tile_id": "final_flipped",
+		"all_flipped_tiles_revealed": true,
+	}, 0, tuning)
+	_check_equal("all_tiles_revealed", completed_flipped_match_alert.key, "final reveal progress outranks the routine match callout")
 	var modifier_alerts := [
 		policy.call("choose_for_transaction", {"modifiers_triggered": [{
 			"type": ModifierLoadoutScript.EXTRA_LIFE,
@@ -220,6 +234,12 @@ func _run_arcade_callout_tests() -> void:
 	_check_equal("MOMENTUM FROZEN 8.5S", modifier_alerts[1].text, "Cold Snap announces its tuned duration")
 	_check_equal("SCORE BOOST 2.1X", modifier_alerts[2].text, "Score Multiplier announces its tuned multiplier")
 	_check_equal("TRAY +1 FOR 3 PAIRS", modifier_alerts[3].text, "Tray +1 announces its tuned pair duration")
+	var extra_life_save: Dictionary = policy.call("choose_for_transaction", {
+		"extra_life_consumed": true,
+	}, 0, tuning)
+	_check_equal("modifier_reward", extra_life_save.type, "Extra Life save owns the modifier reward lane")
+	_check_equal("extra_life_save", extra_life_save.key, "Extra Life save emits a stable callout key")
+	_check_equal("EXTRA LIFE SAVE!", extra_life_save.text, "Extra Life save announces the prevented loss")
 	var modifier_priority_alert: Dictionary = policy.call("choose_for_transaction", {
 		"modifiers_triggered": [{
 			"type": ModifierLoadoutScript.EXTRA_LIFE,
@@ -228,8 +248,10 @@ func _run_arcade_callout_tests() -> void:
 		"difficulty_reward": {"callout_key": "eagle_eyes"},
 		"combo_before": 10,
 		"combo_after": 11,
+		"flipped_pair": true,
+		"revealed_tile_id": "modifier_flipped",
 	}, 0, tuning)
-	_check_equal("modifier_reward", modifier_priority_alert.type, "modifier reward owns the single lane over pair recognition")
+	_check_equal("modifier_reward", modifier_priority_alert.type, "modifier reward owns the single lane over match and pair recognition")
 	tuning.first_combo_alert = 10
 	tuning.score_milestones.assign([10000, 5000])
 	_check_equal(2, tuning.call("validation_errors").size(), "invalid callout thresholds report actionable errors")
