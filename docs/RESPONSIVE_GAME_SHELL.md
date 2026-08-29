@@ -42,6 +42,10 @@ Board tiles, tray tiles, Momentum, score, pause, and consumable actions remain r
 
 On mobile application pause or focus loss, the shell pauses gameplay without changing authoritative game state. Foreground recovery cancels stale touch and emulated-mouse presses, refreshes interactive presentation controls, and leaves the pause menu open until the player explicitly resumes. This prevents a touch release lost during Android suspension from leaving later taps partially unresponsive.
 
+The pause menu uses the same limiting safe-display scale as the portrait HUD. Its panel, typography, spacing, borders, toggles, and command targets scale as one composition and remain centered inside the safe area in either orientation. Sound and haptics are session settings in M7 and default on; durable preference storage remains deferred to M9. Tile selection uses a short light haptic, while pair resolution and assisted pair deletion use a longer, stronger profile. These feedback values are presentation tuning exposed on the game shell and never enter deterministic game state or replay transactions.
+
+Successful Shuffle transactions use a short presentation lock. Active face-up Board tiles flip closed in their old visual positions, all active tiles visibly slide as backs from their old slots to the committed deterministic slot mapping, and the face-up set flips open over the new layout. Tiles that are already face-down move with the shuffle but do not flip. Flip and movement phases use one batched tween each instead of per-tile tween and blur nodes. Their durations are Inspector-tunable presentation values and do not alter the Shuffle transaction or replay timeline.
+
 Board tiles overlap visually, so their scene-tree sibling order must follow the current presentation stack after Shuffle or any slot remap. Godot does not use `CanvasItem.z_index` alone to choose which overlapping `Control` receives pointer input; stale sibling order can allow a lower tile to intercept a top tile's touch target.
 
 ## Input Boundary

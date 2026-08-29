@@ -51,6 +51,17 @@ const PAIR_COLLISION_SECONDS := 0.10
 @export_range(0.20, 0.80, 0.01) var tile_flip_seconds := 0.25
 ## Leftward queue-compaction travel after a held pair resolves.
 @export_range(0.08, 0.30, 0.01) var tray_compaction_seconds := 0.16
+## Per-side duration for the quick face-down/face-up Shuffle presentation.
+@export_range(0.08, 0.30, 0.01) var shuffle_flip_seconds := 0.10
+## Travel time for back-facing tiles to slide into their shuffled positions.
+@export_range(0.06, 0.30, 0.01) var shuffle_move_seconds := 0.12
+@export_category("Feedback")
+@export var sound_enabled_on_start := true
+@export var haptics_enabled_on_start := true
+@export_range(1, 200, 1) var selection_haptic_duration_ms := 18
+@export_range(0.0, 1.0, 0.05) var selection_haptic_amplitude := 0.25
+@export_range(1, 300, 1) var pair_haptic_duration_ms := 55
+@export_range(0.0, 1.0, 0.05) var pair_haptic_amplitude := 0.70
 ## Equip all four modifiers on early solver-route pairs for visual and activation testing.
 ## This is authoring support only; normal games retain the production starter loadout.
 @export var playtest_all_modifiers := false
@@ -98,8 +109,18 @@ var _active_screen_touches: Dictionary = {}
 var _application_backgrounded := false
 var _lifecycle_input_suspended := false
 var _input_recovery_count := 0
+var _sound_enabled := true
+var _haptics_enabled := true
+var _haptic_event_count := 0
+var _last_haptic_kind := ""
+var _shuffle_animation_active := false
+var _shuffle_animation_count := 0
+var _shuffle_animation_generation := 0
 
 func _ready() -> void:
+	_sound_enabled = sound_enabled_on_start
+	_haptics_enabled = haptics_enabled_on_start
+	_apply_sound_preference()
 	_build_shell()
 	_apply_layout()
 	get_viewport().size_changed.connect(_apply_layout)
@@ -200,7 +221,10 @@ func _build_pause_menu() -> void:
 	_pause_menu.visible = false
 	_pause_menu.resumed.connect(_on_resume_requested)
 	_pause_menu.restart_requested.connect(_on_restart_requested)
+	_pause_menu.sound_changed.connect(_on_sound_changed)
+	_pause_menu.haptics_changed.connect(_on_haptics_changed)
 	add_child(_pause_menu)
+	_pause_menu.call("set_preferences", _sound_enabled, _haptics_enabled)
 
 
 func _build_end_game_menu() -> void:
@@ -311,6 +335,7 @@ func _on_tile_selected(tile_id: String) -> void:
 		if result == GameStateScript.NO_DELETABLE_PAIR:
 			_regions.consumables.call("show_notice", "That tile has no available matching pair.")
 		elif result == GameStateScript.PAIR_DELETED:
+			_play_haptic("pair")
 			var transaction: Variant = _game.call("last_transaction")
 			var removal_visuals := _capture_board_visuals(_resolved_tile_ids(transaction))
 			_refresh_game_views()
@@ -348,11 +373,13 @@ func _on_tile_selected(tile_id: String) -> void:
 			var direct_transaction: Variant = _game.call("last_transaction")
 			_play_transaction_auto_reveals(direct_transaction)
 			if result == GameStateScript.TILE_REVEALED:
+				_play_haptic("selection")
 				for visual in direct_visuals:
 					visual.preview.queue_free()
 				_regions.board.call("play_flip", tile_id, true)
 				_play_transaction_callout(direct_transaction)
 			elif result == GameStateScript.FLIPPED_PAIR_RESOLVED:
+				_play_haptic("pair")
 				if direct_matching_zone == GameStateDataScript.ZONE_TRAY:
 					_play_flipped_match_to_tray(direct_visuals, direct_target_rect, face_down)
 				else:
@@ -393,9 +420,37 @@ func _on_tile_selected(tile_id: String) -> void:
 	if result != GameStateScript.PAIR_RESOLVED:
 		_free_visual_previews(tray_compaction_visuals)
 	if result == GameStateScript.PAIR_RESOLVED:
+		_play_haptic("pair")
 		var transaction: Variant = _game.call("last_transaction")
 		_regions.momentum.call("play_pair_feedback", int(transaction.telemetry.resulting_multiplier))
 		_play_transaction_callout(transaction)
+	elif result != GameStateScript.INVALID_SELECTION:
+		_play_haptic("selection")
+
+
+func _on_sound_changed(enabled: bool) -> void:
+	_sound_enabled = enabled
+	_apply_sound_preference()
+
+
+func _on_haptics_changed(enabled: bool) -> void:
+	_haptics_enabled = enabled
+
+
+func _apply_sound_preference() -> void:
+	var master_bus := AudioServer.get_bus_index("Master")
+	if master_bus >= 0:
+		AudioServer.set_bus_mute(master_bus, not _sound_enabled)
+
+
+func _play_haptic(kind: String) -> void:
+	if not _haptics_enabled:
+		return
+	var duration_ms := pair_haptic_duration_ms if kind == "pair" else selection_haptic_duration_ms
+	var amplitude := pair_haptic_amplitude if kind == "pair" else selection_haptic_amplitude
+	_haptic_event_count += 1
+	_last_haptic_kind = kind
+	Input.vibrate_handheld(duration_ms, amplitude)
 
 
 func _play_transaction_callout(transaction: Variant) -> void:
@@ -482,16 +537,50 @@ func _on_shuffle_requested() -> void:
 		return
 	_delete_pair_armed = false
 	_regions.board.call("set_delete_pair_armed", false)
+	var moving_tile_ids: Array[String] = []
+	var animated_tile_ids: Array[String] = []
+	for tile in _game.board.call("active_tiles"):
+		moving_tile_ids.append(tile.id)
+		if not _game.board.call("is_tile_face_down", tile.id):
+			animated_tile_ids.append(tile.id)
+	var start_positions: Dictionary = _regions.board.call("capture_tile_positions", moving_tile_ids)
+	_shuffle_animation_generation += 1
+	var animation_generation := _shuffle_animation_generation
+	_shuffle_animation_active = true
 	var result: String = _game.call("shuffle", _playback_time_ms())
-	if result == GameStateScript.SHUFFLED:
-		_regions.consumables.call("show_notice", "Board shuffled; tray tiles were preserved.")
-	else:
+	if result != GameStateScript.SHUFFLED:
+		_shuffle_animation_active = false
 		_regions.consumables.call("show_notice", "Shuffle is unavailable for this position.")
+		_refresh_game_views()
+		return
+
+	_shuffle_animation_count += 1
+	_regions.board.call("play_shuffle_flip", animated_tile_ids, false, shuffle_flip_seconds)
+	await get_tree().create_timer(shuffle_flip_seconds).timeout
+	if animation_generation != _shuffle_animation_generation:
+		return
+	_regions.board.call("complete_shuffle_flip", animated_tile_ids, false)
+	_regions.board.call("set_tiles_temporarily_face_down", animated_tile_ids, true, false)
 	_refresh_game_views()
+	_regions.board.call("play_shuffle_reposition", moving_tile_ids, start_positions, shuffle_move_seconds)
+	await get_tree().create_timer(shuffle_move_seconds).timeout
+	if animation_generation != _shuffle_animation_generation:
+		return
+	_regions.board.call("set_tiles_temporarily_face_down", animated_tile_ids, false, false)
+	_regions.board.call("play_shuffle_flip", animated_tile_ids, true, shuffle_flip_seconds)
+	await get_tree().create_timer(shuffle_flip_seconds).timeout
+	if animation_generation != _shuffle_animation_generation:
+		return
+	_regions.board.call("complete_shuffle_flip", animated_tile_ids, true)
+	_regions.board.call("refresh")
+	_shuffle_animation_active = false
+	_regions.consumables.call("show_notice", "Board shuffled; tray tiles were preserved.")
 
 
 func _on_restart_requested() -> void:
 	_clear_tray_compaction_previews()
+	_shuffle_animation_generation += 1
+	_shuffle_animation_active = false
 	_pause_started_at_ms = -1
 	_game_over_time_ms = -1
 	_paused_duration_ms = 0
@@ -578,6 +667,7 @@ func _rebuild_interactive_controls() -> void:
 func _gameplay_input_blocked() -> bool:
 	return _lifecycle_input_suspended or _application_backgrounded \
 		or _pause_started_at_ms >= 0 or _game_over_time_ms >= 0 \
+		or _shuffle_animation_active \
 		or _game == null or _game.status != GameStateScript.PLAYING
 
 
@@ -1107,6 +1197,7 @@ func _apply_layout() -> void:
 	if _debug_panel.visible:
 		_place_debug_panel(viewport_size, orientation)
 	_place_pause_button(viewport_size)
+	_pause_menu.call("set_safe_area_insets", _get_safe_area_insets())
 	_regions.board.call("refresh")
 	_regions.tray.call("set_tile_visual_size", _regions.board.call("tile_visual_size") * tray_tile_scale)
 	_regions.tray.call("refresh")

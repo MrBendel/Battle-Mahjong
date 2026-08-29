@@ -58,6 +58,8 @@ Project-level instructions for Codex working on Battle Mahjong.
 - Default tiles derive a configurable asymmetric manga-ink silhouette from the active base texture across board, tray, and animation previews; it remains presentation-only and distinct from cast shadows and blocked state.
 - Selectable and otherwise visually active tiles always use canonical full brightness; authored-layer shading and the cool blocked veil apply only while a tile remains covered. Responsive layouts reserve the rendered tray-tile height before placing the Board.
 - Mobile background/focus loss pauses the presentation without mutating game state, immediately blocks gameplay pointer input, clears transient targeting modes, and detaches pressed controls before Android can resize the task preview. Foreground recovery cancels stale touch and emulated-mouse presses, rebuilds interactive controls, reapplies layout after viewport restoration, and requires an explicit Resume.
+- The pause modal scales as a complete composition from the safe display and owns session-only Sound and Haptics toggles. Selection and pair haptic profiles are Inspector-tunable presentation feedback; preferences remain non-persistent until M9.
+- Shuffle commits its deterministic slot remapping immediately, then presentation uses batched tweens to flip current face-up Board tiles closed, visibly slide every active tile from its old slot to its new slot while back-facing, and flip only the face-up set open. Already face-down tiles move but do not flip, and Shuffle timing never enters simulation state.
 - `UpdateChecker` is currently an adapter contract only; no native Google Play Core in-app-update plugin is included in Android exports. Version bumps and monotonic Play codes do not make the in-app prompt functional without that future integration.
 - The Default skin has orientation-specific supplied ceramic bases: tall in portrait and wide in landscape. The active base, face safe area, board footprint, tray footprint, and animation previews change together without changing stable layout slots or simulation rules.
 - The four M5 modifiers use shared tile-attached artwork declared by the active skin manifest and positioned as large upper-left badges through orientation-specific modifier bounds. Board tiles, tray tiles, and moving previews render the same cosmetic overlay; activation FX and HUD/reward presentations remain later M7 Batch B work.
@@ -110,6 +112,7 @@ For documentation-only changes, `git diff --check` is sufficient unless the docu
 - `docs/TILE_ART_PIPELINE.md`: canonical tile geometry, identity, source/export, and skin-manifest contract.
 - `docs/PLAYER_PROFILE.md`: profile, game-record, result-application, and future account boundaries.
 - `docs/PAIR_DIFFICULTY.md`: deterministic opportunity scoring, ranking, telemetry, and tuning boundary.
+- `docs/PERFORMANCE_OPTIMIZATION.md`: measurement protocol and ordered Board rendering optimization backlog.
 - `docs/FLIPPED_TILES.md`: seeded face-down assignment, reveal, direct-match, consumable, and replay rules.
 - `docs/ARCADE_CALLOUTS.md`: single-lane alert arbitration, Combo cadence, score milestones, and profile boundary.
 - `docs/RESPONSIVE_GAME_SHELL.md`: portrait stack, landscape side rails, safe-area priorities, and input boundary.

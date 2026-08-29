@@ -47,6 +47,12 @@ var _tile_layout_positions := {}
 var _hint_elapsed := 0.0
 var _flip_tweens: Dictionary = {}
 var _flip_duration_seconds := 0.25
+var _temporarily_face_down_tile_ids := {}
+var _shuffle_tween: Tween
+var _shuffle_reposition_active := false
+var _shuffle_reposition_count := 0
+var _last_shuffle_start_positions := {}
+var _last_shuffle_target_positions := {}
 
 
 func _init(game_state: Variant, tile_skin: Variant = null) -> void:
@@ -68,9 +74,11 @@ func _process(delta: float) -> void:
 
 
 func set_game_state(game_state: Variant) -> void:
+	_cancel_shuffle_presentation()
 	_game = game_state
 	_delete_pair_armed = false
 	_suppressed_tile_ids.clear()
+	_temporarily_face_down_tile_ids.clear()
 	_rebuild_tiles()
 	_layout_tiles()
 
@@ -106,6 +114,16 @@ func suppress_tile(tile_id: String) -> void:
 func reveal_tile(tile_id: String) -> void:
 	_suppressed_tile_ids.erase(tile_id)
 	refresh()
+
+
+func set_tiles_temporarily_face_down(tile_ids: Array[String], face_down: bool, refresh_now: bool = true) -> void:
+	for tile_id in tile_ids:
+		if face_down:
+			_temporarily_face_down_tile_ids[tile_id] = true
+		else:
+			_temporarily_face_down_tile_ids.erase(tile_id)
+	if refresh_now:
+		refresh()
 
 
 func _build() -> void:
@@ -145,6 +163,7 @@ func _build() -> void:
 
 
 func _rebuild_tiles() -> void:
+	_cancel_shuffle_presentation()
 	for tween in _flip_tweens.values():
 		if tween != null and tween.is_valid():
 			tween.kill()
@@ -290,7 +309,8 @@ func refresh() -> void:
 		if not active:
 			continue
 
-		var face_down: bool = _game.board.call("is_tile_face_down", tile.id)
+		var face_down: bool = _game.board.call("is_tile_face_down", tile.id) \
+			or _temporarily_face_down_tile_ids.has(tile.id)
 		var revealed_flipped: bool = _game.board.call("is_tile_revealed_flipped", tile.id)
 		var revealed_tray_match: bool = revealed_flipped \
 			and not _game.call("flipped_match_candidate", tile.id).is_empty()
@@ -479,7 +499,123 @@ func negative_feedback_count() -> int:
 	return _negative_feedback_count
 
 
-func play_flip(tile_id: String, revealing: bool = true) -> void:
+func capture_tile_positions(tile_ids: Array[String]) -> Dictionary:
+	var positions := {}
+	for tile_id in tile_ids:
+		var button: Button = _tile_buttons.get(tile_id)
+		if button != null and button.visible:
+			positions[tile_id] = button.position
+	return positions
+
+
+func play_shuffle_flip(tile_ids: Array[String], revealing: bool, duration_seconds: float) -> void:
+	_cancel_shuffle_tween()
+	var visible_ids: Array[String] = []
+	for tile_id in tile_ids:
+		var button: Button = _tile_buttons.get(tile_id)
+		if button == null or not button.visible:
+			continue
+		visible_ids.append(tile_id)
+		button.pivot_offset = button.size * 0.5
+		button.scale = Vector2.ONE
+		button.set_meta("flip_animating", true)
+		_set_flip_side(tile_id, not revealing)
+	if visible_ids.is_empty():
+		return
+
+	var effective_duration := clampf(duration_seconds, 0.08, 0.30)
+	var close_seconds := effective_duration * 0.45
+	var open_seconds := effective_duration - close_seconds
+	_shuffle_tween = create_tween()
+	_shuffle_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	_shuffle_tween.tween_method(_set_shuffle_scale.bind(visible_ids), 1.0, 0.06, close_seconds)
+	_shuffle_tween.tween_callback(_set_shuffle_sides.bind(visible_ids, revealing))
+	_shuffle_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_shuffle_tween.tween_method(_set_shuffle_scale.bind(visible_ids), 0.06, 1.0, open_seconds)
+	_shuffle_tween.tween_callback(_finish_shuffle_flip.bind(visible_ids))
+
+
+func complete_shuffle_flip(tile_ids: Array[String], face_up: bool) -> void:
+	_cancel_shuffle_tween()
+	_set_shuffle_sides(tile_ids, face_up)
+	_finish_shuffle_flip(tile_ids)
+
+
+func play_shuffle_reposition(tile_ids: Array[String], start_positions: Dictionary, duration_seconds: float) -> void:
+	_cancel_shuffle_tween()
+	_last_shuffle_start_positions = start_positions.duplicate(true)
+	_last_shuffle_target_positions.clear()
+	var moving_ids: Array[String] = []
+	for tile_id in tile_ids:
+		var button: Button = _tile_buttons.get(tile_id)
+		if button == null or not button.visible or not start_positions.has(tile_id):
+			continue
+		moving_ids.append(tile_id)
+		_last_shuffle_target_positions[tile_id] = button.position
+		button.position = start_positions[tile_id]
+	if moving_ids.is_empty():
+		return
+	_shuffle_reposition_active = true
+	_shuffle_reposition_count += 1
+	_shuffle_tween = create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
+	_shuffle_tween.tween_method(_set_shuffle_position_progress.bind(moving_ids), 0.0, 1.0, clampf(duration_seconds, 0.06, 0.30))
+	_shuffle_tween.tween_callback(_finish_shuffle_reposition.bind(moving_ids))
+
+
+func _set_shuffle_scale(scale_x: float, tile_ids: Array[String]) -> void:
+	for tile_id in tile_ids:
+		var button: Button = _tile_buttons.get(tile_id)
+		if button != null:
+			button.scale.x = scale_x
+
+
+func _set_shuffle_sides(tile_ids: Array[String], face_up: bool) -> void:
+	for tile_id in tile_ids:
+		_set_flip_side(tile_id, face_up)
+
+
+func _finish_shuffle_flip(tile_ids: Array[String]) -> void:
+	for tile_id in tile_ids:
+		var button: Button = _tile_buttons.get(tile_id)
+		if button != null:
+			button.scale = Vector2.ONE
+			button.set_meta("flip_animating", false)
+	_shuffle_tween = null
+
+
+func _set_shuffle_position_progress(progress: float, tile_ids: Array[String]) -> void:
+	for tile_id in tile_ids:
+		var button: Button = _tile_buttons.get(tile_id)
+		if button != null:
+			var start_position: Vector2 = _last_shuffle_start_positions[tile_id]
+			var target_position: Vector2 = _last_shuffle_target_positions[tile_id]
+			button.position = start_position.lerp(target_position, progress)
+
+
+func _finish_shuffle_reposition(tile_ids: Array[String]) -> void:
+	for tile_id in tile_ids:
+		var button: Button = _tile_buttons.get(tile_id)
+		if button != null:
+			button.position = _last_shuffle_target_positions[tile_id]
+	_shuffle_reposition_active = false
+	_shuffle_tween = null
+
+
+func _cancel_shuffle_tween() -> void:
+	if _shuffle_tween != null and _shuffle_tween.is_valid():
+		_shuffle_tween.kill()
+	_shuffle_tween = null
+
+
+func _cancel_shuffle_presentation() -> void:
+	_cancel_shuffle_tween()
+	_shuffle_reposition_active = false
+	for button in _tile_buttons.values():
+		button.scale = Vector2.ONE
+		button.set_meta("flip_animating", false)
+
+
+func play_flip(tile_id: String, revealing: bool = true, duration_override: float = -1.0) -> void:
 	var button: Button = _tile_buttons.get(tile_id)
 	if button == null or not button.visible:
 		return
@@ -493,13 +629,15 @@ func play_flip(tile_id: String, revealing: bool = true) -> void:
 	button.set_meta("flip_animating", true)
 	var tween := create_tween()
 	_flip_tweens[tile_id] = tween
-	var close_seconds := _flip_duration_seconds * FLIP_CLOSE_RATIO
-	var edge_hold_seconds := _flip_duration_seconds * FLIP_EDGE_HOLD_RATIO
-	var open_seconds := _flip_duration_seconds - close_seconds - edge_hold_seconds
+	var duration_seconds := _flip_duration_seconds if duration_override <= 0.0 \
+		else clampf(duration_override, 0.08, 0.80)
+	var close_seconds := duration_seconds * FLIP_CLOSE_RATIO
+	var edge_hold_seconds := duration_seconds * FLIP_EDGE_HOLD_RATIO
+	var open_seconds := duration_seconds - close_seconds - edge_hold_seconds
 	tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	tween.tween_property(button, "scale:x", 0.06, close_seconds)
 	tween.tween_callback(_set_flip_side.bind(tile_id, revealing))
-	tween.tween_callback(_show_flip_blur.bind(tile_id))
+	tween.tween_callback(_show_flip_blur.bind(tile_id, duration_seconds))
 	tween.tween_interval(edge_hold_seconds)
 	tween.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.tween_property(button, "scale:x", 1.0, open_seconds)
@@ -519,7 +657,7 @@ func _set_flip_side(tile_id: String, face_up: bool) -> void:
 	face_art.visible = face_up and face_art.texture != null
 
 
-func _show_flip_blur(tile_id: String) -> void:
+func _show_flip_blur(tile_id: String, duration_seconds: float = -1.0) -> void:
 	var button: Button = _tile_buttons.get(tile_id)
 	if button == null:
 		return
@@ -539,7 +677,8 @@ func _show_flip_blur(tile_id: String) -> void:
 	blur.material = material
 	button.add_child(blur)
 	var blur_tween := create_tween()
-	blur_tween.tween_property(blur, "modulate:a", 0.0, _flip_duration_seconds * 0.40)
+	var effective_duration := _flip_duration_seconds if duration_seconds <= 0.0 else duration_seconds
+	blur_tween.tween_property(blur, "modulate:a", 0.0, effective_duration * 0.40)
 	blur_tween.tween_callback(blur.queue_free)
 
 
