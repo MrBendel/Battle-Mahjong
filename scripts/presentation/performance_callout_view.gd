@@ -1,5 +1,6 @@
 extends Control
 
+const PresentationScaleScript := preload("res://scripts/presentation/presentation_scale.gd")
 const CALLOUT_FONT := preload("res://assets/fonts/mila-script-sans-bold-tight.tres")
 const REFERENCE_BOARD_SIZE := Vector2(390.0, 560.0)
 const BASE_FONT_SIZE := 36.0
@@ -46,10 +47,7 @@ func _init() -> void:
 func place_over(board_rect: Rect2) -> void:
 	position = board_rect.position
 	size = board_rect.size
-	_display_scale = maxf(0.72, minf(
-		size.x / REFERENCE_BOARD_SIZE.x,
-		size.y / REFERENCE_BOARD_SIZE.y
-	))
+	_display_scale = PresentationScaleScript.limiting_scale(size, REFERENCE_BOARD_SIZE, 0.72)
 	var callout_height := minf(BASE_CALLOUT_HEIGHT * _display_scale, size.y * 0.24)
 	_base_label_position = Vector2(0.0, maxf(10.0, size.y * 0.16))
 	_label.position = _base_label_position

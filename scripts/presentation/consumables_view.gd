@@ -1,6 +1,7 @@
 extends Control
 class_name ConsumablesView
 
+const PresentationScaleScript := preload("res://scripts/presentation/presentation_scale.gd")
 const PORTRAIT_BACKGROUND := preload("res://assets/UI/bottom-bar/bottom-tray-background-export.png")
 const PORTRAIT_TILE_CAP := preload("res://assets/UI/bottom-bar/tile-cap.png")
 const PORTRAIT_NUMBER_BACKGROUND := preload("res://assets/UI/bottom-bar/count-bg.png")
@@ -263,7 +264,7 @@ func _layout() -> void:
 func _layout_portrait_background() -> void:
 	if size.x <= 0.0 or size.y <= 0.0:
 		return
-	var component_scale := minf(size.x / PORTRAIT_REFERENCE_SIZE.x, size.y / PORTRAIT_REFERENCE_SIZE.y)
+	var component_scale := PresentationScaleScript.limiting_scale(size, PORTRAIT_REFERENCE_SIZE)
 	var origin := (size - PORTRAIT_REFERENCE_SIZE * component_scale) * 0.5 \
 		+ Vector2(0.0, PORTRAIT_COMPONENT_Y_OFFSET * component_scale)
 	var target_rect := Rect2(origin + PORTRAIT_BACKGROUND_RECT.position * component_scale, PORTRAIT_BACKGROUND_RECT.size * component_scale)
@@ -275,7 +276,7 @@ func _layout_portrait_background() -> void:
 
 
 func _layout_portrait_actions() -> void:
-	var component_scale := minf(size.x / PORTRAIT_REFERENCE_SIZE.x, size.y / PORTRAIT_REFERENCE_SIZE.y)
+	var component_scale := PresentationScaleScript.limiting_scale(size, PORTRAIT_REFERENCE_SIZE)
 	var origin := (size - PORTRAIT_REFERENCE_SIZE * component_scale) * 0.5 \
 		+ Vector2(0.0, PORTRAIT_COMPONENT_Y_OFFSET * component_scale)
 	for index in PORTRAIT_ACTION_TYPES.size():

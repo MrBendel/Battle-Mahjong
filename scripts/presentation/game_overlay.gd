@@ -2,6 +2,7 @@ extends Control
 class_name GameOverlay
 
 const SafeAreaScript := preload("res://scripts/presentation/safe_area.gd")
+const PresentationScaleScript := preload("res://scripts/presentation/presentation_scale.gd")
 const BOLD_FONT := preload("res://assets/fonts/mila-script-sans-bold-tight.tres")
 const REGULAR_FONT := preload("res://assets/fonts/mila-script-sans-regular-tight.tres")
 const REFERENCE_SIZE := Vector2(390.0, 844.0)
@@ -105,7 +106,7 @@ func _layout() -> void:
 	if insets == Rect2():
 		insets = SafeAreaScript.insets(size, DisplayServer.get_display_safe_area(), DisplayServer.screen_get_size())
 	var safe_rect := SafeAreaScript.content_rect(size, insets)
-	_display_scale = maxf(0.78, minf(safe_rect.size.x / REFERENCE_SIZE.x, safe_rect.size.y / REFERENCE_SIZE.y))
+	_display_scale = PresentationScaleScript.limiting_scale(safe_rect.size, REFERENCE_SIZE, 0.78)
 
 	var panel_size := _panel_reference_size() * _display_scale
 	panel_size.x = minf(panel_size.x, maxf(1.0, safe_rect.size.x - 24.0 * _display_scale))

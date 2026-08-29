@@ -5,6 +5,7 @@ const SafeAreaScript := preload("res://scripts/presentation/safe_area.gd")
 const BoardLayoutCatalogScript := preload("res://scripts/simulation/board_layout_catalog.gd")
 const LayoutSolutionPlannerScript := preload("res://scripts/simulation/layout_solution_planner.gd")
 const MatchSmokeTuft := preload("res://game-assets/fx/match_smoke_tuft.png")
+const PresentationScaleScript := preload("res://scripts/presentation/presentation_scale.gd")
 
 var _failures := 0
 
@@ -51,6 +52,14 @@ func _run() -> void:
 		Vector2i(1200, 600)
 	)
 	_check_equal(Rect2(100.0, 40.0, 140.0, 40.0), projected_insets, "safe-area projection preserves asymmetric edge insets")
+	_check(is_equal_approx(PresentationScaleScript.limiting_scale(Vector2(390.0, 844.0)), 1.0), "presentation scale preserves its authored reference size")
+	_check(is_equal_approx(
+		PresentationScaleScript.safe_display_scale(
+			Vector2(820.0, 1728.0),
+			Rect2(20.0, 20.0, 20.0, 20.0)
+		),
+		2.0
+	), "presentation scale applies safe-area insets before calculating a 2x display scale")
 	if OS.get_cmdline_user_args().has("--safe-area"):
 		var test_insets := Rect2(72.0, 24.0, 44.0, 28.0) if requested_size.x > requested_size.y \
 			else Rect2(28.0, 54.0, 46.0, 30.0)
@@ -528,6 +537,12 @@ func _run() -> void:
 		_check_equal(Vector2(64.0, 64.0), MatchSmokeTuft.get_size(), "match particles use the compact smoke-tuft texture")
 		if not live_smoke_emitters.is_empty():
 			var smoke_particles: GPUParticles2D = live_smoke_emitters[-1]
+			var expected_fx_scale := PresentationScaleScript.safe_display_scale(
+				shell.get_viewport_rect().size,
+				shell.call("_get_safe_area_insets")
+			) * float(shell.get("match_fx_scale_multiplier"))
+			_check(is_equal_approx(float(shell.get("_last_match_fx_scale")), expected_fx_scale), "match FX records the limiting safe-display scale")
+			_check(smoke_particles.get_parent().scale.is_equal_approx(Vector2.ONE * expected_fx_scale), "match smoke scales responsively with the safe display")
 			_check(not smoke_particles.get_parent().is_processing(), "match smoke uses no per-frame GDScript processing")
 			_check_equal(1, smoke_particles.get_parent().get_child_count(), "each match burst owns one smoke emitter")
 			_check_equal(6, smoke_particles.amount, "match smoke stays within its six-particle mobile budget")

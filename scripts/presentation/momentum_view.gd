@@ -1,6 +1,7 @@
 extends Control
 class_name MomentumView
 
+const PresentationScaleScript := preload("res://scripts/presentation/presentation_scale.gd")
 const SCORE_BOX := preload("res://game-assets/ui/portrait/score_box.png")
 const MOMENTUM_FRAME := preload("res://game-assets/ui/portrait/momentum_frame.png")
 const MOMENTUM_FILL := preload("res://game-assets/ui/portrait/momentum_fill.png")
@@ -241,7 +242,7 @@ func _layout() -> void:
 	if not _portrait_style:
 		_layout_legacy()
 		return
-	var scale := minf(size.x / PORTRAIT_REFERENCE_SIZE.x, size.y / PORTRAIT_REFERENCE_SIZE.y)
+	var scale := PresentationScaleScript.limiting_scale(size, PORTRAIT_REFERENCE_SIZE)
 	var score_origin := Vector2(0.0, (size.y - PORTRAIT_REFERENCE_SIZE.y * scale) * 0.5)
 	var frame_center_x := PORTRAIT_FRAME_RECT.get_center().x * scale
 	var momentum_origin := score_origin + Vector2(size.x * 0.5 - frame_center_x, 0.0)
