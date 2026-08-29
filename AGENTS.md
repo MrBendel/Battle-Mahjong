@@ -18,6 +18,7 @@ Project-level instructions for Codex working on Battle Mahjong.
 - Avoid hard-coding tuning values; expose them through configuration.
 - Keep tile identity independent from cosmetic tile skin.
 - Preserve portrait and landscape support.
+- Scale new HUD, overlay, callout, and FX presentation through `scripts/presentation/presentation_scale.gd`; safe-display elements must account for insets, and Board-local elements must use their rendered region scale. Avoid unscaled pixel constants for artwork size, particle motion, typography, outlines, and animation offsets.
 - Author gameplay maps portrait-first. Landscape may reflow the shell and use orientation-specific cosmetic tile geometry, but must not rotate, transpose, or rearrange stable layout slots.
 - Build debug tooling when it materially helps verify deterministic gameplay.
 - Prefer simple, testable architecture over premature framework-building.

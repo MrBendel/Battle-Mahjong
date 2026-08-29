@@ -24,6 +24,7 @@ const GameStateDataScript := preload("res://scripts/simulation/game_state_data.g
 const UpdateBannerViewScript := preload("res://scripts/presentation/update_banner_view.gd")
 const UpdateCheckerScript := preload("res://scripts/presentation/update_checker.gd")
 const SafeAreaScript := preload("res://scripts/presentation/safe_area.gd")
+const PresentationScaleScript := preload("res://scripts/presentation/presentation_scale.gd")
 const PORTRAIT_BACKGROUND := preload("res://game-assets/ui/portrait/background.png")
 const BACKGROUND_PATCH_MARGIN := 48
 const PORTRAIT_PAUSE_BUTTON := preload("res://game-assets/ui/portrait/pause_button.png")
@@ -57,6 +58,8 @@ const PAIR_COLLISION_SECONDS := 0.10
 ## Travel time for tiles to settle into their shuffled positions.
 @export_range(0.08, 0.30, 0.01) var shuffle_move_seconds := 0.24
 @export_category("Feedback")
+## Multiplier applied after match FX inherit the limiting safe-display scale.
+@export_range(0.50, 2.00, 0.05) var match_fx_scale_multiplier := 1.0
 @export var sound_enabled_on_start := true
 @export var haptics_enabled_on_start := true
 @export_range(1, 200, 1) var selection_haptic_duration_ms := 18
@@ -79,6 +82,7 @@ var _tile_motion_count := 0
 var _last_tile_motion_target := Rect2()
 var _pair_feedback_count := 0
 var _last_pair_feedback_position := Vector2()
+var _last_match_fx_scale := 1.0
 var _pair_collision_count := 0
 var _last_pair_collision_position := Vector2()
 var _flipped_pair_staging_count := 0
@@ -1083,6 +1087,12 @@ func _spawn_match_burst(global_center: Vector2) -> void:
 	var burst: Control = PairMatchFxScript.new()
 	add_child(burst)
 	burst.position = _global_to_local(global_center) - burst.size * 0.5
+	_last_match_fx_scale = PresentationScaleScript.safe_display_scale(
+		get_viewport_rect().size,
+		_get_safe_area_insets(),
+		PORTRAIT_REFERENCE_SIZE
+	) * match_fx_scale_multiplier
+	burst.scale = Vector2.ONE * _last_match_fx_scale
 	burst.z_index = 1001
 
 
@@ -1408,10 +1418,7 @@ func _place(control: Control, rect: Rect2) -> void:
 
 
 func _portrait_reference_scale(content: Rect2) -> float:
-	return maxf(0.01, minf(
-		content.size.x / PORTRAIT_REFERENCE_SIZE.x,
-		content.size.y / PORTRAIT_REFERENCE_SIZE.y
-	))
+	return PresentationScaleScript.limiting_scale(content.size, PORTRAIT_REFERENCE_SIZE)
 
 
 func _place_debug_panel(size: Vector2, orientation: String) -> void:
