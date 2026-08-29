@@ -51,10 +51,8 @@ const PAIR_COLLISION_SECONDS := 0.10
 @export_range(0.20, 0.80, 0.01) var tile_flip_seconds := 0.25
 ## Leftward queue-compaction travel after a held pair resolves.
 @export_range(0.08, 0.30, 0.01) var tray_compaction_seconds := 0.16
-## Per-side duration for the quick face-down/face-up Shuffle presentation.
-@export_range(0.08, 0.30, 0.01) var shuffle_flip_seconds := 0.10
-## Travel time for back-facing tiles to slide into their shuffled positions.
-@export_range(0.06, 0.30, 0.01) var shuffle_move_seconds := 0.12
+## Travel time for tiles to settle into their shuffled positions.
+@export_range(0.08, 0.30, 0.01) var shuffle_move_seconds := 0.24
 @export_category("Feedback")
 @export var sound_enabled_on_start := true
 @export var haptics_enabled_on_start := true
@@ -346,13 +344,13 @@ func _on_tile_selected(tile_id: String) -> void:
 	else:
 		var face_down: bool = _game.board.call("is_tile_face_down", tile_id)
 		var flipped_candidate: Dictionary = _game.call("flipped_match_candidate", tile_id)
-		var legacy_direct_flipped_match: bool = _game.definition.rules_version < 12 \
-			and not flipped_candidate.is_empty()
-		if face_down or legacy_direct_flipped_match:
+		var direct_flipped_match: bool = not flipped_candidate.is_empty() \
+			and (_game.definition.rules_version < 12 or _game.definition.rules_version >= 14)
+		if face_down or direct_flipped_match:
 			var direct_visuals := _capture_board_visuals([tile_id], face_down)
 			var direct_matching_zone := ""
 			var direct_target_rect := Rect2()
-			if legacy_direct_flipped_match:
+			if direct_flipped_match:
 				var matching_tile_id := str(flipped_candidate.tile_id)
 				direct_matching_zone = str(flipped_candidate.zone)
 				if direct_matching_zone == GameStateDataScript.ZONE_BOARD:
@@ -538,11 +536,8 @@ func _on_shuffle_requested() -> void:
 	_delete_pair_armed = false
 	_regions.board.call("set_delete_pair_armed", false)
 	var moving_tile_ids: Array[String] = []
-	var animated_tile_ids: Array[String] = []
 	for tile in _game.board.call("active_tiles"):
 		moving_tile_ids.append(tile.id)
-		if not _game.board.call("is_tile_face_down", tile.id):
-			animated_tile_ids.append(tile.id)
 	var start_positions: Dictionary = _regions.board.call("capture_tile_positions", moving_tile_ids)
 	_shuffle_animation_generation += 1
 	var animation_generation := _shuffle_animation_generation
@@ -555,23 +550,11 @@ func _on_shuffle_requested() -> void:
 		return
 
 	_shuffle_animation_count += 1
-	_regions.board.call("play_shuffle_flip", animated_tile_ids, false, shuffle_flip_seconds)
-	await get_tree().create_timer(shuffle_flip_seconds).timeout
-	if animation_generation != _shuffle_animation_generation:
-		return
-	_regions.board.call("complete_shuffle_flip", animated_tile_ids, false)
-	_regions.board.call("set_tiles_temporarily_face_down", animated_tile_ids, true, false)
-	_refresh_game_views()
+	_regions.board.call("refresh_layout", false)
 	_regions.board.call("play_shuffle_reposition", moving_tile_ids, start_positions, shuffle_move_seconds)
 	await get_tree().create_timer(shuffle_move_seconds).timeout
 	if animation_generation != _shuffle_animation_generation:
 		return
-	_regions.board.call("set_tiles_temporarily_face_down", animated_tile_ids, false, false)
-	_regions.board.call("play_shuffle_flip", animated_tile_ids, true, shuffle_flip_seconds)
-	await get_tree().create_timer(shuffle_flip_seconds).timeout
-	if animation_generation != _shuffle_animation_generation:
-		return
-	_regions.board.call("complete_shuffle_flip", animated_tile_ids, true)
 	_regions.board.call("refresh")
 	_shuffle_animation_active = false
 	_regions.consumables.call("show_notice", "Board shuffled; tray tiles were preserved.")
@@ -1187,7 +1170,7 @@ func _apply_layout() -> void:
 		_apply_compact_portrait_layout(viewport_size)
 	else:
 		_apply_portrait_layout(viewport_size)
-	_regions.board.call("refresh")
+	_regions.board.call("refresh_layout")
 	var tile_visual_size: Vector2 = _regions.board.call("tile_visual_size")
 	var tray_visual_size := tile_visual_size * tray_tile_scale
 	var required_tray_height := float(_regions.tray.call("minimum_height_for_tile", tray_visual_size))
@@ -1198,7 +1181,8 @@ func _apply_layout() -> void:
 		_place_debug_panel(viewport_size, orientation)
 	_place_pause_button(viewport_size)
 	_pause_menu.call("set_safe_area_insets", _get_safe_area_insets())
-	_regions.board.call("refresh")
+	_end_game_menu.call("set_safe_area_insets", _get_safe_area_insets())
+	_regions.board.call("refresh_layout", false)
 	_regions.tray.call("set_tile_visual_size", _regions.board.call("tile_visual_size") * tray_tile_scale)
 	_regions.tray.call("refresh")
 	_performance_callout.call("place_over", Rect2(_regions.board.position, _regions.board.size))

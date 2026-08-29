@@ -53,6 +53,14 @@ var _shuffle_reposition_active := false
 var _shuffle_reposition_count := 0
 var _last_shuffle_start_positions := {}
 var _last_shuffle_target_positions := {}
+var _performance_refresh_count := 0
+var _performance_layout_count := 0
+var _performance_style_application_count := 0
+var _performance_preview_creation_count := 0
+var _performance_input_sort_count := 0
+var _art_backing_style_cache: StyleBoxFlat
+var _disabled_tile_style_cache: StyleBoxFlat
+var _delete_pair_style_cache: StyleBoxFlat
 
 
 func _init(game_state: Variant, tile_skin: Variant = null) -> void:
@@ -87,12 +95,20 @@ func set_flip_duration(seconds: float) -> void:
 	_flip_duration_seconds = clampf(seconds, 0.20, 0.80)
 
 
+func refresh_layout(refresh_static_art: bool = true) -> void:
+	if refresh_static_art:
+		_apply_static_tile_art()
+	_layout_tiles()
+
+
 func reset_input_state() -> void:
 	_rebuild_tiles()
 	_layout_tiles()
 
 
 func set_delete_pair_armed(armed: bool) -> void:
+	if _delete_pair_armed == armed:
+		return
 	_delete_pair_armed = armed
 	refresh()
 
@@ -277,10 +293,12 @@ func _rebuild_tiles() -> void:
 		_blocked_overlays[tile.id] = blocked_overlay
 		_modifier_art[tile.id] = modifier_art
 
+	_apply_static_tile_art()
 	refresh()
 
 
 func refresh() -> void:
+	_performance_refresh_count += 1
 	var active_count: int = _game.board.call("active_tiles").size()
 	var max_depth := 0
 	for board_tile in _game.board.tiles:
@@ -334,48 +352,71 @@ func refresh() -> void:
 		button.modulate = Color(presentation_brightness, presentation_brightness, presentation_brightness)
 		button.set_meta("presentation_brightness", presentation_brightness)
 		button.set_meta("depth_brightness", depth_brightness)
-		_apply_tile_style(button, visually_active, face_down)
-		if _delete_pair_armed and selectable:
-			button.add_theme_stylebox_override("normal", _tile_style(Color("fff8e8"), Color("ef496f"), 4, Vector2(0.0, 3.0)))
-		var texture: Texture2D = _tile_skin.texture_for_face(tile.face)
+		if not button.has_meta("style_initialized"):
+			_apply_tile_style(button)
+		button.add_theme_stylebox_override(
+			"normal",
+			_delete_pair_style() if _delete_pair_armed and selectable else _art_backing_style()
+		)
 		var shadow_art: TextureRect = _shadow_art[tile.id]
-		shadow_art.texture = _tile_skin.tile_base_texture()
-		shadow_art.modulate = Color(0.02, 0.025, 0.025, float(_tile_skin.depth_presentation.get("shadow_opacity", 0.42)))
 		shadow_art.visible = shadow_art.texture != null
-		var ink_outline: TextureRect = _ink_outlines[tile.id]
-		_tile_skin.configure_ink_outline(ink_outline)
 		var base_art: TextureRect = _base_art[tile.id]
-		base_art.texture = _tile_skin.tile_base_texture()
 		var back_art: TextureRect = _back_art[tile.id]
-		back_art.texture = _tile_skin.tile_back_texture()
 		back_art.visible = face_down and back_art.texture != null
 		var back_design_art: TextureRect = _back_design_art[tile.id]
-		_tile_skin.configure_back_design(back_design_art)
 		back_design_art.visible = face_down and back_design_art.texture != null
 		base_art.visible = (not face_down or back_art.texture == null) and base_art.texture != null
 		var face_art: TextureRect = _face_art[tile.id]
-		face_art.texture = texture
-		face_art.visible = not face_down and texture != null
+		face_art.visible = not face_down and face_art.texture != null
 		var hint_glow: TextureRect = _hint_glows[tile.id]
-		hint_glow.texture = _tile_skin.tile_base_texture()
 		hint_glow.visible = false
 		var blocked_overlay: TextureRect = _blocked_overlays[tile.id]
-		blocked_overlay.texture = _tile_skin.tile_base_texture()
-		blocked_overlay.modulate = _blocked_overlay_color()
 		blocked_overlay.visible = not visually_active
-		button.text = "" if face_down or texture != null else _tile_label(tile)
+		button.text = "" if face_down or face_art.texture != null else _tile_label(tile)
 		var modifier_art: TextureRect = _modifier_art[tile.id]
-		var modifier: Dictionary = _game.definition.modifier_for_tile(tile.id)
-		_tile_skin.configure_modifier_art(modifier_art)
-		modifier_art.texture = null if modifier.is_empty() else _tile_skin.modifier_texture(str(modifier.type))
 		modifier_art.visible = modifier_art.texture != null
 
 	if active_count == 0:
 		_status_label.text = "Board cleared"
 	else:
 		_status_label.text = "%d tiles  |  %d free" % [active_count, selectable_ids.size() + revealable_ids.size()]
-	_layout_tiles()
 	_apply_hint_presentation()
+
+
+func _apply_static_tile_art() -> void:
+	var base_texture: Texture2D = _tile_skin.tile_base_texture()
+	var back_texture: Texture2D = _tile_skin.tile_back_texture()
+	var shadow_modulate := Color(
+		0.02,
+		0.025,
+		0.025,
+		float(_tile_skin.depth_presentation.get("shadow_opacity", 0.42))
+	)
+	var blocked_modulate := _blocked_overlay_color()
+	for tile in _game.board.tiles:
+		var shadow_art: TextureRect = _shadow_art[tile.id]
+		shadow_art.texture = base_texture
+		shadow_art.modulate = shadow_modulate
+		var ink_outline: TextureRect = _ink_outlines[tile.id]
+		_tile_skin.configure_ink_outline(ink_outline)
+		var base_art: TextureRect = _base_art[tile.id]
+		base_art.texture = base_texture
+		var back_art: TextureRect = _back_art[tile.id]
+		back_art.texture = back_texture
+		var back_design_art: TextureRect = _back_design_art[tile.id]
+		_tile_skin.configure_back_design(back_design_art)
+		var face_art: TextureRect = _face_art[tile.id]
+		face_art.texture = _tile_skin.texture_for_face(tile.face)
+		var hint_glow: TextureRect = _hint_glows[tile.id]
+		hint_glow.texture = base_texture
+		var blocked_overlay: TextureRect = _blocked_overlays[tile.id]
+		blocked_overlay.texture = base_texture
+		blocked_overlay.modulate = blocked_modulate
+		var modifier: Dictionary = _game.definition.modifier_for_tile(tile.id)
+		var modifier_art: TextureRect = _modifier_art[tile.id]
+		_tile_skin.configure_modifier_art(modifier_art)
+		modifier_art.texture = null if modifier.is_empty() \
+			else _tile_skin.modifier_texture(str(modifier.type))
 
 
 func _on_tile_pressed(tile_id: String) -> void:
@@ -431,6 +472,7 @@ func _apply_hint_presentation() -> void:
 
 
 func create_tile_preview(tile_id: String, force_face_up: bool = false) -> Control:
+	_performance_preview_creation_count += 1
 	var button: Button = _tile_buttons.get(tile_id)
 	if button == null or not button.visible:
 		return null
@@ -499,6 +541,16 @@ func negative_feedback_count() -> int:
 	return _negative_feedback_count
 
 
+func performance_counters() -> Dictionary:
+	return {
+		"refreshes": _performance_refresh_count,
+		"layouts": _performance_layout_count,
+		"style_applications": _performance_style_application_count,
+		"previews_created": _performance_preview_creation_count,
+		"input_sorts": _performance_input_sort_count,
+	}
+
+
 func capture_tile_positions(tile_ids: Array[String]) -> Dictionary:
 	var positions := {}
 	for tile_id in tile_ids:
@@ -506,39 +558,6 @@ func capture_tile_positions(tile_ids: Array[String]) -> Dictionary:
 		if button != null and button.visible:
 			positions[tile_id] = button.position
 	return positions
-
-
-func play_shuffle_flip(tile_ids: Array[String], revealing: bool, duration_seconds: float) -> void:
-	_cancel_shuffle_tween()
-	var visible_ids: Array[String] = []
-	for tile_id in tile_ids:
-		var button: Button = _tile_buttons.get(tile_id)
-		if button == null or not button.visible:
-			continue
-		visible_ids.append(tile_id)
-		button.pivot_offset = button.size * 0.5
-		button.scale = Vector2.ONE
-		button.set_meta("flip_animating", true)
-		_set_flip_side(tile_id, not revealing)
-	if visible_ids.is_empty():
-		return
-
-	var effective_duration := clampf(duration_seconds, 0.08, 0.30)
-	var close_seconds := effective_duration * 0.45
-	var open_seconds := effective_duration - close_seconds
-	_shuffle_tween = create_tween()
-	_shuffle_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	_shuffle_tween.tween_method(_set_shuffle_scale.bind(visible_ids), 1.0, 0.06, close_seconds)
-	_shuffle_tween.tween_callback(_set_shuffle_sides.bind(visible_ids, revealing))
-	_shuffle_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	_shuffle_tween.tween_method(_set_shuffle_scale.bind(visible_ids), 0.06, 1.0, open_seconds)
-	_shuffle_tween.tween_callback(_finish_shuffle_flip.bind(visible_ids))
-
-
-func complete_shuffle_flip(tile_ids: Array[String], face_up: bool) -> void:
-	_cancel_shuffle_tween()
-	_set_shuffle_sides(tile_ids, face_up)
-	_finish_shuffle_flip(tile_ids)
 
 
 func play_shuffle_reposition(tile_ids: Array[String], start_positions: Dictionary, duration_seconds: float) -> void:
@@ -557,39 +576,18 @@ func play_shuffle_reposition(tile_ids: Array[String], start_positions: Dictionar
 		return
 	_shuffle_reposition_active = true
 	_shuffle_reposition_count += 1
-	_shuffle_tween = create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
-	_shuffle_tween.tween_method(_set_shuffle_position_progress.bind(moving_ids), 0.0, 1.0, clampf(duration_seconds, 0.06, 0.30))
-	_shuffle_tween.tween_callback(_finish_shuffle_reposition.bind(moving_ids))
-
-
-func _set_shuffle_scale(scale_x: float, tile_ids: Array[String]) -> void:
-	for tile_id in tile_ids:
-		var button: Button = _tile_buttons.get(tile_id)
-		if button != null:
-			button.scale.x = scale_x
-
-
-func _set_shuffle_sides(tile_ids: Array[String], face_up: bool) -> void:
-	for tile_id in tile_ids:
-		_set_flip_side(tile_id, face_up)
-
-
-func _finish_shuffle_flip(tile_ids: Array[String]) -> void:
-	for tile_id in tile_ids:
-		var button: Button = _tile_buttons.get(tile_id)
-		if button != null:
-			button.scale = Vector2.ONE
-			button.set_meta("flip_animating", false)
-	_shuffle_tween = null
-
-
-func _set_shuffle_position_progress(progress: float, tile_ids: Array[String]) -> void:
-	for tile_id in tile_ids:
-		var button: Button = _tile_buttons.get(tile_id)
-		if button != null:
-			var start_position: Vector2 = _last_shuffle_start_positions[tile_id]
-			var target_position: Vector2 = _last_shuffle_target_positions[tile_id]
-			button.position = start_position.lerp(target_position, progress)
+	var effective_duration := clampf(duration_seconds, 0.06, 0.30)
+	_shuffle_tween = create_tween().set_parallel(true)
+	for tile_id in moving_ids:
+		var button: Button = _tile_buttons[tile_id]
+		_shuffle_tween.tween_property(
+			button,
+			"position",
+			_last_shuffle_target_positions[tile_id],
+			effective_duration
+		).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_shuffle_tween.tween_callback(_finish_shuffle_reposition.bind(moving_ids)) \
+		.set_delay(effective_duration)
 
 
 func _finish_shuffle_reposition(tile_ids: Array[String]) -> void:
@@ -723,6 +721,7 @@ func _play_negative_tone() -> void:
 func _layout_tiles() -> void:
 	if _tile_layer == null or _game == null:
 		return
+	_performance_layout_count += 1
 
 	var header_height := COMPACT_HEADER_HEIGHT if _compact_mode else HEADER_HEIGHT
 	var board_margin := COMPACT_BOARD_MARGIN if _compact_mode else BOARD_MARGIN
@@ -740,6 +739,9 @@ func _layout_tiles() -> void:
 	var grid_width: float = float(bounds.size.x) * 0.5
 	var grid_height: float = float(bounds.size.y) * 0.5
 	var max_depth := 0
+	var active_geometry: Dictionary = _tile_skin.active_geometry()
+	var safe_area: Array = active_geometry.get("face_safe_area", [92, 104, 328, 400])
+	var source_size: Array = active_geometry.get("source_size", [512, 640])
 	for tile in _game.board.tiles:
 		max_depth = maxi(max_depth, tile.position.z)
 	var layer_offset_ratio: Array = _tile_skin.depth_presentation.get(
@@ -786,9 +788,6 @@ func _layout_tiles() -> void:
 			button.size.y * float(shadow_offset_ratio[1])
 		)
 		shadow_art.size = button.size
-		var active_geometry: Dictionary = _tile_skin.active_geometry()
-		var safe_area: Array = active_geometry.get("face_safe_area", [92, 104, 328, 400])
-		var source_size: Array = active_geometry.get("source_size", [512, 640])
 		var face_art: TextureRect = _face_art[tile.id]
 		face_art.position = Vector2(
 			float(safe_area[0]) / float(source_size[0]) * button.size.x,
@@ -798,12 +797,12 @@ func _layout_tiles() -> void:
 			float(safe_area[2]) / float(source_size[0]) * button.size.x,
 			float(safe_area[3]) / float(source_size[1]) * button.size.y
 		)
-		_tile_skin.configure_modifier_art(_modifier_art[tile.id])
 	_sync_tile_input_order()
 	_apply_hint_presentation()
 
 
 func _sync_tile_input_order() -> void:
+	_performance_input_sort_count += 1
 	var ordered_tiles: Array = _game.board.tiles.duplicate()
 	ordered_tiles.sort_custom(_tile_precedes_for_input)
 	for index in range(ordered_tiles.size()):
@@ -869,29 +868,40 @@ func _tile_tooltip(tile: Variant) -> String:
 	return "%s | %s level %d" % [label, str(modifier.type).replace("_", " ").capitalize(), int(modifier.level)]
 
 
-func _apply_tile_style(button: Button, _selectable: bool, _face_down: bool = false) -> void:
+func _apply_tile_style(button: Button) -> void:
+	_performance_style_application_count += 1
 	var normal := _art_backing_style()
-	var hover := _art_backing_style()
-	var pressed := _art_backing_style()
+	var hover := normal
+	var pressed := normal
 	button.add_theme_stylebox_override("normal", normal)
 	button.add_theme_stylebox_override("hover", hover)
 	button.add_theme_stylebox_override("pressed", pressed)
-	button.add_theme_stylebox_override("disabled", _tile_style(Color("8f9189"), Color("394140"), 2, Vector2(0.0, 2.0)))
+	button.add_theme_stylebox_override("disabled", _disabled_tile_style())
 	button.add_theme_color_override("font_color", Color("202625"))
 	button.add_theme_color_override("font_hover_color", Color("111615"))
 	button.add_theme_color_override("font_pressed_color", Color("111615"))
 	button.add_theme_color_override("font_disabled_color", Color("59615f"))
-	if _face_down:
-		button.add_theme_color_override("font_color", Color("fff7cf"))
-		button.add_theme_color_override("font_hover_color", Color.WHITE)
-		button.add_theme_color_override("font_pressed_color", Color.WHITE)
+	button.set_meta("style_initialized", true)
 
 
 func _art_backing_style() -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color.TRANSPARENT
-	style.border_color = Color.TRANSPARENT
-	return style
+	if _art_backing_style_cache == null:
+		_art_backing_style_cache = StyleBoxFlat.new()
+		_art_backing_style_cache.bg_color = Color.TRANSPARENT
+		_art_backing_style_cache.border_color = Color.TRANSPARENT
+	return _art_backing_style_cache
+
+
+func _disabled_tile_style() -> StyleBoxFlat:
+	if _disabled_tile_style_cache == null:
+		_disabled_tile_style_cache = _tile_style(Color("8f9189"), Color("394140"), 2, Vector2(0.0, 2.0))
+	return _disabled_tile_style_cache
+
+
+func _delete_pair_style() -> StyleBoxFlat:
+	if _delete_pair_style_cache == null:
+		_delete_pair_style_cache = _tile_style(Color("fff8e8"), Color("ef496f"), 4, Vector2(0.0, 3.0))
+	return _delete_pair_style_cache
 
 
 func _tile_style(face_color: Color, border_color: Color, border_width: int, shadow_offset: Vector2) -> StyleBoxFlat:

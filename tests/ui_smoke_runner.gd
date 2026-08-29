@@ -280,10 +280,28 @@ func _run() -> void:
 		break
 	_check(not selectable_tile_id.is_empty(), "reference game starts with an animatable selectable tile")
 	if not selectable_tile_id.is_empty():
-		var original_board_rect: Rect2 = shell.get("_regions").board.call("tile_global_rect", selectable_tile_id)
+		var selection_board: Control = shell.get("_regions").board
+		var selection_counters_before: Dictionary = selection_board.call("performance_counters")
+		var original_board_rect: Rect2 = selection_board.call("tile_global_rect", selectable_tile_id)
 		var expected_target: Rect2 = shell.get("_regions").tray.call("slot_global_rect", 0)
 		var tile_motion_before: int = shell.get("_tile_motion_count")
 		shell.call("_on_tile_selected", selectable_tile_id)
+		var selection_counters_after: Dictionary = selection_board.call("performance_counters")
+		_check_equal(
+			selection_counters_before.layouts,
+			selection_counters_after.layouts,
+			"ordinary selection does not recalculate Board geometry"
+		)
+		_check_equal(
+			selection_counters_before.input_sorts,
+			selection_counters_after.input_sorts,
+			"ordinary selection does not reorder Board input children"
+		)
+		_check_equal(
+			selection_counters_before.style_applications,
+			selection_counters_after.style_applications,
+			"ordinary selection does not reinitialize tile styles"
+		)
 		_check_equal(tile_motion_before + 1, shell.get("_tile_motion_count"), "ordinary selection starts one board-to-tray animation")
 		_check_equal(
 			int(tuning.get("selection_gain")),
@@ -337,6 +355,9 @@ func _run() -> void:
 		_check(is_equal_approx(responsive_pause_menu.get("_panel").size.x, 330.0 * responsive_pause_scale), "pause panel scales from its portrait reference width")
 		_check_equal(roundi(27.0 * responsive_pause_scale), responsive_pause_menu.get("_title").get_theme_font_size("font_size"), "pause title scales with the modal")
 		_check(responsive_pause_safe_rect.encloses(responsive_pause_menu.get("_panel").get_rect()), "pause panel stays inside the safe display")
+		_check(is_equal_approx(44.0 * responsive_pause_scale, responsive_pause_menu.get("_sound_toggle").custom_minimum_size.y), "pause toggle rows scale with the modal")
+		_check_equal(roundi(18.0 * responsive_pause_scale), responsive_pause_menu.get("_sound_toggle").get_theme_font_size("font_size"), "pause toggle text scales with the modal")
+		_check_equal(Vector2(1.0, 1.0), responsive_pause_menu.get("_sound_toggle").get_theme_icon("checked").get_size(), "pause toggles do not use Godot's fixed-size indicator artwork")
 		_check(responsive_pause_menu.get("_sound_toggle").button_pressed, "pause menu starts with sound enabled")
 		_check(responsive_pause_menu.get("_haptics_toggle").button_pressed, "pause menu starts with haptics enabled")
 		responsive_pause_menu.get("_sound_toggle").button_pressed = false
@@ -564,21 +585,37 @@ func _run() -> void:
 	var shuffle_face_down_button: Button = shuffle_board.get("_tile_buttons").get(shuffle_face_down_id)
 	var shuffle_animation_before: int = shell.get("_shuffle_animation_count")
 	var shuffle_reposition_before: int = shuffle_board.get("_shuffle_reposition_count")
+	var shuffle_counters_before: Dictionary = shuffle_board.call("performance_counters")
 	var shuffle_revision: int = live_game.revision
 	shell.call("_on_shuffle_requested")
 	await process_frame
 	_check_equal(shuffle_revision + 1, live_game.revision, "Shuffle commits before input-order validation")
 	_check(shell.get("_shuffle_animation_active"), "successful Shuffle blocks gameplay during its presentation")
 	_check_equal(shuffle_animation_before + 1, shell.get("_shuffle_animation_count"), "successful Shuffle starts one presentation sequence")
-	_check(shuffle_face_up_button != null and bool(shuffle_face_up_button.get_meta("flip_animating", false)), "face-up Board tiles begin flipping closed for Shuffle")
+	_check(shuffle_face_up_button != null and not bool(shuffle_face_up_button.get_meta("flip_animating", false)), "Shuffle keeps face-up tiles visible while moving")
 	if shuffle_face_down_button != null:
-		_check(not bool(shuffle_face_down_button.get_meta("flip_animating", false)), "already face-down tiles do not flip during Shuffle")
+		_check(shuffle_face_down_button.get_node("BackArt").visible, "Shuffle keeps face-down tiles face-down while moving")
 		_check_equal(Vector2.ONE, shuffle_face_down_button.scale, "already face-down Shuffle tiles keep their visual scale")
-	await create_timer(float(shell.get("shuffle_flip_seconds")) * 2.0 + float(shell.get("shuffle_move_seconds")) + 0.08).timeout
-	_check(not shell.get("_shuffle_animation_active"), "Shuffle restores gameplay input after revealing the new layout")
-	_check(shuffle_face_up_button != null and not bool(shuffle_face_up_button.get_meta("flip_animating", false)), "face-up Shuffle tiles finish their reveal")
+	await create_timer(float(shell.get("shuffle_move_seconds")) + 0.08).timeout
+	_check(not shell.get("_shuffle_animation_active"), "Shuffle restores gameplay input after the reposition settles")
 	_check(shuffle_face_up_button == null or shuffle_face_up_button.get_node("FaceArt").visible, "Shuffle reveals face artwork in the new Board position")
 	_check_equal(shuffle_reposition_before + 1, shuffle_board.get("_shuffle_reposition_count"), "Shuffle batches one visible reposition phase")
+	var shuffle_counters_after: Dictionary = shuffle_board.call("performance_counters")
+	_check_equal(
+		int(shuffle_counters_before.layouts) + 1,
+		int(shuffle_counters_after.layouts),
+		"Shuffle performs one Board geometry remap"
+	)
+	_check_equal(
+		int(shuffle_counters_before.input_sorts) + 1,
+		int(shuffle_counters_after.input_sorts),
+		"Shuffle performs one Board input reorder"
+	)
+	_check_equal(
+		shuffle_counters_before.style_applications,
+		shuffle_counters_after.style_applications,
+		"Shuffle does not reinitialize tile styles"
+	)
 	var shuffle_position_changed := false
 	for shuffled_tile_id in shuffle_board.get("_last_shuffle_start_positions"):
 		if shuffle_board.get("_last_shuffle_start_positions")[shuffled_tile_id] \
@@ -632,6 +669,18 @@ func _run() -> void:
 		_check(end_game_menu != null and end_game_menu.visible, "%s end game menu displays on loss" % orientation)
 		if end_game_menu != null and end_game_menu.visible:
 			var result_panel: Control = end_game_menu.get("_panel")
+			var result_safe_rect := SafeAreaScript.content_rect(
+				end_game_menu.size,
+				shell.call("_get_safe_area_insets")
+			)
+			var result_scale := maxf(
+				0.78,
+				minf(result_safe_rect.size.x / 390.0, result_safe_rect.size.y / 844.0)
+			)
+			_check(is_equal_approx(float(end_game_menu.get("_display_scale")), result_scale), "%s end game overlay uses the shared responsive scale" % orientation)
+			_check(is_equal_approx(result_panel.size.x, 330.0 * result_scale), "%s end game panel scales from the shared reference width" % orientation)
+			_check_equal(roundi(27.0 * result_scale), end_game_menu.get("_title_label").get_theme_font_size("font_size"), "%s end game title scales with the overlay" % orientation)
+			_check(is_equal_approx(48.0 * result_scale, end_game_menu.get("_restart_button").custom_minimum_size.y), "%s end game command targets scale with the overlay" % orientation)
 			_check(
 				shell.get_viewport_rect().encloses(result_panel.get_global_rect()),
 				"%s end game panel stays inside viewport (%s)" % [orientation, result_panel.get_global_rect()]

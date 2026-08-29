@@ -22,6 +22,12 @@ func choose_for_pair(telemetry: Dictionary, score_after: int, tuning: Resource) 
 				>= tuning.amazing_find_min_percentile_basis_points:
 			return _alert("difficulty", "amazing_find", "AMAZING FIND!")
 		return _alert("difficulty", "eagle_eyes", "EAGLE EYES!")
+	var hidden_pair_recognition: Dictionary = telemetry.get("hidden_pair_recognition", {})
+	var hidden_pair_key := str(hidden_pair_recognition.get("callout_key", ""))
+	if hidden_pair_key == "great":
+		return _alert("difficulty", "well_hidden", "WELL HIDDEN!")
+	if hidden_pair_key == "eagle_eyes":
+		return _alert("difficulty", "eagle_eyes", "EAGLE EYES!")
 
 	var score_gain := int(telemetry.get("score_gain", 0))
 	var score_before := score_after - score_gain
