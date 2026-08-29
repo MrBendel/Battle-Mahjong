@@ -4,7 +4,7 @@ const GameConfigurationScript := preload("res://scripts/simulation/game_configur
 const ConsumableInventoryScript := preload("res://scripts/simulation/consumable_inventory.gd")
 
 const SCHEMA_VERSION := 4
-const CURRENT_RULES_VERSION := 13
+const CURRENT_RULES_VERSION := 14
 const LEGACY_COMBO_WINDOW_MS := 7000
 
 var seed: int

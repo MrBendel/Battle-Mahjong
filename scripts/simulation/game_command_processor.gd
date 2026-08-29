@@ -180,6 +180,14 @@ func _build_select(command: Variant, definition: Variant, state: Variant, timeli
 			telemetry["recovered_tile_ids"] = tray_before.duplicate()
 		else:
 			changes.append(GameChangeScript.new(GameChangeScript.TILE_ZONE, tile_id, GameStateDataScript.ZONE_BOARD, GameStateDataScript.ZONE_TRAY))
+			var uncovered_tray_mates := _tray_mates_uncovered_by_selection(
+				definition,
+				state,
+				board,
+				tile_id
+			)
+			if not uncovered_tray_mates.is_empty():
+				telemetry["uncovered_tray_mates"] = uncovered_tray_mates
 	else:
 		var matching_zone := GameStateDataScript.ZONE_BOARD
 		if matching_flipped_tile_id.is_empty():
@@ -273,6 +281,13 @@ func _build_select(command: Variant, definition: Variant, state: Variant, timeli
 		if not difficulty_reward.is_empty():
 			difficulty_reward["bonus_score"] = difficulty_bonus_score
 			telemetry["difficulty_reward"] = difficulty_reward
+		var hidden_pair_recognition := _find_recent_hidden_pair_setup(
+			timeline,
+			matching_tile_id,
+			tile_id
+		)
+		if not hidden_pair_recognition.is_empty():
+			telemetry["hidden_pair_recognition"] = hidden_pair_recognition
 		if tray_bonus_pairs_remaining_after > 0:
 			tray_bonus_pairs_remaining_after -= 1
 			if tray_bonus_pairs_remaining_after == 0:
@@ -359,8 +374,9 @@ func _build_reveal(command: Variant, definition: Variant, state: Variant, timeli
 
 	var tile_id: String = str(command.payload.get("tile_id", ""))
 	var board := BoardStateScript.new(definition, state)
+	var revealing_face_down: bool = board.call("is_tile_face_down", tile_id)
 	var matching_tray_tile_id := _matching_tray_tile_id(definition, state, tile_id)
-	if definition.rules_version >= 12 and board.call("is_tile_face_down", tile_id):
+	if definition.rules_version >= 12 and definition.rules_version < 14 and revealing_face_down:
 		matching_tray_tile_id = ""
 	var resolving_revealed_tile: bool = definition.rules_version >= 11 \
 		and board.call("is_tile_revealed_flipped", tile_id) \
@@ -502,6 +518,8 @@ func _build_reveal(command: Variant, definition: Variant, state: Variant, timeli
 		},
 		"modifiers_triggered": modifier_values.triggered_modifiers,
 	}
+	if revealing_face_down:
+		telemetry.merge(_flipped_reveal_progress(definition, timeline, tile_id))
 	_append_newly_uncovered_flipped_reveals(definition, state, changes, telemetry)
 	var transaction := GameTransactionScript.new(command, changes, FLIPPED_PAIR_RESOLVED)
 	transaction.definition_hash = definition.definition_hash()
@@ -735,7 +753,8 @@ func _build_shuffle(command: Variant, definition: Variant, state: Variant) -> Di
 		return {"result": CONSUMABLE_UNAVAILABLE}
 	if state.tray_tile_ids.size() >= ModifierRulesScript.effective_tray_capacity(definition, state):
 		return {"result": GAME_OVER}
-	var plan: Dictionary = TrayAwareShufflePlannerScript.new().call("build_slot_plan", definition, state)
+	var shuffle_planner := TrayAwareShufflePlannerScript.new()
+	var plan: Dictionary = shuffle_planner.call("build_slot_plan", definition, state)
 	if plan.is_empty():
 		return {"result": NO_HINT_AVAILABLE}
 	var available_by_face: Dictionary = {}
@@ -789,8 +808,13 @@ func _build_shuffle(command: Variant, definition: Variant, state: Variant) -> Di
 
 	var candidate: Variant = state.duplicate_data()
 	candidate.tile_slot_ids = mapping_after.duplicate(true)
-	var solver_script: Script = load("res://scripts/simulation/game_solver.gd")
-	var verification: Dictionary = solver_script.new().call("verify_state_route", definition, candidate, route)
+	var verification: Dictionary = shuffle_planner.call(
+		"verify_mapping_route",
+		definition,
+		candidate,
+		mapping_after,
+		route
+	)
 	if not bool(verification.get("valid", false)):
 		return {"result": NO_HINT_AVAILABLE}
 	var changes: Array = []
@@ -1050,6 +1074,66 @@ func _find_recorded_pair_opportunity(timeline: Array, first_tile_id: String, sec
 			resolved["source"] = "board_pair"
 			resolved["observed_revision"] = int(opportunity.get("board_revision", transaction.revision - 1))
 			return resolved
+	return {}
+
+
+func _tray_mates_uncovered_by_selection(
+		definition: Variant,
+		state: Variant,
+		board: Variant,
+		selected_tile_id: String
+) -> Array:
+	if state.tray_tile_ids.is_empty():
+		return []
+	var newly_selectable_by_face := {}
+	for candidate in board.call("selectable_tiles_without", selected_tile_id):
+		if board.call("is_tile_selectable", candidate.id):
+			continue
+		var face_id: String = candidate.face.logical_id()
+		if not newly_selectable_by_face.has(face_id):
+			newly_selectable_by_face[face_id] = []
+		newly_selectable_by_face[face_id].append(candidate)
+
+	var setups: Array = []
+	for held_tile_id in state.tray_tile_ids:
+		var held_tile: Variant = definition.get_tile(held_tile_id)
+		if held_tile == null:
+			continue
+		var face_id: String = held_tile.face.logical_id()
+		for mate in newly_selectable_by_face.get(face_id, []):
+			var was_visible: bool = board.call("is_tile_visible", mate.id)
+			setups.append({
+				"source": "tray_mate_uncovered",
+				"blocker_tile_id": selected_tile_id,
+				"held_tile_id": held_tile_id,
+				"revealed_mate_tile_id": mate.id,
+				"was_visible_before": was_visible,
+				"callout_key": "great" if was_visible else "eagle_eyes",
+			})
+	setups.sort_custom(func(first: Dictionary, second: Dictionary) -> bool:
+		var first_key := "%s|%s" % [first.held_tile_id, first.revealed_mate_tile_id]
+		var second_key := "%s|%s" % [second.held_tile_id, second.revealed_mate_tile_id]
+		return first_key < second_key
+	)
+	return setups
+
+
+func _find_recent_hidden_pair_setup(
+		timeline: Array,
+		held_tile_id: String,
+		selected_tile_id: String
+) -> Dictionary:
+	if timeline.is_empty():
+		return {}
+	var previous_transaction: Variant = timeline[-1]
+	if previous_transaction.command_type != GameCommandScript.SELECT_TILE:
+		return {}
+	for setup in previous_transaction.telemetry.get("uncovered_tray_mates", []):
+		if str(setup.get("held_tile_id", "")) == held_tile_id \
+				and str(setup.get("revealed_mate_tile_id", "")) == selected_tile_id:
+			var recognition: Dictionary = setup.duplicate(true)
+			recognition["setup_revision"] = previous_transaction.revision
+			return recognition
 	return {}
 
 

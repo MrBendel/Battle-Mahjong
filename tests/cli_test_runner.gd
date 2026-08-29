@@ -33,6 +33,7 @@ const TileSkinScript := preload("res://scripts/presentation/tile_skin.gd")
 const ArcadeCalloutTuningScript := preload("res://scripts/configuration/arcade_callout_tuning.gd")
 const ArcadeCalloutPolicyScript := preload("res://scripts/presentation/arcade_callout_policy.gd")
 const UpdateCheckerScript := preload("res://scripts/presentation/update_checker.gd")
+const TrayAwareShufflePlannerScript := preload("res://scripts/simulation/tray_aware_shuffle_planner.gd")
 
 var _failures := 0
 var _assertions := 0
@@ -415,10 +416,10 @@ func _run_flipped_tile_tests() -> void:
 	_check_equal(["flipped", "ordinary"], staged_game.call("hinted_tile_ids"), "Hint points from revealed tile to ordinary mate")
 	_check_equal(GameStateScript.SELECTED, staged_game.call("select_tile", "ordinary", 200), "matching ordinary board tile enters the tray first")
 	_check(staged_game.board.call("is_tile_face_down", "flipped"), "selecting the board mate turns the revealed tile face-down")
-	_check_equal(GameStateScript.TILE_REVEALED, staged_game.call("tap_tile", "flipped", 300), "first tap reveals even when a tray mate exists")
-	_check_equal(GameStateScript.PAIR_RESOLVED, staged_game.call("tap_tile", "flipped", 325), "second tap resolves the held mate through normal selection")
-	_check_equal(0, staged_game.tray.tiles.size(), "second-tap match clears the held tile")
-	_check(bool(staged_game.call("last_transaction").telemetry.flipped_pair), "second-tap match retains flipped-pair telemetry")
+	_check_equal(GameStateScript.FLIPPED_PAIR_RESOLVED, staged_game.call("tap_tile", "flipped", 300), "revealing a tray mate resolves it on the same tap")
+	_check_equal(0, staged_game.tray.tiles.size(), "one-tap reveal match clears the held tile")
+	_check(bool(staged_game.call("last_transaction").telemetry.flipped_pair), "one-tap reveal match retains flipped-pair telemetry")
+	_check(not bool(staged_game.call("last_transaction").telemetry.first_reveal_of_flipped_tile), "repeated auto-matching reveal does not duplicate reveal progress")
 	_check_equal("flipped_pair", staged_game.call("last_transaction").telemetry.resolved_pair_opportunity.source, "flipped selection stays outside geometry difficulty rewards")
 
 	var replica := GameStateScript.new(direct_definition)
@@ -447,9 +448,14 @@ func _run_flipped_tile_tests() -> void:
 
 	var tray_game := GameStateScript.new(_definition_with_flips(direct_tiles, ["flipped"]))
 	_check_equal(GameStateScript.SELECTED, tray_game.call("select_tile", "ordinary", 100), "ordinary mate can enter tray before reveal")
-	_check_equal(GameStateScript.TILE_REVEALED, tray_game.call("reveal_tile", "flipped", 200), "face-down tile reveals before using a matching tray tile")
-	_check_equal(GameStateScript.PAIR_RESOLVED, tray_game.call("tap_tile", "flipped", 225), "revealed tile resolves matching tray tile on its second tap")
+	_check_equal(GameStateScript.FLIPPED_PAIR_RESOLVED, tray_game.call("reveal_tile", "flipped", 200), "face-down tile auto-matches an existing tray tile")
 	_check_equal(0, tray_game.tray.tiles.size(), "tray-to-flipped match clears held tile atomically")
+	_check(bool(tray_game.call("last_transaction").telemetry.all_flipped_tiles_revealed), "first auto-matching reveal still records complete reveal progress")
+	var rules_thirteen_definition := GameDefinitionScript.new(1, direct_tiles, {"tray_capacity": 4}, 13, [], {}, null, ["flipped"])
+	var rules_thirteen_game := GameStateScript.new(rules_thirteen_definition)
+	rules_thirteen_game.call("select_tile", "ordinary", 100)
+	_check_equal(GameStateScript.TILE_REVEALED, rules_thirteen_game.call("reveal_tile", "flipped", 200), "rules version 13 preserves separate reveal with a tray mate")
+	_check_equal(GameStateScript.PAIR_RESOLVED, rules_thirteen_game.call("tap_tile", "flipped", 225), "rules version 13 preserves second-tap tray resolution")
 
 	var danger_tiles := [
 		TileInstanceScript.new("held_a", TileFaceScript.new("test", "held_a"), BoardPositionScript.new(0, 0, 0)),
@@ -505,8 +511,7 @@ func _run_flipped_tile_tests() -> void:
 	var duplicate_flip_game := GameStateScript.new(duplicate_flip_definition)
 	_check_equal(GameStateScript.TILE_REVEALED, duplicate_flip_game.call("reveal_tile", "flipped"), "single flipped mate reveals")
 	_check_equal(GameStateScript.SELECTED, duplicate_flip_game.call("select_tile", "ordinary"), "ordinary mate stages before the single flipped tile")
-	_check_equal(GameStateScript.TILE_REVEALED, duplicate_flip_game.call("tap_tile", "flipped"), "single flipped mate reveals before tray resolution")
-	_check_equal(GameStateScript.PAIR_RESOLVED, duplicate_flip_game.call("tap_tile", "flipped"), "second tap resolves the staged ordinary mate")
+	_check_equal(GameStateScript.FLIPPED_PAIR_RESOLVED, duplicate_flip_game.call("tap_tile", "flipped"), "single flipped mate auto-resolves the staged ordinary mate")
 	var legacy_double_definition := GameDefinitionScript.new(1, direct_tiles, {"tray_capacity": 4}, 9, [], {}, null, ["ordinary", "flipped"])
 	var legacy_double_game := GameStateScript.new(legacy_double_definition)
 	_check_equal(GameStateScript.TILE_REVEALED, legacy_double_game.call("reveal_tile", "flipped"), "rules version 9 first flipped mate reveals")
@@ -661,7 +666,7 @@ func _run_momentum_tests() -> void:
 		TileInstanceScript.new("fourth", second_face, BoardPositionScript.new(12, 0, 0)),
 	])
 	var configuration: Dictionary = definition.configuration
-	_check_equal(13, definition.rules_version, "manual-only flipped reveals use rules version 13")
+	_check_equal(14, definition.rules_version, "tray-matching flipped reveals use rules version 14")
 	_check_equal(1, MomentumRulesScript.multiplier_for(12499, configuration), "momentum below first threshold stays x1")
 	_check_equal(2, MomentumRulesScript.multiplier_for(12500, configuration), "first visible threshold enters x2")
 	_check_equal(8, MomentumRulesScript.multiplier_for(87500, configuration), "seventh visible threshold enters x8")
@@ -960,6 +965,49 @@ func _run_opportunity_analysis_tests() -> void:
 	_check_equal("tray_completion", tray_completion.source, "pair revealed after its mate was held is classified separately")
 	_check(not tray_completion.has("difficulty_rank"), "tray completion does not invent a historical board-pair rank")
 	_check(not tray_completion_game.call("last_transaction").telemetry.has("difficulty_reward"), "tray completion cannot receive board-difficulty reward")
+	_check(not tray_completion_game.call("last_transaction").telemetry.has("hidden_pair_recognition"), "unrelated move between reveal and match expires hidden-pair recognition")
+
+	var hidden_setup_game := GameStateScript.new(_definition([
+		TileInstanceScript.new("hidden_held", held_face, BoardPositionScript.new(0, 0, 0)),
+		TileInstanceScript.new("hidden_mate", held_face, BoardPositionScript.new(8, 0, 0)),
+		TileInstanceScript.new("hidden_blocker", cover_face, BoardPositionScript.new(8, 0, 1)),
+		TileInstanceScript.new("spare", cover_face, BoardPositionScript.new(14, 0, 0)),
+	]))
+	hidden_setup_game.call("select_tile", "hidden_held", 100)
+	hidden_setup_game.call("select_tile", "hidden_blocker", 200)
+	var setup_transaction: Variant = hidden_setup_game.call("last_transaction")
+	_check_equal(1, setup_transaction.telemetry.uncovered_tray_mates.size(), "moving a blocker records the held mate it exposes")
+	_check_equal("hidden_mate", setup_transaction.telemetry.uncovered_tray_mates[0].revealed_mate_tile_id, "setup telemetry preserves the exact newly accessible mate")
+	_check_equal("eagle_eyes", setup_transaction.telemetry.uncovered_tray_mates[0].callout_key, "fully covered mate setup qualifies as Eagle Eyes")
+	hidden_setup_game.call("select_tile", "hidden_mate", 300)
+	var hidden_pair_transaction: Variant = hidden_setup_game.call("last_transaction")
+	_check_equal("eagle_eyes", hidden_pair_transaction.telemetry.hidden_pair_recognition.callout_key, "immediate tray match consumes the hidden setup recognition")
+	_check(not hidden_pair_transaction.telemetry.has("difficulty_reward"), "hidden setup recognition remains separate from score rewards")
+	var hidden_alert: Dictionary = ArcadeCalloutPolicyScript.new().call(
+		"choose_for_pair",
+		hidden_pair_transaction.telemetry,
+		hidden_setup_game.score,
+		ArcadeCalloutTuningScript.new()
+	)
+	_check_equal("EAGLE EYES!", hidden_alert.text, "fully hidden tray-mate setup produces an Eagle Eyes callout")
+
+	var visible_setup_game := GameStateScript.new(_definition([
+		TileInstanceScript.new("visible_held", held_face, BoardPositionScript.new(16, 0, 0)),
+		TileInstanceScript.new("visible_mate", held_face, BoardPositionScript.new(4, 0, 0)),
+		TileInstanceScript.new("left_blocker", cover_face, BoardPositionScript.new(0, 0, 0)),
+		TileInstanceScript.new("right_blocker", cover_face, BoardPositionScript.new(8, 0, 0)),
+	]))
+	visible_setup_game.call("select_tile", "visible_held", 100)
+	visible_setup_game.call("select_tile", "left_blocker", 200)
+	_check_equal("great", visible_setup_game.call("last_transaction").telemetry.uncovered_tray_mates[0].callout_key, "visible side-blocked mate setup qualifies as Well Hidden")
+	visible_setup_game.call("select_tile", "visible_mate", 300)
+	var visible_alert: Dictionary = ArcadeCalloutPolicyScript.new().call(
+		"choose_for_pair",
+		visible_setup_game.call("last_transaction").telemetry,
+		visible_setup_game.score,
+		ArcadeCalloutTuningScript.new()
+	)
+	_check_equal("WELL HIDDEN!", visible_alert.text, "visible blocked tray-mate setup produces a Well Hidden callout")
 
 
 func _run_modifier_tests() -> void:
@@ -1130,6 +1178,31 @@ func _run_consumable_tests() -> void:
 		TileInstanceScript.new("d_2", face_d, BoardPositionScript.new(28, 0, 0)),
 	]
 	var definition: Variant = _definition(tiles)
+	var shuffle_verifier := TrayAwareShufflePlannerScript.new()
+	var initial_shuffle_state: Variant = GameStateScript.new(definition).call("current_snapshot")
+	var direct_route: Array[String] = ["a_1", "a_2", "b_1", "b_2", "c_1", "c_2", "d_1", "d_2"]
+	_check(
+		shuffle_verifier.call(
+			"verify_mapping_route",
+			definition,
+			initial_shuffle_state,
+			initial_shuffle_state.tile_slot_ids,
+			direct_route
+		).valid,
+		"runtime Shuffle verifier accepts a complete selectable matching route"
+	)
+	var duplicate_route: Array[String] = direct_route.duplicate()
+	duplicate_route[-1] = "d_1"
+	_check(
+		not shuffle_verifier.call(
+			"verify_mapping_route",
+			definition,
+			initial_shuffle_state,
+			initial_shuffle_state.tile_slot_ids,
+			duplicate_route
+		).valid,
+		"runtime Shuffle verifier rejects a duplicate and incomplete route"
+	)
 	_check_equal({"hint": 1, "undo": 1, "delete_pair": 1, "shuffle": 1}, definition.consumable_inventory, "new run snapshots starter consumable quantities")
 	var parsed: Variant = GameDefinitionScript.from_dict(JSON.parse_string(JSON.stringify(definition.to_dict())))
 	_check_equal(definition.consumable_inventory, parsed.consumable_inventory, "consumable inventory round-trips with definition")

@@ -31,6 +31,7 @@ Score milestones recognize progress inside the active run. Durable high-score ca
 - Notable pair difficulty: `WELL HIDDEN!`.
 - Exceptional pair difficulty: `EAGLE EYES!`.
 - Top-percentile exceptional pair: `AMAZING FIND!`.
+- Deliberately uncovering a held tray tile's mate: `WELL HIDDEN!` when it was visible but blocked, or `EAGLE EYES!` when it was fully covered. The mate must be selected immediately after its blocker.
 - Combo milestones beginning above 10.
 - Configurable current-run score milestones.
 - One-time flipped-tile completion: `ALL TILES REVEALED!`.

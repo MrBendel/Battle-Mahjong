@@ -25,7 +25,7 @@ Capture the same scenarios before and after each optimization batch:
 2. Ordinary tile selection and Board-to-Tray transfer.
 3. Natural pair landing, collision, removal, and queue compaction.
 4. Hint glow on two tiles.
-5. Shuffle flip-down, visible reposition, and flip-up.
+5. Shuffle transaction construction and the visible reposition settle.
 6. Pause, background, foreground recovery, and Resume.
 7. Late-game Board with relatively few active tiles.
 
@@ -47,15 +47,51 @@ Record a short baseline table in this document or a linked artifact before chang
 
 Use Godot’s Profiler, Visual Profiler, Monitors, and Android tooling such as `adb shell dumpsys gfxinfo` where useful. A small development-only performance capture utility is acceptable if it samples existing engine monitors and does not enter exported production UI by default.
 
+The current rendered desktop reference runner is:
+
+```powershell
+godot --path . --script res://scripts/tools/performance_runner.gd
+```
+
+It records JSON to `build/performance-baseline-desktop.json` by default. Pass `-- --output=res://build/<name>.json` to select another output. Run it with a visible rendering driver; headless results cannot provide meaningful GPU or draw-call data.
+
+The assisted Android capture runner measures the installed game with Android frame statistics:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/capture_android_performance.ps1
+```
+
+Connect and authorize one device over ADB before starting. The runner launches the installed `com.platypus.battlemahjong` package, guides each representative setup, resets `dumpsys gfxinfo` before every capture, and writes parsed JSON plus raw frame, memory, display, and thermal evidence under `build/performance/android/`. Use `-ListScenarios` to inspect the capture set, `-Scenarios shuffle,hint_glow` for a focused run, `-Serial <adb-serial>` when multiple devices are connected, or `-ApkPath <path>` to install a local APK first. Release or release-like Play builds remain preferred over debug APKs.
+
+The frame summary uses `FrameCompleted - IntendedVsync` from Android's `framestats` output and reports median, p95, worst, and counts over 16.7 and 33.3 ms. Keep the raw files: lifecycle transitions and device compositor behavior can produce frames that deserve inspection rather than automatic filtering.
+
 Target steady 60 Hz presentation on representative hardware: p95 below 16.7 ms during ordinary play and no sustained frames above 33.3 ms during short full-Board effects. Establish the real baseline before treating these targets as release gates.
+
+## Initial Desktop Results
+
+Batch 0 instrumentation and the first Batch 1 refresh/allocation changes were measured on 2026-08-29 at `430 x 932` using a Godot debug build, the Compatibility renderer, an Intel i7-13700K, and an NVIDIA RTX 4070 Ti. These figures compare identical rendered scenario runs; JSON reports remain ignored build artifacts under `build/`.
+
+| Scenario | Action before | Action after | Worst frame before | Worst frame after | Layouts before/after | Style applications before/after |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Fresh Board idle | 0.00 ms | 0.00 ms | 17.04 ms | 17.52 ms | 0 / 0 | 0 / 0 |
+| Ordinary selection | 52.60 ms | 39.47 ms | 17.23 ms | 17.12 ms | 1 / 0 | 95 / 0 |
+| Natural pair | 58.56 ms | 40.79 ms | 16.86 ms | 17.07 ms | 1 / 0 | 94 / 0 |
+| Hint glow | 55.11 ms | 43.04 ms | 17.12 ms | 17.18 ms | 1 / 0 | 96 / 0 |
+| Shuffle | 776.92 ms | 47.86 ms | 44.74 ms | 30.23 ms | 3 / 1 | 288 / 0 |
+
+The desktop result supports keeping visual-state refresh separate from geometry, static art assignment, and input ordering. Ordinary selection improved by about 25%, natural pair setup by about 30%, and Hint activation by about 22% in synchronous action time. Shuffle's synchronous transaction and presentation setup improved by about 94%. Its Board work now performs one slot-remap layout and no full style pass; the separate Inspector-tunable reposition animation defaults to `240 ms` for readable motion.
+
+This is not the Android baseline required to close Batch 0. Capture the same runner scenarios and `adb shell dumpsys gfxinfo` data on the primary phone before choosing Batch 2 work. In particular, desktop results cannot determine whether transparent tile layers are fill-rate limited on the Pixel GPU.
 
 ## Current Rendering Cost Centers
 
 The 96-tile Board currently uses one `Button` and up to nine child `CanvasItem` controls per physical tile: shadow, ink silhouette, ceramic base, back, back design, face, hint glow, blocked overlay, and modifier. Not every child draws in every state, but the node count, transparent overdraw, texture changes, and refresh work are material on mobile.
 
-`BoardView.refresh()` also performs work with different invalidation frequencies in one pass. It recomputes gameplay-derived visual state, reapplies textures and styles, recalculates all geometry, configures child presentation, and sorts input order. Normal selection changes visual state but does not change the authored or dynamic slot positions of surviving tiles.
+Before Batch 1, `BoardView.refresh()` performed work with different invalidation frequencies in one pass. It recomputed gameplay-derived visual state, reapplied textures and styles, recalculated all geometry, configured child presentation, and sorted input order. Those paths are now separated so normal selection does not recalculate stable authored or dynamic slot positions.
 
-The optimized Shuffle path is the reference for large synchronized effects: one batched flip tween, one batched position tween, and one batched reveal tween. It must not return to per-tile blur nodes or per-tile tween creation.
+The optimized Shuffle path is the reference for large synchronized effects: one native parallel position tween gives every active tile a short overshooting settle while preserving its current face-up or face-down presentation. It must not return to full-Board flip phases, per-frame GDScript interpolation, per-tile blur nodes, or separate per-tile Tween objects.
+
+Runtime Shuffle verification uses the deterministic tray-aware planner's direct geometry-and-face route verifier. The planner indexes the fixed above/left/right slot blockers once and evaluates each removal against active tile IDs. The previous runtime path repeatedly rescanned remaining geometry and replayed the prospective route through `GameStore`, building and hashing roughly one transaction per tile; that stronger solver remains appropriate for offline tests but caused a visible synchronous stall on mobile hardware.
 
 ## Batch 0: Instrumentation
 
@@ -68,6 +104,8 @@ Goal: identify whether the current bottleneck is GDScript/UI traversal, renderin
 - Confirm whether frame spikes correlate with object creation or texture/material state changes.
 
 Complete when the next optimization can be chosen from evidence rather than feel alone.
+
+Status: desktop rendered instrumentation and baseline capture are complete. The assisted ADB capture workflow now covers the representative scenarios, including automated background/foreground cycles. Primary-device and lower-performance-device captures remain open; a representative late-game Board still requires manual setup.
 
 ## Batch 1: Refresh and Allocation
 
@@ -85,6 +123,8 @@ Validation:
 - Existing simulation and UI smoke suites pass.
 - Board rectangles, child order, selectability presentation, and screenshots remain equivalent.
 - Ordinary selection and pair p95 frame time improve or allocation counters materially decrease.
+
+Status: the initial implementation is complete. Board state refresh no longer recalculates geometry or input order, immutable styles are shared, and static skin art is assigned only during Board construction or an explicit layout/skin invalidation. Android verification remains open.
 
 ## Batch 2: Overdraw and Texture Work
 

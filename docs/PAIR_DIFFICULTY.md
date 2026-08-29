@@ -44,6 +44,8 @@ Each accepted natural selection records:
 
 When a natural pair resolves, telemetry links it to the pair opportunity observed before its first tile was selected. If the mate was not a selectable board pair at that time, the event is labeled `tray_completion` and records the currently selected tile observation without inventing a contextual pair rank.
 
+Selections also record when moving one accessible blocker makes a tile matching a held tray tile newly selectable. If that exact mate is selected immediately afterward, the pair transaction receives deterministic `hidden_pair_recognition` telemetry. A mate that was fully covered earns the `eagle_eyes` key; a mate that was visible but blocked earns `great`. Any intervening command expires the setup. This recognition is presentation-only and does not turn tray completions into board-difficulty score rewards.
+
 The analysis remains derived data and does not affect legal moves, Momentum, Combo, or tile state. The recorded opportunity may drive score through the rules below; the resulting score mutation remains an ordinary transaction change and therefore participates in state hashes and replay.
 
 ## Recognition And Score Rewards
