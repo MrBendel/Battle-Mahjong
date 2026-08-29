@@ -97,6 +97,8 @@ func _run_application_version_tests() -> void:
 		int(presets.get_value("preset.0.options", "version/code", 0)) > 1,
 		"tracked Android debug version code has advanced"
 	)
+	_check(bool(presets.get_value("preset.0.options", "permissions/vibrate", false)), "release export permits handheld vibration")
+	_check(bool(presets.get_value("preset.1.options", "permissions/vibrate", false)), "screenshot export permits handheld vibration")
 
 
 func _run_tile_skin_contract_tests() -> void:

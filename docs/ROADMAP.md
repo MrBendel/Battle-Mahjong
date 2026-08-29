@@ -136,6 +136,8 @@ The gameplay shell follows a mobile-first portrait stack with a bottom action do
 
 Batch B is in progress: the responsive Momentum/multiplier HUD, portrait consumable controls, and all four tile-attached modifier identities have first production-style artwork. Modifier HUD/reward presentation and activation sequences remain before broader FX, character work, and the Neon skin proof.
 
+Mobile rendering optimization is tracked in [`PERFORMANCE_OPTIMIZATION.md`](PERFORMANCE_OPTIMIZATION.md). That work begins with representative Android measurements, then addresses Board refresh/allocation cost, transparent overdraw, and tile atlasing before considering a custom renderer.
+
 Detailed contracts: [M07 Art Foundation](milestones/M07_ART_FOUNDATION.md) and [Tile Art Pipeline](TILE_ART_PIPELINE.md)
 
 ## Later Milestones

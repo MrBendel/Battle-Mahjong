@@ -324,6 +324,34 @@ func _run() -> void:
 		shell.call("_on_pause_requested")
 		_check(shell.get("_pause_menu").visible, "pause button opens the first modal menu")
 		_check(not shell.get("_pause_button").visible, "pause button yields focus to the open menu")
+		var responsive_pause_menu: Control = shell.get("_pause_menu")
+		var responsive_pause_safe_rect := SafeAreaScript.content_rect(
+			responsive_pause_menu.size,
+			shell.call("_get_safe_area_insets")
+		)
+		var responsive_pause_scale := maxf(
+			0.78,
+			minf(responsive_pause_safe_rect.size.x / 390.0, responsive_pause_safe_rect.size.y / 844.0)
+		)
+		_check(is_equal_approx(float(responsive_pause_menu.get("_display_scale")), responsive_pause_scale), "pause menu follows the safe-display UI scale")
+		_check(is_equal_approx(responsive_pause_menu.get("_panel").size.x, 330.0 * responsive_pause_scale), "pause panel scales from its portrait reference width")
+		_check_equal(roundi(27.0 * responsive_pause_scale), responsive_pause_menu.get("_title").get_theme_font_size("font_size"), "pause title scales with the modal")
+		_check(responsive_pause_safe_rect.encloses(responsive_pause_menu.get("_panel").get_rect()), "pause panel stays inside the safe display")
+		_check(responsive_pause_menu.get("_sound_toggle").button_pressed, "pause menu starts with sound enabled")
+		_check(responsive_pause_menu.get("_haptics_toggle").button_pressed, "pause menu starts with haptics enabled")
+		responsive_pause_menu.get("_sound_toggle").button_pressed = false
+		_check(not shell.get("_sound_enabled"), "pause Sound toggle updates the session preference")
+		_check(AudioServer.is_bus_mute(AudioServer.get_bus_index("Master")), "disabled session sound mutes game audio")
+		responsive_pause_menu.get("_sound_toggle").button_pressed = true
+		_check(not AudioServer.is_bus_mute(AudioServer.get_bus_index("Master")), "re-enabled session sound restores game audio")
+		var pause_haptic_count: int = shell.get("_haptic_event_count")
+		responsive_pause_menu.get("_haptics_toggle").button_pressed = false
+		shell.call("_play_haptic", "selection")
+		_check_equal(pause_haptic_count, shell.get("_haptic_event_count"), "disabled Haptics toggle suppresses feedback")
+		responsive_pause_menu.get("_haptics_toggle").button_pressed = true
+		shell.call("_play_haptic", "selection")
+		_check_equal(pause_haptic_count + 1, shell.get("_haptic_event_count"), "enabled Haptics toggle permits feedback")
+		_check_equal("selection", shell.get("_last_haptic_kind"), "selection uses the light haptic profile")
 		await create_timer(0.05).timeout
 		_check_equal(paused_time, shell.call("_playback_time_ms"), "pause menu freezes active gameplay time")
 		shell.get("_pause_menu").emit_signal("resumed")
@@ -453,6 +481,8 @@ func _run() -> void:
 		var callout_before: int = shell.get("_performance_callout").get("play_count")
 		var open_visual_slot: Rect2 = shell.get("_regions").tray.call("slot_global_rect", 1)
 		shell.call("_on_tile_selected", selectable_pair[1])
+		_check_equal("pair", shell.get("_last_haptic_kind"), "resolved pair uses the stronger haptic profile")
+		_check(float(shell.get("pair_haptic_amplitude")) > float(shell.get("selection_haptic_amplitude")), "pair haptic is stronger than tile selection")
 		_check_equal(0, live_game.tray.tiles.size(), "resolved pair leaves no temporary animation occupancy in tray data")
 		_check_equal(open_visual_slot, shell.get("_last_tile_motion_target"), "matching tile first targets the next open visual slot")
 		await create_timer(0.20).timeout
@@ -521,10 +551,41 @@ func _run() -> void:
 		if modifier_playtest:
 			_check_equal("modifier_reward", shell.get("_performance_callout").get("last_alert_type"), "Delete Pair announces an attached modifier reward")
 
+	var shuffle_face_up_id := ""
+	var shuffle_face_down_id := ""
+	for shuffle_tile in live_game.board.call("active_tiles"):
+		if live_game.board.call("is_tile_face_down", shuffle_tile.id):
+			if shuffle_face_down_id.is_empty():
+				shuffle_face_down_id = shuffle_tile.id
+		elif shuffle_face_up_id.is_empty():
+			shuffle_face_up_id = shuffle_tile.id
+	var shuffle_board: Control = shell.get("_regions").board
+	var shuffle_face_up_button: Button = shuffle_board.get("_tile_buttons").get(shuffle_face_up_id)
+	var shuffle_face_down_button: Button = shuffle_board.get("_tile_buttons").get(shuffle_face_down_id)
+	var shuffle_animation_before: int = shell.get("_shuffle_animation_count")
+	var shuffle_reposition_before: int = shuffle_board.get("_shuffle_reposition_count")
 	var shuffle_revision: int = live_game.revision
 	shell.call("_on_shuffle_requested")
 	await process_frame
 	_check_equal(shuffle_revision + 1, live_game.revision, "Shuffle commits before input-order validation")
+	_check(shell.get("_shuffle_animation_active"), "successful Shuffle blocks gameplay during its presentation")
+	_check_equal(shuffle_animation_before + 1, shell.get("_shuffle_animation_count"), "successful Shuffle starts one presentation sequence")
+	_check(shuffle_face_up_button != null and bool(shuffle_face_up_button.get_meta("flip_animating", false)), "face-up Board tiles begin flipping closed for Shuffle")
+	if shuffle_face_down_button != null:
+		_check(not bool(shuffle_face_down_button.get_meta("flip_animating", false)), "already face-down tiles do not flip during Shuffle")
+		_check_equal(Vector2.ONE, shuffle_face_down_button.scale, "already face-down Shuffle tiles keep their visual scale")
+	await create_timer(float(shell.get("shuffle_flip_seconds")) * 2.0 + float(shell.get("shuffle_move_seconds")) + 0.08).timeout
+	_check(not shell.get("_shuffle_animation_active"), "Shuffle restores gameplay input after revealing the new layout")
+	_check(shuffle_face_up_button != null and not bool(shuffle_face_up_button.get_meta("flip_animating", false)), "face-up Shuffle tiles finish their reveal")
+	_check(shuffle_face_up_button == null or shuffle_face_up_button.get_node("FaceArt").visible, "Shuffle reveals face artwork in the new Board position")
+	_check_equal(shuffle_reposition_before + 1, shuffle_board.get("_shuffle_reposition_count"), "Shuffle batches one visible reposition phase")
+	var shuffle_position_changed := false
+	for shuffled_tile_id in shuffle_board.get("_last_shuffle_start_positions"):
+		if shuffle_board.get("_last_shuffle_start_positions")[shuffled_tile_id] \
+				!= shuffle_board.get("_last_shuffle_target_positions").get(shuffled_tile_id):
+			shuffle_position_changed = true
+			break
+	_check(shuffle_position_changed, "Shuffle visibly moves physical tiles between old and new slots")
 	_validate_board_input_order(shell, "after Shuffle")
 
 	var orientation := "portrait" if root.size.x < root.size.y else "landscape"
