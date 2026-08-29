@@ -251,6 +251,9 @@ foreach ($scenario in $selectedScenarios) {
     Write-RawCapture -Path (Join-Path $OutputDirectory "$scenario-gfxinfo.txt") -Content $gfxInfo
     Write-RawCapture -Path (Join-Path $OutputDirectory "$scenario-meminfo.txt") -Content $memoryInfo
     $summary = Convert-GfxInfoToSummary -Lines $gfxInfo
+    if ($summary.frame_count -eq 0) {
+        throw "Android gfxinfo returned no frames for '$scenario'. Godot may be rendering through a SurfaceView that gfxinfo cannot observe on this device; do not treat a zero-frame report as a valid benchmark."
+    }
     $summary["name"] = $scenario
     $summary["capture_seconds"] = $CaptureSeconds
     $results.Add($summary)

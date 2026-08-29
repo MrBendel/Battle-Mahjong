@@ -39,6 +39,7 @@ const PORTRAIT_BOARD_INTO_DOCK_PADDING := 8.0
 const START_SEED := 92817361
 const PAIR_LANDING_HOLD_SECONDS := 0.12
 const PAIR_COLLISION_SECONDS := 0.10
+const PAIR_MATCH_FX_POOL_SIZE := 2
 
 @export var momentum_tuning: Resource
 @export var modifier_tuning: Resource
@@ -83,6 +84,9 @@ var _last_tile_motion_target := Rect2()
 var _pair_feedback_count := 0
 var _last_pair_feedback_position := Vector2()
 var _last_match_fx_scale := 1.0
+var _pair_match_fx_pool: Array[Control] = []
+var _next_pair_match_fx_index := 0
+var _last_match_fx: Control
 var _pair_collision_count := 0
 var _last_pair_collision_position := Vector2()
 var _flipped_pair_staging_count := 0
@@ -171,6 +175,7 @@ func _build_shell() -> void:
 	add_child(_performance_callout)
 	_modifier_feedback = ModifierFeedbackViewScript.new()
 	add_child(_modifier_feedback)
+	_initialize_match_fx_pool()
 	_last_tray_capacity = _game.tray.capacity
 	if arcade_callout_tuning == null or arcade_callout_tuning.get_script() != ArcadeCalloutTuningScript:
 		push_error("No valid ArcadeCalloutTuning resource assigned.")
@@ -1084,8 +1089,9 @@ func _free_visual_previews(visuals: Array) -> void:
 
 
 func _spawn_match_burst(global_center: Vector2) -> void:
-	var burst: Control = PairMatchFxScript.new()
-	add_child(burst)
+	var burst: Control = _pair_match_fx_pool[_next_pair_match_fx_index]
+	_next_pair_match_fx_index = (_next_pair_match_fx_index + 1) % _pair_match_fx_pool.size()
+	_last_match_fx = burst
 	burst.position = _global_to_local(global_center) - burst.size * 0.5
 	_last_match_fx_scale = PresentationScaleScript.safe_display_scale(
 		get_viewport_rect().size,
@@ -1094,6 +1100,24 @@ func _spawn_match_burst(global_center: Vector2) -> void:
 	) * match_fx_scale_multiplier
 	burst.scale = Vector2.ONE * _last_match_fx_scale
 	burst.z_index = 1001
+	burst.call("play")
+
+
+func _initialize_match_fx_pool() -> void:
+	for index in PAIR_MATCH_FX_POOL_SIZE:
+		var burst: Control = PairMatchFxScript.new()
+		burst.name = "PairMatchFx%d" % index
+		burst.position = Vector2(-burst.size.x, -burst.size.y)
+		burst.z_index = -1
+		add_child(burst)
+		burst.call("play")
+		_pair_match_fx_pool.append(burst)
+	var warmup := create_tween()
+	warmup.tween_interval(0.31)
+	warmup.finished.connect(func() -> void:
+		for burst in _pair_match_fx_pool:
+			burst.z_index = 1001
+	)
 
 
 func _matching_tray_index(tile_id: String) -> int:

@@ -581,7 +581,7 @@ Produce or prototype:
 
 Goal: establish the arcade and anime feedback loop.
 
-Current status: in progress. Pair collision uses a restrained six-particle radial smoke burst with larger, independently moving tufts for gameplay-scale readability. Its full-resolution transparent master lives under `art-source/fx/`; runtime particles share one compact `64 x 64` tuft texture. The transient effect owns one short lifetime Tween and one one-shot GPU emitter with no central cloud stamp, radial blast drawing, or per-frame GDScript work. Richer reusable FX remain outstanding.
+Current status: in progress. Pair collision uses a restrained six-particle radial smoke burst with larger, independently moving tufts for gameplay-scale readability. Its full-resolution transparent master lives under `art-source/fx/`; runtime particles share one compact `64 x 64` tuft texture. A startup-warmed pool of two one-shot CPU emitters supports overlapping matches without match-time node construction, central cloud stamps, radial blast drawing, or per-frame GDScript work. This path avoids the first-use GPU-particle stalls measured on the Pixel reference device. Richer reusable FX remain outstanding.
 
 ### Batch D - Personality
 

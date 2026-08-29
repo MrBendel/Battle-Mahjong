@@ -532,24 +532,27 @@ func _run() -> void:
 		await create_timer(0.30).timeout
 		_check_equal(pair_collision_before + 1, shell.get("_pair_collision_count"), "pair performs one collision before removal pop")
 		_check_equal(pair_feedback_before + 1, shell.get("_pair_feedback_count"), "resolved pair emits one reusable match burst")
-		var live_smoke_emitters := shell.find_children("SmokeParticles", "GPUParticles2D", true, false)
+		var live_smoke_emitters := shell.find_children("SmokeParticles", "CPUParticles2D", true, false)
 		_check(not live_smoke_emitters.is_empty(), "pair collision composes a shared spark-and-smoke effect")
 		_check_equal(Vector2(64.0, 64.0), MatchSmokeTuft.get_size(), "match particles use the compact smoke-tuft texture")
-		if not live_smoke_emitters.is_empty():
-			var smoke_particles: GPUParticles2D = live_smoke_emitters[-1]
+		_check_equal(2, shell.get("_pair_match_fx_pool").size(), "match smoke reuses a two-emitter pool")
+		var active_match_fx: Control = shell.get("_last_match_fx")
+		_check(active_match_fx != null, "pair collision records its reused smoke emitter")
+		if active_match_fx != null:
+			var smoke_particles: CPUParticles2D = active_match_fx.get_node("SmokeParticles")
 			var expected_fx_scale := PresentationScaleScript.safe_display_scale(
 				shell.get_viewport_rect().size,
 				shell.call("_get_safe_area_insets")
 			) * float(shell.get("match_fx_scale_multiplier"))
 			_check(is_equal_approx(float(shell.get("_last_match_fx_scale")), expected_fx_scale), "match FX records the limiting safe-display scale")
-			_check(smoke_particles.get_parent().scale.is_equal_approx(Vector2.ONE * expected_fx_scale), "match smoke scales responsively with the safe display")
+			_check(active_match_fx.scale.is_equal_approx(Vector2.ONE * expected_fx_scale), "match smoke scales responsively with the safe display")
+			_check(int(active_match_fx.get("play_count")) >= 2, "match smoke reuses its startup-warmed emitter")
 			_check(not smoke_particles.get_parent().is_processing(), "match smoke uses no per-frame GDScript processing")
 			_check_equal(1, smoke_particles.get_parent().get_child_count(), "each match burst owns one smoke emitter")
 			_check_equal(6, smoke_particles.amount, "match smoke stays within its six-particle mobile budget")
 			_check(smoke_particles.one_shot, "match smoke uses one-shot particle emission")
 			_check_equal(MatchSmokeTuft, smoke_particles.texture, "match smoke particles share one tuft texture")
-			var smoke_material: ParticleProcessMaterial = smoke_particles.process_material
-			_check(is_equal_approx(float(smoke_material.scale_min), 0.50), "match smoke tufts remain readable at gameplay scale")
+			_check(is_equal_approx(float(smoke_particles.scale_amount_min), 0.50), "match smoke tufts remain readable at gameplay scale")
 		_check_equal(1, live_game.tray.resolved_pair_count, "match feedback follows a committed pair transaction")
 		_check_equal(1, live_game.call("combo_at", shell.call("_playback_time_ms")), "natural pair starts the live Combo readout")
 		var reward: Dictionary = live_game.call("last_transaction").telemetry.get("difficulty_reward", {})
