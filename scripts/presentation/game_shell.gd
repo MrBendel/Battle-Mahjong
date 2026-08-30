@@ -53,7 +53,7 @@ const PAIR_MATCH_FX_POOL_SIZE := 2
 ## Full back-to-front or front-to-back Board flip duration.
 @export_range(0.20, 0.80, 0.01) var tile_flip_seconds := 0.25
 ## Face-up hold before an auto-matching flipped tile starts moving to the tray.
-@export_range(0.10, 0.50, 0.01) var flipped_auto_match_hold_seconds := 0.24
+@export_range(0.08, 0.50, 0.01) var flipped_auto_match_hold_seconds := 0.14
 ## Leftward queue-compaction travel after a held pair resolves.
 @export_range(0.08, 0.30, 0.01) var tray_compaction_seconds := 0.16
 ## Travel time for tiles to settle into their shuffled positions.
@@ -67,7 +67,7 @@ const PAIR_MATCH_FX_POOL_SIZE := 2
 @export_range(0.0, 1.0, 0.05) var selection_haptic_amplitude := 0.25
 @export_range(1, 300, 1) var pair_haptic_duration_ms := 55
 @export_range(0.0, 1.0, 0.05) var pair_haptic_amplitude := 0.70
-## Equip all four modifiers on early solver-route pairs for visual and activation testing.
+## Equip all five modifiers on early solver-route pairs for visual and activation testing.
 ## This is authoring support only; normal games retain the production starter loadout.
 @export var playtest_all_modifiers := false
 @export var show_debug_panel := false
@@ -124,6 +124,9 @@ var _haptics_enabled := true
 var _haptic_event_count := 0
 var _last_haptic_kind := ""
 var _shuffle_animation_active := false
+var _auto_clear_animation_active := false
+var _auto_clear_tween: Tween
+var _auto_clear_pending_visuals: Array = []
 var _shuffle_animation_count := 0
 var _shuffle_animation_generation := 0
 var _last_tray_capacity := 0
@@ -352,10 +355,15 @@ func _on_tile_selected(tile_id: String) -> void:
 		elif result == GameStateScript.PAIR_DELETED:
 			_play_haptic("pair")
 			var transaction: Variant = _game.call("last_transaction")
-			var removal_visuals := _capture_board_visuals(_resolved_tile_ids(transaction))
+			var deleted_ids: Array[String] = []
+			for deleted_id in transaction.telemetry.get("deleted_tile_ids", []):
+				deleted_ids.append(str(deleted_id))
+			var removal_visuals := _capture_board_visuals(deleted_ids)
+			var auto_clear_visuals := _capture_auto_clear_visuals(transaction)
 			_refresh_game_views()
 			_play_transaction_auto_reveals(transaction)
 			_play_board_pair_removal(removal_visuals)
+			_play_auto_clear_sequence(auto_clear_visuals, 0.28)
 			_play_transaction_callout(transaction)
 			return
 	else:
@@ -383,9 +391,10 @@ func _on_tile_selected(tile_id: String) -> void:
 								"rect": _regions.tray.call("slot_global_rect", tray_index),
 							})
 			result = _game.call("tap_tile", tile_id, _playback_time_ms())
+			var direct_transaction: Variant = _game.call("last_transaction")
+			var direct_auto_clear_visuals := _capture_auto_clear_visuals(direct_transaction)
 			_refresh_game_views()
 			_play_flip_backs(revealed_before)
-			var direct_transaction: Variant = _game.call("last_transaction")
 			_play_transaction_auto_reveals(direct_transaction)
 			if result == GameStateScript.TILE_REVEALED:
 				_play_haptic("selection")
@@ -399,8 +408,13 @@ func _on_tile_selected(tile_id: String) -> void:
 					_play_flipped_match_to_tray(direct_visuals, direct_target_rect, face_down)
 				else:
 					_play_flipped_pair_via_open_slots(direct_visuals, face_down)
+				_play_auto_clear_sequence(
+					direct_auto_clear_visuals,
+					tile_flip_seconds + flipped_auto_match_hold_seconds + tile_transfer_seconds \
+						+ PAIR_LANDING_HOLD_SECONDS + PAIR_COLLISION_SECONDS
+				)
 				_regions.momentum.call("play_pair_feedback", int(direct_transaction.telemetry.resulting_multiplier))
-				_play_transaction_callout(direct_transaction)
+				_play_transaction_callout_after(direct_transaction, tile_flip_seconds)
 			else:
 				for visual in direct_visuals:
 					visual.preview.queue_free()
@@ -418,9 +432,10 @@ func _on_tile_selected(tile_id: String) -> void:
 		result = _game.call("select_tile", tile_id, _playback_time_ms())
 		if _tray_contains_tile(tile_id):
 			_regions.tray.call("suppress_tile", tile_id)
+	var selection_transaction: Variant = _game.call("last_transaction")
+	var auto_clear_visuals := _capture_auto_clear_visuals(selection_transaction)
 	_refresh_game_views()
 	_play_flip_backs(revealed_before)
-	var selection_transaction: Variant = _game.call("last_transaction")
 	_play_transaction_auto_reveals(selection_transaction)
 	if tile_preview != null and result != GameStateScript.INVALID_SELECTION:
 		if result == GameStateScript.PAIR_RESOLVED:
@@ -439,6 +454,10 @@ func _on_tile_selected(tile_id: String) -> void:
 	if result == GameStateScript.PAIR_RESOLVED:
 		_play_haptic("pair")
 		var transaction: Variant = _game.call("last_transaction")
+		_play_auto_clear_sequence(
+			auto_clear_visuals,
+			tile_transfer_seconds + PAIR_LANDING_HOLD_SECONDS + PAIR_COLLISION_SECONDS
+		)
 		_regions.momentum.call("play_pair_feedback", int(transaction.telemetry.resulting_multiplier))
 		_play_transaction_callout(transaction)
 	elif result == GameStateScript.EXTRA_LIFE_USED:
@@ -488,11 +507,27 @@ func _play_transaction_callout(transaction: Variant) -> void:
 		_performance_callout.call("play_alert", alert)
 
 
+func _play_transaction_callout_after(transaction: Variant, delay_seconds: float) -> void:
+	if transaction == null:
+		return
+	var expected_revision: int = transaction.revision
+	await get_tree().create_timer(maxf(0.0, delay_seconds)).timeout
+	if _game == null:
+		return
+	var current: Variant = _game.call("last_transaction")
+	if current == null or int(current.revision) != expected_revision:
+		return
+	_play_transaction_callout(transaction)
+
+
 func _play_modifier_feedback(telemetry: Dictionary) -> void:
 	var modifier_type := "extra_life_save" if bool(telemetry.get("extra_life_consumed", false)) else ""
 	var triggered: Array = telemetry.get("modifiers_triggered", [])
 	if modifier_type.is_empty() and not triggered.is_empty() and triggered[0] is Dictionary:
 		modifier_type = str(triggered[0].get("type", ""))
+		if modifier_type == "three_pair_clear" \
+				and not bool(triggered[0].get("effect", {}).get("activated", false)):
+			return
 	if modifier_type.is_empty():
 		return
 	_modifier_feedback.call("play_activation", modifier_type)
@@ -599,6 +634,7 @@ func _on_shuffle_requested() -> void:
 
 func _on_restart_requested() -> void:
 	_clear_tray_compaction_previews()
+	_cancel_auto_clear_animation()
 	_shuffle_animation_generation += 1
 	_shuffle_animation_active = false
 	_pause_started_at_ms = -1
@@ -690,6 +726,7 @@ func _gameplay_input_blocked() -> bool:
 	return _lifecycle_input_suspended or _application_backgrounded \
 		or _pause_started_at_ms >= 0 or _game_over_time_ms >= 0 \
 		or _shuffle_animation_active \
+		or _auto_clear_animation_active \
 		or _game == null or _game.status != GameStateScript.PLAYING
 
 
@@ -913,6 +950,37 @@ func _play_board_pair_removal(visuals: Array) -> void:
 		center += rect.get_center()
 	center /= float(visuals.size())
 	_play_pair_pop(visuals.map(func(visual: Dictionary) -> Variant: return visual.preview), center)
+
+
+func _play_auto_clear_sequence(pair_visuals: Array, initial_delay: float) -> void:
+	if pair_visuals.is_empty():
+		return
+	_cancel_auto_clear_animation()
+	_auto_clear_pending_visuals = pair_visuals.duplicate()
+	_auto_clear_animation_active = true
+	_auto_clear_tween = create_tween()
+	_auto_clear_tween.tween_interval(maxf(0.0, initial_delay))
+	for visuals in pair_visuals:
+		_auto_clear_tween.tween_callback(_play_board_pair_removal.bind(visuals))
+		_auto_clear_tween.tween_interval(0.26)
+	_auto_clear_tween.finished.connect(func() -> void:
+		_auto_clear_animation_active = false
+		_auto_clear_tween = null
+		_auto_clear_pending_visuals.clear()
+	)
+
+
+func _cancel_auto_clear_animation() -> void:
+	if _auto_clear_tween != null and _auto_clear_tween.is_valid():
+		_auto_clear_tween.kill()
+	for visuals in _auto_clear_pending_visuals:
+		for visual in visuals:
+			var preview: Variant = visual.get("preview")
+			if preview != null and is_instance_valid(preview):
+				preview.queue_free()
+	_auto_clear_pending_visuals.clear()
+	_auto_clear_tween = null
+	_auto_clear_animation_active = false
 
 
 func _play_flipped_pair_via_open_slots(visuals: Array, reveal_incoming: bool = false) -> void:
@@ -1163,6 +1231,18 @@ func _capture_board_visuals(tile_ids: Array[String], force_face_up: bool = false
 				"rect": _regions.board.call("tile_global_rect", tile_id),
 			})
 	return visuals
+
+
+func _capture_auto_clear_visuals(transaction: Variant) -> Array:
+	var pair_visuals: Array = []
+	if transaction == null:
+		return pair_visuals
+	for pair in transaction.telemetry.get("auto_clear_pairs", []):
+		var ids: Array[String] = []
+		for tile_id in pair:
+			ids.append(str(tile_id))
+		pair_visuals.append(_capture_board_visuals(ids))
+	return pair_visuals
 
 
 func _global_to_local(point: Vector2) -> Vector2:

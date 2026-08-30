@@ -14,3 +14,5 @@ score_multiplier_basis_points_per_level = 100
 score_multiplier_duration_ms = 10000
 tray_plus_one_base_pairs = 3
 tray_plus_one_pairs_per_level = 1
+three_pair_clear_base_pairs = 3
+three_pair_clear_pairs_per_level = 0

@@ -99,11 +99,11 @@ func _run() -> void:
 		"main scene copies selection gain into game definition"
 	)
 	_check_equal(
-		4 if modifier_playtest else int(modifier_tuning.get("loadout_capacity")),
+		5 if modifier_playtest else int(modifier_tuning.get("loadout_capacity")),
 		int(live_game.definition.configuration.modifier_loadout_capacity),
 		"main scene uses the expected production or playtest modifier capacity"
 	)
-	_check_equal(4 if modifier_playtest else 1, live_game.definition.modifier_attachments.size(), "main scene equips the requested modifier loadout")
+	_check_equal(5 if modifier_playtest else 1, live_game.definition.modifier_attachments.size(), "main scene equips the requested modifier loadout")
 	var attached_tile_id: String = str(live_game.definition.modifier_attachments.keys()[0])
 	var attached_button: Button = shell.get("_regions").board.get("_tile_buttons")[attached_tile_id]
 	var modifier_art: TextureRect = attached_button.get_node("ModifierArt")
@@ -120,6 +120,7 @@ func _run() -> void:
 			"cold_snap": load("res://game-assets/modifiers/tile-overlays/cold_snap.png"),
 			"score_multiplier": load("res://game-assets/modifiers/tile-overlays/score_multiplier.png"),
 			"tray_plus_one": load("res://game-assets/modifiers/tile-overlays/tray_plus_one.png"),
+			"three_pair_clear": load("res://game-assets/modifiers/tile-overlays/three_pair_clear.png"),
 		}
 		for modifier_tile_id in live_game.definition.modifier_attachments:
 			var attachment: Dictionary = live_game.definition.modifier_attachments[modifier_tile_id]
@@ -141,7 +142,7 @@ func _run() -> void:
 	_check_equal(modifier_art.texture, preview_modifier.texture, "moving tile preview preserves attached modifier artwork")
 	modifier_preview.queue_free()
 	var tile_skin: Variant = shell.get("_tile_skin")
-	for modifier_id in ["extra_life", "cold_snap", "score_multiplier", "tray_plus_one"]:
+	for modifier_id in ["extra_life", "cold_snap", "score_multiplier", "tray_plus_one", "three_pair_clear"]:
 		_check(
 			tile_skin.call("modifier_texture", modifier_id) != null,
 			"%s has runtime tile-attached artwork" % modifier_id
@@ -567,6 +568,9 @@ func _run() -> void:
 		_check_equal(callout_children_before, callout.get_child_count(), "rapid alerts reuse the single callout lane without stacking labels")
 		_check_equal("score", callout.get("last_alert_type"), "latest alert exclusively owns the callout lane")
 		_check_equal("SCORE 10K!", callout.get("last_text"), "single callout lane supports dynamic score text")
+		callout.call("play_alert", {"type": "match", "key": "flipped_auto_match", "text": "MATCH!"})
+		_check_equal("match", callout.get("last_alert_type"), "flipped auto-match alert is accepted by the callout renderer")
+		_check_equal("MATCH!", callout.get("last_text"), "flipped auto-match alert displays its explanation")
 		callout.call("play_alert", {"type": "modifier_reward", "key": "extra_life", "text": "EXTRA LIFE +1"})
 		_check_equal("modifier_reward", callout.get("last_alert_type"), "single callout lane accepts modifier reward presentation")
 	var visible_blocked_tile_id := ""
@@ -594,6 +598,9 @@ func _run() -> void:
 		_check(not target_button.disabled, "Delete Pair mode enables visible tiles blocked from normal movement")
 		_check_equal(Color.WHITE, target_button.modulate, "Delete Pair target uses canonical available-tile brightness")
 		_check(not target_overlay.visible, "Delete Pair target removes the blocked-state veil")
+		var delete_target_style: StyleBoxFlat = target_button.get_theme_stylebox("normal")
+		_check_equal(Color.TRANSPARENT, delete_target_style.bg_color, "Delete Pair mode adds no target background")
+		_check_equal(0, delete_target_style.get_border_width(SIDE_LEFT), "Delete Pair mode adds no selection outline")
 
 	shell.call("_on_restart_requested")
 	live_game = shell.get("_game")
@@ -927,7 +934,7 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 	_check(is_equal_approx(tray_tile_scale, 0.80), "%s uses the tuned 80 percent tray tile scale" % orientation)
 	_check(is_equal_approx(float(shell.get("tile_transfer_seconds")), 0.24), "%s uses the slower tray transfer beat" % orientation)
 	_check(is_equal_approx(float(shell.get("tile_flip_seconds")), 0.25), "%s uses the tuned quarter-second tile flip" % orientation)
-	_check(is_equal_approx(float(shell.get("flipped_auto_match_hold_seconds")), 0.24), "%s holds an auto-matching flipped face long enough to read" % orientation)
+	_check(is_equal_approx(float(shell.get("flipped_auto_match_hold_seconds")), 0.14), "%s uses the shortened auto-match readability hold" % orientation)
 	_check(is_equal_approx(float(shell.get("tray_compaction_seconds")), 0.16), "%s uses the tuned queue-compaction beat" % orientation)
 	if orientation == "portrait":
 		_check(tray.get("_portrait_style"), "portrait enables the Figma queue presentation")
@@ -1247,7 +1254,7 @@ func _verify_modifier_activation_feedback(shell: Control) -> void:
 	var feedback: Control = shell.get("_modifier_feedback")
 	var momentum: Control = shell.get("_regions").momentum
 	var tray: Control = shell.get("_regions").tray
-	var expected_types := ["extra_life", "cold_snap", "score_multiplier", "tray_plus_one"]
+	var expected_types := ["extra_life", "cold_snap", "score_multiplier", "tray_plus_one", "three_pair_clear"]
 	for modifier_type in expected_types:
 		var modifier_tile_id := _find_modifier_tile_id(game, modifier_type)
 		var pair := _find_solver_pair_for_tile(game, modifier_tile_id)
@@ -1256,6 +1263,7 @@ func _verify_modifier_activation_feedback(shell: Control) -> void:
 			continue
 		var feedback_before: int = feedback.get("play_count")
 		var capacity_feedback_before: int = tray.get("capacity_feedback_count")
+		var pair_feedback_before: int = shell.get("_pair_feedback_count")
 		shell.call("_on_tile_selected", pair[0])
 		await create_timer(0.28).timeout
 		shell.call("_on_tile_selected", pair[1])
@@ -1285,6 +1293,13 @@ func _verify_modifier_activation_feedback(shell: Control) -> void:
 				_check(tray.get("_bonus_icon").visible, "Tray +1 marks the expanded queue section")
 				_check("PAIRS" in tray.get("_bonus_label").text, "Tray +1 displays its remaining pair duration")
 				_check(shell.get_viewport_rect().encloses(tray.get_global_rect()), "expanded tray remains inside the responsive viewport")
+			"three_pair_clear":
+				var transaction: Variant = game.call("last_transaction")
+				_check_equal(3, transaction.telemetry.get("auto_clear_pairs", []).size(), "Three Pair Clear records its ordered visual sequence")
+				_check(shell.get("_auto_clear_animation_active"), "Three Pair Clear blocks input during its serial presentation")
+				await create_timer(1.65).timeout
+				_check_equal(pair_feedback_before + 4, shell.get("_pair_feedback_count"), "Three Pair Clear presents its trigger and three assisted pairs")
+				_check(not shell.get("_auto_clear_animation_active"), "Three Pair Clear releases input after the third pair")
 		await create_timer(0.55).timeout
 
 

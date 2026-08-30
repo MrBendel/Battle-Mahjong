@@ -4,8 +4,9 @@ const EXTRA_LIFE := "extra_life"
 const COLD_SNAP := "cold_snap"
 const SCORE_MULTIPLIER := "score_multiplier"
 const TRAY_PLUS_ONE := "tray_plus_one"
+const THREE_PAIR_CLEAR := "three_pair_clear"
 
-const TYPES := [EXTRA_LIFE, COLD_SNAP, SCORE_MULTIPLIER, TRAY_PLUS_ONE]
+const TYPES := [EXTRA_LIFE, COLD_SNAP, SCORE_MULTIPLIER, TRAY_PLUS_ONE, THREE_PAIR_CLEAR]
 
 
 static func starter() -> Array:

@@ -17,6 +17,8 @@ static func effect_for(modifier: Dictionary, configuration: Dictionary) -> Dicti
 			}
 		"tray_plus_one":
 			return {"pair_duration": int(configuration.modifier_tray_plus_one_base_pairs) + level * int(configuration.modifier_tray_plus_one_pairs_per_level)}
+		"three_pair_clear":
+			return {"pair_count": int(configuration.modifier_three_pair_clear_base_pairs) + level * int(configuration.modifier_three_pair_clear_pairs_per_level)}
 	return {}
 
 

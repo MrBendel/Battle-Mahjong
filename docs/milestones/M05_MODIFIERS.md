@@ -9,7 +9,7 @@ Goal: add collectible, levelable tile modifiers through a bounded pre-run loadou
 - a maximum three-slot modifier loadout, configurable per game definition;
 - a starter level-0 `2.0x` Score Multiplier modifier;
 - deterministic attachment of equipped modifiers to ordinary physical board tiles;
-- pair-triggered Extra Life, Cold Snap, Score Multiplier, and Tray +1 effects;
+- pair-triggered Extra Life, Cold Snap, Score Multiplier, Tray +1, and Three Pair Clear effects;
 - level-scaled, Inspector-authored modifier tuning;
 - reversible modifier state changes, definition hashing, serialization, replay validation, and trigger telemetry;
 - placeholder modifier labels on board tiles.
@@ -68,6 +68,17 @@ All values below are provisional and authored in `configuration/default_modifier
 - The triggering pair does not consume duration.
 - The dynamic capacity is part of state validation and loss evaluation.
 
+### Three Pair Clear
+
+- The tile overlay is a circle containing a prominent `3`.
+- After the modifier's own pair resolves, simulation searches for a deterministic route of up to three selectable natural pairs.
+- Selectability is recalculated after every projected removal, so one assisted pair may uncover the next.
+- The effect clears up to three pairs, stopping when no next legal selectable pair exists. If no pair is available, it does nothing.
+- A successful route resolves its two, four, or six tiles atomically and records the actual pairs in order for replay and serial presentation.
+- Assisted pairs award no Score, Momentum, Combo, or pair-difficulty reward and do not recursively activate modifiers attached to assisted tiles.
+- Candidate routes skip identities already represented in the tray so the reward cannot strand a held tile by clearing its board mates.
+- The base route length is Inspector-configurable and defaults to three. Level scaling defaults to zero so the artwork and behavior remain aligned.
+
 ## Determinism And Replay
 
 - Gameplay rules version is `3` and game-definition schema version is `2`.
@@ -83,7 +94,7 @@ All values below are provisional and authored in `configuration/default_modifier
 - loadout-selection screens;
 - duplicate equipped modifier types or modifier stacking rules;
 - upgrade branches such as Deep Freeze, Flash Freeze, or Cold Chain;
-- chain-reaction board clearing;
+- recursive modifier chains from assisted pair clearing;
 - production modifier artwork or final audiovisual feedback;
 - consumables, which remain M6 scope.
 
