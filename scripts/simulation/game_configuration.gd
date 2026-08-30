@@ -32,4 +32,6 @@ static func create(tray_capacity: int = DEFAULT_TRAY_CAPACITY) -> Dictionary:
 		"modifier_tray_plus_one_pairs_per_level": 1,
 		"modifier_three_pair_clear_base_pairs": 3,
 		"modifier_three_pair_clear_pairs_per_level": 0,
+		"modifier_bomb_base_pairs": 5,
+		"modifier_bomb_pairs_per_level": 0,
 	}

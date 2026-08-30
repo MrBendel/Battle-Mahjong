@@ -16,3 +16,5 @@ tray_plus_one_base_pairs = 3
 tray_plus_one_pairs_per_level = 1
 three_pair_clear_base_pairs = 3
 three_pair_clear_pairs_per_level = 0
+bomb_base_pairs = 5
+bomb_pairs_per_level = 0

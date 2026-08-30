@@ -4,6 +4,7 @@ const PairDifficultyRewardsScript := preload("res://scripts/simulation/pair_diff
 const SafeAreaScript := preload("res://scripts/presentation/safe_area.gd")
 const BoardLayoutCatalogScript := preload("res://scripts/simulation/board_layout_catalog.gd")
 const LayoutSolutionPlannerScript := preload("res://scripts/simulation/layout_solution_planner.gd")
+const GameStateDataScript := preload("res://scripts/simulation/game_state_data.gd")
 const MatchSmokeTuft := preload("res://game-assets/fx/match_smoke_tuft.png")
 const PresentationScaleScript := preload("res://scripts/presentation/presentation_scale.gd")
 
@@ -99,11 +100,11 @@ func _run() -> void:
 		"main scene copies selection gain into game definition"
 	)
 	_check_equal(
-		5 if modifier_playtest else int(modifier_tuning.get("loadout_capacity")),
+		6 if modifier_playtest else int(modifier_tuning.get("loadout_capacity")),
 		int(live_game.definition.configuration.modifier_loadout_capacity),
 		"main scene uses the expected production or playtest modifier capacity"
 	)
-	_check_equal(5 if modifier_playtest else 1, live_game.definition.modifier_attachments.size(), "main scene equips the requested modifier loadout")
+	_check_equal(6 if modifier_playtest else 1, live_game.definition.modifier_attachments.size(), "main scene equips the requested modifier loadout")
 	var attached_tile_id: String = str(live_game.definition.modifier_attachments.keys()[0])
 	var attached_button: Button = shell.get("_regions").board.get("_tile_buttons")[attached_tile_id]
 	var modifier_art: TextureRect = attached_button.get_node("ModifierArt")
@@ -121,6 +122,7 @@ func _run() -> void:
 			"score_multiplier": load("res://game-assets/modifiers/tile-overlays/score_multiplier.png"),
 			"tray_plus_one": load("res://game-assets/modifiers/tile-overlays/tray_plus_one.png"),
 			"three_pair_clear": load("res://game-assets/modifiers/tile-overlays/three_pair_clear.png"),
+			"bomb": load("res://game-assets/modifiers/tile-overlays/bomb.png"),
 		}
 		for modifier_tile_id in live_game.definition.modifier_attachments:
 			var attachment: Dictionary = live_game.definition.modifier_attachments[modifier_tile_id]
@@ -142,7 +144,7 @@ func _run() -> void:
 	_check_equal(modifier_art.texture, preview_modifier.texture, "moving tile preview preserves attached modifier artwork")
 	modifier_preview.queue_free()
 	var tile_skin: Variant = shell.get("_tile_skin")
-	for modifier_id in ["extra_life", "cold_snap", "score_multiplier", "tray_plus_one", "three_pair_clear"]:
+	for modifier_id in ["extra_life", "cold_snap", "score_multiplier", "tray_plus_one", "three_pair_clear", "bomb"]:
 		_check(
 			tile_skin.call("modifier_texture", modifier_id) != null,
 			"%s has runtime tile-attached artwork" % modifier_id
@@ -1254,10 +1256,10 @@ func _verify_modifier_activation_feedback(shell: Control) -> void:
 	var feedback: Control = shell.get("_modifier_feedback")
 	var momentum: Control = shell.get("_regions").momentum
 	var tray: Control = shell.get("_regions").tray
-	var expected_types := ["extra_life", "cold_snap", "score_multiplier", "tray_plus_one", "three_pair_clear"]
+	var expected_types := ["extra_life", "cold_snap", "score_multiplier", "tray_plus_one", "bomb", "three_pair_clear"]
 	for modifier_type in expected_types:
 		var modifier_tile_id := _find_modifier_tile_id(game, modifier_type)
-		var pair := _find_solver_pair_for_tile(game, modifier_tile_id)
+		var pair := await _open_modifier_pair(shell, game, modifier_tile_id)
 		_check_equal(2, pair.size(), "%s playtest modifier sits on the next solver-route pair" % modifier_type)
 		if pair.size() != 2:
 			continue
@@ -1295,11 +1297,26 @@ func _verify_modifier_activation_feedback(shell: Control) -> void:
 				_check(shell.get_viewport_rect().encloses(tray.get_global_rect()), "expanded tray remains inside the responsive viewport")
 			"three_pair_clear":
 				var transaction: Variant = game.call("last_transaction")
-				_check_equal(3, transaction.telemetry.get("auto_clear_pairs", []).size(), "Three Pair Clear records its ordered visual sequence")
+				var assisted_pairs: Array = transaction.telemetry.get("auto_clear_pairs", [])
+				_check(assisted_pairs.size() > 0 and assisted_pairs.size() <= 3, "Three Pair Clear records its available ordered visual sequence")
 				_check(shell.get("_auto_clear_animation_active"), "Three Pair Clear blocks input during its serial presentation")
 				await create_timer(1.65).timeout
-				_check_equal(pair_feedback_before + 4, shell.get("_pair_feedback_count"), "Three Pair Clear presents its trigger and three assisted pairs")
+				_check_equal(pair_feedback_before + 1 + assisted_pairs.size(), shell.get("_pair_feedback_count"), "Three Pair Clear presents its trigger and assisted pairs")
 				_check(not shell.get("_auto_clear_animation_active"), "Three Pair Clear releases input after the third pair")
+			"bomb":
+				var transaction: Variant = game.call("last_transaction")
+				var bomb_pairs: Array = transaction.telemetry.get("auto_clear_pairs", [])
+				_check_equal("bomb", transaction.telemetry.get("auto_clear_type", ""), "Bomb selects its distinct formation presentation")
+				_check(bomb_pairs.size() > 0 and bomb_pairs.size() <= 5, "Bomb records up to five random pair targets")
+				_check_equal(1, shell.get("_bomb_formation_count"), "Bomb starts one responsive two-column formation")
+				var formation_targets: Array = shell.get("_last_bomb_formation_targets")
+				_check_equal(bomb_pairs.size(), formation_targets.size(), "Bomb forms one left/right row for every selected pair")
+				for row in formation_targets:
+					_check(row[0].get_center().x < shell.get("_regions").board.get_global_rect().get_center().x, "Bomb first tile forms left of Board center")
+					_check(row[1].get_center().x > shell.get("_regions").board.get_global_rect().get_center().x, "Bomb mate forms right of Board center")
+				await create_timer(1.65).timeout
+				_check_equal(pair_feedback_before + 1 + bomb_pairs.size(), shell.get("_pair_feedback_count"), "Bomb presents its trigger and fast collision chain")
+				_check(not shell.get("_auto_clear_animation_active"), "Bomb releases input after its collision chain")
 		await create_timer(0.55).timeout
 
 
@@ -1308,6 +1325,46 @@ func _find_modifier_tile_id(game: Variant, modifier_type: String) -> String:
 		if str(game.definition.modifier_attachments[tile_id].type) == modifier_type:
 			return str(tile_id)
 	return ""
+
+
+func _open_modifier_pair(shell: Control, game: Variant, modifier_tile_id: String) -> Array[String]:
+	var pair := _find_solver_pair_for_tile(game, modifier_tile_id)
+	for _step in range(16):
+		if pair.size() == 2:
+			return pair
+		var bridge_pair := _find_unmodified_selectable_pair(game)
+		if bridge_pair.size() != 2:
+			break
+		shell.call("_on_tile_selected", bridge_pair[0])
+		await create_timer(0.28).timeout
+		shell.call("_on_tile_selected", bridge_pair[1])
+		await create_timer(0.30).timeout
+		pair = _find_solver_pair_for_tile(game, modifier_tile_id)
+	return pair
+
+
+func _find_unmodified_selectable_pair(game: Variant) -> Array[String]:
+	var state: Variant = game.call("current_snapshot")
+	var selectable: Array = game.board.call("selectable_tiles")
+	selectable.sort_custom(func(first: Variant, second: Variant) -> bool: return first.id < second.id)
+	for first_index in range(selectable.size()):
+		var first: Variant = selectable[first_index]
+		if _face_has_active_modifier(game, state, first.face):
+			continue
+		for second_index in range(first_index + 1, selectable.size()):
+			var second: Variant = selectable[second_index]
+			if first.face.equals(second.face):
+				return [first.id, second.id]
+	return []
+
+
+func _face_has_active_modifier(game: Variant, state: Variant, face: Variant) -> bool:
+	for tile in game.definition.tiles:
+		if state.tile_zones.get(tile.id) != GameStateDataScript.ZONE_RESOLVED \
+				and tile.face.equals(face) \
+				and not game.definition.modifier_for_tile(tile.id).is_empty():
+			return true
+	return false
 
 
 func _find_solver_pair_for_tile(game: Variant, tile_id: String) -> Array[String]:

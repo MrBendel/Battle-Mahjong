@@ -126,6 +126,8 @@ func _normalize_configuration_numbers() -> void:
 		"modifier_tray_plus_one_pairs_per_level",
 		"modifier_three_pair_clear_base_pairs",
 		"modifier_three_pair_clear_pairs_per_level",
+		"modifier_bomb_base_pairs",
+		"modifier_bomb_pairs_per_level",
 		"flipped_tile_count",
 	]
 	for key in integer_keys:

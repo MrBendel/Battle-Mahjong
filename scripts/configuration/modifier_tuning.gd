@@ -26,6 +26,10 @@ class_name ModifierTuning
 @export_range(1, 12, 1) var three_pair_clear_base_pairs := 3
 @export_range(0, 12, 1) var three_pair_clear_pairs_per_level := 0
 
+@export_category("Bomb")
+@export_range(1, 12, 1) var bomb_base_pairs := 5
+@export_range(0, 12, 1) var bomb_pairs_per_level := 0
+
 
 func configuration_overrides() -> Dictionary:
 	return {
@@ -41,6 +45,8 @@ func configuration_overrides() -> Dictionary:
 		"modifier_tray_plus_one_pairs_per_level": tray_plus_one_pairs_per_level,
 		"modifier_three_pair_clear_base_pairs": three_pair_clear_base_pairs,
 		"modifier_three_pair_clear_pairs_per_level": three_pair_clear_pairs_per_level,
+		"modifier_bomb_base_pairs": bomb_base_pairs,
+		"modifier_bomb_pairs_per_level": bomb_pairs_per_level,
 	}
 
 
@@ -60,4 +66,6 @@ func validation_errors() -> Array[String]:
 		errors.append("Tray +1 duration must have a positive base and non-negative level gain.")
 	if three_pair_clear_base_pairs <= 0 or three_pair_clear_pairs_per_level < 0:
 		errors.append("Three Pair Clear must have a positive base and non-negative level gain.")
+	if bomb_base_pairs <= 0 or bomb_pairs_per_level < 0:
+		errors.append("Bomb must have a positive base and non-negative level gain.")
 	return errors
