@@ -45,7 +45,8 @@
     "extra_life": {"display_name": "Extra Life", "asset": "res://game-assets/modifiers/tile-overlays/extra_life.png"},
     "cold_snap": {"display_name": "Cold Snap", "asset": "res://game-assets/modifiers/tile-overlays/cold_snap.png"},
     "score_multiplier": {"display_name": "Score Multiplier", "asset": "res://game-assets/modifiers/tile-overlays/score_multiplier.png"},
-    "tray_plus_one": {"display_name": "Tray +1", "asset": "res://game-assets/modifiers/tile-overlays/tray_plus_one.png"}
+    "tray_plus_one": {"display_name": "Tray +1", "asset": "res://game-assets/modifiers/tile-overlays/tray_plus_one.png"},
+    "three_pair_clear": {"display_name": "Three Pair Clear", "asset": "res://game-assets/modifiers/tile-overlays/three_pair_clear.png"}
   },
   "depth_presentation": {
     "lowest_layer_brightness": 0.62,

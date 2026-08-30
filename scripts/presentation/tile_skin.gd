@@ -2,7 +2,7 @@ extends RefCounted
 class_name TileSkin
 
 const DEFAULT_MANIFEST_PATH := "res://game-assets/tiles/default/skin.json"
-const REQUIRED_MODIFIER_IDS := ["extra_life", "cold_snap", "score_multiplier", "tray_plus_one"]
+const REQUIRED_MODIFIER_IDS := ["extra_life", "cold_snap", "score_multiplier", "tray_plus_one", "three_pair_clear"]
 
 var id := ""
 var display_name := ""

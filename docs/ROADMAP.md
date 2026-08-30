@@ -97,7 +97,7 @@ Implement:
 
 - bounded pre-run modifier loadouts
 - deterministic attachment to physical tiles
-- level-scaled Extra Life, Cold Snap, Score Multiplier, and Tray +1 effects
+- level-scaled Extra Life, Cold Snap, Score Multiplier, Tray +1, and Three Pair Clear effects
 - transactional effect state and replay telemetry
 - placeholder board presentation
 
@@ -128,13 +128,13 @@ Detailed contract: [M06 Consumables](milestones/M06_CONSUMABLES.md)
 
 Status: In progress. The Batch A visual-slice candidate is implemented: canonical tile geometry, an extensible 34-face manifest, the complete Default face set, source/runtime exports, responsive board and tray rendering, selection/rejection motion, transaction-driven pair removal, and the first production-style gameplay background.
 
-The gameplay foundation also supports seeded flipped tiles. Rules version 14 requires player-driven reveals, preserves unmatched peeks, and immediately resolves a reveal when its mate is already held in the tray. Detailed contract: [Flipped Tiles](FLIPPED_TILES.md).
+The gameplay foundation also supports seeded flipped tiles. Rules version 14 and later require player-driven reveals, preserve unmatched peeks, and immediately resolve a reveal when its mate is already held in the tray. Detailed contract: [Flipped Tiles](FLIPPED_TILES.md).
 
 The first live-text arcade callout lane recognizes difficult pairs, current-run score milestones, and Combo milestones above 10 while arbitrating coincident events into one visible alert. Durable high-score triggering remains deferred to M9 profile ownership. Detailed contract: [Arcade Callouts](ARCADE_CALLOUTS.md).
 
 The gameplay shell follows a mobile-first portrait stack with a bottom action dock, while landscape preserves the portrait-authored board and moves actions into console-friendly side rails. Detailed contract: [Responsive Game Shell](RESPONSIVE_GAME_SHELL.md).
 
-Batch B has a complete candidate: the responsive Momentum/multiplier HUD, portrait consumable controls, all four tile-attached modifier identities, live reward callouts, persistent modifier status, and lightweight activation sequences are implemented. Tray +1 expands the composable queue artwork and responsive shell rather than overlaying a synthetic slot. Final visual approval remains before broader FX, character work, and the Neon skin proof.
+Batch B has a complete candidate: the responsive Momentum/multiplier HUD, portrait consumable controls, all five tile-attached modifier identities, live reward callouts, persistent modifier status, and lightweight activation sequences are implemented. Three Pair Clear proves a deterministic assisted route of up to three sequential pairs with serial presentation; Tray +1 expands the composable queue artwork and responsive shell rather than overlaying a synthetic slot. Final visual approval remains before broader FX, character work, and the Neon skin proof.
 
 Mobile rendering optimization is tracked in [`PERFORMANCE_OPTIMIZATION.md`](PERFORMANCE_OPTIMIZATION.md). That work begins with representative Android measurements, then addresses Board refresh/allocation cost, transparent overdraw, and tile atlasing before considering a custom renderer.
 

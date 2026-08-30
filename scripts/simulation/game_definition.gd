@@ -4,7 +4,7 @@ const GameConfigurationScript := preload("res://scripts/simulation/game_configur
 const ConsumableInventoryScript := preload("res://scripts/simulation/consumable_inventory.gd")
 
 const SCHEMA_VERSION := 4
-const CURRENT_RULES_VERSION := 14
+const CURRENT_RULES_VERSION := 15
 const LEGACY_COMBO_WINDOW_MS := 7000
 
 var seed: int
@@ -124,6 +124,8 @@ func _normalize_configuration_numbers() -> void:
 		"modifier_score_multiplier_duration_ms",
 		"modifier_tray_plus_one_base_pairs",
 		"modifier_tray_plus_one_pairs_per_level",
+		"modifier_three_pair_clear_base_pairs",
+		"modifier_three_pair_clear_pairs_per_level",
 		"flipped_tile_count",
 	]
 	for key in integer_keys:
