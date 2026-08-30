@@ -598,6 +598,9 @@ func _run() -> void:
 		_check(not target_button.disabled, "Delete Pair mode enables visible tiles blocked from normal movement")
 		_check_equal(Color.WHITE, target_button.modulate, "Delete Pair target uses canonical available-tile brightness")
 		_check(not target_overlay.visible, "Delete Pair target removes the blocked-state veil")
+		var delete_target_style: StyleBoxFlat = target_button.get_theme_stylebox("normal")
+		_check_equal(Color.TRANSPARENT, delete_target_style.bg_color, "Delete Pair mode adds no target background")
+		_check_equal(0, delete_target_style.get_border_width(SIDE_LEFT), "Delete Pair mode adds no selection outline")
 
 	shell.call("_on_restart_requested")
 	live_game = shell.get("_game")

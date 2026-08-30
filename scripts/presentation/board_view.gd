@@ -60,7 +60,6 @@ var _performance_preview_creation_count := 0
 var _performance_input_sort_count := 0
 var _art_backing_style_cache: StyleBoxFlat
 var _disabled_tile_style_cache: StyleBoxFlat
-var _delete_pair_style_cache: StyleBoxFlat
 
 
 func _init(game_state: Variant, tile_skin: Variant = null) -> void:
@@ -354,10 +353,7 @@ func refresh() -> void:
 		button.set_meta("depth_brightness", depth_brightness)
 		if not button.has_meta("style_initialized"):
 			_apply_tile_style(button)
-		button.add_theme_stylebox_override(
-			"normal",
-			_delete_pair_style() if _delete_pair_armed and selectable else _art_backing_style()
-		)
+		button.add_theme_stylebox_override("normal", _art_backing_style())
 		var shadow_art: TextureRect = _shadow_art[tile.id]
 		shadow_art.visible = shadow_art.texture != null
 		var base_art: TextureRect = _base_art[tile.id]
@@ -904,12 +900,6 @@ func _disabled_tile_style() -> StyleBoxFlat:
 	if _disabled_tile_style_cache == null:
 		_disabled_tile_style_cache = _tile_style(Color("8f9189"), Color("394140"), 2, Vector2(0.0, 2.0))
 	return _disabled_tile_style_cache
-
-
-func _delete_pair_style() -> StyleBoxFlat:
-	if _delete_pair_style_cache == null:
-		_delete_pair_style_cache = _tile_style(Color("fff8e8"), Color("ef496f"), 4, Vector2(0.0, 3.0))
-	return _delete_pair_style_cache
 
 
 func _tile_style(face_color: Color, border_color: Color, border_width: int, shadow_offset: Vector2) -> StyleBoxFlat:
