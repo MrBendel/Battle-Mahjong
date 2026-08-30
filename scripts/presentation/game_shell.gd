@@ -58,6 +58,10 @@ const PAIR_MATCH_FX_POOL_SIZE := 2
 @export_range(0.08, 0.30, 0.01) var tray_compaction_seconds := 0.16
 ## Travel time for tiles to settle into their shuffled positions.
 @export_range(0.08, 0.30, 0.01) var shuffle_move_seconds := 0.24
+## Travel time for Bomb targets to form two columns around Board center.
+@export_range(0.12, 0.50, 0.01) var bomb_formation_seconds := 0.22
+## Delay between each pair in the Bomb collision chain.
+@export_range(0.07, 0.30, 0.01) var bomb_chain_interval_seconds := 0.11
 @export_category("Feedback")
 ## Multiplier applied after match FX inherit the limiting safe-display scale.
 @export_range(0.50, 2.00, 0.05) var match_fx_scale_multiplier := 1.0
@@ -67,7 +71,7 @@ const PAIR_MATCH_FX_POOL_SIZE := 2
 @export_range(0.0, 1.0, 0.05) var selection_haptic_amplitude := 0.25
 @export_range(1, 300, 1) var pair_haptic_duration_ms := 55
 @export_range(0.0, 1.0, 0.05) var pair_haptic_amplitude := 0.70
-## Equip all five modifiers on early solver-route pairs for visual and activation testing.
+## Equip all modifiers on early solver-route pairs for visual and activation testing.
 ## This is authoring support only; normal games retain the production starter loadout.
 @export var playtest_all_modifiers := false
 @export var show_debug_panel := false
@@ -127,6 +131,8 @@ var _shuffle_animation_active := false
 var _auto_clear_animation_active := false
 var _auto_clear_tween: Tween
 var _auto_clear_pending_visuals: Array = []
+var _bomb_formation_count := 0
+var _last_bomb_formation_targets: Array = []
 var _shuffle_animation_count := 0
 var _shuffle_animation_generation := 0
 var _last_tray_capacity := 0
@@ -363,7 +369,11 @@ func _on_tile_selected(tile_id: String) -> void:
 			_refresh_game_views()
 			_play_transaction_auto_reveals(transaction)
 			_play_board_pair_removal(removal_visuals)
-			_play_auto_clear_sequence(auto_clear_visuals, 0.28)
+			_play_auto_clear_sequence(
+				auto_clear_visuals,
+				0.28,
+				str(transaction.telemetry.get("auto_clear_type", ""))
+			)
 			_play_transaction_callout(transaction)
 			return
 	else:
@@ -411,7 +421,8 @@ func _on_tile_selected(tile_id: String) -> void:
 				_play_auto_clear_sequence(
 					direct_auto_clear_visuals,
 					tile_flip_seconds + flipped_auto_match_hold_seconds + tile_transfer_seconds \
-						+ PAIR_LANDING_HOLD_SECONDS + PAIR_COLLISION_SECONDS
+						+ PAIR_LANDING_HOLD_SECONDS + PAIR_COLLISION_SECONDS,
+					str(direct_transaction.telemetry.get("auto_clear_type", ""))
 				)
 				_regions.momentum.call("play_pair_feedback", int(direct_transaction.telemetry.resulting_multiplier))
 				_play_transaction_callout_after(direct_transaction, tile_flip_seconds)
@@ -456,7 +467,8 @@ func _on_tile_selected(tile_id: String) -> void:
 		var transaction: Variant = _game.call("last_transaction")
 		_play_auto_clear_sequence(
 			auto_clear_visuals,
-			tile_transfer_seconds + PAIR_LANDING_HOLD_SECONDS + PAIR_COLLISION_SECONDS
+			tile_transfer_seconds + PAIR_LANDING_HOLD_SECONDS + PAIR_COLLISION_SECONDS,
+			str(transaction.telemetry.get("auto_clear_type", ""))
 		)
 		_regions.momentum.call("play_pair_feedback", int(transaction.telemetry.resulting_multiplier))
 		_play_transaction_callout(transaction)
@@ -525,7 +537,7 @@ func _play_modifier_feedback(telemetry: Dictionary) -> void:
 	var triggered: Array = telemetry.get("modifiers_triggered", [])
 	if modifier_type.is_empty() and not triggered.is_empty() and triggered[0] is Dictionary:
 		modifier_type = str(triggered[0].get("type", ""))
-		if modifier_type == "three_pair_clear" \
+		if modifier_type in ["three_pair_clear", "bomb"] \
 				and not bool(triggered[0].get("effect", {}).get("activated", false)):
 			return
 	if modifier_type.is_empty():
@@ -952,8 +964,11 @@ func _play_board_pair_removal(visuals: Array) -> void:
 	_play_pair_pop(visuals.map(func(visual: Dictionary) -> Variant: return visual.preview), center)
 
 
-func _play_auto_clear_sequence(pair_visuals: Array, initial_delay: float) -> void:
+func _play_auto_clear_sequence(pair_visuals: Array, initial_delay: float, modifier_type: String = "") -> void:
 	if pair_visuals.is_empty():
+		return
+	if modifier_type == "bomb":
+		_play_bomb_clear_sequence(pair_visuals, initial_delay)
 		return
 	_cancel_auto_clear_animation()
 	_auto_clear_pending_visuals = pair_visuals.duplicate()
@@ -968,6 +983,92 @@ func _play_auto_clear_sequence(pair_visuals: Array, initial_delay: float) -> voi
 		_auto_clear_tween = null
 		_auto_clear_pending_visuals.clear()
 	)
+
+
+func _play_bomb_clear_sequence(pair_visuals: Array, initial_delay: float) -> void:
+	_cancel_auto_clear_animation()
+	_auto_clear_pending_visuals = pair_visuals.duplicate()
+	_auto_clear_animation_active = true
+	var targets := _bomb_formation_rects(pair_visuals.size())
+	_last_bomb_formation_targets = targets.duplicate(true)
+	_bomb_formation_count += 1
+	for pair_index in range(pair_visuals.size()):
+		var visuals: Array = pair_visuals[pair_index]
+		for side_index in range(mini(2, visuals.size())):
+			var visual: Dictionary = visuals[side_index]
+			var preview: Control = visual.preview
+			var source_rect: Rect2 = visual.rect
+			add_child(preview)
+			preview.position = _global_to_local(source_rect.position)
+			preview.size = source_rect.size
+			preview.pivot_offset = preview.size * 0.5
+			preview.z_index = 1040 + pair_index
+	_auto_clear_tween = create_tween()
+	_auto_clear_tween.tween_interval(maxf(0.0, initial_delay))
+	_auto_clear_tween.set_parallel(true)
+	for pair_index in range(pair_visuals.size()):
+		var visuals: Array = pair_visuals[pair_index]
+		for side_index in range(mini(2, visuals.size())):
+			var preview: Control = visuals[side_index].preview
+			var target: Rect2 = targets[pair_index][side_index]
+			var target_position := _global_to_local(target.position)
+			_auto_clear_tween.tween_property(preview, "position", target_position, bomb_formation_seconds) \
+				.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			_auto_clear_tween.tween_property(
+				preview,
+				"scale",
+				_preview_scale_for_rect(preview, target),
+				bomb_formation_seconds
+			)
+			_auto_clear_tween.tween_property(
+				preview,
+				"rotation",
+				deg_to_rad(-3.0 if side_index == 0 else 3.0),
+				bomb_formation_seconds
+			)
+	_auto_clear_tween.set_parallel(false)
+	_auto_clear_tween.tween_interval(0.06)
+	for pair_index in range(pair_visuals.size()):
+		var visuals: Array = pair_visuals[pair_index]
+		if visuals.size() >= 2:
+			_auto_clear_tween.tween_callback(_play_pair_collision.bind(
+				visuals[0].preview,
+				visuals[1].preview,
+				targets[pair_index][0],
+				targets[pair_index][1]
+			))
+		else:
+			_auto_clear_tween.tween_callback(_play_board_pair_removal.bind(visuals))
+		_auto_clear_tween.tween_interval(bomb_chain_interval_seconds)
+	_auto_clear_tween.tween_interval(0.18)
+	_auto_clear_tween.finished.connect(func() -> void:
+		_auto_clear_animation_active = false
+		_auto_clear_tween = null
+		_auto_clear_pending_visuals.clear()
+	)
+
+
+func _bomb_formation_rects(pair_count: int) -> Array:
+	var targets: Array = []
+	if pair_count <= 0:
+		return targets
+	var board_rect: Rect2 = _regions.board.get_global_rect()
+	var tile_size: Vector2 = _regions.board.call("tile_visual_size")
+	var available_height := board_rect.size.y * 0.74
+	var target_height := minf(tile_size.y * 0.78, available_height / float(pair_count))
+	var target_width := tile_size.x * target_height / maxf(1.0, tile_size.y)
+	var row_step := minf(target_height * 0.90, available_height / float(pair_count))
+	var formation_height := target_height + row_step * float(pair_count - 1)
+	var start_y := board_rect.get_center().y - formation_height * 0.5
+	var center_x := board_rect.get_center().x
+	var center_gap := maxf(4.0, target_width * 0.12)
+	for pair_index in range(pair_count):
+		var y := start_y + row_step * pair_index
+		targets.append([
+			Rect2(Vector2(center_x - center_gap * 0.5 - target_width, y), Vector2(target_width, target_height)),
+			Rect2(Vector2(center_x + center_gap * 0.5, y), Vector2(target_width, target_height)),
+		])
+	return targets
 
 
 func _cancel_auto_clear_animation() -> void:

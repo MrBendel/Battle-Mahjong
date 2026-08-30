@@ -6,6 +6,7 @@ const COLD_SNAP_ICON := preload("res://game-assets/modifiers/tile-overlays/cold_
 const SCORE_MULTIPLIER_ICON := preload("res://game-assets/modifiers/tile-overlays/score_multiplier.png")
 const TRAY_PLUS_ONE_ICON := preload("res://game-assets/modifiers/tile-overlays/tray_plus_one.png")
 const THREE_PAIR_CLEAR_ICON := preload("res://game-assets/modifiers/tile-overlays/three_pair_clear.png")
+const BOMB_ICON := preload("res://game-assets/modifiers/tile-overlays/bomb.png")
 
 const FEEDBACK := {
 	"extra_life": {"color": Color("ff6f9f"), "texture": EXTRA_LIFE_ICON},
@@ -14,6 +15,7 @@ const FEEDBACK := {
 	"score_multiplier": {"color": Color("ffc84f"), "texture": SCORE_MULTIPLIER_ICON},
 	"tray_plus_one": {"color": Color("68e7a6"), "texture": TRAY_PLUS_ONE_ICON},
 	"three_pair_clear": {"color": Color("ff825f"), "texture": THREE_PAIR_CLEAR_ICON},
+	"bomb": {"color": Color("ffcf3f"), "texture": BOMB_ICON},
 }
 
 var play_count := 0

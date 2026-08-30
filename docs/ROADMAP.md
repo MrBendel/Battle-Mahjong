@@ -97,7 +97,7 @@ Implement:
 
 - bounded pre-run modifier loadouts
 - deterministic attachment to physical tiles
-- level-scaled Extra Life, Cold Snap, Score Multiplier, Tray +1, and Three Pair Clear effects
+- level-scaled Extra Life, Cold Snap, Score Multiplier, Tray +1, Three Pair Clear, and Bomb effects
 - transactional effect state and replay telemetry
 - placeholder board presentation
 
@@ -134,7 +134,7 @@ The first live-text arcade callout lane recognizes difficult pairs, current-run 
 
 The gameplay shell follows a mobile-first portrait stack with a bottom action dock, while landscape preserves the portrait-authored board and moves actions into console-friendly side rails. Detailed contract: [Responsive Game Shell](RESPONSIVE_GAME_SHELL.md).
 
-Batch B has a complete candidate: the responsive Momentum/multiplier HUD, portrait consumable controls, all five tile-attached modifier identities, live reward callouts, persistent modifier status, and lightweight activation sequences are implemented. Three Pair Clear proves a deterministic assisted route of up to three sequential pairs with serial presentation; Tray +1 expands the composable queue artwork and responsive shell rather than overlaying a synthetic slot. Final visual approval remains before broader FX, character work, and the Neon skin proof.
+Batch B has a complete candidate: the responsive Momentum/multiplier HUD, portrait consumable controls, all six tile-attached modifier identities, live reward callouts, persistent modifier status, and lightweight activation sequences are implemented. Three Pair Clear proves a deterministic assisted route of up to three sequential pairs with serial presentation. Bomb records up to five seeded random pairs and stages them in a responsive two-column collision chain. Tray +1 expands the composable queue artwork and responsive shell rather than overlaying a synthetic slot. Final visual approval remains before broader FX, character work, and the Neon skin proof.
 
 Mobile rendering optimization is tracked in [`PERFORMANCE_OPTIMIZATION.md`](PERFORMANCE_OPTIMIZATION.md). That work begins with representative Android measurements, then addresses Board refresh/allocation cost, transparent overdraw, and tile atlasing before considering a custom renderer.
 

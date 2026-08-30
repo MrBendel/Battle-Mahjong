@@ -9,7 +9,7 @@ Goal: add collectible, levelable tile modifiers through a bounded pre-run loadou
 - a maximum three-slot modifier loadout, configurable per game definition;
 - a starter level-0 `2.0x` Score Multiplier modifier;
 - deterministic attachment of equipped modifiers to ordinary physical board tiles;
-- pair-triggered Extra Life, Cold Snap, Score Multiplier, Tray +1, and Three Pair Clear effects;
+- pair-triggered Extra Life, Cold Snap, Score Multiplier, Tray +1, Three Pair Clear, and Bomb effects;
 - level-scaled, Inspector-authored modifier tuning;
 - reversible modifier state changes, definition hashing, serialization, replay validation, and trigger telemetry;
 - placeholder modifier labels on board tiles.
@@ -79,6 +79,17 @@ All values below are provisional and authored in `configuration/default_modifier
 - Candidate routes skip identities already represented in the tray so the reward cannot strand a held tile by clearing its board mates.
 - The base route length is Inspector-configurable and defaults to three. Level scaling defaults to zero so the artwork and behavior remain aligned.
 
+### Bomb
+
+- The tile overlay uses a compact cartoon bomb and lit-fuse silhouette.
+- After the modifier's own pair resolves, simulation chooses up to five currently selectable natural pairs using the seeded gameplay RNG.
+- Selectability is recalculated after every projected removal, so one randomly chosen pair may expose a later candidate.
+- The ordered random route and resulting RNG state are committed in the same reversible transaction. Replay never rerolls the targets.
+- Assisted pairs follow the same no Score, Momentum, Combo, difficulty reward, or recursive modifier activation rule as Three Pair Clear.
+- Automated clear routes preserve any face identity carrying an unresolved modifier and skip identities already represented in the tray.
+- Presentation pulls each pair into responsive columns on either side of Board center, then collides the rows in a fast chain. Formation and collision timing remain presentation-only and Inspector-tunable.
+- The base route length is Inspector-configurable and defaults to five. Level scaling defaults to zero.
+
 ## Determinism And Replay
 
 - Gameplay rules version is `3` and game-definition schema version is `2`.
@@ -106,6 +117,7 @@ All values below are provisional and authored in `configuration/default_modifier
 - committed Cold Snap decay behavior;
 - dynamic Tray +1 capacity and pair duration;
 - atomic Extra Life recovery and charge consumption;
+- seeded Bomb target selection, RNG reversal, and responsive chained presentation;
 - existing reducer replay/reverse, solver, simulation, and responsive UI suites.
 
 ## Remaining Questions
