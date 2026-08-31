@@ -84,7 +84,7 @@ const PAIR_MATCH_FX_POOL_SIZE := 2
 @export_range(0.0, 0.80, 0.01) var board_deal_stagger_seconds := 0.34
 @export_category("Feedback")
 ## Multiplier applied after match FX inherit the limiting safe-display scale.
-@export_range(0.50, 2.00, 0.05) var match_fx_scale_multiplier := 1.0
+@export_range(0.50, 2.00, 0.05) var match_fx_scale_multiplier := 1.30
 @export var sound_enabled_on_start := true
 @export var haptics_enabled_on_start := true
 @export_range(1, 200, 1) var selection_haptic_duration_ms := 18

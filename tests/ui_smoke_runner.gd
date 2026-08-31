@@ -544,6 +544,7 @@ func _run() -> void:
 		_check(active_match_fx != null, "pair collision records its reused smoke emitter")
 		if active_match_fx != null:
 			var smoke_particles: CPUParticles2D = active_match_fx.get_node("SmokeParticles")
+			_check(is_equal_approx(float(shell.get("match_fx_scale_multiplier")), 1.30), "match smoke uses the enlarged performance-neutral default scale")
 			var expected_fx_scale := PresentationScaleScript.safe_display_scale(
 				shell.get_viewport_rect().size,
 				shell.call("_get_safe_area_insets")
