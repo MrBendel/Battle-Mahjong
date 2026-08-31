@@ -563,6 +563,11 @@ func _run() -> void:
 				neutral_smoke_ramp = neutral_smoke_ramp \
 					and is_equal_approx(color.r, color.g) and is_equal_approx(color.g, color.b)
 			_check(neutral_smoke_ramp, "match smoke fade ramp remains neutral without green or cyan tint")
+			_check(smoke_colors[0].a >= 0.85, "match smoke is visible on the collision frame instead of fading in late")
+			smoke_particles.emitting = false
+			active_match_fx.call("play")
+			await process_frame
+			_check(smoke_particles.emitting, "pooled match smoke explicitly rearms after one-shot completion")
 			_check(is_equal_approx(float(smoke_particles.scale_amount_min), 0.50), "match smoke tufts remain readable at gameplay scale")
 		_check_equal(1, live_game.tray.resolved_pair_count, "match feedback follows a committed pair transaction")
 		_check_equal(1, live_game.call("combo_at", shell.call("_playback_time_ms")), "natural pair starts the live Combo readout")

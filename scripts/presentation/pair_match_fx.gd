@@ -44,14 +44,15 @@ func _ready() -> void:
 func play() -> void:
 	play_count += 1
 	_particles.restart()
+	_particles.emitting = true
 
 
 static func _smoke_gradient() -> Gradient:
 	var gradient := Gradient.new()
 	gradient.offsets = PackedFloat32Array([0.0, 0.58, 1.0])
 	gradient.colors = PackedColorArray([
-		Color(1.0, 1.0, 1.0, 0.0),
-		Color(1.0, 1.0, 1.0, 0.62),
+		Color(1.0, 1.0, 1.0, 0.90),
+		Color(1.0, 1.0, 1.0, 0.72),
 		Color(0.82, 0.82, 0.82, 0.0),
 	])
 	return gradient
