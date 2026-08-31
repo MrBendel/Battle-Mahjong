@@ -1150,15 +1150,9 @@ func _play_bomb_clear_sequence(pair_visuals: Array, initial_delay: float) -> voi
 		for side_index in range(mini(2, visuals.size())):
 			var preview: Control = visuals[side_index].preview
 			var target: Rect2 = targets[pair_index][side_index]
-			var target_position := _global_to_local(target.position)
+			var target_position := _global_to_local(target.get_center()) - preview.size * 0.5
 			_auto_clear_tween.tween_property(preview, "position", target_position, bomb_formation_seconds) \
 				.set_delay(formation_delay).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-			_auto_clear_tween.tween_property(
-				preview,
-				"scale",
-				_preview_scale_for_rect(preview, target),
-				bomb_formation_seconds
-			).set_delay(formation_delay).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 			_auto_clear_tween.tween_property(
 				preview,
 				"rotation",
@@ -1173,7 +1167,7 @@ func _play_bomb_clear_sequence(pair_visuals: Array, initial_delay: float) -> voi
 			_auto_clear_tween.tween_property(
 				preview,
 				"position",
-				_global_to_local(collision_target.position),
+				_global_to_local(collision_target.get_center()) - preview.size * 0.5,
 				bomb_collapse_seconds
 			).set_delay(collapse_delay).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 			_auto_clear_tween.tween_property(preview, "rotation", 0.0, bomb_collapse_seconds) \

@@ -557,6 +557,12 @@ func _run() -> void:
 			_check_equal(6, smoke_particles.amount, "match smoke stays within its six-particle mobile budget")
 			_check(smoke_particles.one_shot, "match smoke uses one-shot particle emission")
 			_check_equal(MatchSmokeTuft, smoke_particles.texture, "match smoke particles share one tuft texture")
+			var smoke_colors: PackedColorArray = smoke_particles.color_ramp.colors
+			var neutral_smoke_ramp := true
+			for color in smoke_colors:
+				neutral_smoke_ramp = neutral_smoke_ramp \
+					and is_equal_approx(color.r, color.g) and is_equal_approx(color.g, color.b)
+			_check(neutral_smoke_ramp, "match smoke fade ramp remains neutral without green or cyan tint")
 			_check(is_equal_approx(float(smoke_particles.scale_amount_min), 0.50), "match smoke tufts remain readable at gameplay scale")
 		_check_equal(1, live_game.tray.resolved_pair_count, "match feedback follows a committed pair transaction")
 		_check_equal(1, live_game.call("combo_at", shell.call("_playback_time_ms")), "natural pair starts the live Combo readout")
@@ -905,6 +911,7 @@ func _verify_modifier_picker(requested_size: Vector2i) -> void:
 			var pending_bomb_visuals: Array = picker_shell.get("_auto_clear_pending_visuals")
 			var waiting_bomb_preview: Control = pending_bomb_visuals[0][0].preview
 			var waiting_bomb_position := waiting_bomb_preview.position
+			var waiting_bomb_scale := waiting_bomb_preview.scale
 			await create_timer(0.75).timeout
 			_check_equal(bomb_feedback_before + 1, picker_shell.get("_pair_feedback_count"), "Bomb waits until its triggering pair has fully disappeared")
 			_check(
@@ -912,7 +919,13 @@ func _verify_modifier_picker(requested_size: Vector2i) -> void:
 					and waiting_bomb_preview.position.is_equal_approx(waiting_bomb_position),
 				"Bomb targets remain on the Board during the post-trigger ignition beat"
 			)
-			await create_timer(2.6).timeout
+			await create_timer(0.70).timeout
+			_check(
+				is_instance_valid(waiting_bomb_preview)
+					and waiting_bomb_preview.scale.is_equal_approx(waiting_bomb_scale),
+				"Bomb formation preserves each tile's captured Board scale"
+			)
+			await create_timer(1.90).timeout
 			_check(not picker_shell.get("_auto_clear_animation_active"), "picker-created Bomb completes its presentation")
 			_check_equal(bomb_feedback_before + 6, picker_shell.get("_pair_feedback_count"), "picker-created Bomb visibly presents its trigger and five-pair target")
 	picker_shell.queue_free()
