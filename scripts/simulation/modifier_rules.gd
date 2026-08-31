@@ -20,7 +20,11 @@ static func effect_for(modifier: Dictionary, configuration: Dictionary) -> Dicti
 		"three_pair_clear":
 			return {"pair_count": int(configuration.modifier_three_pair_clear_base_pairs) + level * int(configuration.modifier_three_pair_clear_pairs_per_level)}
 		"bomb":
-			return {"pair_count": int(configuration.modifier_bomb_base_pairs) + level * int(configuration.modifier_bomb_pairs_per_level)}
+			var pair_count := int(configuration.modifier_bomb_base_pairs) \
+				+ level * int(configuration.modifier_bomb_pairs_per_level)
+			if configuration.has("modifier_bomb_max_pairs"):
+				pair_count = mini(pair_count, int(configuration.modifier_bomb_max_pairs))
+			return {"pair_count": pair_count}
 	return {}
 
 

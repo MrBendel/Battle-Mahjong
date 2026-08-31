@@ -24,7 +24,7 @@ static func playtest_all() -> Array:
 		loadout.append({
 			"modifier_id": "playtest_%s" % type,
 			"type": type,
-			"level": 0,
+			"level": 4 if type == BOMB else 2 if type == THREE_PAIR_CLEAR else 0,
 		})
 	return loadout
 

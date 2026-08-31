@@ -5,7 +5,30 @@ const DeterministicRngScript := preload("res://scripts/simulation/deterministic_
 const GameStateDataScript := preload("res://scripts/simulation/game_state_data.gd")
 
 
-func build_route(definition: Variant, state: Variant, pair_count: int) -> Array:
+func build_route(
+	definition: Variant,
+	state: Variant,
+	pair_count: int,
+	prioritize_top_layers := true
+) -> Array:
+	if pair_count <= 0:
+		return []
+	if prioritize_top_layers:
+		var board := BoardStateScript.new(definition, state)
+		var eligible_pairs := _selectable_pairs(definition, state, board)
+		_sort_pairs_top_down(eligible_pairs, board)
+		var fixed_route: Array = []
+		var used_tile_ids := {}
+		for pair in eligible_pairs:
+			if used_tile_ids.has(pair[0]) or used_tile_ids.has(pair[1]):
+				continue
+			fixed_route.append(pair)
+			used_tile_ids[pair[0]] = true
+			used_tile_ids[pair[1]] = true
+			if fixed_route.size() >= pair_count:
+				break
+		return fixed_route
+
 	var projected: Variant = state.duplicate_data()
 	var route: Array = []
 	for _step in range(maxi(0, pair_count)):
@@ -33,8 +56,12 @@ func build_random_route(definition: Variant, state: Variant, pair_count: int) ->
 	return {"route": route, "rng_state": rng.call("get_state")}
 
 
-func _first_selectable_pair(definition: Variant, state: Variant) -> Array[String]:
-	var pairs := _selectable_pairs(definition, state)
+func _first_selectable_pair(
+	definition: Variant,
+	state: Variant
+) -> Array[String]:
+	var board := BoardStateScript.new(definition, state)
+	var pairs := _selectable_pairs(definition, state, board)
 	if pairs.is_empty():
 		return []
 	var result: Array[String] = []
@@ -42,8 +69,32 @@ func _first_selectable_pair(definition: Variant, state: Variant) -> Array[String
 	return result
 
 
-func _selectable_pairs(definition: Variant, state: Variant) -> Array:
-	var selectable: Array = BoardStateScript.new(definition, state).call("selectable_tiles")
+func _sort_pairs_top_down(pairs: Array, board: Variant) -> void:
+	pairs.sort_custom(func(first: Array, second: Array) -> bool:
+		var first_layers := _pair_layers(board, first)
+		var second_layers := _pair_layers(board, second)
+		if first_layers.x != second_layers.x:
+			return first_layers.x > second_layers.x
+		if first_layers.y != second_layers.y:
+			return first_layers.y > second_layers.y
+		return "|".join(first) < "|".join(second)
+	)
+
+
+func _pair_layers(board: Variant, pair: Array) -> Vector2i:
+	var lowest_layer := 2147483647
+	var highest_layer := -1
+	for tile_id in pair:
+		var tile: Variant = board.get_tile(tile_id)
+		if tile != null:
+			lowest_layer = mini(lowest_layer, tile.position.z)
+			highest_layer = maxi(highest_layer, tile.position.z)
+	return Vector2i(lowest_layer, highest_layer)
+
+
+func _selectable_pairs(definition: Variant, state: Variant, board: Variant = null) -> Array:
+	var projected_board: Variant = BoardStateScript.new(definition, state) if board == null else board
+	var selectable: Array = projected_board.call("selectable_tiles")
 	selectable.sort_custom(func(first: Variant, second: Variant) -> bool: return first.id < second.id)
 	var pairs: Array = []
 	for first_index in range(selectable.size()):
