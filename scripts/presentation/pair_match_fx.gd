@@ -52,6 +52,6 @@ static func _smoke_gradient() -> Gradient:
 	gradient.colors = PackedColorArray([
 		Color(1.0, 1.0, 1.0, 0.0),
 		Color(1.0, 1.0, 1.0, 0.62),
-		Color(0.72, 0.82, 0.80, 0.0),
+		Color(0.82, 0.82, 0.82, 0.0),
 	])
 	return gradient

@@ -557,6 +557,12 @@ func _run() -> void:
 			_check_equal(6, smoke_particles.amount, "match smoke stays within its six-particle mobile budget")
 			_check(smoke_particles.one_shot, "match smoke uses one-shot particle emission")
 			_check_equal(MatchSmokeTuft, smoke_particles.texture, "match smoke particles share one tuft texture")
+			var smoke_colors: PackedColorArray = smoke_particles.color_ramp.colors
+			var neutral_smoke_ramp := true
+			for color in smoke_colors:
+				neutral_smoke_ramp = neutral_smoke_ramp \
+					and is_equal_approx(color.r, color.g) and is_equal_approx(color.g, color.b)
+			_check(neutral_smoke_ramp, "match smoke fade ramp remains neutral without green or cyan tint")
 			_check(is_equal_approx(float(smoke_particles.scale_amount_min), 0.50), "match smoke tufts remain readable at gameplay scale")
 		_check_equal(1, live_game.tray.resolved_pair_count, "match feedback follows a committed pair transaction")
 		_check_equal(1, live_game.call("combo_at", shell.call("_playback_time_ms")), "natural pair starts the live Combo readout")
