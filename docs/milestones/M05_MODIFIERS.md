@@ -97,7 +97,7 @@ All values below are provisional and authored in `configuration/default_modifier
 - The ordered random route and resulting RNG state are committed in the same reversible transaction. Replay never rerolls the targets.
 - Bomb-assisted pairs award no Score, Momentum, Combo, or difficulty reward and do not recursively activate modifiers.
 - Automated clear routes preserve any face identity carrying an unresolved modifier and skip identities already represented in the tray.
-- Presentation waits for the triggering pair's complete collision and disappearance, then holds an additional `300 ms`. It eases each pair out into responsive columns on either side of Board center, eases both columns inward into one held vertical stack, then removes its rows through the existing poof chain. Formation, hold, collapse, and chain timing remain presentation-only and Inspector-tunable.
+- Presentation waits for the triggering pair's complete collision and disappearance, then holds an additional `300 ms`. It eases each pair out into responsive columns on either side of Board center while preserving the tiles' captured Board scale, eases both columns inward into one held vertical stack, then removes its rows through the existing poof chain. Formation, hold, collapse, and chain timing remain presentation-only and Inspector-tunable.
 - Bomb formation leaves enough time to read the selected targets before the collision sequence begins; the final poof chain advances at a fast, Inspector-tunable `50 ms` interval per pair.
 - Bomb ignition begins only after the triggering pair has fully disappeared, keeping the reward visually connected to the tile that activated it.
 - If fewer pairs can be selected, Bomb clears the available partial route and reports the actual count.
