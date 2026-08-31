@@ -24,7 +24,11 @@ type
 level
 ```
 
-The snapshot is supplied when a game definition is created. M5 does not own inventory persistence, collection rewards, upgrade costs, accounts, or loadout-selection UI. Those later systems must produce this same snapshot rather than becoming dependencies of simulation.
+The snapshot is supplied when a game definition is created. The playable prototype now includes a presentation-only pregame picker over the staged gameplay chrome. Board tiles remain hidden while the player chooses; Start rebuilds the run from the selected snapshot and deals the tiles into the empty Board field. It is debug authoring support rather than persistent inventory: every implemented type is available, selection has no progression-driven cap, and selected modifiers are placed on early solver-route pairs so their effects are practical to test.
+
+Restart returns to this same picker with the previous run's choices preselected. The staged HUD and Board field reset immediately, but tiles remain hidden until the next Start command.
+
+M5 does not own inventory persistence, collection rewards, upgrade costs, or accounts. Those later systems must produce the same snapshot rather than becoming dependencies of simulation.
 
 The initial loadout capacity is three. M5 permits at most one equipped modifier of each type. New reference games use one starter Score Multiplier at level 0; callers may provide another valid loadout, including an empty one.
 
@@ -71,28 +75,38 @@ All values below are provisional and authored in `configuration/default_modifier
 ### Three Pair Clear
 
 - The tile overlay is a circle containing a prominent `3`.
-- After the modifier's own pair resolves, simulation searches for a deterministic route of up to three selectable natural pairs.
-- Selectability is recalculated after every projected removal, so one assisted pair may uncover the next.
-- The effect clears up to three pairs, stopping when no next legal selectable pair exists. If no pair is available, it does nothing.
-- A successful route resolves its two, four, or six tiles atomically and records the actual pairs in order for replay and serial presentation.
-- Assisted pairs award no Score, Momentum, Combo, or pair-difficulty reward and do not recursively activate modifiers attached to assisted tiles.
+- After the modifier's own pair resolves, simulation takes one fixed snapshot of visible, ordinarily selectable natural pairs and chooses up to its level-scaled maximum from that snapshot.
+- Rules version 16 and later prioritize currently selectable pairs top-down. Ranking compares each pair's lower tile first and then its higher tile, preventing one high tile from pulling a much deeper mate ahead of a pair whose two tiles are both near the top. Stable tile IDs break remaining ties. Earlier rules versions retain lexical ordering for replay compatibility.
+- Pairs blocked at activation are ineligible. An assisted removal may expose them for subsequent normal play, but it cannot add them to the active Three Pair Clear route.
+- The effect plans up to five eligible pairs at level 4. If no pair is available in the activation snapshot, it does nothing.
+- Rules version 18 and later record the ordered route in the triggering transaction without removing its tiles. The gameplay shell locks player input, then submits each tile in the route through the ordinary selection command on a timer: select the first tile, select its mate, wait for the normal match, then continue. Each automated selection is therefore its own replayable transaction.
+- Automated selections use normal queue occupancy, Score, Momentum, Combo, pair-difficulty, haptic, callout, and match behavior. Candidate routes exclude identities carrying unresolved modifiers, preventing recursive modifier activation.
+- Rules version 17 and earlier preserve atomic assisted removal for replay compatibility.
 - Candidate routes skip identities already represented in the tray so the reward cannot strand a held tile by clearing its board mates.
-- The base route length is Inspector-configurable and defaults to three. Level scaling defaults to zero so the artwork and behavior remain aligned.
+- Match uses an Inspector-configurable `1, 2, 3, 4, 5` debug progression: level 0 clears one pair and each level adds one. The all-modifier playtest equips level 2 for the familiar Match 3 behavior.
+- Three Pair Clear owns no specialized tile animation. Its presentation waits for the triggering pair's complete collision and disappearance, then comes entirely from the existing board-to-queue selection and pair-match paths. The Inspector exposes a `150 ms` anticipation hold after that trigger removal, a short `50 ms` default delay between the two tiles, and a `550 ms` default delay before the next pair.
 
 ### Bomb
 
 - The tile overlay uses a compact cartoon bomb and lit-fuse silhouette.
-- After the modifier's own pair resolves, simulation chooses up to five currently selectable natural pairs using the seeded gameplay RNG.
+- Bomb level 0 targets one pair. Each level adds one pair through level 5, which targets at most six pairs.
+- The current debug picker and all-modifier playtest equip Bomb at level 4 so activation visibly exercises five pairs; this does not change the underlying `1..6` progression curve.
+- The base, per-level gain, and maximum are snapshotted tuning values exposed through `ModifierTuning`; the default curve is `1, 2, 3, 4, 5, 6`.
+- After the modifier's own pair resolves, simulation chooses up to its effective pair count from currently selectable natural pairs using the seeded gameplay RNG.
 - Selectability is recalculated after every projected removal, so one randomly chosen pair may expose a later candidate.
 - The ordered random route and resulting RNG state are committed in the same reversible transaction. Replay never rerolls the targets.
-- Assisted pairs follow the same no Score, Momentum, Combo, difficulty reward, or recursive modifier activation rule as Three Pair Clear.
+- Bomb-assisted pairs award no Score, Momentum, Combo, or difficulty reward and do not recursively activate modifiers.
 - Automated clear routes preserve any face identity carrying an unresolved modifier and skip identities already represented in the tray.
-- Presentation pulls each pair into responsive columns on either side of Board center, then collides the rows in a fast chain. Formation and collision timing remain presentation-only and Inspector-tunable.
-- The base route length is Inspector-configurable and defaults to five. Level scaling defaults to zero.
+- Presentation waits for the triggering pair's complete collision and disappearance, then holds an additional `300 ms`. It eases each pair out into responsive columns on either side of Board center, eases both columns inward into one held vertical stack, then removes its rows through the existing poof chain. Formation, hold, collapse, and chain timing remain presentation-only and Inspector-tunable.
+- Bomb formation leaves enough time to read the selected targets before the collision sequence begins; the final poof chain advances at a fast, Inspector-tunable `50 ms` interval per pair.
+- Bomb ignition begins only after the triggering pair has fully disappeared, keeping the reward visually connected to the tile that activated it.
+- If fewer pairs can be selected, Bomb clears the available partial route and reports the actual count.
+
+The pregame debug picker exposes Bomb 1 through Bomb 6 and Match 1 through Match 5 as separate square tile choices. Choosing another iteration replaces the previous choice from that family; a run cannot equip multiple Bomb or Match levels simultaneously.
 
 ## Determinism And Replay
 
-- Gameplay rules version is `3` and game-definition schema version is `2`.
+- Current gameplay rules version is `18` and game-definition schema version is `4`.
 - Loadouts, attachments, tuning, and active effects participate in definition or state hashes as appropriate.
 - Effect mutations use typed counter changes and replay through the production reducer.
 - Time-based effects use command `playback_time_ms`; simulation never reads wall-clock time.
@@ -102,7 +116,7 @@ All values below are provisional and authored in `configuration/default_modifier
 
 - persistent ownership, rewards, collection, or leveling workflows;
 - accounts, backend storage, or monetization;
-- loadout-selection screens;
+- progression-backed loadout limits or inventory ownership;
 - duplicate equipped modifier types or modifier stacking rules;
 - upgrade branches such as Deep Freeze, Flash Freeze, or Cold Chain;
 - recursive modifier chains from assisted pair clearing;

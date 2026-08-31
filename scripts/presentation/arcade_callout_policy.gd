@@ -102,10 +102,11 @@ func _choose_modifier_reward(telemetry: Dictionary) -> Dictionary:
 		"bomb":
 			if not bool(effect.get("activated", false)):
 				return {}
+			var cleared_pair_count := int(effect.get("cleared_pair_count", effect.get("pair_count", 1)))
 			return _alert(
 				"modifier_reward",
 				"bomb",
-				"BOMB! %d PAIRS!" % int(effect.get("cleared_pair_count", effect.get("pair_count", 5)))
+				"BOMB! %d %s!" % [cleared_pair_count, "PAIR" if cleared_pair_count == 1 else "PAIRS"]
 			)
 	return {}
 

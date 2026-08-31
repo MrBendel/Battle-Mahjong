@@ -30,6 +30,7 @@ func _run() -> void:
 	var modifier_playtest := OS.get_cmdline_user_args().has("--modifier-playtest") \
 		or OS.get_cmdline_user_args().has("--modifier-callout-capture")
 	shell.set("playtest_all_modifiers", modifier_playtest)
+	shell.set("show_modifier_picker_on_start", false)
 	root.add_child(shell)
 	await process_frame
 	var banner_view: Control = shell.get("_update_banner")
@@ -543,6 +544,7 @@ func _run() -> void:
 		_check(active_match_fx != null, "pair collision records its reused smoke emitter")
 		if active_match_fx != null:
 			var smoke_particles: CPUParticles2D = active_match_fx.get_node("SmokeParticles")
+			_check(is_equal_approx(float(shell.get("match_fx_scale_multiplier")), 1.30), "match smoke uses the enlarged performance-neutral default scale")
 			var expected_fx_scale := PresentationScaleScript.safe_display_scale(
 				shell.get_viewport_rect().size,
 				shell.call("_get_safe_area_insets")
@@ -806,11 +808,115 @@ func _run() -> void:
 		else:
 			printerr("capture: %s" % ProjectSettings.globalize_path(output_path))
 
-	printerr("PASS: responsive UI smoke" if _failures == 0 else "FAIL: %d responsive UI check(s)" % _failures)
 	shell.queue_free()
 	await process_frame
+	await _verify_modifier_picker(requested_size)
 	await create_timer(0.1).timeout
+	printerr("PASS: responsive UI smoke" if _failures == 0 else "FAIL: %d responsive UI check(s)" % _failures)
 	quit(1 if _failures > 0 else 0)
+
+
+func _verify_modifier_picker(requested_size: Vector2i) -> void:
+	root.size = requested_size
+	var picker_shell: Control = load("res://scenes/main.tscn").instantiate()
+	picker_shell.set("show_modifier_picker_on_start", true)
+	picker_shell.set("playtest_all_modifiers", false)
+	root.add_child(picker_shell)
+	await process_frame
+	await create_timer(0.32).timeout
+	var picker: Control = picker_shell.get("_modifier_picker")
+	_check(picker != null and picker.visible, "pregame modifier picker opens before gameplay")
+	_check(picker_shell.get("_game") != null, "pregame modifier picker stages the gameplay chrome behind its sheet")
+	_check(picker_shell.get("_regions").has("board"), "pregame modifier picker lays out the empty Board field")
+	_check(not picker_shell.get("_regions").board.get("_tile_layer").visible, "pregame modifier picker suppresses Board tiles")
+	_check(not picker_shell.get("_pause_button").visible, "pregame modifier picker owns the modal command layer")
+	if picker == null:
+		picker_shell.queue_free()
+		await process_frame
+		return
+	var safe_rect := SafeAreaScript.content_rect(picker.size, picker_shell.call("_get_safe_area_insets"))
+	var panel: Control = picker.get("_panel")
+	var panel_rect := Rect2(panel.position, panel.size)
+	_check(safe_rect.grow(1.0).encloses(panel_rect), "modifier picker sheet stays inside the safe display (%s in %s)" % [panel_rect, safe_rect])
+	var start_button: Button = picker.get("_start_button")
+	var start_rect := Rect2(start_button.global_position, start_button.size)
+	_check(panel_rect.grow(1.0).encloses(start_rect), "modifier picker Start command stays fully inside the sheet (%s in %s)" % [start_rect, panel_rect])
+	_check_equal(15, picker.get("_grid").get_child_count(), "modifier picker presents four base modifiers and every Bomb/Match iteration")
+	_check_equal(3, picker.get("_grid").columns, "modifier picker uses an even three-column tile grid")
+	for tile in picker.get("_tile_visuals").values():
+		_check(is_equal_approx(tile.size.x, tile.size.y), "modifier picker options preserve a square mahjong-tile footprint")
+	_check_equal(1, picker.call("selected_loadout").size(), "modifier picker begins with the starter Score Boost selected")
+	picker.call("toggle_for_testing", "bomb", 0)
+	_check_equal(0, picker.call("selected_loadout").filter(func(entry: Dictionary) -> bool: return entry.type == "bomb")[0].level, "picker selects Bomb 1 as level zero")
+	picker.call("toggle_for_testing", "bomb", 5)
+	_check_equal(5, picker.call("selected_loadout").filter(func(entry: Dictionary) -> bool: return entry.type == "bomb")[0].level, "picker replaces Bomb 1 with Bomb 6")
+	picker.call("toggle_for_testing", "bomb", 5)
+	picker.call("toggle_for_testing", "three_pair_clear", 0)
+	_check_equal(0, picker.call("selected_loadout").filter(func(entry: Dictionary) -> bool: return entry.type == "three_pair_clear")[0].level, "picker selects Match 1 as level zero")
+	picker.call("toggle_for_testing", "three_pair_clear", 4)
+	_check_equal(4, picker.call("selected_loadout").filter(func(entry: Dictionary) -> bool: return entry.type == "three_pair_clear")[0].level, "picker replaces Match 1 with Match 5")
+	picker.call("toggle_for_testing", "three_pair_clear", 4)
+	for type in ["extra_life", "cold_snap", "tray_plus_one", "bomb", "three_pair_clear"]:
+		picker.call("toggle_for_testing", type)
+	_check_equal(6, picker.call("selected_loadout").size(), "debug picker permits all six distinct modifier types")
+	_check_equal(4, picker.call("selected_loadout").filter(func(entry: Dictionary) -> bool: return entry.type == "bomb")[0].level, "default debug Bomb selection uses Bomb 5")
+	_check_equal(2, picker.call("selected_loadout").filter(func(entry: Dictionary) -> bool: return entry.type == "three_pair_clear")[0].level, "default debug Match selection uses Match 3")
+	picker.call("confirm_for_testing")
+	await process_frame
+	await process_frame
+	var live_game: Variant = picker_shell.get("_game")
+	_check(live_game != null, "starting from the modifier picker constructs the game")
+	_check(picker_shell.get("_modifier_picker") == null, "modifier picker leaves the presentation after Start")
+	if live_game != null:
+		_check_equal(6, live_game.definition.modifier_loadout.size(), "selected modifier snapshot reaches GameDefinition")
+		_check_equal(6, live_game.definition.modifier_attachments.size(), "every selected debug modifier is attached to the Board")
+		_check_equal(6, int(live_game.definition.configuration.modifier_loadout_capacity), "selected debug run expands its loadout capacity")
+		_check(picker_shell.get("_regions").board.get("_tile_layer").visible, "Board tiles become visible after Start")
+		_check_equal(1, picker_shell.get("_regions").board.get("_deal_in_count"), "selected game deals its tile stack into the empty field")
+		_check(picker_shell.call("_gameplay_input_blocked"), "opening tile deal blocks premature Board input")
+		await create_timer(0.7).timeout
+		_check(not picker_shell.call("_gameplay_input_blocked"), "Board input opens after the tile deal settles")
+		picker_shell.call("_on_restart_requested")
+		var restarted_picker: Control = picker_shell.get("_modifier_picker")
+		_check(restarted_picker != null and restarted_picker.visible, "Restart returns to the modifier loadout picker")
+		_check(not picker_shell.get("_regions").board.get("_tile_layer").visible, "Restart resets to an empty Board field")
+		_check_equal(6, restarted_picker.call("selected_loadout").size(), "Restart keeps the previous loadout preselected for editing")
+		_check_equal(0, picker_shell.get("_game").score, "Restart resets run score before loadout selection")
+		for type in ["extra_life", "cold_snap", "score_multiplier", "tray_plus_one", "three_pair_clear"]:
+			restarted_picker.call("toggle_for_testing", type)
+		_check_equal(1, restarted_picker.call("selected_loadout").size(), "picker can author a Bomb-only run")
+		restarted_picker.call("confirm_for_testing")
+		await create_timer(0.7).timeout
+		var bomb_game: Variant = picker_shell.get("_game")
+		var bomb_tile_id := _find_modifier_tile_id(bomb_game, "bomb")
+		var bomb_pair := await _open_modifier_pair(picker_shell, bomb_game, bomb_tile_id)
+		_check_equal(2, bomb_pair.size(), "picker-created Bomb is attached to an opening solver pair")
+		if bomb_pair.size() == 2:
+			var bomb_feedback_before: int = picker_shell.get("_pair_feedback_count")
+			picker_shell.call("_on_tile_selected", bomb_pair[0])
+			await create_timer(0.28).timeout
+			picker_shell.call("_on_tile_selected", bomb_pair[1])
+			await process_frame
+			var bomb_transaction: Variant = bomb_game.call("last_transaction")
+			_check_equal("bomb", bomb_transaction.telemetry.get("auto_clear_type", ""), "picker-created Bomb fires in its resolving transaction")
+			_check_equal(5, bomb_transaction.telemetry.get("auto_clear_pairs", []).size(), "debug Bomb-only run immediately targets five pairs")
+			_check(is_equal_approx(float(picker_shell.get("bomb_activation_delay_seconds")), 0.30), "Bomb holds for 300 ms before formation begins")
+			_check(picker_shell.get("_auto_clear_animation_active"), "picker-created Bomb starts its presentation immediately")
+			var pending_bomb_visuals: Array = picker_shell.get("_auto_clear_pending_visuals")
+			var waiting_bomb_preview: Control = pending_bomb_visuals[0][0].preview
+			var waiting_bomb_position := waiting_bomb_preview.position
+			await create_timer(0.75).timeout
+			_check_equal(bomb_feedback_before + 1, picker_shell.get("_pair_feedback_count"), "Bomb waits until its triggering pair has fully disappeared")
+			_check(
+				is_instance_valid(waiting_bomb_preview)
+					and waiting_bomb_preview.position.is_equal_approx(waiting_bomb_position),
+				"Bomb targets remain on the Board during the post-trigger ignition beat"
+			)
+			await create_timer(2.6).timeout
+			_check(not picker_shell.get("_auto_clear_animation_active"), "picker-created Bomb completes its presentation")
+			_check_equal(bomb_feedback_before + 6, picker_shell.get("_pair_feedback_count"), "picker-created Bomb visibly presents its trigger and five-pair target")
+	picker_shell.queue_free()
+	await process_frame
 
 
 func _validate_regions(shell: Control, orientation: String) -> void:
@@ -1266,6 +1372,8 @@ func _verify_modifier_activation_feedback(shell: Control) -> void:
 		var feedback_before: int = feedback.get("play_count")
 		var capacity_feedback_before: int = tray.get("capacity_feedback_count")
 		var pair_feedback_before: int = shell.get("_pair_feedback_count")
+		var assisted_selections_before: int = shell.get("_assisted_clear_selection_count")
+		var assisted_pairs_before: int = shell.get("_assisted_clear_completed_pair_count")
 		shell.call("_on_tile_selected", pair[0])
 		await create_timer(0.28).timeout
 		shell.call("_on_tile_selected", pair[1])
@@ -1298,23 +1406,46 @@ func _verify_modifier_activation_feedback(shell: Control) -> void:
 			"three_pair_clear":
 				var transaction: Variant = game.call("last_transaction")
 				var assisted_pairs: Array = transaction.telemetry.get("auto_clear_pairs", [])
-				_check(assisted_pairs.size() > 0 and assisted_pairs.size() <= 3, "Three Pair Clear records its available ordered visual sequence")
-				_check(shell.get("_auto_clear_animation_active"), "Three Pair Clear blocks input during its serial presentation")
-				await create_timer(1.65).timeout
+				_check(assisted_pairs.size() > 0 and assisted_pairs.size() <= 3, "Three Pair Clear records its deterministic input route")
+				_check(game.board.call("is_tile_selectable", assisted_pairs[0][0]), "Three Pair Clear leaves its first target on the Board before automation")
+				_check(shell.get("_auto_clear_animation_active"), "Three Pair Clear locks user input during its automated actions")
+				_check(is_equal_approx(float(shell.get("assisted_clear_activation_hold_seconds")), 0.15), "Three Pair Clear holds briefly before beginning its automated selections")
+				_check(is_equal_approx(float(shell.get("assisted_clear_selection_interval_seconds")), 0.05), "Three Pair Clear uses a 50 ms two-tile selection cadence")
+				_check(is_equal_approx(float(shell.get("assisted_clear_pair_interval_seconds")), 0.55), "Three Pair Clear advances quickly between completed pairs")
+				var locked_revision: int = game.revision
+				shell.call("_on_tile_selected", assisted_pairs[0][0])
+				_check_equal(locked_revision, game.revision, "Three Pair Clear rejects direct Board input while automation owns the turn")
+				await create_timer(0.75).timeout
+				_check_equal(assisted_selections_before, shell.get("_assisted_clear_selection_count"), "Three Pair Clear preserves an anticipation beat before its first pair")
+				var remaining_sequence_seconds: float = assisted_pairs.size() * (
+					float(shell.get("assisted_clear_selection_interval_seconds"))
+					+ float(shell.get("assisted_clear_pair_interval_seconds"))
+				) + 0.80
+				await create_timer(remaining_sequence_seconds).timeout
+				_check_equal(assisted_selections_before + assisted_pairs.size() * 2, shell.get("_assisted_clear_selection_count"), "Three Pair Clear performs two ordinary selections per planned pair")
+				_check_equal(assisted_pairs_before + assisted_pairs.size(), shell.get("_assisted_clear_completed_pair_count"), "Three Pair Clear completes each planned pair through normal matching")
 				_check_equal(pair_feedback_before + 1 + assisted_pairs.size(), shell.get("_pair_feedback_count"), "Three Pair Clear presents its trigger and assisted pairs")
-				_check(not shell.get("_auto_clear_animation_active"), "Three Pair Clear releases input after the third pair")
+				_check(not shell.get("_auto_clear_animation_active"), "Three Pair Clear releases input after its planned pairs")
 			"bomb":
 				var transaction: Variant = game.call("last_transaction")
 				var bomb_pairs: Array = transaction.telemetry.get("auto_clear_pairs", [])
 				_check_equal("bomb", transaction.telemetry.get("auto_clear_type", ""), "Bomb selects its distinct formation presentation")
-				_check(bomb_pairs.size() > 0 and bomb_pairs.size() <= 5, "Bomb records up to five random pair targets")
+				_check(is_equal_approx(float(shell.get("bomb_chain_interval_seconds")), 0.05), "Bomb detonates its final pair chain at a 50 ms cadence")
+				_check(
+					bomb_pairs.size() > 0 and bomb_pairs.size() <= 5,
+					"playtest Bomb records every available target up to its five-pair limit"
+				)
 				_check_equal(1, shell.get("_bomb_formation_count"), "Bomb starts one responsive two-column formation")
 				var formation_targets: Array = shell.get("_last_bomb_formation_targets")
 				_check_equal(bomb_pairs.size(), formation_targets.size(), "Bomb forms one left/right row for every selected pair")
+				var collision_targets: Array = shell.get("_last_bomb_collision_targets")
+				_check_equal(bomb_pairs.size(), collision_targets.size(), "Bomb builds one centered collision row per selected pair")
 				for row in formation_targets:
 					_check(row[0].get_center().x < shell.get("_regions").board.get_global_rect().get_center().x, "Bomb first tile forms left of Board center")
 					_check(row[1].get_center().x > shell.get("_regions").board.get_global_rect().get_center().x, "Bomb mate forms right of Board center")
-				await create_timer(1.65).timeout
+				for target in collision_targets:
+					_check(is_equal_approx(target.get_center().x, shell.get("_regions").board.get_global_rect().get_center().x), "Bomb pair collapses into the centered vertical stack")
+				await create_timer(2.8).timeout
 				_check_equal(pair_feedback_before + 1 + bomb_pairs.size(), shell.get("_pair_feedback_count"), "Bomb presents its trigger and fast collision chain")
 				_check(not shell.get("_auto_clear_animation_active"), "Bomb releases input after its collision chain")
 		await create_timer(0.55).timeout

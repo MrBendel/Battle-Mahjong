@@ -338,18 +338,21 @@ func _build_select(command: Variant, definition: Variant, state: Variant, timeli
 	if not auto_clear_pairs.is_empty():
 		telemetry["auto_clear_pairs"] = auto_clear_pairs
 		telemetry["auto_clear_type"] = assisted_clear.type
-		var assisted_pair_count := auto_clear_pairs.size()
-		changes.append(GameChangeScript.new(
-			GameChangeScript.COUNTER,
-			"resolved_pair_count",
-			state.resolved_pair_count + 1,
-			state.resolved_pair_count + 1 + assisted_pair_count
-		))
-		selection_count_after += assisted_pair_count * 2
-		if tray_bonus_pairs_remaining_after > 0:
-			tray_bonus_pairs_remaining_after = maxi(0, tray_bonus_pairs_remaining_after - assisted_pair_count)
-			if tray_bonus_pairs_remaining_after == 0:
-				tray_bonus_capacity_after = 0
+		var resolves_atomically: bool = assisted_clear.type == ModifierLoadoutScript.BOMB \
+			or definition.rules_version < 18
+		if resolves_atomically:
+			var assisted_pair_count := auto_clear_pairs.size()
+			changes.append(GameChangeScript.new(
+				GameChangeScript.COUNTER,
+				"resolved_pair_count",
+				state.resolved_pair_count + 1,
+				state.resolved_pair_count + 1 + assisted_pair_count
+			))
+			selection_count_after += assisted_pair_count * 2
+			if tray_bonus_pairs_remaining_after > 0:
+				tray_bonus_pairs_remaining_after = maxi(0, tray_bonus_pairs_remaining_after - assisted_pair_count)
+				if tray_bonus_pairs_remaining_after == 0:
+					tray_bonus_capacity_after = 0
 
 	changes.append(GameChangeScript.new(GameChangeScript.TRAY, "tray_tile_ids", tray_before, tray_after))
 	_append_counter_change(changes, "selection_count", state.selection_count, selection_count_after)
@@ -505,24 +508,28 @@ func _build_reveal(command: Variant, definition: Variant, state: Variant, timeli
 	)
 	var auto_clear_pairs: Array = assisted_clear.pairs
 	if not auto_clear_pairs.is_empty():
-		var assisted_pair_count := auto_clear_pairs.size()
-		changes.append(GameChangeScript.new(
-			GameChangeScript.COUNTER,
-			"resolved_pair_count",
-			state.resolved_pair_count + 1,
-			state.resolved_pair_count + 1 + assisted_pair_count
-		))
-		changes.append(GameChangeScript.new(
-			GameChangeScript.COUNTER,
-			"selection_count",
-			state.selection_count + selection_increment,
-			state.selection_count + selection_increment + assisted_pair_count * 2
-		))
+		var resolves_atomically: bool = assisted_clear.type == ModifierLoadoutScript.BOMB \
+			or definition.rules_version < 18
+		if resolves_atomically:
+			var assisted_pair_count := auto_clear_pairs.size()
+			changes.append(GameChangeScript.new(
+				GameChangeScript.COUNTER,
+				"resolved_pair_count",
+				state.resolved_pair_count + 1,
+				state.resolved_pair_count + 1 + assisted_pair_count
+			))
+			changes.append(GameChangeScript.new(
+				GameChangeScript.COUNTER,
+				"selection_count",
+				state.selection_count + selection_increment,
+				state.selection_count + selection_increment + assisted_pair_count * 2
+			))
 	var tray_bonus_pairs_after: int = int(modifier_values.tray_bonus_pairs_remaining)
 	var tray_bonus_capacity_after: int = int(modifier_values.tray_bonus_capacity)
 	if tray_bonus_pairs_after > 0 and not bool(modifier_values.tray_bonus_triggered):
 		tray_bonus_pairs_after -= 1
-		tray_bonus_pairs_after = maxi(0, tray_bonus_pairs_after - auto_clear_pairs.size())
+		if assisted_clear.type == ModifierLoadoutScript.BOMB or definition.rules_version < 18:
+			tray_bonus_pairs_after = maxi(0, tray_bonus_pairs_after - auto_clear_pairs.size())
 		if tray_bonus_pairs_after == 0:
 			tray_bonus_capacity_after = 0
 	_append_counter_change(changes, "extra_life_charges", state.extra_life_charges, int(modifier_values.extra_life_charges))
@@ -738,24 +745,28 @@ func _build_delete_pair(command: Variant, definition: Variant, state: Variant) -
 	)
 	var auto_clear_pairs: Array = assisted_clear.pairs
 	if not auto_clear_pairs.is_empty():
-		var assisted_pair_count := auto_clear_pairs.size()
-		changes.append(GameChangeScript.new(
-			GameChangeScript.COUNTER,
-			"resolved_pair_count",
-			state.resolved_pair_count + 1,
-			state.resolved_pair_count + 1 + assisted_pair_count
-		))
-		changes.append(GameChangeScript.new(
-			GameChangeScript.COUNTER,
-			"selection_count",
-			state.selection_count + 2,
-			state.selection_count + 2 + assisted_pair_count * 2
-		))
+		var resolves_atomically: bool = assisted_clear.type == ModifierLoadoutScript.BOMB \
+			or definition.rules_version < 18
+		if resolves_atomically:
+			var assisted_pair_count := auto_clear_pairs.size()
+			changes.append(GameChangeScript.new(
+				GameChangeScript.COUNTER,
+				"resolved_pair_count",
+				state.resolved_pair_count + 1,
+				state.resolved_pair_count + 1 + assisted_pair_count
+			))
+			changes.append(GameChangeScript.new(
+				GameChangeScript.COUNTER,
+				"selection_count",
+				state.selection_count + 2,
+				state.selection_count + 2 + assisted_pair_count * 2
+			))
 	var tray_bonus_pairs_after: int = int(modifier_values.tray_bonus_pairs_remaining)
 	var tray_bonus_capacity_after: int = int(modifier_values.tray_bonus_capacity)
 	if tray_bonus_pairs_after > 0 and not bool(modifier_values.tray_bonus_triggered):
 		tray_bonus_pairs_after -= 1
-		tray_bonus_pairs_after = maxi(0, tray_bonus_pairs_after - auto_clear_pairs.size())
+		if assisted_clear.type == ModifierLoadoutScript.BOMB or definition.rules_version < 18:
+			tray_bonus_pairs_after = maxi(0, tray_bonus_pairs_after - auto_clear_pairs.size())
 		if tray_bonus_pairs_after == 0:
 			tray_bonus_capacity_after = 0
 	_append_counter_change(changes, "extra_life_charges", state.extra_life_charges, int(modifier_values.extra_life_charges))
@@ -842,8 +853,10 @@ func _append_assisted_pair_clear(
 	var trigger: Dictionary = triggered_modifiers[trigger_index]
 	var modifier_type := str(trigger.get("type", ""))
 	var effect: Dictionary = trigger.get("effect", {}).duplicate(true)
-	var default_pair_count := 5 if modifier_type == ModifierLoadoutScript.BOMB else 3
+	var default_pair_count := 1 if modifier_type == ModifierLoadoutScript.BOMB else 3
 	var pair_count := maxi(1, int(effect.get("pair_count", default_pair_count)))
+	if modifier_type == ModifierLoadoutScript.THREE_PAIR_CLEAR:
+		pair_count = mini(pair_count, 3)
 	var projected: Variant = state.duplicate_data()
 	for change in changes:
 		if change.type == GameChangeScript.TILE_ZONE:
@@ -864,21 +877,28 @@ func _append_assisted_pair_clear(
 				rng_state_after
 			))
 	else:
-		route = planner.call("build_route", definition, projected, pair_count)
+		route = planner.call(
+			"build_route",
+			definition,
+			projected,
+			pair_count,
+			definition.rules_version >= 16
+		)
 	effect["activated"] = not route.is_empty()
 	effect["cleared_pair_count"] = route.size()
 	trigger["effect"] = effect
 	triggered_modifiers[trigger_index] = trigger
 	if route.is_empty():
 		return {"pairs": [], "type": modifier_type}
-	for pair in route:
-		for tile_id in pair:
-			changes.append(GameChangeScript.new(
-				GameChangeScript.TILE_ZONE,
-				str(tile_id),
-				GameStateDataScript.ZONE_BOARD,
-				GameStateDataScript.ZONE_RESOLVED
-			))
+	if modifier_type == ModifierLoadoutScript.BOMB or definition.rules_version < 18:
+		for pair in route:
+			for tile_id in pair:
+				changes.append(GameChangeScript.new(
+					GameChangeScript.TILE_ZONE,
+					str(tile_id),
+					GameStateDataScript.ZONE_BOARD,
+					GameStateDataScript.ZONE_RESOLVED
+				))
 	return {"pairs": route, "type": modifier_type}
 
 

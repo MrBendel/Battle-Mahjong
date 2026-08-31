@@ -49,6 +49,32 @@ func create_modifier_playtest_definition(
 	).get("definition")
 
 
+func create_selected_modifier_definition(
+		seed: int,
+		tray_capacity: int = 4,
+		configuration_overrides: Dictionary = {},
+		layout_id: String = BoardLayoutCatalogScript.DEFAULT_LAYOUT_ID,
+		modifier_loadout: Array = []
+) -> Variant:
+	var layout: Variant = BoardLayoutCatalogScript.new().call("get_layout", layout_id)
+	if layout == null:
+		push_error("Unknown board layout: %s" % layout_id)
+		return null
+	var overrides := configuration_overrides.duplicate(true)
+	overrides["modifier_loadout_capacity"] = maxi(
+		int(overrides.get("modifier_loadout_capacity", 0)),
+		modifier_loadout.size()
+	)
+	return create_generated_for_layout(
+		seed,
+		layout,
+		tray_capacity,
+		overrides,
+		modifier_loadout,
+		true
+	).get("definition")
+
+
 func create_generated(
 		seed: int,
 		tray_capacity: int = 4,
