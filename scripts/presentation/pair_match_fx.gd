@@ -5,8 +5,9 @@ const DEFAULT_SIZE := Vector2(104.0, 104.0)
 const IMPACT_BURST := preload("res://game-assets/fx/match_impact_burst.png")
 const SMOKE_TUFT := preload("res://game-assets/fx/match_smoke_tuft.png")
 const SMOKE_PARTICLE_COUNT := 6
-const BURST_EXPAND_SECONDS := 0.055
-const BURST_FADE_SECONDS := 0.075
+const BURST_EXPAND_SECONDS := 0.07
+const BURST_HOLD_SECONDS := 0.07
+const BURST_FADE_SECONDS := 0.12
 
 var play_count := 0
 var _burst: TextureRect
@@ -77,9 +78,11 @@ func _play_impact_burst() -> void:
 	_burst.rotation = deg_to_rad(float((play_count * 37) % 90) - 45.0)
 	_burst_tween = create_tween().set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
 	_burst_tween.tween_property(_burst, "scale", Vector2.ONE * 1.08, BURST_EXPAND_SECONDS)
+	_burst_tween.tween_interval(BURST_HOLD_SECONDS)
 	_burst_tween.chain().set_parallel(true)
 	_burst_tween.tween_property(_burst, "scale", Vector2.ONE * 1.30, BURST_FADE_SECONDS)
-	_burst_tween.tween_property(_burst, "modulate:a", 0.0, BURST_FADE_SECONDS)
+	_burst_tween.tween_property(_burst, "modulate:a", 0.0, BURST_FADE_SECONDS) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	_burst_tween.finished.connect(func() -> void:
 		_burst.visible = false
 		_burst_tween = null

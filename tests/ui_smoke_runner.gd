@@ -546,6 +546,9 @@ func _run() -> void:
 		if active_match_fx != null:
 			var impact_burst: TextureRect = active_match_fx.get_node("ImpactBurst")
 			var smoke_particles: CPUParticles2D = active_match_fx.get_node("SmokeParticles")
+			var rendered_fx_center: Vector2 = active_match_fx.get_global_transform_with_canvas() \
+				* active_match_fx.pivot_offset
+			_check(rendered_fx_center.is_equal_approx(shell.get("_last_pair_feedback_position")), "match FX centers on the recorded collision point")
 			_check(is_equal_approx(float(shell.get("match_fx_scale_multiplier")), 1.30), "match smoke uses the enlarged performance-neutral default scale")
 			var expected_fx_scale := PresentationScaleScript.safe_display_scale(
 				shell.get_viewport_rect().size,
@@ -574,6 +577,8 @@ func _run() -> void:
 			await process_frame
 			_check(smoke_particles.emitting, "pooled match smoke explicitly rearms after one-shot completion")
 			await create_timer(0.15).timeout
+			_check(impact_burst.visible and impact_burst.modulate.a > 0.45, "impact burst remains readable through its hold beat")
+			await create_timer(0.12).timeout
 			_check(not impact_burst.visible, "impact burst finishes before the smoke tail")
 			_check(is_equal_approx(float(smoke_particles.scale_amount_min), 0.50), "match smoke tufts remain readable at gameplay scale")
 		_check_equal(1, live_game.tray.resolved_pair_count, "match feedback follows a committed pair transaction")

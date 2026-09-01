@@ -1426,13 +1426,14 @@ func _spawn_match_burst(global_center: Vector2) -> void:
 	var burst: Control = _pair_match_fx_pool[_next_pair_match_fx_index]
 	_next_pair_match_fx_index = (_next_pair_match_fx_index + 1) % _pair_match_fx_pool.size()
 	_last_match_fx = burst
-	burst.position = _global_to_local(global_center) - burst.size * 0.5
 	_last_match_fx_scale = PresentationScaleScript.safe_display_scale(
 		get_viewport_rect().size,
 		_get_safe_area_insets(),
 		PORTRAIT_REFERENCE_SIZE
 	) * match_fx_scale_multiplier
 	burst.scale = Vector2.ONE * _last_match_fx_scale
+	# The pivot is the visual center, so place it only after responsive scale is final.
+	burst.position = _global_to_local(global_center) - burst.pivot_offset
 	burst.z_index = 1001
 	burst.call("play")
 
