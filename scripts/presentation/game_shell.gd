@@ -925,7 +925,7 @@ func _finish_tile_to_tray(preview: Control, tile_id: String) -> void:
 		preview.queue_free()
 
 
-func _take_active_tile_transfer(tile_id: String) -> Control:
+func _take_active_tile_transfer(tile_id: String, reveal_destination := true) -> Control:
 	var preview: Control = _tile_transfer_previews.get(tile_id)
 	if preview == null:
 		return null
@@ -934,7 +934,8 @@ func _take_active_tile_transfer(tile_id: String) -> Control:
 		tween.kill()
 	_tile_transfer_previews.erase(tile_id)
 	_tile_transfer_tweens.erase(tile_id)
-	_regions.tray.call("reveal_tile", tile_id)
+	if reveal_destination:
+		_regions.tray.call("reveal_tile", tile_id)
 	return preview
 
 
@@ -986,9 +987,9 @@ func _prepare_pair_to_tray(incoming: Control, held: Control, source_rect: Rect2,
 	if held != null:
 		if held.get_parent() == null:
 			add_child(held)
-		held.position = _global_to_local(held_source_rect.position)
-		held.size = held_source_rect.size
-		held.pivot_offset = held.size * 0.5
+			held.position = _global_to_local(held_source_rect.position)
+			held.size = held_source_rect.size
+			held.pivot_offset = held.size * 0.5
 		held.z_index = 999
 
 
@@ -1003,6 +1004,11 @@ func _start_pair_to_tray_motion(incoming: Control, held: Control, target_rect: R
 	tween.tween_property(incoming, "position", target_position, tile_transfer_seconds)
 	tween.tween_property(incoming, "scale", _preview_scale_for_rect(incoming, target_rect), tile_transfer_seconds)
 	tween.tween_property(incoming, "rotation", deg_to_rad(4.0), tile_transfer_seconds)
+	if held != null and is_instance_valid(held):
+		var held_target_position := _global_to_local(held_source_rect.get_center()) - held.size * 0.5
+		tween.tween_property(held, "position", held_target_position, tile_transfer_seconds)
+		tween.tween_property(held, "scale", _preview_scale_for_rect(held, held_source_rect), tile_transfer_seconds)
+		tween.tween_property(held, "rotation", deg_to_rad(-4.0), tile_transfer_seconds)
 	tween.chain().tween_interval(PAIR_LANDING_HOLD_SECONDS)
 	tween.finished.connect(_play_pair_collision.bind(incoming, held, target_rect, held_source_rect))
 
@@ -1336,9 +1342,10 @@ func _capture_tray_visual(index: int) -> Dictionary:
 	if index < 0 or index >= _game.tray.tiles.size():
 		return {}
 	var tile_id := str(_game.tray.tiles[index].id)
-	var preview: Control = _take_active_tray_compaction(tile_id)
-	var source_rect: Rect2 = preview.get_global_rect() if preview != null \
-		else _regions.tray.call("slot_global_rect", index)
+	var preview: Control = _take_active_tile_transfer(tile_id, false)
+	if preview == null:
+		preview = _take_active_tray_compaction(tile_id)
+	var source_rect: Rect2 = _regions.tray.call("slot_global_rect", index)
 	if preview == null:
 		preview = _regions.tray.call("create_tile_preview", index)
 	return {"tile_id": tile_id, "preview": preview, "rect": source_rect}
