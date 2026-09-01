@@ -6,6 +6,7 @@ const BoardLayoutCatalogScript := preload("res://scripts/simulation/board_layout
 const LayoutSolutionPlannerScript := preload("res://scripts/simulation/layout_solution_planner.gd")
 const GameStateDataScript := preload("res://scripts/simulation/game_state_data.gd")
 const MatchSmokeTuft := preload("res://game-assets/fx/match_smoke_tuft.png")
+const MatchImpactBurst := preload("res://game-assets/fx/match_impact_burst.png")
 const PresentationScaleScript := preload("res://scripts/presentation/presentation_scale.gd")
 
 var _failures := 0
@@ -539,10 +540,11 @@ func _run() -> void:
 		var live_smoke_emitters := shell.find_children("SmokeParticles", "CPUParticles2D", true, false)
 		_check(not live_smoke_emitters.is_empty(), "pair collision composes a shared spark-and-smoke effect")
 		_check_equal(Vector2(64.0, 64.0), MatchSmokeTuft.get_size(), "match particles use the compact smoke-tuft texture")
-		_check_equal(2, shell.get("_pair_match_fx_pool").size(), "match smoke reuses a two-emitter pool")
+		_check_equal(6, shell.get("_pair_match_fx_pool").size(), "layered match FX pool covers every hit in a six-pair Bomb chain")
 		var active_match_fx: Control = shell.get("_last_match_fx")
 		_check(active_match_fx != null, "pair collision records its reused smoke emitter")
 		if active_match_fx != null:
+			var impact_burst: TextureRect = active_match_fx.get_node("ImpactBurst")
 			var smoke_particles: CPUParticles2D = active_match_fx.get_node("SmokeParticles")
 			_check(is_equal_approx(float(shell.get("match_fx_scale_multiplier")), 1.30), "match smoke uses the enlarged performance-neutral default scale")
 			var expected_fx_scale := PresentationScaleScript.safe_display_scale(
@@ -553,7 +555,9 @@ func _run() -> void:
 			_check(active_match_fx.scale.is_equal_approx(Vector2.ONE * expected_fx_scale), "match smoke scales responsively with the safe display")
 			_check(int(active_match_fx.get("play_count")) >= 2, "match smoke reuses its startup-warmed emitter")
 			_check(not smoke_particles.get_parent().is_processing(), "match smoke uses no per-frame GDScript processing")
-			_check_equal(1, smoke_particles.get_parent().get_child_count(), "each match burst owns one smoke emitter")
+			_check_equal(2, smoke_particles.get_parent().get_child_count(), "each match effect owns one impact burst and one smoke emitter")
+			_check_equal(MatchImpactBurst, impact_burst.texture, "pair collision uses the compact shared impact-burst texture")
+			_check(impact_burst.material is CanvasItemMaterial and impact_burst.material.blend_mode == CanvasItemMaterial.BLEND_MODE_ADD, "impact burst uses one additive sprite layer")
 			_check_equal(6, smoke_particles.amount, "match smoke stays within its six-particle mobile budget")
 			_check(smoke_particles.one_shot, "match smoke uses one-shot particle emission")
 			_check_equal(MatchSmokeTuft, smoke_particles.texture, "match smoke particles share one tuft texture")
@@ -566,8 +570,11 @@ func _run() -> void:
 			_check(smoke_colors[0].a >= 0.85, "match smoke is visible on the collision frame instead of fading in late")
 			smoke_particles.emitting = false
 			active_match_fx.call("play")
+			_check(impact_burst.visible and impact_burst.modulate.a > 0.80, "impact burst is visible on the exact collision frame")
 			await process_frame
 			_check(smoke_particles.emitting, "pooled match smoke explicitly rearms after one-shot completion")
+			await create_timer(0.15).timeout
+			_check(not impact_burst.visible, "impact burst finishes before the smoke tail")
 			_check(is_equal_approx(float(smoke_particles.scale_amount_min), 0.50), "match smoke tufts remain readable at gameplay scale")
 		_check_equal(1, live_game.tray.resolved_pair_count, "match feedback follows a committed pair transaction")
 		_check_equal(1, live_game.call("combo_at", shell.call("_playback_time_ms")), "natural pair starts the live Combo readout")

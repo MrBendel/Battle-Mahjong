@@ -44,7 +44,7 @@ const PAIR_COLLISION_SECONDS := 0.10
 const PAIR_POP_EXPAND_SECONDS := 0.08
 const PAIR_POP_FADE_SECONDS := 0.13
 const PAIR_POP_SECONDS := PAIR_POP_EXPAND_SECONDS + PAIR_POP_FADE_SECONDS
-const PAIR_MATCH_FX_POOL_SIZE := 2
+const PAIR_MATCH_FX_POOL_SIZE := 6
 
 @export var momentum_tuning: Resource
 @export var modifier_tuning: Resource

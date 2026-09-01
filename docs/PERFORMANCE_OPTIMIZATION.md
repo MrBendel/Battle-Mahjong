@@ -95,7 +95,7 @@ Primary-device animation profiling ran on a Pixel 11 Pro XL at `1080 x 2404`, 60
 | Natural pair, transient CPU smoke (3 runs) | 16.66-16.67 ms | 16.68-16.73 ms | 33.36-50.04 ms | 1 per run |
 | Natural pair, warmed pooled CPU smoke (3 runs) | 16.67 ms | 16.70-16.71 ms | 16.71-16.76 ms | 0 |
 
-The controlled progression isolates match-time particle creation and first use as the hitch. A startup-warmed two-emitter `CPUParticles2D` pool preserves the six-tuft effect while matching the no-smoke control. Keep raw evidence under the ignored `build/performance/android/` directory and repeat this capture after material FX changes.
+The controlled progression isolates match-time particle creation and first use as the hitch. A startup-warmed six-entry pool preserves the six-tuft effect while covering every hit in the fastest six-pair Bomb chain without restarting an active emitter. Each entry also owns one compact additive impact sprite, giving the collision frame a deterministic visual mark without adding particles or per-frame GDScript. Keep raw evidence under the ignored `build/performance/android/` directory and repeat this capture after material FX changes.
 
 ## Current Rendering Cost Centers
 
