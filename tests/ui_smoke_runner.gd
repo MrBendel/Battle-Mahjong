@@ -788,7 +788,14 @@ func _run() -> void:
 	if loss_tiles.size() == 4:
 		for tile in loss_tiles:
 			shell.call("_on_tile_selected", tile.id)
+		_check(not end_game_menu.visible, "%s end game menu waits for the losing tile transfer" % orientation)
+		_check(shell.get("_game_over_pending"), "%s terminal state records pending game-over presentation" % orientation)
+		_check(not shell.get("_regions").tray.get("_slot_art")[3].visible, "%s final tray slot stays hidden during the losing transfer" % orientation)
+		await create_timer(0.12).timeout
+		_check(not end_game_menu.visible, "%s end game menu remains hidden while the losing tile is moving" % orientation)
+		await create_timer(0.16).timeout
 		_check(end_game_menu != null and end_game_menu.visible, "%s end game menu displays on loss" % orientation)
+		_check(shell.get("_regions").tray.get("_slot_art")[3].visible, "%s losing tile is visible in the full tray before game over" % orientation)
 		if end_game_menu != null and end_game_menu.visible:
 			var result_panel: Control = end_game_menu.get("_panel")
 			var result_safe_rect := SafeAreaScript.content_rect(

@@ -133,6 +133,7 @@ var _pause_menu: Control
 var _end_game_menu: Control
 var _pause_started_at_ms := -1
 var _game_over_time_ms := -1
+var _game_over_pending := false
 var _paused_duration_ms := 0
 var _performance_callout: Control
 var _modifier_feedback: Control
@@ -295,6 +296,7 @@ func _on_end_game_undo_requested() -> void:
 	if _end_game_menu != null:
 		_end_game_menu.call("close")
 	_game_over_time_ms = -1
+	_game_over_pending = false
 	if _pause_button != null:
 		_pause_button.visible = true
 	_on_undo_requested()
@@ -401,6 +403,7 @@ func _on_modifier_loadout_started(loadout: Array) -> void:
 		_modifier_picker = null
 	_pause_started_at_ms = -1
 	_game_over_time_ms = -1
+	_game_over_pending = false
 	_pause_menu.call("close")
 	_end_game_menu.call("close")
 	_game = _create_game()
@@ -748,6 +751,7 @@ func _on_restart_requested() -> void:
 	_shuffle_animation_active = false
 	_pause_started_at_ms = -1
 	_game_over_time_ms = -1
+	_game_over_pending = false
 	_paused_duration_ms = 0
 	if _pause_menu != null:
 		_pause_menu.call("close")
@@ -891,12 +895,26 @@ func _refresh_game_views() -> void:
 func _check_game_over() -> void:
 	if _game == null or _game.status == GameStateScript.PLAYING:
 		return
-	if _game_over_time_ms < 0:
-		_game_over_time_ms = _playback_time_ms()
-		if _pause_button != null:
-			_pause_button.visible = false
-		if _end_game_menu != null:
-			_end_game_menu.call("show_result", _game, _game_over_time_ms)
+	if _game_over_time_ms >= 0 or _game_over_pending:
+		return
+	_game_over_pending = true
+	call_deferred("_present_game_over_if_ready")
+
+
+func _present_game_over_if_ready() -> void:
+	if not _game_over_pending:
+		return
+	if _game == null or _game.status == GameStateScript.PLAYING:
+		_game_over_pending = false
+		return
+	if not _tile_transfer_previews.is_empty():
+		return
+	_game_over_pending = false
+	_game_over_time_ms = _playback_time_ms()
+	if _pause_button != null:
+		_pause_button.visible = false
+	if _end_game_menu != null:
+		_end_game_menu.call("show_result", _game, _game_over_time_ms)
 
 
 func _play_tile_to_tray(preview: Control, source_rect: Rect2, target_rect: Rect2, tile_id: String) -> void:
@@ -921,10 +939,12 @@ func _finish_tile_to_tray(preview: Control, tile_id: String) -> void:
 	_tile_transfer_previews.erase(tile_id)
 	_tile_transfer_tweens.erase(tile_id)
 	if bool(preview.get_meta("pair_owns_transfer", false)):
+		_present_game_over_if_ready()
 		return
 	_regions.tray.call("reveal_tile", tile_id)
 	if is_instance_valid(preview):
 		preview.queue_free()
+	_present_game_over_if_ready()
 
 
 func _take_active_tile_transfer(tile_id: String) -> Control:
