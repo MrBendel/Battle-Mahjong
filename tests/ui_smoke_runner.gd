@@ -587,11 +587,13 @@ func _run() -> void:
 		var active_match_fx: Control = shell.get("_last_match_fx")
 		_check(active_match_fx != null, "pair collision records its reused smoke emitter")
 		if active_match_fx != null:
-			var impact_burst: TextureRect = active_match_fx.get_node("ImpactBurst")
+			var impact_burst: Sprite2D = active_match_fx.get_node("ImpactBurst")
 			var smoke_particles: CPUParticles2D = active_match_fx.get_node("SmokeParticles")
 			var rendered_fx_center: Vector2 = active_match_fx.get_global_transform_with_canvas() \
 				* active_match_fx.pivot_offset
 			_check(rendered_fx_center.is_equal_approx(shell.get("_last_pair_feedback_position")), "match FX centers on the recorded collision point")
+			var rendered_burst_center := impact_burst.get_global_transform_with_canvas() * Vector2.ZERO
+			_check(rendered_burst_center.is_equal_approx(shell.get("_last_pair_feedback_position")), "impact graphic origin centers exactly on the matched pair")
 			_check(is_equal_approx(float(shell.get("match_fx_scale_multiplier")), 1.30), "match smoke uses the enlarged performance-neutral default scale")
 			var expected_fx_scale := PresentationScaleScript.safe_display_scale(
 				shell.get_viewport_rect().size,
@@ -604,6 +606,7 @@ func _run() -> void:
 			_check_equal(2, smoke_particles.get_parent().get_child_count(), "each match effect owns one impact burst and one smoke emitter")
 			_check_equal(MatchImpactBurst, impact_burst.texture, "pair collision uses the compact shared impact-burst texture")
 			_check(impact_burst.material is CanvasItemMaterial and impact_burst.material.blend_mode == CanvasItemMaterial.BLEND_MODE_ADD, "impact burst uses one additive sprite layer")
+			_check(impact_burst.scale.x <= 0.66, "impact graphic uses the reduced half-size footprint")
 			_check_equal(6, smoke_particles.amount, "match smoke stays within its six-particle mobile budget")
 			_check(smoke_particles.one_shot, "match smoke uses one-shot particle emission")
 			_check_equal(MatchSmokeTuft, smoke_particles.texture, "match smoke particles share one tuft texture")
