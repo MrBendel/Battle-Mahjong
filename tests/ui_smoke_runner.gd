@@ -474,19 +474,44 @@ func _run() -> void:
 		_check(shell.get("_regions").board.get("_tile_buttons")[undo_tile_id].visible, "restored board tile appears when Undo animation lands")
 		shell.call("_on_restart_requested")
 		live_game = shell.get("_game")
+	var rapid_nonmatch_first := ""
+	for candidate in live_game.board.call("selectable_tiles"):
+		rapid_nonmatch_first = candidate.id
+		break
+	_check(not rapid_nonmatch_first.is_empty(), "reference game exposes a tile for rapid non-match transfer")
+	if not rapid_nonmatch_first.is_empty():
+		shell.call("_on_tile_selected", rapid_nonmatch_first)
+		await create_timer(0.05).timeout
+		var nonmatch_transfer: Control = shell.get("_tile_transfer_previews").get(rapid_nonmatch_first)
+		var nonmatch_tween: Tween = shell.get("_tile_transfer_tweens").get(rapid_nonmatch_first)
+		var nonmatch_position_before_second := nonmatch_transfer.position
+		var rapid_nonmatch_second := _find_selectable_distinct_from_tray(live_game, rapid_nonmatch_first)
+		_check(not rapid_nonmatch_second.is_empty(), "reference game exposes a second rapid non-matching tile")
+		if not rapid_nonmatch_second.is_empty():
+			shell.call("_on_tile_selected", rapid_nonmatch_second)
+			_check_equal(nonmatch_tween, shell.get("_tile_transfer_tweens").get(rapid_nonmatch_first), "rapid non-match preserves the first tile's original tween")
+			_check(nonmatch_transfer.position.is_equal_approx(nonmatch_position_before_second), "rapid non-match does not snap the first tile into its slot")
+			var rapid_nonmatch_slot_art: TextureRect = shell.get("_regions").tray.get("_slot_art")[0]
+			_check(not rapid_nonmatch_slot_art.visible, "rapid non-match keeps the first real tray tile suppressed during transfer")
+			await create_timer(0.08).timeout
+			_check(not nonmatch_transfer.position.is_equal_approx(nonmatch_position_before_second), "first transfer continues moving after a rapid non-match")
+		await create_timer(0.30).timeout
+		shell.call("_on_restart_requested")
+		live_game = shell.get("_game")
 	var rapid_pair := _find_rewardable_pair(live_game)
 	_check_equal(2, rapid_pair.size(), "reference game exposes a pair for rapid in-flight matching")
 	if rapid_pair.size() == 2:
 		shell.call("_on_tile_selected", rapid_pair[0])
 		await create_timer(0.05).timeout
 		var held_transfer: Control = shell.get("_tile_transfer_previews").get(rapid_pair[0])
+		var held_tween: Tween = shell.get("_tile_transfer_tweens").get(rapid_pair[0])
 		var child_count_before_mate := shell.get_child_count()
 		var held_position_before_mate := held_transfer.position
 		shell.call("_on_tile_selected", rapid_pair[1])
 		_check_equal(0, live_game.tray.tiles.size(), "rapid match resolves authoritative tray immediately")
-		_check(not shell.get("_tile_transfer_previews").has(rapid_pair[0]), "rapid match takes ownership of the in-flight held preview")
+		_check_equal(held_tween, shell.get("_tile_transfer_tweens").get(rapid_pair[0]), "rapid match preserves the held tile's original tween")
 		_check_equal(child_count_before_mate + 1, shell.get_child_count(), "rapid match adds only the incoming preview without duplicating the held tile")
-		_check(is_instance_valid(held_transfer) and held_transfer.position.is_equal_approx(held_position_before_mate), "rapid match does not teleport the held preview into its slot")
+		_check(is_instance_valid(held_transfer) and held_transfer.position.is_equal_approx(held_position_before_mate), "rapid match does not stop or restart the held preview")
 		var rapid_first_slot_art: TextureRect = shell.get("_regions").tray.get("_slot_art")[0]
 		_check(not rapid_first_slot_art.visible, "rapid match keeps the real tray tile hidden behind its in-flight preview")
 		await create_timer(0.75).timeout

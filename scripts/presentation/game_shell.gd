@@ -920,12 +920,14 @@ func _play_tile_to_tray(preview: Control, source_rect: Rect2, target_rect: Rect2
 func _finish_tile_to_tray(preview: Control, tile_id: String) -> void:
 	_tile_transfer_previews.erase(tile_id)
 	_tile_transfer_tweens.erase(tile_id)
+	if bool(preview.get_meta("pair_owns_transfer", false)):
+		return
 	_regions.tray.call("reveal_tile", tile_id)
 	if is_instance_valid(preview):
 		preview.queue_free()
 
 
-func _take_active_tile_transfer(tile_id: String, reveal_destination := true) -> Control:
+func _take_active_tile_transfer(tile_id: String) -> Control:
 	var preview: Control = _tile_transfer_previews.get(tile_id)
 	if preview == null:
 		return null
@@ -934,8 +936,7 @@ func _take_active_tile_transfer(tile_id: String, reveal_destination := true) -> 
 		tween.kill()
 	_tile_transfer_previews.erase(tile_id)
 	_tile_transfer_tweens.erase(tile_id)
-	if reveal_destination:
-		_regions.tray.call("reveal_tile", tile_id)
+	_regions.tray.call("reveal_tile", tile_id)
 	return preview
 
 
@@ -1004,7 +1005,8 @@ func _start_pair_to_tray_motion(incoming: Control, held: Control, target_rect: R
 	tween.tween_property(incoming, "position", target_position, tile_transfer_seconds)
 	tween.tween_property(incoming, "scale", _preview_scale_for_rect(incoming, target_rect), tile_transfer_seconds)
 	tween.tween_property(incoming, "rotation", deg_to_rad(4.0), tile_transfer_seconds)
-	if held != null and is_instance_valid(held):
+	if held != null and is_instance_valid(held) \
+			and not bool(held.get_meta("pair_owns_transfer", false)):
 		var held_target_position := _global_to_local(held_source_rect.get_center()) - held.size * 0.5
 		tween.tween_property(held, "position", held_target_position, tile_transfer_seconds)
 		tween.tween_property(held, "scale", _preview_scale_for_rect(held, held_source_rect), tile_transfer_seconds)
@@ -1342,7 +1344,9 @@ func _capture_tray_visual(index: int) -> Dictionary:
 	if index < 0 or index >= _game.tray.tiles.size():
 		return {}
 	var tile_id := str(_game.tray.tiles[index].id)
-	var preview: Control = _take_active_tile_transfer(tile_id, false)
+	var preview: Control = _tile_transfer_previews.get(tile_id)
+	if preview != null:
+		preview.set_meta("pair_owns_transfer", true)
 	if preview == null:
 		preview = _take_active_tray_compaction(tile_id)
 	var source_rect: Rect2 = _regions.tray.call("slot_global_rect", index)
