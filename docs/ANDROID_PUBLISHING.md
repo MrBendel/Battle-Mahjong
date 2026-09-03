@@ -113,7 +113,8 @@ Configure the following secrets in GitHub Repository Settings (`Settings > Secre
 The game uses `UpdateChecker` (`res://scripts/presentation/update_checker.gd`) to handle update availability checks and trigger in-app updates or Play Store redirects:
 
 - **Native Play Core Integration**: At runtime on Android, `UpdateChecker` inspects the engine singletons (`GodotPlayCore`, `GodotGooglePlayInAppUpdate`, `InAppUpdate`). If a native plugin is registered, update checks and immediate/flexible in-app updates are handled via Play Core APIs with variadic signal parameter safety.
-- **HTTP / JSON Fallback**: If no native plugin is loaded or when running off-Android, `UpdateChecker` checks `check_version_url` (if configured with `http://` or `https://`) or evaluates local `res://version.json`. It compares the remote `latest_version_code` and `latest_version_name` against the installed build version.
+- **Remote Version JSON Endpoint**: If no native plugin is loaded, `UpdateChecker` queries `check_version_url` (defaulting to `https://raw.githubusercontent.com/MrBendel/Battle-Mahjong/main/version.json`). When a new build version code is pushed to `main`, installed builds compare their local version code against the remote version code. If `remote_code > current_code`, the game automatically emits `update_available` and displays the Update Banner with a 1-tap store link.
+- **Local Fallback**: If offline or if HTTP fails, `UpdateChecker` evaluates local `res://version.json`.
 - **Version Synchronization**: Invoking `res://scripts/tools/set_android_export_version.gd` updates both `export_presets.cfg` (`preset.0.options` `version/code` & `version/name`) and `res://version.json` simultaneously, ensuring release version metadata remains synchronized across local builds and CI/CD pipelines.
 
 

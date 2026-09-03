@@ -2,13 +2,14 @@ extends Control
 class_name MomentumView
 
 const PresentationScaleScript := preload("res://scripts/presentation/presentation_scale.gd")
-const SCORE_BOX := preload("res://game-assets/ui/portrait/score_box.png")
-const MOMENTUM_FRAME := preload("res://game-assets/ui/portrait/momentum_frame.png")
-const MOMENTUM_FILL := preload("res://game-assets/ui/portrait/momentum_fill.png")
-const MOMENTUM_BADGE := preload("res://game-assets/ui/portrait/momentum_badge.png")
-const EXTRA_LIFE_ICON := preload("res://game-assets/modifiers/tile-overlays/extra_life.png")
-const MILA_REGULAR := preload("res://assets/fonts/mila-script-sans-regular-tight.tres")
-const MILA_BOLD := preload("res://assets/fonts/mila-script-sans-bold-tight.tres")
+
+const SCORE_BOX_PATH := "res://game-assets/ui/portrait/score_box.png"
+const MOMENTUM_FRAME_PATH := "res://game-assets/ui/portrait/momentum_frame.png"
+const MOMENTUM_FILL_PATH := "res://game-assets/ui/portrait/momentum_fill.png"
+const MOMENTUM_BADGE_PATH := "res://game-assets/ui/portrait/momentum_badge.png"
+const EXTRA_LIFE_ICON_PATH := "res://game-assets/modifiers/tile-overlays/extra_life.png"
+const MILA_REGULAR_PATH := "res://assets/fonts/mila-script-sans-regular-tight.tres"
+const MILA_BOLD_PATH := "res://assets/fonts/mila-script-sans-bold-tight.tres"
 
 const PORTRAIT_REFERENCE_SIZE := Vector2(322.0, 81.0)
 const PORTRAIT_FRAME_RECT := Rect2(118.0, 30.0, 173.3, 25.3)
@@ -147,44 +148,46 @@ func _build() -> void:
 	_legacy_background.add_theme_stylebox_override("panel", style)
 	add_child(_legacy_background)
 
-	_score_art = _art(SCORE_BOX)
+	_score_art = _art(_load_texture(SCORE_BOX_PATH))
 	add_child(_score_art)
-	_momentum_frame = _art(MOMENTUM_FRAME)
+	_momentum_frame = _art(_load_texture(MOMENTUM_FRAME_PATH))
 	add_child(_momentum_frame)
 	_fill_clip = Control.new()
 	_fill_clip.clip_contents = true
 	_fill_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_fill_clip)
-	_momentum_fill = _art(MOMENTUM_FILL)
+	_momentum_fill = _art(_load_texture(MOMENTUM_FILL_PATH))
 	_fill_clip.add_child(_momentum_fill)
-	_momentum_badge = _art(MOMENTUM_BADGE)
+	_momentum_badge = _art(_load_texture(MOMENTUM_BADGE_PATH))
 	add_child(_momentum_badge)
-	_extra_life_icon = _art(EXTRA_LIFE_ICON)
+	_extra_life_icon = _art(_load_texture(EXTRA_LIFE_ICON_PATH))
 	add_child(_extra_life_icon)
 
-	_title = _label("Momentum", MILA_REGULAR, 14, Color("cbbbd3"))
+	var regular_font := _load_font(MILA_REGULAR_PATH)
+	var bold_font := _load_font(MILA_BOLD_PATH)
+	_title = _label("Momentum", regular_font, 14, Color("cbbbd3"))
 	add_child(_title)
-	_multiplier = _label("", MILA_BOLD, 25, Color("fce8cd"))
+	_multiplier = _label("", bold_font, 25, Color("fce8cd"))
 	_multiplier.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_multiplier)
-	_score_title = _label("SCORE", MILA_BOLD, 9, Color("fdf1d8"))
+	_score_title = _label("SCORE", bold_font, 9, Color("fdf1d8"))
 	_score_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_score_title)
-	_score = _label("", MILA_REGULAR, 15, Color("fdf1d8"))
+	_score = _label("", regular_font, 15, Color("fdf1d8"))
 	_score.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_score)
-	_timer = _label("", MILA_REGULAR, 11, Color("fdf1d8"))
+	_timer = _label("", regular_font, 11, Color("fdf1d8"))
 	_timer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_timer)
-	_combo = _label("", MILA_BOLD, 12, Color("fcf0d6"))
+	_combo = _label("", bold_font, 12, Color("fcf0d6"))
 	_combo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_combo)
-	_extra_life_count = _label("", MILA_BOLD, 10, Color("fff4dc"))
+	_extra_life_count = _label("", bold_font, 10, Color("fff4dc"))
 	_extra_life_count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_extra_life_count.add_theme_color_override("font_outline_color", Color("28151e"))
 	_extra_life_count.add_theme_constant_override("outline_size", 3)
 	add_child(_extra_life_count)
-	_effect_status = _label("", MILA_BOLD, 8, Color("f6fbff"))
+	_effect_status = _label("", bold_font, 8, Color("f6fbff"))
 	_effect_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_effect_status.add_theme_color_override("font_outline_color", Color("07181b"))
 	_effect_status.add_theme_constant_override("outline_size", 3)
@@ -192,7 +195,7 @@ func _build() -> void:
 
 	var colors := ["1e8b59", "5b9f45", "88ad35", "f5ba33", "ea9734", "e07136", "d75348"]
 	for index in range(7):
-		var tick := _label("%dX" % (index + 2), MILA_BOLD, 8, Color(colors[index]))
+		var tick := _label("%dX" % (index + 2), bold_font, 8, Color(colors[index]))
 		tick.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		add_child(tick)
 		_ticks.append(tick)
@@ -362,3 +365,23 @@ func _play_tone(multiplier: int) -> void:
 		var sample := sin(TAU * frequency * float(frame) / 22050.0) * envelope * 0.16
 		frames.append(Vector2(sample, sample))
 	_audio_playback.push_buffer(frames)
+
+
+static func _load_texture(asset_path: String) -> Texture2D:
+	if ResourceLoader.exists(asset_path):
+		return load(asset_path) as Texture2D
+	elif FileAccess.file_exists(asset_path):
+		var img := Image.load_from_file(asset_path)
+		if img != null:
+			return ImageTexture.create_from_image(img)
+	return null
+
+
+static func _load_font(asset_path: String) -> Font:
+	if ResourceLoader.exists(asset_path):
+		return load(asset_path) as Font
+	elif FileAccess.file_exists(asset_path):
+		var font := FontFile.new()
+		font.load_dynamic_font(asset_path)
+		return font
+	return null

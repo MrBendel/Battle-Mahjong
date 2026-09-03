@@ -25,10 +25,10 @@ const UpdateBannerViewScript := preload("res://scripts/presentation/update_banne
 const UpdateCheckerScript := preload("res://scripts/presentation/update_checker.gd")
 const SafeAreaScript := preload("res://scripts/presentation/safe_area.gd")
 const PresentationScaleScript := preload("res://scripts/presentation/presentation_scale.gd")
-const PORTRAIT_BACKGROUND := preload("res://game-assets/ui/portrait/background.png")
+const PORTRAIT_BACKGROUND_PATH := "res://game-assets/ui/portrait/background.png"
 const BACKGROUND_PATCH_MARGIN := 48
-const PORTRAIT_PAUSE_BUTTON := preload("res://game-assets/ui/portrait/pause_button.png")
-const PORTRAIT_HUD_TOP_SCRIM := preload("res://game-assets/ui/portrait/hud_top_scrim.svg")
+const PORTRAIT_PAUSE_BUTTON_PATH := "res://game-assets/ui/portrait/pause_button.png"
+const PORTRAIT_HUD_TOP_SCRIM_PATH := "res://game-assets/ui/portrait/hud_top_scrim.svg"
 const PORTRAIT_REFERENCE_SIZE := Vector2(390.0, 844.0)
 const PORTRAIT_HUD_SCRIM_SIZE := Vector2(390.0, 167.0)
 const PORTRAIT_QUEUE_SOURCE_HEIGHT := 115.0
@@ -217,7 +217,7 @@ func _build_pause_menu() -> void:
 	_pause_button = Button.new()
 	_pause_button.name = "PauseButton"
 	_pause_button.text = ""
-	_pause_button.icon = PORTRAIT_PAUSE_BUTTON
+	_pause_button.icon = _load_texture(PORTRAIT_PAUSE_BUTTON_PATH)
 	_pause_button.expand_icon = true
 	_pause_button.tooltip_text = "Pause"
 	_pause_button.focus_mode = Control.FOCUS_NONE
@@ -258,7 +258,7 @@ func _build_gameplay_background() -> void:
 	_gameplay_background = NinePatchRect.new()
 	_gameplay_background.name = "GameplayBackground"
 	_gameplay_background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_gameplay_background.texture = PORTRAIT_BACKGROUND
+	_gameplay_background.texture = _load_texture(PORTRAIT_BACKGROUND_PATH)
 	_gameplay_background.set_patch_margin(SIDE_LEFT, BACKGROUND_PATCH_MARGIN)
 	_gameplay_background.set_patch_margin(SIDE_TOP, BACKGROUND_PATCH_MARGIN)
 	_gameplay_background.set_patch_margin(SIDE_RIGHT, BACKGROUND_PATCH_MARGIN)
@@ -277,7 +277,7 @@ func _build_gameplay_background() -> void:
 
 	_portrait_hud_scrim = TextureRect.new()
 	_portrait_hud_scrim.name = "PortraitHudScrim"
-	_portrait_hud_scrim.texture = PORTRAIT_HUD_TOP_SCRIM
+	_portrait_hud_scrim.texture = _load_texture(PORTRAIT_HUD_TOP_SCRIM_PATH)
 	_portrait_hud_scrim.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_portrait_hud_scrim.stretch_mode = TextureRect.STRETCH_SCALE
 	_portrait_hud_scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1455,3 +1455,13 @@ func _place_pause_button(size: Vector2) -> void:
 	else:
 		_pause_button.position = Vector2(size.x - 54.0 - insets.size.x, 14.0 + insets.position.y + banner_y_offset)
 		_pause_button.size = Vector2(40.0, 40.0)
+
+
+static func _load_texture(asset_path: String) -> Texture2D:
+	if ResourceLoader.exists(asset_path):
+		return load(asset_path) as Texture2D
+	elif FileAccess.file_exists(asset_path):
+		var img := Image.load_from_file(asset_path)
+		if img != null:
+			return ImageTexture.create_from_image(img)
+	return null

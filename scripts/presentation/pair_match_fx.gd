@@ -2,7 +2,7 @@ extends Control
 class_name PairMatchFx
 
 const DEFAULT_SIZE := Vector2(104.0, 104.0)
-const SMOKE_TUFT := preload("res://game-assets/fx/match_smoke_tuft.png")
+const SMOKE_TUFT_PATH := "res://game-assets/fx/match_smoke_tuft.png"
 const SMOKE_PARTICLE_COUNT := 6
 
 static var _shared_smoke_material: ParticleProcessMaterial
@@ -23,7 +23,7 @@ func _ready() -> void:
 	particles.explosiveness = 1.0
 	particles.randomness = 0.64
 	particles.visibility_rect = Rect2(-64.0, -64.0, 128.0, 128.0)
-	particles.texture = SMOKE_TUFT
+	particles.texture = _load_texture(SMOKE_TUFT_PATH)
 	particles.process_material = _smoke_material()
 	add_child(particles)
 	particles.restart()
@@ -60,3 +60,13 @@ static func _smoke_material() -> ParticleProcessMaterial:
 	material.color_ramp = color_ramp
 	_shared_smoke_material = material
 	return _shared_smoke_material
+
+
+static func _load_texture(asset_path: String) -> Texture2D:
+	if ResourceLoader.exists(asset_path):
+		return load(asset_path) as Texture2D
+	elif FileAccess.file_exists(asset_path):
+		var img := Image.load_from_file(asset_path)
+		if img != null:
+			return ImageTexture.create_from_image(img)
+	return null
