@@ -14,6 +14,7 @@ const ConsumablesViewScript := preload("res://scripts/presentation/consumables_v
 const TileSkinScript := preload("res://scripts/presentation/tile_skin.gd")
 const PairMatchFxScript := preload("res://scripts/presentation/pair_match_fx.gd")
 const PerformanceCalloutScript := preload("res://scripts/presentation/performance_callout_view.gd")
+const OpeningCountdownViewScript := preload("res://scripts/presentation/opening_countdown_view.gd")
 const ModifierFeedbackViewScript := preload("res://scripts/presentation/modifier_feedback_view.gd")
 const ArcadeCalloutPolicyScript := preload("res://scripts/presentation/arcade_callout_policy.gd")
 const ArcadeCalloutTuningScript := preload("res://scripts/configuration/arcade_callout_tuning.gd")
@@ -82,6 +83,8 @@ const PAIR_MATCH_FX_POOL_SIZE := 6
 ## Initial tile deal-in after confirming the pregame modifier loadout.
 @export_range(0.08, 0.60, 0.01) var board_deal_seconds := 0.24
 @export_range(0.0, 0.80, 0.01) var board_deal_stagger_seconds := 0.34
+## Duration of each 3-2-1 opening countdown beat.
+@export_range(0.18, 1.00, 0.01) var opening_countdown_step_seconds := 0.55
 @export_category("Feedback")
 ## Multiplier applied after match FX inherit the limiting safe-display scale.
 @export_range(0.50, 2.00, 0.05) var match_fx_scale_multiplier := 1.30
@@ -136,6 +139,10 @@ var _game_over_time_ms := -1
 var _game_over_pending := false
 var _paused_duration_ms := 0
 var _performance_callout: Control
+var _opening_countdown: Control
+var _opening_countdown_active := false
+var _opening_countdown_complete := false
+var _opening_deal_complete := false
 var _modifier_feedback: Control
 var _arcade_callout_policy := ArcadeCalloutPolicyScript.new()
 var _update_banner: PanelContainer
@@ -215,6 +222,9 @@ func _build_shell() -> void:
 		add_child(region)
 	_performance_callout = PerformanceCalloutScript.new()
 	add_child(_performance_callout)
+	_opening_countdown = OpeningCountdownViewScript.new()
+	_opening_countdown.finished.connect(_on_opening_countdown_finished)
+	add_child(_opening_countdown)
 	_modifier_feedback = ModifierFeedbackViewScript.new()
 	add_child(_modifier_feedback)
 	_initialize_match_fx_pool()
@@ -226,6 +236,7 @@ func _build_shell() -> void:
 
 	_regions.board.tile_selected.connect(_on_tile_selected)
 	_regions.board.locked_tile_tapped.connect(_on_locked_tile_tapped)
+	_regions.board.deal_in_finished.connect(_on_opening_deal_finished)
 	_regions.consumables.hint_requested.connect(_on_hint_requested)
 	_regions.consumables.delete_pair_requested.connect(_on_delete_pair_requested)
 	_regions.consumables.shuffle_requested.connect(_on_shuffle_requested)
@@ -410,6 +421,9 @@ func _on_modifier_loadout_started(loadout: Array) -> void:
 	_last_tray_capacity = _game.tray.capacity
 	_game_started_at_ms = Time.get_ticks_msec()
 	_paused_duration_ms = 0
+	_opening_countdown_active = true
+	_opening_countdown_complete = false
+	_opening_deal_complete = false
 	_regions.board.call("set_game_state", _game)
 	_regions.board.call("set_tiles_visible", false)
 	_regions.tray.call("set_game_state", _game)
@@ -420,11 +434,36 @@ func _on_modifier_loadout_started(loadout: Array) -> void:
 	_pause_button.visible = true
 	_apply_layout()
 	_regions.board.call("play_deal_in", board_deal_seconds, board_deal_stagger_seconds)
+	_opening_countdown.call("play", opening_countdown_step_seconds)
+
+
+func _on_opening_countdown_finished() -> void:
+	if not _opening_countdown_active:
+		return
+	_opening_countdown_complete = true
+	_finish_opening_sequence_if_ready()
+
+
+func _on_opening_deal_finished() -> void:
+	if not _opening_countdown_active:
+		return
+	_opening_deal_complete = true
+	_finish_opening_sequence_if_ready()
+
+
+func _finish_opening_sequence_if_ready() -> void:
+	if not _opening_countdown_active or not _opening_countdown_complete or not _opening_deal_complete:
+		return
+	_opening_countdown_active = false
+	_game_started_at_ms = Time.get_ticks_msec()
+	_paused_duration_ms = 0
 
 
 func _open_modifier_picker(initial_loadout: Array) -> void:
 	if _modifier_picker != null:
 		return
+	_opening_countdown_active = false
+	_opening_countdown.call("cancel")
 	_modifier_picker = ModifierLoadoutPickerScript.new(initial_loadout)
 	_modifier_picker.start_requested.connect(_on_modifier_loadout_started)
 	add_child(_modifier_picker)
@@ -747,6 +786,8 @@ func _on_shuffle_requested() -> void:
 func _on_restart_requested() -> void:
 	_clear_tray_compaction_previews()
 	_cancel_auto_clear_animation()
+	_opening_countdown_active = false
+	_opening_countdown.call("cancel")
 	_shuffle_animation_generation += 1
 	_shuffle_animation_active = false
 	_pause_started_at_ms = -1
@@ -775,7 +816,8 @@ func _on_restart_requested() -> void:
 
 
 func _on_pause_requested() -> void:
-	if _modifier_picker != null or _auto_clear_animation_active or _pause_started_at_ms >= 0 \
+	if _modifier_picker != null or _opening_countdown_active \
+			or _auto_clear_animation_active or _pause_started_at_ms >= 0 \
 			or _game_over_time_ms >= 0 or _game.status != GameStateScript.PLAYING:
 		return
 	_pause_started_at_ms = Time.get_ticks_msec()
@@ -842,6 +884,7 @@ func _rebuild_interactive_controls() -> void:
 func _gameplay_input_blocked() -> bool:
 	return _lifecycle_input_suspended or _application_backgrounded \
 		or _modifier_picker != null \
+		or _opening_countdown_active \
 		or _pause_started_at_ms >= 0 or _game_over_time_ms >= 0 \
 		or _shuffle_animation_active \
 		or _auto_clear_animation_active \
@@ -1561,6 +1604,8 @@ func _process(_delta: float) -> void:
 
 
 func _playback_time_ms() -> int:
+	if _opening_countdown_active:
+		return 0
 	if _game_over_time_ms >= 0:
 		return _game_over_time_ms
 	var now: int = _pause_started_at_ms if _pause_started_at_ms >= 0 else Time.get_ticks_msec()
@@ -1639,6 +1684,7 @@ func _apply_layout() -> void:
 	_regions.tray.call("set_tile_visual_size", _regions.board.call("tile_visual_size") * tray_tile_scale)
 	_regions.tray.call("refresh")
 	_performance_callout.call("place_over", Rect2(_regions.board.position, _regions.board.size))
+	_opening_countdown.call("place_over", Rect2(_regions.board.position, _regions.board.size))
 	_modifier_feedback.call("place_over", Rect2(_regions.board.position, _regions.board.size))
 	_debug_panel.call(
 		"set_info",
