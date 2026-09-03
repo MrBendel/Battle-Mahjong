@@ -5,6 +5,7 @@ const TileSkinScript := preload("res://scripts/presentation/tile_skin.gd")
 
 signal tile_selected(tile_id: String)
 signal locked_tile_tapped(tile_id: String)
+signal deal_in_finished
 
 const HEADER_HEIGHT := 48.0
 const BOARD_MARGIN := 14.0
@@ -129,7 +130,10 @@ func play_deal_in(duration_seconds: float = 0.24, stagger_seconds: float = 0.34)
 			.set_delay(delay).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		_deal_in_tween.tween_property(button, "modulate", target_modulate, duration * 0.72) \
 			.set_delay(delay).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	_deal_in_tween.finished.connect(func() -> void: _deal_in_tween = null)
+	_deal_in_tween.finished.connect(func() -> void:
+		_deal_in_tween = null
+		deal_in_finished.emit()
+	)
 
 
 func _cancel_deal_in() -> void:

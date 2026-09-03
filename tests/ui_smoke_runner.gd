@@ -897,6 +897,7 @@ func _verify_modifier_picker(requested_size: Vector2i) -> void:
 	var picker_shell: Control = load("res://scenes/main.tscn").instantiate()
 	picker_shell.set("show_modifier_picker_on_start", true)
 	picker_shell.set("playtest_all_modifiers", false)
+	picker_shell.set("opening_countdown_step_seconds", 0.20)
 	root.add_child(picker_shell)
 	await process_frame
 	await create_timer(0.32).timeout
@@ -949,9 +950,22 @@ func _verify_modifier_picker(requested_size: Vector2i) -> void:
 		_check_equal(6, int(live_game.definition.configuration.modifier_loadout_capacity), "selected debug run expands its loadout capacity")
 		_check(picker_shell.get("_regions").board.get("_tile_layer").visible, "Board tiles become visible after Start")
 		_check_equal(1, picker_shell.get("_regions").board.get("_deal_in_count"), "selected game deals its tile stack into the empty field")
-		_check(picker_shell.call("_gameplay_input_blocked"), "opening tile deal blocks premature Board input")
-		await create_timer(0.7).timeout
-		_check(not picker_shell.call("_gameplay_input_blocked"), "Board input opens after the tile deal settles")
+		var opening_countdown: Control = picker_shell.get("_opening_countdown")
+		_check(picker_shell.get("_opening_countdown_active"), "opening countdown owns gameplay before the run starts")
+		_check(opening_countdown.visible and opening_countdown.get("last_text") == "3", "opening countdown begins with a visible 3")
+		_check_equal(0, picker_shell.call("_playback_time_ms"), "opening countdown holds gameplay time at zero")
+		_check_equal(
+			Rect2(picker_shell.get("_regions").board.position, picker_shell.get("_regions").board.size),
+			Rect2(opening_countdown.position, opening_countdown.size),
+			"opening countdown scales over the responsive Board region"
+		)
+		_check(picker_shell.call("_gameplay_input_blocked"), "opening countdown and tile deal block premature Board input")
+		await create_timer(0.22).timeout
+		_check(opening_countdown.visible and opening_countdown.get("last_text") == "2", "opening countdown advances to 2")
+		await create_timer(0.45).timeout
+		_check(not picker_shell.get("_opening_countdown_active") and not opening_countdown.visible, "opening countdown completes after 1")
+		_check(picker_shell.call("_playback_time_ms") < 350, "run clock starts after the countdown rather than at loadout confirmation")
+		_check(not picker_shell.call("_gameplay_input_blocked"), "Board input opens after countdown and tile deal settle")
 		picker_shell.call("_on_restart_requested")
 		var restarted_picker: Control = picker_shell.get("_modifier_picker")
 		_check(restarted_picker != null and restarted_picker.visible, "Restart returns to the modifier loadout picker")

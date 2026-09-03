@@ -591,6 +591,8 @@ Goal: establish the arcade and anime feedback loop.
 
 Current status: in progress. Pair collision uses one shared two-layer primitive for natural matches, flipped matches, assisted matches, and every Bomb detonation. A compact additive ivory/gold impact sprite expands, holds, and fades over `260 ms`, centered on the collision point; six independently moving neutral ivory/gray smoke tufts provide the `280 ms` tail. Full-resolution transparent masters live under `art-source/fx/`; runtime uses one `128 x 128` burst and one `64 x 64` tuft texture. A startup-warmed six-entry pool covers the complete six-pair Bomb chain without match-time node construction, emitter interruption, or per-frame GDScript work. Each pooled replay explicitly rearms emission after restarting. The responsive effect transform defaults to `1.30x`. This path avoids the first-use GPU-particle stalls measured on the Pixel reference device. Richer reusable FX remain outstanding.
 
+Starting a selected loadout now plays a responsive anime-style `3`, `2`, `1` countdown over the Board while tiles deal in behind it. Each beat uses live Mila Script Sans text, chromatic shadows, radial streaks, and a scale impact. Input, elapsed run time, and Momentum decay begin only after both opening presentations complete; the per-number duration remains Inspector-tunable.
+
 ### Batch D - Personality
 
 Produce:
