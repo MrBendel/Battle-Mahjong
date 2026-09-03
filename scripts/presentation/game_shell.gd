@@ -44,7 +44,7 @@ const PAIR_COLLISION_SECONDS := 0.10
 const PAIR_POP_EXPAND_SECONDS := 0.08
 const PAIR_POP_FADE_SECONDS := 0.13
 const PAIR_POP_SECONDS := PAIR_POP_EXPAND_SECONDS + PAIR_POP_FADE_SECONDS
-const PAIR_MATCH_FX_POOL_SIZE := 2
+const PAIR_MATCH_FX_POOL_SIZE := 6
 
 @export var momentum_tuning: Resource
 @export var modifier_tuning: Resource
@@ -133,6 +133,7 @@ var _pause_menu: Control
 var _end_game_menu: Control
 var _pause_started_at_ms := -1
 var _game_over_time_ms := -1
+var _game_over_pending := false
 var _paused_duration_ms := 0
 var _performance_callout: Control
 var _modifier_feedback: Control
@@ -295,6 +296,7 @@ func _on_end_game_undo_requested() -> void:
 	if _end_game_menu != null:
 		_end_game_menu.call("close")
 	_game_over_time_ms = -1
+	_game_over_pending = false
 	if _pause_button != null:
 		_pause_button.visible = true
 	_on_undo_requested()
@@ -401,6 +403,7 @@ func _on_modifier_loadout_started(loadout: Array) -> void:
 		_modifier_picker = null
 	_pause_started_at_ms = -1
 	_game_over_time_ms = -1
+	_game_over_pending = false
 	_pause_menu.call("close")
 	_end_game_menu.call("close")
 	_game = _create_game()
@@ -748,6 +751,7 @@ func _on_restart_requested() -> void:
 	_shuffle_animation_active = false
 	_pause_started_at_ms = -1
 	_game_over_time_ms = -1
+	_game_over_pending = false
 	_paused_duration_ms = 0
 	if _pause_menu != null:
 		_pause_menu.call("close")
@@ -891,12 +895,26 @@ func _refresh_game_views() -> void:
 func _check_game_over() -> void:
 	if _game == null or _game.status == GameStateScript.PLAYING:
 		return
-	if _game_over_time_ms < 0:
-		_game_over_time_ms = _playback_time_ms()
-		if _pause_button != null:
-			_pause_button.visible = false
-		if _end_game_menu != null:
-			_end_game_menu.call("show_result", _game, _game_over_time_ms)
+	if _game_over_time_ms >= 0 or _game_over_pending:
+		return
+	_game_over_pending = true
+	call_deferred("_present_game_over_if_ready")
+
+
+func _present_game_over_if_ready() -> void:
+	if not _game_over_pending:
+		return
+	if _game == null or _game.status == GameStateScript.PLAYING:
+		_game_over_pending = false
+		return
+	if not _tile_transfer_previews.is_empty():
+		return
+	_game_over_pending = false
+	_game_over_time_ms = _playback_time_ms()
+	if _pause_button != null:
+		_pause_button.visible = false
+	if _end_game_menu != null:
+		_end_game_menu.call("show_result", _game, _game_over_time_ms)
 
 
 func _play_tile_to_tray(preview: Control, source_rect: Rect2, target_rect: Rect2, tile_id: String) -> void:
@@ -920,9 +938,13 @@ func _play_tile_to_tray(preview: Control, source_rect: Rect2, target_rect: Rect2
 func _finish_tile_to_tray(preview: Control, tile_id: String) -> void:
 	_tile_transfer_previews.erase(tile_id)
 	_tile_transfer_tweens.erase(tile_id)
+	if bool(preview.get_meta("pair_owns_transfer", false)):
+		_present_game_over_if_ready()
+		return
 	_regions.tray.call("reveal_tile", tile_id)
 	if is_instance_valid(preview):
 		preview.queue_free()
+	_present_game_over_if_ready()
 
 
 func _take_active_tile_transfer(tile_id: String) -> Control:
@@ -986,9 +1008,9 @@ func _prepare_pair_to_tray(incoming: Control, held: Control, source_rect: Rect2,
 	if held != null:
 		if held.get_parent() == null:
 			add_child(held)
-		held.position = _global_to_local(held_source_rect.position)
-		held.size = held_source_rect.size
-		held.pivot_offset = held.size * 0.5
+			held.position = _global_to_local(held_source_rect.position)
+			held.size = held_source_rect.size
+			held.pivot_offset = held.size * 0.5
 		held.z_index = 999
 
 
@@ -1003,6 +1025,12 @@ func _start_pair_to_tray_motion(incoming: Control, held: Control, target_rect: R
 	tween.tween_property(incoming, "position", target_position, tile_transfer_seconds)
 	tween.tween_property(incoming, "scale", _preview_scale_for_rect(incoming, target_rect), tile_transfer_seconds)
 	tween.tween_property(incoming, "rotation", deg_to_rad(4.0), tile_transfer_seconds)
+	if held != null and is_instance_valid(held) \
+			and not bool(held.get_meta("pair_owns_transfer", false)):
+		var held_target_position := _global_to_local(held_source_rect.get_center()) - held.size * 0.5
+		tween.tween_property(held, "position", held_target_position, tile_transfer_seconds)
+		tween.tween_property(held, "scale", _preview_scale_for_rect(held, held_source_rect), tile_transfer_seconds)
+		tween.tween_property(held, "rotation", deg_to_rad(-4.0), tile_transfer_seconds)
 	tween.chain().tween_interval(PAIR_LANDING_HOLD_SECONDS)
 	tween.finished.connect(_play_pair_collision.bind(incoming, held, target_rect, held_source_rect))
 
@@ -1336,9 +1364,12 @@ func _capture_tray_visual(index: int) -> Dictionary:
 	if index < 0 or index >= _game.tray.tiles.size():
 		return {}
 	var tile_id := str(_game.tray.tiles[index].id)
-	var preview: Control = _take_active_tray_compaction(tile_id)
-	var source_rect: Rect2 = preview.get_global_rect() if preview != null \
-		else _regions.tray.call("slot_global_rect", index)
+	var preview: Control = _tile_transfer_previews.get(tile_id)
+	if preview != null:
+		preview.set_meta("pair_owns_transfer", true)
+	if preview == null:
+		preview = _take_active_tray_compaction(tile_id)
+	var source_rect: Rect2 = _regions.tray.call("slot_global_rect", index)
 	if preview == null:
 		preview = _regions.tray.call("create_tile_preview", index)
 	return {"tile_id": tile_id, "preview": preview, "rect": source_rect}
@@ -1426,13 +1457,14 @@ func _spawn_match_burst(global_center: Vector2) -> void:
 	var burst: Control = _pair_match_fx_pool[_next_pair_match_fx_index]
 	_next_pair_match_fx_index = (_next_pair_match_fx_index + 1) % _pair_match_fx_pool.size()
 	_last_match_fx = burst
-	burst.position = _global_to_local(global_center) - burst.size * 0.5
 	_last_match_fx_scale = PresentationScaleScript.safe_display_scale(
 		get_viewport_rect().size,
 		_get_safe_area_insets(),
 		PORTRAIT_REFERENCE_SIZE
 	) * match_fx_scale_multiplier
 	burst.scale = Vector2.ONE * _last_match_fx_scale
+	# The pivot is the visual center, so place it only after responsive scale is final.
+	burst.position = _global_to_local(global_center) - burst.pivot_offset
 	burst.z_index = 1001
 	burst.call("play")
 

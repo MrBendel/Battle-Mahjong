@@ -6,6 +6,7 @@ const BoardLayoutCatalogScript := preload("res://scripts/simulation/board_layout
 const LayoutSolutionPlannerScript := preload("res://scripts/simulation/layout_solution_planner.gd")
 const GameStateDataScript := preload("res://scripts/simulation/game_state_data.gd")
 const MatchSmokeTuft := preload("res://game-assets/fx/match_smoke_tuft.png")
+const MatchImpactBurst := preload("res://game-assets/fx/match_impact_burst.png")
 const PresentationScaleScript := preload("res://scripts/presentation/presentation_scale.gd")
 
 var _failures := 0
@@ -473,6 +474,49 @@ func _run() -> void:
 		_check(shell.get("_regions").board.get("_tile_buttons")[undo_tile_id].visible, "restored board tile appears when Undo animation lands")
 		shell.call("_on_restart_requested")
 		live_game = shell.get("_game")
+	var rapid_nonmatch_first := ""
+	for candidate in live_game.board.call("selectable_tiles"):
+		rapid_nonmatch_first = candidate.id
+		break
+	_check(not rapid_nonmatch_first.is_empty(), "reference game exposes a tile for rapid non-match transfer")
+	if not rapid_nonmatch_first.is_empty():
+		shell.call("_on_tile_selected", rapid_nonmatch_first)
+		await create_timer(0.05).timeout
+		var nonmatch_transfer: Control = shell.get("_tile_transfer_previews").get(rapid_nonmatch_first)
+		var nonmatch_tween: Tween = shell.get("_tile_transfer_tweens").get(rapid_nonmatch_first)
+		var nonmatch_position_before_second := nonmatch_transfer.position
+		var rapid_nonmatch_second := _find_selectable_distinct_from_tray(live_game, rapid_nonmatch_first)
+		_check(not rapid_nonmatch_second.is_empty(), "reference game exposes a second rapid non-matching tile")
+		if not rapid_nonmatch_second.is_empty():
+			shell.call("_on_tile_selected", rapid_nonmatch_second)
+			_check_equal(nonmatch_tween, shell.get("_tile_transfer_tweens").get(rapid_nonmatch_first), "rapid non-match preserves the first tile's original tween")
+			_check(nonmatch_transfer.position.is_equal_approx(nonmatch_position_before_second), "rapid non-match does not snap the first tile into its slot")
+			var rapid_nonmatch_slot_art: TextureRect = shell.get("_regions").tray.get("_slot_art")[0]
+			_check(not rapid_nonmatch_slot_art.visible, "rapid non-match keeps the first real tray tile suppressed during transfer")
+			await create_timer(0.08).timeout
+			_check(not nonmatch_transfer.position.is_equal_approx(nonmatch_position_before_second), "first transfer continues moving after a rapid non-match")
+		await create_timer(0.30).timeout
+		shell.call("_on_restart_requested")
+		live_game = shell.get("_game")
+	var rapid_pair := _find_rewardable_pair(live_game)
+	_check_equal(2, rapid_pair.size(), "reference game exposes a pair for rapid in-flight matching")
+	if rapid_pair.size() == 2:
+		shell.call("_on_tile_selected", rapid_pair[0])
+		await create_timer(0.05).timeout
+		var held_transfer: Control = shell.get("_tile_transfer_previews").get(rapid_pair[0])
+		var held_tween: Tween = shell.get("_tile_transfer_tweens").get(rapid_pair[0])
+		var child_count_before_mate := shell.get_child_count()
+		var held_position_before_mate := held_transfer.position
+		shell.call("_on_tile_selected", rapid_pair[1])
+		_check_equal(0, live_game.tray.tiles.size(), "rapid match resolves authoritative tray immediately")
+		_check_equal(held_tween, shell.get("_tile_transfer_tweens").get(rapid_pair[0]), "rapid match preserves the held tile's original tween")
+		_check_equal(child_count_before_mate + 1, shell.get_child_count(), "rapid match adds only the incoming preview without duplicating the held tile")
+		_check(is_instance_valid(held_transfer) and held_transfer.position.is_equal_approx(held_position_before_mate), "rapid match does not stop or restart the held preview")
+		var rapid_first_slot_art: TextureRect = shell.get("_regions").tray.get("_slot_art")[0]
+		_check(not rapid_first_slot_art.visible, "rapid match keeps the real tray tile hidden behind its in-flight preview")
+		await create_timer(0.75).timeout
+		shell.call("_on_restart_requested")
+		live_game = shell.get("_game")
 	var compaction_pair := _find_rewardable_pair(live_game)
 	_check_equal(2, compaction_pair.size(), "reference game exposes a pair for queue-compaction validation")
 	if compaction_pair.size() == 2:
@@ -539,11 +583,17 @@ func _run() -> void:
 		var live_smoke_emitters := shell.find_children("SmokeParticles", "CPUParticles2D", true, false)
 		_check(not live_smoke_emitters.is_empty(), "pair collision composes a shared spark-and-smoke effect")
 		_check_equal(Vector2(64.0, 64.0), MatchSmokeTuft.get_size(), "match particles use the compact smoke-tuft texture")
-		_check_equal(2, shell.get("_pair_match_fx_pool").size(), "match smoke reuses a two-emitter pool")
+		_check_equal(6, shell.get("_pair_match_fx_pool").size(), "layered match FX pool covers every hit in a six-pair Bomb chain")
 		var active_match_fx: Control = shell.get("_last_match_fx")
 		_check(active_match_fx != null, "pair collision records its reused smoke emitter")
 		if active_match_fx != null:
+			var impact_burst: Sprite2D = active_match_fx.get_node("ImpactBurst")
 			var smoke_particles: CPUParticles2D = active_match_fx.get_node("SmokeParticles")
+			var rendered_fx_center: Vector2 = active_match_fx.get_global_transform_with_canvas() \
+				* active_match_fx.pivot_offset
+			_check(rendered_fx_center.is_equal_approx(shell.get("_last_pair_feedback_position")), "match FX centers on the recorded collision point")
+			var rendered_burst_center := impact_burst.get_global_transform_with_canvas() * Vector2.ZERO
+			_check(rendered_burst_center.is_equal_approx(shell.get("_last_pair_feedback_position")), "impact graphic origin centers exactly on the matched pair")
 			_check(is_equal_approx(float(shell.get("match_fx_scale_multiplier")), 1.30), "match smoke uses the enlarged performance-neutral default scale")
 			var expected_fx_scale := PresentationScaleScript.safe_display_scale(
 				shell.get_viewport_rect().size,
@@ -553,7 +603,10 @@ func _run() -> void:
 			_check(active_match_fx.scale.is_equal_approx(Vector2.ONE * expected_fx_scale), "match smoke scales responsively with the safe display")
 			_check(int(active_match_fx.get("play_count")) >= 2, "match smoke reuses its startup-warmed emitter")
 			_check(not smoke_particles.get_parent().is_processing(), "match smoke uses no per-frame GDScript processing")
-			_check_equal(1, smoke_particles.get_parent().get_child_count(), "each match burst owns one smoke emitter")
+			_check_equal(2, smoke_particles.get_parent().get_child_count(), "each match effect owns one impact burst and one smoke emitter")
+			_check_equal(MatchImpactBurst, impact_burst.texture, "pair collision uses the compact shared impact-burst texture")
+			_check(impact_burst.material is CanvasItemMaterial and impact_burst.material.blend_mode == CanvasItemMaterial.BLEND_MODE_ADD, "impact burst uses one additive sprite layer")
+			_check(impact_burst.scale.x <= 0.66, "impact graphic uses the reduced half-size footprint")
 			_check_equal(6, smoke_particles.amount, "match smoke stays within its six-particle mobile budget")
 			_check(smoke_particles.one_shot, "match smoke uses one-shot particle emission")
 			_check_equal(MatchSmokeTuft, smoke_particles.texture, "match smoke particles share one tuft texture")
@@ -566,8 +619,13 @@ func _run() -> void:
 			_check(smoke_colors[0].a >= 0.85, "match smoke is visible on the collision frame instead of fading in late")
 			smoke_particles.emitting = false
 			active_match_fx.call("play")
+			_check(impact_burst.visible and impact_burst.modulate.a > 0.80, "impact burst is visible on the exact collision frame")
 			await process_frame
 			_check(smoke_particles.emitting, "pooled match smoke explicitly rearms after one-shot completion")
+			await create_timer(0.15).timeout
+			_check(impact_burst.visible and impact_burst.modulate.a > 0.45, "impact burst remains readable through its hold beat")
+			await create_timer(0.12).timeout
+			_check(not impact_burst.visible, "impact burst finishes before the smoke tail")
 			_check(is_equal_approx(float(smoke_particles.scale_amount_min), 0.50), "match smoke tufts remain readable at gameplay scale")
 		_check_equal(1, live_game.tray.resolved_pair_count, "match feedback follows a committed pair transaction")
 		_check_equal(1, live_game.call("combo_at", shell.call("_playback_time_ms")), "natural pair starts the live Combo readout")
@@ -730,7 +788,14 @@ func _run() -> void:
 	if loss_tiles.size() == 4:
 		for tile in loss_tiles:
 			shell.call("_on_tile_selected", tile.id)
+		_check(not end_game_menu.visible, "%s end game menu waits for the losing tile transfer" % orientation)
+		_check(shell.get("_game_over_pending"), "%s terminal state records pending game-over presentation" % orientation)
+		_check(not shell.get("_regions").tray.get("_slot_art")[3].visible, "%s final tray slot stays hidden during the losing transfer" % orientation)
+		await create_timer(0.12).timeout
+		_check(not end_game_menu.visible, "%s end game menu remains hidden while the losing tile is moving" % orientation)
+		await create_timer(0.16).timeout
 		_check(end_game_menu != null and end_game_menu.visible, "%s end game menu displays on loss" % orientation)
+		_check(shell.get("_regions").tray.get("_slot_art")[3].visible, "%s losing tile is visible in the full tray before game over" % orientation)
 		if end_game_menu != null and end_game_menu.visible:
 			var result_panel: Control = end_game_menu.get("_panel")
 			var result_safe_rect := SafeAreaScript.content_rect(

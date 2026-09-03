@@ -2,10 +2,17 @@ extends Control
 class_name PairMatchFx
 
 const DEFAULT_SIZE := Vector2(104.0, 104.0)
+const IMPACT_BURST := preload("res://game-assets/fx/match_impact_burst.png")
 const SMOKE_TUFT := preload("res://game-assets/fx/match_smoke_tuft.png")
 const SMOKE_PARTICLE_COUNT := 6
+const BURST_VISUAL_SCALE := 0.50
+const BURST_EXPAND_SECONDS := 0.07
+const BURST_HOLD_SECONDS := 0.07
+const BURST_FADE_SECONDS := 0.12
 
 var play_count := 0
+var _burst: Sprite2D
+var _burst_tween: Tween
 var _particles: CPUParticles2D
 
 
@@ -16,6 +23,17 @@ func _init(effect_size: Vector2 = DEFAULT_SIZE) -> void:
 
 
 func _ready() -> void:
+	_burst = Sprite2D.new()
+	_burst.name = "ImpactBurst"
+	_burst.texture = IMPACT_BURST
+	_burst.position = size * 0.5
+	_burst.centered = true
+	_burst.visible = false
+	var burst_material := CanvasItemMaterial.new()
+	burst_material.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+	_burst.material = burst_material
+	add_child(_burst)
+
 	_particles = CPUParticles2D.new()
 	_particles.name = "SmokeParticles"
 	_particles.position = size * 0.5
@@ -38,13 +56,45 @@ func _ready() -> void:
 	_particles.scale_amount_max = 0.76
 	_particles.color_ramp = _smoke_gradient()
 	_particles.emitting = false
+	_particles.z_index = 1
 	add_child(_particles)
 
 
 func play() -> void:
 	play_count += 1
+	_play_impact_burst()
 	_particles.restart()
 	_particles.emitting = true
+
+
+func _play_impact_burst() -> void:
+	if _burst_tween != null and _burst_tween.is_valid():
+		_burst_tween.kill()
+	_burst.visible = true
+	_burst.modulate = Color.WHITE
+	_burst.scale = Vector2.ONE * (0.34 * BURST_VISUAL_SCALE)
+	_burst.rotation = deg_to_rad(float((play_count * 37) % 90) - 45.0)
+	_burst_tween = create_tween().set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+	_burst_tween.tween_property(
+		_burst,
+		"scale",
+		Vector2.ONE * (1.08 * BURST_VISUAL_SCALE),
+		BURST_EXPAND_SECONDS
+	)
+	_burst_tween.tween_interval(BURST_HOLD_SECONDS)
+	_burst_tween.chain().set_parallel(true)
+	_burst_tween.tween_property(
+		_burst,
+		"scale",
+		Vector2.ONE * (1.30 * BURST_VISUAL_SCALE),
+		BURST_FADE_SECONDS
+	)
+	_burst_tween.tween_property(_burst, "modulate:a", 0.0, BURST_FADE_SECONDS) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	_burst_tween.finished.connect(func() -> void:
+		_burst.visible = false
+		_burst_tween = null
+	)
 
 
 static func _smoke_gradient() -> Gradient:
