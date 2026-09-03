@@ -2,10 +2,10 @@ extends Control
 class_name TrayView
 
 const TileSkinScript := preload("res://scripts/presentation/tile_skin.gd")
-const QUEUE_REPEAT := preload("res://assets/UI/tile-queue/queue-repeat.png")
-const QUEUE_CAP := preload("res://assets/UI/tile-queue/queue-cap.png")
-const TRAY_PLUS_ONE_ICON := preload("res://game-assets/modifiers/tile-overlays/tray_plus_one.png")
-const MILA_BOLD := preload("res://assets/fonts/mila-script-sans-bold-tight.tres")
+const QUEUE_REPEAT_PATH := "res://assets/UI/tile-queue/queue-repeat.png"
+const QUEUE_CAP_PATH := "res://assets/UI/tile-queue/queue-cap.png"
+const TRAY_PLUS_ONE_ICON_PATH := "res://game-assets/modifiers/tile-overlays/tray_plus_one.png"
+const MILA_BOLD_PATH := "res://assets/fonts/mila-script-sans-bold-tight.tres"
 
 const MIN_SLOT_COUNT := 2
 const MAX_SLOT_COUNT := 6
@@ -186,20 +186,22 @@ func _build() -> void:
 	_status_label.add_theme_color_override("font_color", Color("bdc9c6"))
 	add_child(_status_label)
 
-	_queue_left_cap = _queue_art(QUEUE_CAP)
+	_queue_left_cap = _queue_art(_load_texture(QUEUE_CAP_PATH))
 	add_child(_queue_left_cap)
 	for index in range(MAX_SLOT_COUNT):
-		var repeat := _queue_art(QUEUE_REPEAT)
+		var repeat := _queue_art(_load_texture(QUEUE_REPEAT_PATH))
 		add_child(repeat)
 		_queue_repeats.append(repeat)
-	_queue_right_cap = _queue_art(QUEUE_CAP)
+	_queue_right_cap = _queue_art(_load_texture(QUEUE_CAP_PATH))
 	_queue_right_cap.flip_h = true
 	add_child(_queue_right_cap)
-	_bonus_icon = _queue_art(TRAY_PLUS_ONE_ICON)
+	_bonus_icon = _queue_art(_load_texture(TRAY_PLUS_ONE_ICON_PATH))
 	_bonus_icon.visible = false
 	add_child(_bonus_icon)
 	_bonus_label = Label.new()
-	_bonus_label.add_theme_font_override("font", MILA_BOLD)
+	var font := _load_font(MILA_BOLD_PATH)
+	if font != null:
+		_bonus_label.add_theme_font_override("font", font)
 	_bonus_label.add_theme_font_size_override("font_size", 9)
 	_bonus_label.add_theme_color_override("font_color", Color("baffd8"))
 	_bonus_label.add_theme_color_override("font_outline_color", Color("081a12"))
@@ -482,3 +484,23 @@ func _panel_style() -> StyleBoxFlat:
 	style.set_border_width_all(2)
 	style.set_corner_radius_all(8)
 	return style
+
+
+static func _load_texture(asset_path: String) -> Texture2D:
+	if ResourceLoader.exists(asset_path):
+		return load(asset_path) as Texture2D
+	elif FileAccess.file_exists(asset_path):
+		var img := Image.load_from_file(asset_path)
+		if img != null:
+			return ImageTexture.create_from_image(img)
+	return null
+
+
+static func _load_font(asset_path: String) -> Font:
+	if ResourceLoader.exists(asset_path):
+		return load(asset_path) as Font
+	elif FileAccess.file_exists(asset_path):
+		var font := FontFile.new()
+		if font.load_dynamic_font(asset_path) == OK:
+			return font
+	return null

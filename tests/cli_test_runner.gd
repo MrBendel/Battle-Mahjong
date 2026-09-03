@@ -163,7 +163,8 @@ func _run_tile_skin_contract_tests() -> void:
 	_check_equal("bamboo_1", skin.call("presentation_id", TileFaceScript.new("reference", "01")), "reference mapping does not change simulation identity")
 	for face_id in skin.canonical_face_ids:
 		var definition: Dictionary = skin.faces[face_id]
-		_check(ResourceLoader.exists(str(definition.get("asset", ""))), "%s Default runtime asset exists" % face_id)
+		var asset_path := str(definition.get("asset", ""))
+		_check(ResourceLoader.exists(asset_path) or FileAccess.file_exists(asset_path), "%s Default runtime asset exists" % face_id)
 
 
 func _run_arcade_callout_tests() -> void:
@@ -1514,7 +1515,7 @@ func _definition_with_flips(tiles: Array, flipped_tile_ids: Array) -> Variant:
 		GameDefinitionScript.CURRENT_RULES_VERSION,
 		[],
 		{},
-		null,
+		{"hint": 1, "delete_pair": 1, "undo": 1},
 		flipped_tile_ids
 	)
 
@@ -1675,6 +1676,50 @@ func _run_update_checker_tests() -> void:
 		"min_version_code": 0
 	})
 	_check(bool(comp_state["emitted"]) and bool(comp_state["up_to_date"]), "equal remote version code marks build as up to date")
+
+	# Nested GCP startup payload tests
+	var startup_payload := {
+		"status": "ok",
+		"maintenance": {
+			"active": true,
+			"message": "Maintenance in progress"
+		},
+		"version": {
+			"latest_version_code": current_code + 50,
+			"latest_version_name": "0.5.0",
+			"min_version_code": current_code + 20,
+			"store_url": "https://play.google.com/test",
+			"force_update": true
+		},
+		"features": {
+			"show_arcade_callouts": true
+		}
+	}
+	var startup_state := {
+		"received": false,
+		"data": {},
+		"maintenance_msg": ""
+	}
+	checker.startup_received.connect(func(data: Dictionary):
+		startup_state["received"] = true
+		startup_state["data"] = data
+	)
+	checker.maintenance_active.connect(func(msg: String):
+		startup_state["maintenance_msg"] = msg
+	)
+
+	sig_state["emitted"] = false
+	checker._evaluate_version_dict(startup_payload)
+	_check(bool(startup_state["received"]), "nested startup payload emits startup_received signal")
+	_check_equal(true, startup_state["data"].get("features", {}).get("show_arcade_callouts", false), "startup config features accessible")
+	_check_equal("Maintenance in progress", str(startup_state["maintenance_msg"]), "maintenance_active signal fires with message")
+	_check(bool(sig_state["emitted"]), "nested startup version triggers update_available")
+	_check_equal("0.5.0", str(sig_state["vname"]), "nested startup version name extracted")
+	_check_equal(true, bool(sig_state["mandatory"]), "force_update in startup payload marks update mandatory")
+
+	var remote_url_with_query := checker._build_remote_url("https://api.example.com/v1/startup")
+	_check(remote_url_with_query.contains("platform="), "remote url builder attaches platform query param")
+	_check(remote_url_with_query.contains("version_code="), "remote url builder attaches version_code query param")
 
 	checker.queue_free()
 

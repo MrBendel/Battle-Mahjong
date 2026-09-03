@@ -2,12 +2,16 @@ extends Node
 
 signal update_available(latest_version_name: String, store_url: String, is_mandatory: bool)
 signal check_completed(up_to_date: bool)
+signal startup_received(startup_data: Dictionary)
+signal maintenance_active(message: String)
 
 const DEFAULT_STORE_URL: String = "https://play.google.com/apps/internaltest/4701554282456194202"
+const DEFAULT_CHECK_VERSION_URL: String = "https://raw.githubusercontent.com/MrBendel/Battle-Mahjong/main/version.json"
 
 @export var store_url: String = DEFAULT_STORE_URL
-@export var check_version_url: String = ""
+@export var check_version_url: String = DEFAULT_CHECK_VERSION_URL
 
+var startup_config: Dictionary = {}
 var _plugin_singleton: Object = null
 var _http_request: HTTPRequest = null
 
@@ -83,6 +87,15 @@ func get_current_version_name() -> String:
 	return "0.1.0"
 
 
+func _build_remote_url(base_url: String) -> String:
+	if not base_url.contains("?"):
+		var platform := OS.get_name().to_lower()
+		var code := get_current_version_code()
+		var vname := get_current_version_name()
+		return "%s?platform=%s&version_code=%d&version_name=%s" % [base_url, platform, code, vname]
+	return base_url
+
+
 func check_for_updates() -> void:
 	if _plugin_singleton != null:
 		if _plugin_singleton.has_method("checkForUpdate"):
@@ -92,9 +105,11 @@ func check_for_updates() -> void:
 			_plugin_singleton.call("check_for_update")
 			return
 
-	if not check_version_url.is_empty() and (check_version_url.begins_with("http://") or check_version_url.begins_with("https://")):
+	var target_url := check_version_url if not check_version_url.is_empty() else DEFAULT_CHECK_VERSION_URL
+	if not target_url.is_empty() and (target_url.begins_with("http://") or target_url.begins_with("https://")):
 		if _http_request != null:
-			var err := _http_request.request(check_version_url)
+			var request_url := _build_remote_url(target_url)
+			var err := _http_request.request(request_url)
 			if err == OK:
 				return
 
@@ -119,20 +134,33 @@ func _on_http_request_completed(result: int, response_code: int, _headers: Packe
 			_evaluate_version_dict(json.data)
 			return
 
-	check_completed.emit(true)
+	_check_local_version_file()
 
 
 func _evaluate_version_dict(dict: Dictionary) -> void:
-	var remote_code: int = int(dict.get("latest_version_code", 0))
-	var remote_name: String = str(dict.get("latest_version_name", ""))
-	var min_code: int = int(dict.get("min_version_code", 0))
-	var remote_url: String = str(dict.get("store_url", store_url))
+	startup_config = dict
+	startup_received.emit(dict)
+
+	if dict.has("maintenance") and dict["maintenance"] is Dictionary:
+		var m_dict: Dictionary = dict["maintenance"]
+		if bool(m_dict.get("active", false)):
+			maintenance_active.emit(str(m_dict.get("message", "")))
+
+	var version_data: Dictionary = dict
+	if dict.has("version") and dict["version"] is Dictionary:
+		version_data = dict["version"]
+
+	var remote_code: int = int(version_data.get("latest_version_code", 0))
+	var remote_name: String = str(version_data.get("latest_version_name", ""))
+	var min_code: int = int(version_data.get("min_version_code", 0))
+	var force_update: bool = bool(version_data.get("force_update", false))
+	var remote_url: String = str(version_data.get("store_url", store_url))
 	if remote_url.is_empty():
 		remote_url = DEFAULT_STORE_URL
 
 	var current_code := get_current_version_code()
 	if remote_code > current_code:
-		var mandatory := (current_code < min_code)
+		var mandatory := force_update or (current_code < min_code)
 		update_available.emit(remote_name, remote_url, mandatory)
 		check_completed.emit(false)
 	else:
