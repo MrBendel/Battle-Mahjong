@@ -6,7 +6,7 @@ signal startup_received(startup_data: Dictionary)
 signal maintenance_active(message: String)
 
 const DEFAULT_STORE_URL: String = "https://play.google.com/apps/internaltest/4701554282456194202"
-const DEFAULT_CHECK_VERSION_URL: String = "https://raw.githubusercontent.com/MrBendel/Battle-Mahjong/main/version.json"
+const DEFAULT_CHECK_VERSION_URL: String = "https://battle-mahjong-backend-yz6hgthnca-uc.a.run.app/v1/startup"
 
 @export var store_url: String = DEFAULT_STORE_URL
 @export var check_version_url: String = DEFAULT_CHECK_VERSION_URL
