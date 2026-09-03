@@ -182,12 +182,12 @@ func _build() -> void:
 	_combo = _label("", bold_font, 12, Color("fcf0d6"))
 	_combo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_combo)
-	_extra_life_count = _label("", MILA_BOLD, 10, Color("fff4dc"))
+	_extra_life_count = _label("", bold_font, 10, Color("fff4dc"))
 	_extra_life_count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_extra_life_count.add_theme_color_override("font_outline_color", Color("28151e"))
 	_extra_life_count.add_theme_constant_override("outline_size", 3)
 	add_child(_extra_life_count)
-	_effect_status = _label("", MILA_BOLD, 8, Color("f6fbff"))
+	_effect_status = _label("", bold_font, 8, Color("f6fbff"))
 	_effect_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_effect_status.add_theme_color_override("font_outline_color", Color("07181b"))
 	_effect_status.add_theme_constant_override("outline_size", 3)
