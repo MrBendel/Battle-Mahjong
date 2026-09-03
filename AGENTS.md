@@ -41,6 +41,11 @@ Project-level instructions for Codex working on Battle Mahjong.
 - The current reference identity composition is 24 identities with four copies each. The complete 34-face art vocabulary remains a separate unresolved production decision.
 - Authored layouts live in `configuration/layouts/` and are discovered automatically.
 - Procedural layout requirements live in `configuration/layout_requirements/`.
+- Tower authoring profiles live in `configuration/tower/`; generated finite segments preserve candidate seeds, layouts, certified routes, and provisional difficulty reports for a future endless mode.
+- Mobile procedural layouts may use seeded per-layer motif choices, but every result must still pass geometry validation, configured mobile-fit constraints, and the pair-removal solver.
+- Internal playtests expose on-device seeded Board generation before modifier selection. Accepted layouts remain in memory, flow through the normal game-definition factory, and reopen at the generation step on Restart.
+- Procedural deals use seeded randomized selectable-pair routes so matching identities do not inherit symmetry from art-directed layout geometry. Keep authored reference-board deal behavior stable unless explicitly changing it.
+- The mobile procedural profile is a full-width `6x7` footprint with staggered, rather than progressively inset, layer candidates. Preserve its widest-row and multi-seed silhouette-variety tests when tuning motifs.
 - Layout authoring conventions and schema details are documented in `docs/LAYOUT_AUTHORING.md`.
 - Game definitions record layout identity, revision, and content hash for deterministic replay validation.
 - The M4 solver proves pair-only removal routes. Tray-aware routes that require temporarily holding unmatched tiles are deferred.
@@ -123,6 +128,7 @@ For documentation-only changes, `git diff --check` is sufficient unless the docu
 - `docs/TILE_ART_PIPELINE.md`: canonical tile geometry, identity, source/export, and skin-manifest contract.
 - `docs/PLAYER_PROFILE.md`: profile, game-record, result-application, and future account boundaries.
 - `docs/PAIR_DIFFICULTY.md`: deterministic opportunity scoring, ranking, telemetry, and tuning boundary.
+- `docs/TOWER_GENERATION.md`: deterministic Tower segment generation, authoring difficulty metrics, and deferred runtime boundaries.
 - `docs/PERFORMANCE_OPTIMIZATION.md`: measurement protocol and ordered Board rendering optimization backlog.
 - `docs/FLIPPED_TILES.md`: seeded face-down assignment, reveal, direct-match, consumable, and replay rules.
 - `docs/ARCADE_CALLOUTS.md`: single-lane alert arbitration, Combo cadence, score milestones, and profile boundary.

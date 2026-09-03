@@ -84,6 +84,7 @@ Implement:
 - responsive presentation of partial tile overlap
 - versioned data-authored layouts with stable slots
 - seeded requirements-driven layout generation
+- deterministic Tower-segment authoring and provisional route-difficulty reports
 
 Success criteria:
 
@@ -148,7 +149,7 @@ Later milestones are recorded here to preserve ordering. Detailed implementation
 - M8 Art Expansion + Cosmetics - additional skins, characters, backgrounds, and visual breadth built on the M7 contracts
 - [M9 Local Profile + Game Library](milestones/M09_LOCAL_PROFILE_GAME_LIBRARY.md) - local profile persistence, durable deterministic game records, resume, history, and idempotent result application
 - M10 Replays + Ghosts - playback and ghost presentation built on the durable M9 game library
-- M11 Game Modes
+- M11 Game Modes - begin with endless Tower play, consuming deterministic finite segments from the M4 authoring pipeline
 - M12 Backend + Async Battle
 - M13 Progression + Collection
 

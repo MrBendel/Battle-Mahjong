@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "profile_id": "tower_foundation",
+  "revision": 1,
+  "requirements_path": "res://configuration/layout_requirements/portrait_arcade_96.json",
+  "floor_count": 8,
+  "candidate_count": 32,
+  "tray_capacity": 4,
+  "difficulty_weights": {
+    "average_pair_difficulty_bps": 10000,
+    "peak_pair_difficulty_bps": 2500,
+    "constrained_route_step_points": 3,
+    "low_pair_availability_target": 6,
+    "low_pair_availability_points": 5
+  },
+  "deal_options": {
+    "unique_tile_count": 24,
+    "shuffle_basis_points": 10000,
+    "randomize_removal_pairs": true
+  }
+}

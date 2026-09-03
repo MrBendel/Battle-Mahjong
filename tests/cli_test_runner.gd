@@ -7,6 +7,8 @@ const TileMatcherScript := preload("res://scripts/simulation/tile_matcher.gd")
 const BoardSelectabilityScript := preload("res://scripts/simulation/board_selectability.gd")
 const BoardStateScript := preload("res://scripts/simulation/board_state.gd")
 const BoardOpportunityAnalysisScript := preload("res://scripts/simulation/board_opportunity_analysis.gd")
+const LayoutDifficultyAnalyzerScript := preload("res://scripts/simulation/layout_difficulty_analyzer.gd")
+const LayoutMobileFitAnalyzerScript := preload("res://scripts/simulation/layout_mobile_fit_analyzer.gd")
 const FixedLayoutsScript := preload("res://scripts/simulation/fixed_layouts.gd")
 const GameDefinitionScript := preload("res://scripts/simulation/game_definition.gd")
 const GameConfigurationScript := preload("res://scripts/simulation/game_configuration.gd")
@@ -17,6 +19,8 @@ const GameTransactionScript := preload("res://scripts/simulation/game_transactio
 const GameReducerScript := preload("res://scripts/simulation/game_reducer.gd")
 const GameStateScript := preload("res://scripts/simulation/game_state.gd")
 const ReferenceGameFactoryScript := preload("res://scripts/simulation/reference_game_factory.gd")
+const TowerGenerationProfileScript := preload("res://scripts/simulation/tower_generation_profile.gd")
+const TowerSegmentGeneratorScript := preload("res://scripts/simulation/tower_segment_generator.gd")
 const GameSimulatorScript := preload("res://scripts/simulation/game_simulator.gd")
 const MomentumRulesScript := preload("res://scripts/simulation/momentum_rules.gd")
 const MomentumTuningScript := preload("res://scripts/configuration/momentum_tuning.gd")
@@ -1737,12 +1741,149 @@ func _run_generator_solver_tests() -> void:
 	var alternate_layout: Variant = procedural_generator.call("generate", requirements, 4243)
 	_check_equal(generated_layout.content_hash(), repeated_layout.content_hash(), "same requirements seed reproduces geometry")
 	_check(generated_layout.content_hash() != alternate_layout.content_hash(), "different requirements seed varies geometry")
+	var motif_requirements: Variant = BoardLayoutRequirementsScript.load_file(
+		"res://configuration/layout_requirements/portrait_arcade_96.json"
+	)
+	_check(motif_requirements != null, "portrait motif requirements load from JSON")
+	_check(motif_requirements.call("validation_errors").is_empty(), "portrait motif requirements validate")
+	var motif_hashes := {}
+	for motif_seed in range(1, 7):
+		var motif_layout: Variant = procedural_generator.call("generate", motif_requirements, motif_seed)
+		_check(motif_layout != null, "motif seed %d generates a layout" % motif_seed)
+		if motif_layout == null:
+			continue
+		motif_hashes[motif_layout.content_hash()] = true
+		var motif_metadata: Dictionary = motif_layout.metadata
+		_check_equal(4, motif_metadata.selected_motifs.size(), "motif layout records one choice per layer")
+		var mobile_fit: Dictionary = LayoutMobileFitAnalyzerScript.new().call(
+			"analyze", motif_layout, motif_requirements.mobile_constraints
+		)
+		_check(mobile_fit.valid, "motif seed %d passes mobile-fit constraints" % motif_seed)
+		_check(
+			int(mobile_fit.metrics.width_to_height_basis_points) <= 9000,
+			"motif seed %d retains a portrait footprint" % motif_seed
+		)
+		_check_equal(6, mobile_fit.metrics.widest_row_tile_count, "motif seed %d uses the full authored width" % motif_seed)
+		var motif_game: Dictionary = factory.call("create_generated_for_layout", motif_seed, motif_layout)
+		_check(
+			solver.call("verify_solution", motif_game.definition, motif_game.solution).valid,
+			"motif seed %d remains transactionally solvable" % motif_seed
+		)
+	_check(motif_hashes.size() >= 3, "six seeded motif generations produce at least three silhouettes")
 
 	var procedural_game: Dictionary = factory.call("create_generated_for_layout", 92817361, generated_layout)
 	_check_equal(generated_layout.content_hash(), procedural_game.definition.configuration.layout_hash, "procedural geometry hash reaches game definition")
 	_check(solver.call("verify_solution", procedural_game.definition, procedural_game.solution).valid, "procedural solution certificate replays to a win")
 	var procedural_solution: Array[String] = solver.call("find_pair_solution", procedural_game.definition)
 	_check_equal(96, procedural_solution.size(), "independent solver clears procedural layout")
+	var ordered_deal: Dictionary = factory.call(
+		"create_generated_for_layout",
+		92817361,
+		generated_layout,
+		4,
+		{"flipped_tile_count": 0},
+		[],
+		false,
+		{
+			"unique_tile_count": 12,
+			"shuffle_basis_points": 0,
+			"randomize_removal_pairs": false,
+		}
+	)
+	var shuffled_deal: Dictionary = factory.call(
+		"create_generated_for_layout",
+		92817361,
+		generated_layout,
+		4,
+		{"flipped_tile_count": 0},
+		[],
+		false,
+		{
+			"unique_tile_count": 12,
+			"shuffle_basis_points": 10000,
+			"randomize_removal_pairs": false,
+		}
+	)
+	_check_equal(12, _definition_identity_count(ordered_deal.definition), "deal generation supports an authored unique-tile count")
+	_check(
+		_deal_signature(ordered_deal.definition) != _deal_signature(shuffled_deal.definition),
+		"deal shuffle amount changes pair-vocabulary placement"
+	)
+	_check(solver.call("verify_solution", ordered_deal.definition, ordered_deal.solution).valid, "ordered deal remains certified")
+	_check(solver.call("verify_solution", shuffled_deal.definition, shuffled_deal.solution).valid, "fully shuffled deal remains certified")
+	var randomized_route_deal: Dictionary = factory.call(
+		"create_generated_for_layout",
+		92817361,
+		generated_layout,
+		4,
+		{"flipped_tile_count": 0},
+		[],
+		false,
+		{
+			"unique_tile_count": 24,
+			"shuffle_basis_points": 10000,
+			"randomize_removal_pairs": true,
+		}
+	)
+	var repeated_randomized_route_deal: Dictionary = factory.call(
+		"create_generated_for_layout",
+		92817361,
+		generated_layout,
+		4,
+		{"flipped_tile_count": 0},
+		[],
+		false,
+		{
+			"unique_tile_count": 24,
+			"shuffle_basis_points": 10000,
+			"randomize_removal_pairs": true,
+		}
+	)
+	_check_equal(
+		_deal_signature(randomized_route_deal.definition),
+		_deal_signature(repeated_randomized_route_deal.definition),
+		"seeded selectable-pair randomization is reproducible"
+	)
+	_check(
+		solver.call("verify_solution", randomized_route_deal.definition, randomized_route_deal.solution).valid,
+		"randomized selectable-pair route remains certified"
+	)
+	_check(
+		_solution_mirrored_pair_count(randomized_route_deal.definition, randomized_route_deal.solution) \
+			< _solution_mirrored_pair_count(shuffled_deal.definition, shuffled_deal.solution),
+		"randomized selectable-pair route reduces mirrored matching placements"
+	)
+	var compact_requirements := BoardLayoutRequirementsScript.new(
+		"tower_compact_24",
+		24,
+		4,
+		4,
+		[16, 8],
+		BoardLayoutRequirementsScript.SHAPE_DIAMOND
+	)
+	var compact_layout: Variant = procedural_generator.call("generate", compact_requirements, 717)
+	var compact_game: Dictionary = factory.call(
+		"create_generated_for_layout",
+		818,
+		compact_layout,
+		4,
+		{"flipped_tile_count": 0},
+		[],
+		false,
+		{"unique_tile_count": 6, "shuffle_basis_points": 5000}
+	)
+	_check_equal(24, compact_game.definition.tiles.size(), "deal generation follows authored board dimensions and tile count")
+	_check_equal(6, _definition_identity_count(compact_game.definition), "compact boards support a compact tile vocabulary")
+	_check(solver.call("verify_solution", compact_game.definition, compact_game.solution).valid, "compact Tower candidate remains certified")
+	var difficulty: Dictionary = LayoutDifficultyAnalyzerScript.new().call(
+		"analyze_solution",
+		procedural_game.definition,
+		procedural_game.solution
+	)
+	_check(difficulty.valid, "difficulty analyzer replays a certified solution")
+	_check_equal(48, difficulty.pair_count, "difficulty analyzer measures every route pair")
+	_check(difficulty.difficulty_score > 0, "difficulty analyzer emits a provisional authoring score")
+	_check(difficulty.peak_pair_difficulty >= difficulty.average_pair_difficulty, "difficulty report preserves peak pair difficulty")
 
 	for shape in BoardLayoutRequirementsScript.SHAPES:
 		var shape_requirements := BoardLayoutRequirementsScript.new(
@@ -1757,6 +1898,50 @@ func _run_generator_solver_tests() -> void:
 
 	var invalid_requirements := BoardLayoutRequirementsScript.new("invalid", 95, 6, 7, [42, 30, 17, 6])
 	_check(not invalid_requirements.call("validation_errors").is_empty(), "odd or inconsistent procedural requirements are rejected")
+
+	var production_tower_profile: Variant = TowerGenerationProfileScript.load_file(
+		"res://configuration/tower/tower_foundation.json"
+	)
+	_check(production_tower_profile != null, "Tower generation profile loads from JSON")
+	_check(production_tower_profile.call("validation_errors").is_empty(), "Tower generation profile validates")
+	_check_equal(8, production_tower_profile.floor_count, "foundation Tower segment selects eight floors")
+	var test_tower_profile := TowerGenerationProfileScript.new(
+		"tower_test",
+		"res://configuration/layout_requirements/portrait_diamond_96.json",
+		2,
+		3,
+		4,
+		1,
+		LayoutDifficultyAnalyzerScript.DEFAULT_WEIGHTS,
+		{
+			"unique_tile_count": 18,
+			"shuffle_basis_points": 5000,
+			"randomize_removal_pairs": true,
+		}
+	)
+	var tower_generator := TowerSegmentGeneratorScript.new()
+	var tower_segment: Dictionary = tower_generator.call("generate", test_tower_profile, 4242)
+	var repeated_tower_segment: Dictionary = tower_generator.call("generate", test_tower_profile, 4242)
+	var alternate_tower_segment: Dictionary = tower_generator.call("generate", test_tower_profile, 4243)
+	_check(tower_segment.valid, "Tower segment generation succeeds")
+	_check_equal(tower_segment, repeated_tower_segment, "same Tower seed reproduces the complete segment")
+	_check(tower_segment != alternate_tower_segment, "different Tower seed varies the segment")
+	_check_equal(2, tower_segment.floors.size(), "Tower segment selects the requested floor count")
+	_check(
+		str(tower_segment.floors[0].layout.layout_id) != str(tower_segment.floors[1].layout.layout_id),
+		"Tower candidates carry distinct stable layout ids"
+	)
+	_check_equal(6, tower_segment.difficulty_axes.board_columns, "Tower manifest records authored board width")
+	_check_equal(7, tower_segment.difficulty_axes.board_rows, "Tower manifest records authored board height")
+	_check_equal(18, tower_segment.difficulty_axes.unique_tile_count, "Tower manifest records deal vocabulary size")
+	_check_equal(5000, tower_segment.difficulty_axes.shuffle_basis_points, "Tower manifest records deterministic shuffle amount")
+	_check(tower_segment.difficulty_axes.randomize_removal_pairs, "Tower manifest records randomized selectable-pair placement")
+	_check_equal("tower_test_floor_001", tower_segment.floors[0].floor_id, "Tower floors receive stable sequence ids")
+	_check(
+		int(tower_segment.floors[0].difficulty.difficulty_score)
+			<= int(tower_segment.floors[1].difficulty.difficulty_score),
+		"Tower floors are ordered by provisional difficulty"
+	)
 
 
 func _run_simulation_tests() -> void:
@@ -1847,6 +2032,30 @@ func _deal_signature(definition: Variant) -> String:
 	for tile in definition.tiles:
 		identities.append(tile.face.logical_id())
 	return "|".join(identities)
+
+
+func _definition_identity_count(definition: Variant) -> int:
+	var identities := {}
+	for tile in definition.tiles:
+		identities[tile.face.logical_id()] = true
+	return identities.size()
+
+
+func _solution_mirrored_pair_count(definition: Variant, solution: Array) -> int:
+	var minimum_x := 2147483647
+	var maximum_x := -2147483648
+	for tile in definition.tiles:
+		minimum_x = mini(minimum_x, tile.position.x)
+		maximum_x = maxi(maximum_x, tile.position.x)
+	var mirrored_pairs := 0
+	for index in range(0, solution.size(), 2):
+		var first: Variant = definition.get_tile(solution[index])
+		var second: Variant = definition.get_tile(solution[index + 1])
+		if first.position.z == second.position.z \
+				and first.position.y == second.position.y \
+				and first.position.x + second.position.x == minimum_x + maximum_x:
+			mirrored_pairs += 1
+	return mirrored_pairs
 
 
 func _unique_strings(values: Array[String]) -> Dictionary:

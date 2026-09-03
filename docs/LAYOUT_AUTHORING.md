@@ -93,6 +93,53 @@ Supported shape families:
 - `ellipse`: favors rounded silhouettes.
 - `diamond`: favors diagonal tapering.
 
+## Art-Directed Motifs
+
+New requirements profiles may add seeded choices for each layer:
+
+```json
+"layer_motif_choices": [
+  ["solid", "hourglass"],
+  ["wings", "hourglass"],
+  ["bridge", "tower"],
+  ["tower"]
+]
+```
+
+The generator chooses one motif per layer from the seeded RNG, then combines that motif's placement score with the broad silhouette score. Available motifs are:
+
+- `solid`: keeps the underlying rectangle, ellipse, or diamond preference.
+- `wings`: favors separated outer structures.
+- `bridge`: favors a strong horizontal connecting band.
+- `tower`: favors a compact central stack.
+- `hourglass`: favors width near the ends and a narrower middle.
+
+Motifs guide candidate selection; they do not bypass support, symmetry, overlap, layout validation, or the solver gate.
+
+`progressive_layer_inset` controls the candidate footprint across depth. The default `true` preserves the classic taper where each layer loses one row and column. Setting it to `false` alternates full and half-tile-inset footprints, allowing upper layers to spread back across the authored width. The production mobile generator uses this staggered mode so its `6x7` boards do not always collapse into the same narrow tower.
+
+## Mobile-Fit Gate
+
+A procedural profile may include `mobile_constraints`. The current analyzer can reject candidates based on:
+
+- maximum footprint width-to-height ratio,
+- minimum and maximum initially selectable tiles,
+- maximum layer count,
+- minimum estimated tile width in a reference Board region,
+- minimum row-width variation,
+- minimum widest-row tile count,
+- required partial overlap.
+
+Generated layout metadata records the chosen layer motifs and measured mobile-fit values. The foundation example is `configuration/layout_requirements/portrait_arcade_96.json`.
+
+## On-Device Playtesting
+
+Internal gameplay builds open the responsive `BUILD A BOARD` panel before modifier selection. The `-` and `+` controls regenerate adjacent seeds, `ROLL SEED` advances deterministically to a distant seed, and the numeric seed field accepts a specific value. The generated geometry previews in the live Board region with its chosen motifs and mobile-fit summary.
+
+`USE THIS BOARD` carries the in-memory layout into modifier selection and the normal game-definition factory. Restart returns to Board generation with the previous seed retained. Generated layouts therefore remain reproducible without writing files on the device.
+
+Procedural deals randomize which currently selectable slots form each certified pair before assigning tile identities. The generated geometry may remain art-directed and horizontally balanced, but matching faces do not inherit the planner's coordinate ordering or mirror symmetry. Authored reference layouts retain their established deal behavior unless this option is requested explicitly.
+
 Each successive layer uses an inset candidate grid. When support is required, every generated upper slot must overlap at least one slot on the immediately lower layer. Horizontal symmetry is applied to complete slot groups rather than repaired after generation.
 
 ## Generate A Layout
@@ -104,10 +151,11 @@ From the repository root:
   --script res://scripts/tools/generate_layout.gd -- `
   res://configuration/layout_requirements/portrait_diamond_96.json `
   4242 `
-  res://configuration/layouts/generated_portrait_diamond_96.json
+  res://configuration/layouts/generated_portrait_diamond_96.json `
+  tower_diamond_seed_4242
 ```
 
-Omit the output argument to print normalized JSON to standard output.
+Omit the output argument to print normalized JSON to standard output. The final layout-ID argument is optional; provide it when multiple seeds from one requirements profile need to coexist in the layout catalog. Tower generation assigns deterministic seed-derived layout IDs automatically.
 
 Generation is deterministic for an exact requirements profile and seed. A result is emitted only when it:
 
@@ -122,7 +170,9 @@ To preview an asset, select the root `Main` node in `scenes/main.tscn` and set i
 
 ## Current Limits
 
-- Shapes are broad scoring families, not arbitrary image masks or natural-language prompts.
+- Shapes and motifs are scoring families, not arbitrary image masks or natural-language prompts.
 - Generation does not yet target measured human difficulty or tray pressure.
 - The solver gate proves a pair-only route; it does not require temporary unmatched tray holdings.
 - Support currently means overlap with at least one immediate-lower tile, not a physical center-of-mass simulation.
+
+Deterministic batch generation and provisional difficulty ranking for the future endless Tower mode are documented in [Tower Generation And Difficulty Tooling](TOWER_GENERATION.md).

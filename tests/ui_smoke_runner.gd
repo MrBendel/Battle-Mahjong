@@ -31,6 +31,7 @@ func _run() -> void:
 	var modifier_playtest := OS.get_cmdline_user_args().has("--modifier-playtest") \
 		or OS.get_cmdline_user_args().has("--modifier-callout-capture")
 	shell.set("playtest_all_modifiers", modifier_playtest)
+	shell.set("show_layout_generator_on_start", false)
 	shell.set("show_modifier_picker_on_start", false)
 	root.add_child(shell)
 	await process_frame
@@ -886,16 +887,65 @@ func _run() -> void:
 
 	shell.queue_free()
 	await process_frame
+	await _verify_layout_generator(requested_size)
 	await _verify_modifier_picker(requested_size)
 	await create_timer(0.1).timeout
 	printerr("PASS: responsive UI smoke" if _failures == 0 else "FAIL: %d responsive UI check(s)" % _failures)
 	quit(1 if _failures > 0 else 0)
 
 
+func _verify_layout_generator(requested_size: Vector2i) -> void:
+	root.size = requested_size
+	var generator_shell: Control = load("res://scenes/main.tscn").instantiate()
+	generator_shell.set("show_layout_generator_on_start", true)
+	generator_shell.set("show_modifier_picker_on_start", true)
+	generator_shell.set("playtest_all_modifiers", false)
+	root.add_child(generator_shell)
+	await process_frame
+	var picker: Control = generator_shell.get("_layout_generator_picker")
+	_check(picker != null and picker.visible, "on-device layout generator opens before modifier selection")
+	_check(generator_shell.get("_runtime_layout") != null, "layout generator creates an in-memory preview")
+	_check(generator_shell.get("_regions").board.get("_tile_layer").visible, "generated Board geometry is visible behind the picker")
+	_check(not generator_shell.get("_pause_button").visible, "layout generator owns the modal command layer")
+	if picker == null:
+		generator_shell.queue_free()
+		await process_frame
+		return
+	var initial_hash: String = generator_shell.get("_runtime_layout").content_hash()
+	picker.call("request_seed_for_testing", 4243)
+	await process_frame
+	_check_equal(4243, generator_shell.get("_runtime_layout_seed"), "on-device seed control regenerates the requested board")
+	_check(initial_hash != generator_shell.get("_runtime_layout").content_hash(), "changing the on-device seed changes geometry")
+	_check_equal(
+		"mobile_seed_0000004243",
+		generator_shell.get("_game").definition.configuration.layout_id,
+		"generated preview uses a stable seed-derived layout id"
+	)
+	var safe_rect := SafeAreaScript.content_rect(picker.size, generator_shell.call("_get_safe_area_insets"))
+	_check(
+		safe_rect.grow(1.0).encloses(Rect2(picker.get("_panel").position, picker.get("_panel").size)),
+		"layout generator stays inside the safe display"
+	)
+	picker.call("accept_for_testing")
+	await process_frame
+	_check(generator_shell.get("_layout_generator_picker") == null, "accepting a generated Board closes the generator")
+	_check(generator_shell.get("_modifier_picker") != null, "generated Board flows into modifier selection")
+	_check(not generator_shell.get("_regions").board.get("_tile_layer").visible, "modifier selection hides the accepted Board until deal-in")
+	generator_shell.get("_modifier_picker").call("confirm_for_testing")
+	await process_frame
+	generator_shell.call("_on_restart_requested")
+	await process_frame
+	_check(generator_shell.get("_layout_generator_picker") != null, "Restart returns phone playtests to Board generation")
+	_check_equal(4243, generator_shell.get("_runtime_layout_seed"), "Restart retains the last Board seed for iteration")
+	generator_shell.queue_free()
+	await process_frame
+
+
 func _verify_modifier_picker(requested_size: Vector2i) -> void:
 	root.size = requested_size
 	var picker_shell: Control = load("res://scenes/main.tscn").instantiate()
 	picker_shell.set("show_modifier_picker_on_start", true)
+	picker_shell.set("show_layout_generator_on_start", false)
 	picker_shell.set("playtest_all_modifiers", false)
 	picker_shell.set("opening_countdown_step_seconds", 0.20)
 	root.add_child(picker_shell)

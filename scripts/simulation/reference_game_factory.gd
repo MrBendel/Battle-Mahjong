@@ -95,18 +95,37 @@ func create_generated_for_layout(
 		tray_capacity: int = 4,
 		configuration_overrides: Dictionary = {},
 		modifier_loadout: Variant = null,
-		place_modifiers_on_early_route := false
+		place_modifiers_on_early_route := false,
+		deal_options: Dictionary = {}
 ) -> Dictionary:
 	if layout == null or not layout.call("validation_errors").is_empty():
 		push_error("Cannot create a game from an invalid board layout")
 		return {}
-	var placement_pairs: Array = LayoutSolutionPlannerScript.new().call("build_plan", layout)
+	var randomize_removal_pairs := bool(deal_options.get(
+		"randomize_removal_pairs",
+		str(layout.metadata.get("source", "")) == "procedural"
+	))
+	var planner := LayoutSolutionPlannerScript.new()
+	var placement_pairs: Array
+	if randomize_removal_pairs:
+		placement_pairs = planner.call("build_seeded_plan", layout, seed + 982451653)
+	else:
+		placement_pairs = planner.call("build_plan", layout)
 	var layout_slots: Array = layout.slots
 	if placement_pairs.size() * 2 != layout_slots.size():
 		push_error("Board layout has no complete pair-removal plan: %s" % layout.id)
 		return {}
-	var pair_faces := _build_pair_faces()
-	_shuffle(pair_faces, DeterministicRngScript.new(seed))
+	var pair_count: int = placement_pairs.size()
+	var identity_count := int(deal_options.get("unique_tile_count", IDENTITY_COUNT))
+	if identity_count <= 0 or identity_count > pair_count:
+		push_error("Unique tile count must be between one and the generated pair count.")
+		return {}
+	var shuffle_basis_points := int(deal_options.get("shuffle_basis_points", 10000))
+	if shuffle_basis_points < 0 or shuffle_basis_points > 10000:
+		push_error("Deal shuffle basis points must be between zero and 10000.")
+		return {}
+	var pair_faces := _build_pair_faces(pair_count, identity_count)
+	_shuffle_fraction(pair_faces, DeterministicRngScript.new(seed), shuffle_basis_points)
 
 	var tiles: Array = []
 	tiles.resize(layout_slots.size())
@@ -167,14 +186,26 @@ func create_generated_for_layout(
 	}
 
 
-func _build_pair_faces() -> Array:
+func _build_pair_faces(pair_count: int = PAIR_COUNT, identity_count: int = IDENTITY_COUNT) -> Array:
 	var faces: Array = []
-	for identity_index in range(IDENTITY_COUNT):
-		var face = TileFaceScript.new("reference", "%02d" % (identity_index + 1))
-		for _pair_copy in range(COPIES_PER_IDENTITY / 2):
-			faces.append(face)
+	var base_pairs_per_identity: int = pair_count / identity_count
+	var identities_with_extra_pair: int = pair_count % identity_count
+	for identity_index in range(identity_count):
+		var copies: int = base_pairs_per_identity + int(identity_index < identities_with_extra_pair)
+		for _pair_copy in range(copies):
+			faces.append(TileFaceScript.new("reference", "%02d" % (identity_index + 1)))
 
 	return faces
+
+
+func _shuffle_fraction(values: Array, rng: Variant, shuffle_basis_points: int) -> void:
+	var swap_count: int = (maxi(0, values.size() - 1) * shuffle_basis_points + 5000) / 10000
+	for offset in range(swap_count):
+		var index: int = values.size() - 1 - offset
+		var swap_index: int = rng.call("range_int", 0, index)
+		var value: Variant = values[index]
+		values[index] = values[swap_index]
+		values[swap_index] = value
 
 
 func _shuffle(values: Array, rng: Variant) -> void:

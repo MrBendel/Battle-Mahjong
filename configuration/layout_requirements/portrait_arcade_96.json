@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "requirements_id": "generated_portrait_arcade_96",
+  "revision": 2,
+  "tile_count": 96,
+  "columns": 6,
+  "rows": 7,
+  "layer_counts": [36, 28, 20, 12],
+  "shape": "ellipse",
+  "horizontal_symmetry": true,
+  "require_support": true,
+  "progressive_layer_inset": false,
+  "layer_motif_choices": [
+    ["solid", "hourglass", "wings"],
+    ["wings", "hourglass", "bridge"],
+    ["bridge", "tower", "wings", "hourglass"],
+    ["tower", "wings", "bridge"]
+  ],
+  "mobile_constraints": {
+    "maximum_width_to_height_bps": 9000,
+    "minimum_initial_selectable_tiles": 4,
+    "maximum_initial_selectable_tiles": 20,
+    "maximum_layer_count": 5,
+    "reference_board_width_px": 350,
+    "reference_board_height_px": 600,
+    "tile_height_to_width_bps": 12500,
+    "minimum_tile_width_px": 32,
+    "minimum_row_width_variation": 4,
+    "minimum_widest_row_tiles": 6,
+    "require_partial_overlap": true
+  }
+}

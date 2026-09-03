@@ -21,7 +21,10 @@ const ArcadeCalloutTuningScript := preload("res://scripts/configuration/arcade_c
 const PauseMenuScript := preload("res://scripts/presentation/pause_menu.gd")
 const EndGameMenuScript := preload("res://scripts/presentation/end_game_menu.gd")
 const ModifierLoadoutPickerScript := preload("res://scripts/presentation/modifier_loadout_picker.gd")
+const LayoutGeneratorPickerScript := preload("res://scripts/presentation/layout_generator_picker.gd")
 const ModifierLoadoutScript := preload("res://scripts/simulation/modifier_loadout.gd")
+const BoardLayoutRequirementsScript := preload("res://scripts/simulation/board_layout_requirements.gd")
+const ProceduralLayoutGeneratorScript := preload("res://scripts/simulation/procedural_layout_generator.gd")
 const GameChangeScript := preload("res://scripts/simulation/game_change.gd")
 const GameStateDataScript := preload("res://scripts/simulation/game_state_data.gd")
 const UpdateBannerViewScript := preload("res://scripts/presentation/update_banner_view.gd")
@@ -99,6 +102,8 @@ const PAIR_MATCH_FX_POOL_SIZE := 6
 @export var playtest_all_modifiers := false
 ## Opens the run-scoped modifier picker over the staged shell before dealing Board tiles.
 @export var show_modifier_picker_on_start := true
+@export var show_layout_generator_on_start := true
+@export_file("*.json") var layout_requirements_path := "res://configuration/layout_requirements/portrait_arcade_96.json"
 @export var show_debug_panel := false
 
 var _rng: RefCounted = DeterministicRngScript.new(START_SEED)
@@ -171,6 +176,9 @@ var _shuffle_animation_count := 0
 var _shuffle_animation_generation := 0
 var _last_tray_capacity := 0
 var _modifier_picker: Control
+var _layout_generator_picker: Control
+var _runtime_layout: Variant
+var _runtime_layout_seed := START_SEED
 var _selected_modifier_loadout: Variant = null
 
 func _ready() -> void:
@@ -182,7 +190,9 @@ func _ready() -> void:
 	_selected_modifier_loadout = ModifierLoadoutScript.playtest_all() if playtest_all_modifiers \
 		else ModifierLoadoutScript.starter()
 	_build_shell()
-	if show_modifier_picker_on_start and not playtest_all_modifiers:
+	if show_layout_generator_on_start and not playtest_all_modifiers:
+		_open_layout_generator(_runtime_layout_seed)
+	elif show_modifier_picker_on_start and not playtest_all_modifiers:
 		_open_modifier_picker(ModifierLoadoutScript.starter())
 	_apply_layout()
 
@@ -367,7 +377,24 @@ func _create_game() -> Variant:
 			push_error("Invalid ModifierTuning; using simulation defaults: %s" % " ".join(modifier_errors))
 	var factory := ReferenceGameFactoryScript.new()
 	var definition: Variant
-	if playtest_all_modifiers:
+	if _runtime_layout != null:
+		var runtime_loadout: Array = ModifierLoadoutScript.playtest_all() if playtest_all_modifiers \
+			else _selected_modifier_loadout
+		tuning_overrides["modifier_loadout_capacity"] = maxi(
+			int(tuning_overrides.get("modifier_loadout_capacity", 0)),
+			runtime_loadout.size()
+		)
+		var generated: Dictionary = factory.call(
+			"create_generated_for_layout",
+			_rng.call("get_seed"),
+			_runtime_layout,
+			GameStateScript.BASE_TRAY_CAPACITY,
+			tuning_overrides,
+			runtime_loadout,
+			true
+		)
+		definition = generated.get("definition")
+	elif playtest_all_modifiers:
 		definition = factory.call(
 			"create_modifier_playtest_definition",
 			_rng.call("get_seed"),
@@ -384,8 +411,9 @@ func _create_game() -> Variant:
 			layout_id,
 			_selected_modifier_loadout
 		)
-	if definition == null and layout_id != BoardLayoutCatalogScript.DEFAULT_LAYOUT_ID:
-		push_error("Unknown or invalid layout '%s'; using default." % layout_id)
+	if definition == null:
+		var failed_layout_id: String = _runtime_layout.layout_id if _runtime_layout != null else layout_id
+		push_error("Unknown or invalid layout '%s'; using default." % failed_layout_id)
 		if playtest_all_modifiers:
 			definition = factory.call(
 				"create_modifier_playtest_definition",
@@ -470,6 +498,56 @@ func _open_modifier_picker(initial_loadout: Array) -> void:
 	_regions.board.call("set_tiles_visible", false)
 	_pause_button.visible = false
 	_apply_layout()
+
+
+func _open_layout_generator(initial_seed: int) -> void:
+	if _layout_generator_picker != null:
+		return
+	_opening_countdown_active = false
+	_opening_countdown.call("cancel")
+	_layout_generator_picker = LayoutGeneratorPickerScript.new(initial_seed)
+	_layout_generator_picker.seed_requested.connect(_on_layout_seed_requested)
+	_layout_generator_picker.accepted.connect(_on_generated_layout_accepted)
+	add_child(_layout_generator_picker)
+	_pause_button.visible = false
+	_on_layout_seed_requested(initial_seed)
+
+
+func _on_layout_seed_requested(seed: int) -> void:
+	var requirements: Variant = BoardLayoutRequirementsScript.load_file(layout_requirements_path)
+	if requirements == null or not requirements.call("validation_errors").is_empty():
+		_layout_generator_picker.call("set_result", seed, null, "INVALID LAYOUT PROFILE")
+		return
+	var generated_id := "mobile_seed_%010d" % seed
+	var generated_layout: Variant = ProceduralLayoutGeneratorScript.new().call(
+		"generate", requirements, seed, generated_id
+	)
+	if generated_layout == null:
+		_layout_generator_picker.call("set_result", seed, null, "TRY ANOTHER SEED")
+		return
+	_runtime_layout_seed = seed
+	_runtime_layout = generated_layout
+	_rng.call("set_seed", seed)
+	_game = _create_game()
+	_last_tray_capacity = _game.tray.capacity
+	_regions.board.call("set_game_state", _game)
+	_regions.board.call("set_tiles_visible", true)
+	_regions.tray.call("set_game_state", _game)
+	_regions.momentum.call("set_game_state", _game)
+	_regions.consumables.call("set_game_state", _game)
+	_layout_generator_picker.call("set_result", seed, generated_layout)
+	_apply_layout()
+
+
+func _on_generated_layout_accepted() -> void:
+	if _layout_generator_picker != null:
+		remove_child(_layout_generator_picker)
+		_layout_generator_picker.queue_free()
+		_layout_generator_picker = null
+	if show_modifier_picker_on_start and not playtest_all_modifiers:
+		_open_modifier_picker(_selected_modifier_loadout)
+	else:
+		_on_modifier_loadout_started(_selected_modifier_loadout)
 
 
 func _on_tile_selected(tile_id: String) -> void:
@@ -811,12 +889,14 @@ func _on_restart_requested() -> void:
 	_modifier_feedback.call("reset")
 	_delete_pair_armed = false
 	_regions.board.call("set_delete_pair_armed", false)
-	if show_modifier_picker_on_start and not playtest_all_modifiers:
+	if show_layout_generator_on_start and not playtest_all_modifiers:
+		_open_layout_generator(_runtime_layout_seed)
+	elif show_modifier_picker_on_start and not playtest_all_modifiers:
 		_open_modifier_picker(_selected_modifier_loadout)
 
 
 func _on_pause_requested() -> void:
-	if _modifier_picker != null or _opening_countdown_active \
+	if _layout_generator_picker != null or _modifier_picker != null or _opening_countdown_active \
 			or _auto_clear_animation_active or _pause_started_at_ms >= 0 \
 			or _game_over_time_ms >= 0 or _game.status != GameStateScript.PLAYING:
 		return
@@ -883,6 +963,7 @@ func _rebuild_interactive_controls() -> void:
 
 func _gameplay_input_blocked() -> bool:
 	return _lifecycle_input_suspended or _application_backgrounded \
+		or _layout_generator_picker != null \
 		or _modifier_picker != null \
 		or _opening_countdown_active \
 		or _pause_started_at_ms >= 0 or _game_over_time_ms >= 0 \
@@ -1645,6 +1726,8 @@ func _make_region(title: String, subtitle: String, color: Color) -> Panel:
 
 func _apply_layout() -> void:
 	var viewport_size := get_viewport_rect().size
+	if _layout_generator_picker != null:
+		_layout_generator_picker.call("set_safe_area_insets", _get_safe_area_insets())
 	if _modifier_picker != null:
 		_modifier_picker.call("set_safe_area_insets", _get_safe_area_insets())
 	var viewport_i := Vector2i(int(viewport_size.x), int(viewport_size.y))
