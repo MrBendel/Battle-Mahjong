@@ -15,6 +15,8 @@ Only one alert may be shown at a time. A pair transaction is reduced to at most 
 
 The renderer owns one live-text label. A new accepted alert replaces the active presentation rather than creating an overlapping label. Text is not baked into bitmap assets so localization and future announcer packs can consume the same event keys.
 
+The opening `3`, `2`, `1` countdown is a separate pre-game presentation lane rather than a gameplay callout. It is centered over the responsive Board with chromatic text shadows and radial streaks. The Board deals in behind it, but gameplay input, elapsed run time, and Momentum decay remain at zero until both the countdown and deal animation finish.
+
 Callout typography, outline weight, vertical motion, and lane height scale from the rendered Board dimensions. Long localized or system copy is fitted to the available width after scaling, preserving legibility on high-resolution phones without clipping compact portrait layouts.
 
 ## Combo Cadence

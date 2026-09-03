@@ -14,11 +14,14 @@ const ConsumablesViewScript := preload("res://scripts/presentation/consumables_v
 const TileSkinScript := preload("res://scripts/presentation/tile_skin.gd")
 const PairMatchFxScript := preload("res://scripts/presentation/pair_match_fx.gd")
 const PerformanceCalloutScript := preload("res://scripts/presentation/performance_callout_view.gd")
+const OpeningCountdownViewScript := preload("res://scripts/presentation/opening_countdown_view.gd")
 const ModifierFeedbackViewScript := preload("res://scripts/presentation/modifier_feedback_view.gd")
 const ArcadeCalloutPolicyScript := preload("res://scripts/presentation/arcade_callout_policy.gd")
 const ArcadeCalloutTuningScript := preload("res://scripts/configuration/arcade_callout_tuning.gd")
 const PauseMenuScript := preload("res://scripts/presentation/pause_menu.gd")
 const EndGameMenuScript := preload("res://scripts/presentation/end_game_menu.gd")
+const ModifierLoadoutPickerScript := preload("res://scripts/presentation/modifier_loadout_picker.gd")
+const ModifierLoadoutScript := preload("res://scripts/simulation/modifier_loadout.gd")
 const GameChangeScript := preload("res://scripts/simulation/game_change.gd")
 const GameStateDataScript := preload("res://scripts/simulation/game_state_data.gd")
 const UpdateBannerViewScript := preload("res://scripts/presentation/update_banner_view.gd")
@@ -39,6 +42,10 @@ const PORTRAIT_BOARD_INTO_DOCK_PADDING := 8.0
 const START_SEED := 92817361
 const PAIR_LANDING_HOLD_SECONDS := 0.12
 const PAIR_COLLISION_SECONDS := 0.10
+const PAIR_POP_EXPAND_SECONDS := 0.08
+const PAIR_POP_FADE_SECONDS := 0.13
+const PAIR_POP_SECONDS := PAIR_POP_EXPAND_SECONDS + PAIR_POP_FADE_SECONDS
+const PAIR_MATCH_FX_POOL_SIZE := 6
 
 @export var momentum_tuning: Resource
 @export var modifier_tuning: Resource
@@ -52,23 +59,46 @@ const PAIR_COLLISION_SECONDS := 0.10
 ## Full back-to-front or front-to-back Board flip duration.
 @export_range(0.20, 0.80, 0.01) var tile_flip_seconds := 0.25
 ## Face-up hold before an auto-matching flipped tile starts moving to the tray.
-@export_range(0.10, 0.50, 0.01) var flipped_auto_match_hold_seconds := 0.24
+@export_range(0.08, 0.50, 0.01) var flipped_auto_match_hold_seconds := 0.14
 ## Leftward queue-compaction travel after a held pair resolves.
 @export_range(0.08, 0.30, 0.01) var tray_compaction_seconds := 0.16
 ## Travel time for tiles to settle into their shuffled positions.
 @export_range(0.08, 0.30, 0.01) var shuffle_move_seconds := 0.24
+## Travel time for Bomb targets to form two columns around Board center.
+@export_range(0.12, 0.80, 0.01) var bomb_formation_seconds := 0.38
+## Brief ignition beat after the triggering pair has fully disappeared.
+@export_range(0.0, 0.60, 0.01) var bomb_activation_delay_seconds := 0.30
+## Readable hold after Bomb targets reach their two columns.
+@export_range(0.04, 0.40, 0.01) var bomb_formation_hold_seconds := 0.12
+## Simultaneous travel from two columns into one centered stack.
+@export_range(0.10, 0.50, 0.01) var bomb_collapse_seconds := 0.22
+## Delay between each pair in the Bomb collision chain.
+@export_range(0.05, 0.40, 0.01) var bomb_chain_interval_seconds := 0.05
+## Additional anticipation beat before Three Pair Clear begins its first selection.
+@export_range(0.0, 1.50, 0.05) var assisted_clear_activation_hold_seconds := 0.15
+## Quick beat between selecting the two tiles of an assisted pair.
+@export_range(0.05, 0.50, 0.01) var assisted_clear_selection_interval_seconds := 0.05
+## Delay after the normal pair match before Three Pair Clear selects its next pair.
+@export_range(0.30, 1.40, 0.01) var assisted_clear_pair_interval_seconds := 0.55
+## Initial tile deal-in after confirming the pregame modifier loadout.
+@export_range(0.08, 0.60, 0.01) var board_deal_seconds := 0.24
+@export_range(0.0, 0.80, 0.01) var board_deal_stagger_seconds := 0.34
+## Duration of each 3-2-1 opening countdown beat.
+@export_range(0.18, 1.00, 0.01) var opening_countdown_step_seconds := 0.55
 @export_category("Feedback")
 ## Multiplier applied after match FX inherit the limiting safe-display scale.
-@export_range(0.50, 2.00, 0.05) var match_fx_scale_multiplier := 1.0
+@export_range(0.50, 2.00, 0.05) var match_fx_scale_multiplier := 1.30
 @export var sound_enabled_on_start := true
 @export var haptics_enabled_on_start := true
 @export_range(1, 200, 1) var selection_haptic_duration_ms := 18
 @export_range(0.0, 1.0, 0.05) var selection_haptic_amplitude := 0.25
 @export_range(1, 300, 1) var pair_haptic_duration_ms := 55
 @export_range(0.0, 1.0, 0.05) var pair_haptic_amplitude := 0.70
-## Equip all four modifiers on early solver-route pairs for visual and activation testing.
+## Equip all modifiers on early solver-route pairs for visual and activation testing.
 ## This is authoring support only; normal games retain the production starter loadout.
 @export var playtest_all_modifiers := false
+## Opens the run-scoped modifier picker over the staged shell before dealing Board tiles.
+@export var show_modifier_picker_on_start := true
 @export var show_debug_panel := false
 
 var _rng: RefCounted = DeterministicRngScript.new(START_SEED)
@@ -83,6 +113,9 @@ var _last_tile_motion_target := Rect2()
 var _pair_feedback_count := 0
 var _last_pair_feedback_position := Vector2()
 var _last_match_fx_scale := 1.0
+var _pair_match_fx_pool: Array[Control] = []
+var _next_pair_match_fx_index := 0
+var _last_match_fx: Control
 var _pair_collision_count := 0
 var _last_pair_collision_position := Vector2()
 var _flipped_pair_staging_count := 0
@@ -103,8 +136,13 @@ var _pause_menu: Control
 var _end_game_menu: Control
 var _pause_started_at_ms := -1
 var _game_over_time_ms := -1
+var _game_over_pending := false
 var _paused_duration_ms := 0
 var _performance_callout: Control
+var _opening_countdown: Control
+var _opening_countdown_active := false
+var _opening_countdown_complete := false
+var _opening_deal_complete := false
 var _modifier_feedback: Control
 var _arcade_callout_policy := ArcadeCalloutPolicyScript.new()
 var _update_banner: PanelContainer
@@ -120,17 +158,33 @@ var _haptics_enabled := true
 var _haptic_event_count := 0
 var _last_haptic_kind := ""
 var _shuffle_animation_active := false
+var _auto_clear_animation_active := false
+var _auto_clear_tween: Tween
+var _auto_clear_pending_visuals: Array = []
+var _auto_clear_generation := 0
+var _assisted_clear_selection_count := 0
+var _assisted_clear_completed_pair_count := 0
+var _bomb_formation_count := 0
+var _last_bomb_formation_targets: Array = []
+var _last_bomb_collision_targets: Array[Rect2] = []
 var _shuffle_animation_count := 0
 var _shuffle_animation_generation := 0
 var _last_tray_capacity := 0
+var _modifier_picker: Control
+var _selected_modifier_loadout: Variant = null
 
 func _ready() -> void:
 	_sound_enabled = sound_enabled_on_start
 	_haptics_enabled = haptics_enabled_on_start
 	_apply_sound_preference()
-	_build_shell()
-	_apply_layout()
 	get_viewport().size_changed.connect(_apply_layout)
+	_build_gameplay_background()
+	_selected_modifier_loadout = ModifierLoadoutScript.playtest_all() if playtest_all_modifiers \
+		else ModifierLoadoutScript.starter()
+	_build_shell()
+	if show_modifier_picker_on_start and not playtest_all_modifiers:
+		_open_modifier_picker(ModifierLoadoutScript.starter())
+	_apply_layout()
 
 
 func _notification(what: int) -> void:
@@ -154,7 +208,6 @@ func _input(event: InputEvent) -> void:
 
 
 func _build_shell() -> void:
-	_build_gameplay_background()
 	_game = _create_game()
 	_tile_skin = TileSkinScript.new()
 	_game_started_at_ms = Time.get_ticks_msec()
@@ -169,8 +222,12 @@ func _build_shell() -> void:
 		add_child(region)
 	_performance_callout = PerformanceCalloutScript.new()
 	add_child(_performance_callout)
+	_opening_countdown = OpeningCountdownViewScript.new()
+	_opening_countdown.finished.connect(_on_opening_countdown_finished)
+	add_child(_opening_countdown)
 	_modifier_feedback = ModifierFeedbackViewScript.new()
 	add_child(_modifier_feedback)
+	_initialize_match_fx_pool()
 	_last_tray_capacity = _game.tray.capacity
 	if arcade_callout_tuning == null or arcade_callout_tuning.get_script() != ArcadeCalloutTuningScript:
 		push_error("No valid ArcadeCalloutTuning resource assigned.")
@@ -179,6 +236,7 @@ func _build_shell() -> void:
 
 	_regions.board.tile_selected.connect(_on_tile_selected)
 	_regions.board.locked_tile_tapped.connect(_on_locked_tile_tapped)
+	_regions.board.deal_in_finished.connect(_on_opening_deal_finished)
 	_regions.consumables.hint_requested.connect(_on_hint_requested)
 	_regions.consumables.delete_pair_requested.connect(_on_delete_pair_requested)
 	_regions.consumables.shuffle_requested.connect(_on_shuffle_requested)
@@ -249,6 +307,7 @@ func _on_end_game_undo_requested() -> void:
 	if _end_game_menu != null:
 		_end_game_menu.call("close")
 	_game_over_time_ms = -1
+	_game_over_pending = false
 	if _pause_button != null:
 		_pause_button.visible = true
 	_on_undo_requested()
@@ -307,28 +366,118 @@ func _create_game() -> Variant:
 		else:
 			push_error("Invalid ModifierTuning; using simulation defaults: %s" % " ".join(modifier_errors))
 	var factory := ReferenceGameFactoryScript.new()
-	var factory_method := "create_modifier_playtest_definition" if playtest_all_modifiers else "create_definition"
-	var definition: Variant = factory.call(
-		factory_method,
-		_rng.call("get_seed"),
-		GameStateScript.BASE_TRAY_CAPACITY,
-		tuning_overrides,
-		layout_id
-	)
-	if definition == null and layout_id != BoardLayoutCatalogScript.DEFAULT_LAYOUT_ID:
-		push_error("Unknown or invalid layout '%s'; using default." % layout_id)
+	var definition: Variant
+	if playtest_all_modifiers:
 		definition = factory.call(
-			factory_method,
+			"create_modifier_playtest_definition",
 			_rng.call("get_seed"),
 			GameStateScript.BASE_TRAY_CAPACITY,
 			tuning_overrides,
-			BoardLayoutCatalogScript.DEFAULT_LAYOUT_ID
+			layout_id
 		)
+	else:
+		definition = factory.call(
+			"create_selected_modifier_definition",
+			_rng.call("get_seed"),
+			GameStateScript.BASE_TRAY_CAPACITY,
+			tuning_overrides,
+			layout_id,
+			_selected_modifier_loadout
+		)
+	if definition == null and layout_id != BoardLayoutCatalogScript.DEFAULT_LAYOUT_ID:
+		push_error("Unknown or invalid layout '%s'; using default." % layout_id)
+		if playtest_all_modifiers:
+			definition = factory.call(
+				"create_modifier_playtest_definition",
+				_rng.call("get_seed"),
+				GameStateScript.BASE_TRAY_CAPACITY,
+				tuning_overrides,
+				BoardLayoutCatalogScript.DEFAULT_LAYOUT_ID
+			)
+		else:
+			definition = factory.call(
+				"create_selected_modifier_definition",
+				_rng.call("get_seed"),
+				GameStateScript.BASE_TRAY_CAPACITY,
+				tuning_overrides,
+				BoardLayoutCatalogScript.DEFAULT_LAYOUT_ID,
+				_selected_modifier_loadout
+			)
 	return GameStateScript.new(definition)
 
 
+func _on_modifier_loadout_started(loadout: Array) -> void:
+	_selected_modifier_loadout = loadout.duplicate(true)
+	if _modifier_picker != null:
+		remove_child(_modifier_picker)
+		_modifier_picker.queue_free()
+		_modifier_picker = null
+	_pause_started_at_ms = -1
+	_game_over_time_ms = -1
+	_game_over_pending = false
+	_pause_menu.call("close")
+	_end_game_menu.call("close")
+	_game = _create_game()
+	_last_tray_capacity = _game.tray.capacity
+	_game_started_at_ms = Time.get_ticks_msec()
+	_paused_duration_ms = 0
+	_opening_countdown_active = true
+	_opening_countdown_complete = false
+	_opening_deal_complete = false
+	_regions.board.call("set_game_state", _game)
+	_regions.board.call("set_tiles_visible", false)
+	_regions.tray.call("set_game_state", _game)
+	_regions.momentum.call("set_game_state", _game)
+	_regions.consumables.call("set_game_state", _game)
+	_performance_callout.call("reset")
+	_modifier_feedback.call("reset")
+	_pause_button.visible = true
+	_apply_layout()
+	_regions.board.call("play_deal_in", board_deal_seconds, board_deal_stagger_seconds)
+	_opening_countdown.call("play", opening_countdown_step_seconds)
+
+
+func _on_opening_countdown_finished() -> void:
+	if not _opening_countdown_active:
+		return
+	_opening_countdown_complete = true
+	_finish_opening_sequence_if_ready()
+
+
+func _on_opening_deal_finished() -> void:
+	if not _opening_countdown_active:
+		return
+	_opening_deal_complete = true
+	_finish_opening_sequence_if_ready()
+
+
+func _finish_opening_sequence_if_ready() -> void:
+	if not _opening_countdown_active or not _opening_countdown_complete or not _opening_deal_complete:
+		return
+	_opening_countdown_active = false
+	_game_started_at_ms = Time.get_ticks_msec()
+	_paused_duration_ms = 0
+
+
+func _open_modifier_picker(initial_loadout: Array) -> void:
+	if _modifier_picker != null:
+		return
+	_opening_countdown_active = false
+	_opening_countdown.call("cancel")
+	_modifier_picker = ModifierLoadoutPickerScript.new(initial_loadout)
+	_modifier_picker.start_requested.connect(_on_modifier_loadout_started)
+	add_child(_modifier_picker)
+	_regions.board.call("set_tiles_visible", false)
+	_pause_button.visible = false
+	_apply_layout()
+
+
 func _on_tile_selected(tile_id: String) -> void:
-	if _gameplay_input_blocked():
+	_select_tile_with_presentation(tile_id)
+
+
+func _select_tile_with_presentation(tile_id: String, bypass_input_lock := false) -> void:
+	if not bypass_input_lock and _gameplay_input_blocked():
 		return
 	var revealed_before := _active_revealed_flipped_tile_ids()
 	var result: String
@@ -347,10 +496,20 @@ func _on_tile_selected(tile_id: String) -> void:
 		elif result == GameStateScript.PAIR_DELETED:
 			_play_haptic("pair")
 			var transaction: Variant = _game.call("last_transaction")
-			var removal_visuals := _capture_board_visuals(_resolved_tile_ids(transaction))
+			var deleted_ids: Array[String] = []
+			for deleted_id in transaction.telemetry.get("deleted_tile_ids", []):
+				deleted_ids.append(str(deleted_id))
+			var removal_visuals := _capture_board_visuals(deleted_ids)
+			var auto_clear_visuals := _capture_auto_clear_visuals(transaction)
 			_refresh_game_views()
 			_play_transaction_auto_reveals(transaction)
 			_play_board_pair_removal(removal_visuals)
+			_play_auto_clear_sequence(
+				auto_clear_visuals,
+				PAIR_POP_SECONDS,
+				str(transaction.telemetry.get("auto_clear_type", "")),
+				transaction.telemetry.get("auto_clear_pairs", [])
+			)
 			_play_transaction_callout(transaction)
 			return
 	else:
@@ -378,9 +537,10 @@ func _on_tile_selected(tile_id: String) -> void:
 								"rect": _regions.tray.call("slot_global_rect", tray_index),
 							})
 			result = _game.call("tap_tile", tile_id, _playback_time_ms())
+			var direct_transaction: Variant = _game.call("last_transaction")
+			var direct_auto_clear_visuals := _capture_auto_clear_visuals(direct_transaction)
 			_refresh_game_views()
 			_play_flip_backs(revealed_before)
-			var direct_transaction: Variant = _game.call("last_transaction")
 			_play_transaction_auto_reveals(direct_transaction)
 			if result == GameStateScript.TILE_REVEALED:
 				_play_haptic("selection")
@@ -394,8 +554,15 @@ func _on_tile_selected(tile_id: String) -> void:
 					_play_flipped_match_to_tray(direct_visuals, direct_target_rect, face_down)
 				else:
 					_play_flipped_pair_via_open_slots(direct_visuals, face_down)
+				_play_auto_clear_sequence(
+					direct_auto_clear_visuals,
+					tile_flip_seconds + flipped_auto_match_hold_seconds + tile_transfer_seconds \
+						+ PAIR_LANDING_HOLD_SECONDS + PAIR_COLLISION_SECONDS + PAIR_POP_SECONDS,
+					str(direct_transaction.telemetry.get("auto_clear_type", "")),
+					direct_transaction.telemetry.get("auto_clear_pairs", [])
+				)
 				_regions.momentum.call("play_pair_feedback", int(direct_transaction.telemetry.resulting_multiplier))
-				_play_transaction_callout(direct_transaction)
+				_play_transaction_callout_after(direct_transaction, tile_flip_seconds)
 			else:
 				for visual in direct_visuals:
 					visual.preview.queue_free()
@@ -413,9 +580,10 @@ func _on_tile_selected(tile_id: String) -> void:
 		result = _game.call("select_tile", tile_id, _playback_time_ms())
 		if _tray_contains_tile(tile_id):
 			_regions.tray.call("suppress_tile", tile_id)
+	var selection_transaction: Variant = _game.call("last_transaction")
+	var auto_clear_visuals := _capture_auto_clear_visuals(selection_transaction)
 	_refresh_game_views()
 	_play_flip_backs(revealed_before)
-	var selection_transaction: Variant = _game.call("last_transaction")
 	_play_transaction_auto_reveals(selection_transaction)
 	if tile_preview != null and result != GameStateScript.INVALID_SELECTION:
 		if result == GameStateScript.PAIR_RESOLVED:
@@ -434,6 +602,13 @@ func _on_tile_selected(tile_id: String) -> void:
 	if result == GameStateScript.PAIR_RESOLVED:
 		_play_haptic("pair")
 		var transaction: Variant = _game.call("last_transaction")
+		_play_auto_clear_sequence(
+			auto_clear_visuals,
+			tile_transfer_seconds + PAIR_LANDING_HOLD_SECONDS + PAIR_COLLISION_SECONDS \
+				+ PAIR_POP_SECONDS,
+			str(transaction.telemetry.get("auto_clear_type", "")),
+			transaction.telemetry.get("auto_clear_pairs", [])
+		)
 		_regions.momentum.call("play_pair_feedback", int(transaction.telemetry.resulting_multiplier))
 		_play_transaction_callout(transaction)
 	elif result == GameStateScript.EXTRA_LIFE_USED:
@@ -483,11 +658,27 @@ func _play_transaction_callout(transaction: Variant) -> void:
 		_performance_callout.call("play_alert", alert)
 
 
+func _play_transaction_callout_after(transaction: Variant, delay_seconds: float) -> void:
+	if transaction == null:
+		return
+	var expected_revision: int = transaction.revision
+	await get_tree().create_timer(maxf(0.0, delay_seconds)).timeout
+	if _game == null:
+		return
+	var current: Variant = _game.call("last_transaction")
+	if current == null or int(current.revision) != expected_revision:
+		return
+	_play_transaction_callout(transaction)
+
+
 func _play_modifier_feedback(telemetry: Dictionary) -> void:
 	var modifier_type := "extra_life_save" if bool(telemetry.get("extra_life_consumed", false)) else ""
 	var triggered: Array = telemetry.get("modifiers_triggered", [])
 	if modifier_type.is_empty() and not triggered.is_empty() and triggered[0] is Dictionary:
 		modifier_type = str(triggered[0].get("type", ""))
+		if modifier_type in ["three_pair_clear", "bomb"] \
+				and not bool(triggered[0].get("effect", {}).get("activated", false)):
+			return
 	if modifier_type.is_empty():
 		return
 	_modifier_feedback.call("play_activation", modifier_type)
@@ -519,7 +710,7 @@ func _on_locked_tile_tapped(tile_id: String) -> void:
 
 
 func _on_undo_requested() -> void:
-	if _lifecycle_input_suspended or _application_backgrounded or _pause_started_at_ms >= 0:
+	if _gameplay_input_blocked():
 		return
 	var tray_index: int = _game.tray.tiles.size() - 1
 	var tile_id := ""
@@ -594,10 +785,14 @@ func _on_shuffle_requested() -> void:
 
 func _on_restart_requested() -> void:
 	_clear_tray_compaction_previews()
+	_cancel_auto_clear_animation()
+	_opening_countdown_active = false
+	_opening_countdown.call("cancel")
 	_shuffle_animation_generation += 1
 	_shuffle_animation_active = false
 	_pause_started_at_ms = -1
 	_game_over_time_ms = -1
+	_game_over_pending = false
 	_paused_duration_ms = 0
 	if _pause_menu != null:
 		_pause_menu.call("close")
@@ -616,10 +811,14 @@ func _on_restart_requested() -> void:
 	_modifier_feedback.call("reset")
 	_delete_pair_armed = false
 	_regions.board.call("set_delete_pair_armed", false)
+	if show_modifier_picker_on_start and not playtest_all_modifiers:
+		_open_modifier_picker(_selected_modifier_loadout)
 
 
 func _on_pause_requested() -> void:
-	if _pause_started_at_ms >= 0 or _game_over_time_ms >= 0 or _game.status != GameStateScript.PLAYING:
+	if _modifier_picker != null or _opening_countdown_active \
+			or _auto_clear_animation_active or _pause_started_at_ms >= 0 \
+			or _game_over_time_ms >= 0 or _game.status != GameStateScript.PLAYING:
 		return
 	_pause_started_at_ms = Time.get_ticks_msec()
 	_pause_button.visible = false
@@ -638,6 +837,7 @@ func _on_resume_requested() -> void:
 func _on_application_backgrounded() -> void:
 	if _application_backgrounded:
 		return
+	_cancel_auto_clear_animation()
 	_application_backgrounded = true
 	_lifecycle_input_suspended = true
 	_cancel_active_pointer_events()
@@ -683,8 +883,12 @@ func _rebuild_interactive_controls() -> void:
 
 func _gameplay_input_blocked() -> bool:
 	return _lifecycle_input_suspended or _application_backgrounded \
+		or _modifier_picker != null \
+		or _opening_countdown_active \
 		or _pause_started_at_ms >= 0 or _game_over_time_ms >= 0 \
 		or _shuffle_animation_active \
+		or _auto_clear_animation_active \
+		or _regions.has("board") and bool(_regions.board.call("is_deal_in_active")) \
 		or _game == null or _game.status != GameStateScript.PLAYING
 
 
@@ -734,12 +938,26 @@ func _refresh_game_views() -> void:
 func _check_game_over() -> void:
 	if _game == null or _game.status == GameStateScript.PLAYING:
 		return
-	if _game_over_time_ms < 0:
-		_game_over_time_ms = _playback_time_ms()
-		if _pause_button != null:
-			_pause_button.visible = false
-		if _end_game_menu != null:
-			_end_game_menu.call("show_result", _game, _game_over_time_ms)
+	if _game_over_time_ms >= 0 or _game_over_pending:
+		return
+	_game_over_pending = true
+	call_deferred("_present_game_over_if_ready")
+
+
+func _present_game_over_if_ready() -> void:
+	if not _game_over_pending:
+		return
+	if _game == null or _game.status == GameStateScript.PLAYING:
+		_game_over_pending = false
+		return
+	if not _tile_transfer_previews.is_empty():
+		return
+	_game_over_pending = false
+	_game_over_time_ms = _playback_time_ms()
+	if _pause_button != null:
+		_pause_button.visible = false
+	if _end_game_menu != null:
+		_end_game_menu.call("show_result", _game, _game_over_time_ms)
 
 
 func _play_tile_to_tray(preview: Control, source_rect: Rect2, target_rect: Rect2, tile_id: String) -> void:
@@ -763,9 +981,13 @@ func _play_tile_to_tray(preview: Control, source_rect: Rect2, target_rect: Rect2
 func _finish_tile_to_tray(preview: Control, tile_id: String) -> void:
 	_tile_transfer_previews.erase(tile_id)
 	_tile_transfer_tweens.erase(tile_id)
+	if bool(preview.get_meta("pair_owns_transfer", false)):
+		_present_game_over_if_ready()
+		return
 	_regions.tray.call("reveal_tile", tile_id)
 	if is_instance_valid(preview):
 		preview.queue_free()
+	_present_game_over_if_ready()
 
 
 func _take_active_tile_transfer(tile_id: String) -> Control:
@@ -829,9 +1051,9 @@ func _prepare_pair_to_tray(incoming: Control, held: Control, source_rect: Rect2,
 	if held != null:
 		if held.get_parent() == null:
 			add_child(held)
-		held.position = _global_to_local(held_source_rect.position)
-		held.size = held_source_rect.size
-		held.pivot_offset = held.size * 0.5
+			held.position = _global_to_local(held_source_rect.position)
+			held.size = held_source_rect.size
+			held.pivot_offset = held.size * 0.5
 		held.z_index = 999
 
 
@@ -846,6 +1068,12 @@ func _start_pair_to_tray_motion(incoming: Control, held: Control, target_rect: R
 	tween.tween_property(incoming, "position", target_position, tile_transfer_seconds)
 	tween.tween_property(incoming, "scale", _preview_scale_for_rect(incoming, target_rect), tile_transfer_seconds)
 	tween.tween_property(incoming, "rotation", deg_to_rad(4.0), tile_transfer_seconds)
+	if held != null and is_instance_valid(held) \
+			and not bool(held.get_meta("pair_owns_transfer", false)):
+		var held_target_position := _global_to_local(held_source_rect.get_center()) - held.size * 0.5
+		tween.tween_property(held, "position", held_target_position, tile_transfer_seconds)
+		tween.tween_property(held, "scale", _preview_scale_for_rect(held, held_source_rect), tile_transfer_seconds)
+		tween.tween_property(held, "rotation", deg_to_rad(-4.0), tile_transfer_seconds)
 	tween.chain().tween_interval(PAIR_LANDING_HOLD_SECONDS)
 	tween.finished.connect(_play_pair_collision.bind(incoming, held, target_rect, held_source_rect))
 
@@ -908,6 +1136,188 @@ func _play_board_pair_removal(visuals: Array) -> void:
 		center += rect.get_center()
 	center /= float(visuals.size())
 	_play_pair_pop(visuals.map(func(visual: Dictionary) -> Variant: return visual.preview), center)
+
+
+func _play_auto_clear_sequence(
+	pair_visuals: Array,
+	initial_delay: float,
+	modifier_type: String = "",
+	assisted_pairs: Array = []
+) -> void:
+	if modifier_type == ModifierLoadoutScript.THREE_PAIR_CLEAR and not assisted_pairs.is_empty():
+		_play_assisted_input_sequence(assisted_pairs, initial_delay)
+		return
+	if modifier_type == ModifierLoadoutScript.BOMB and not pair_visuals.is_empty():
+		_play_bomb_clear_sequence(pair_visuals, initial_delay + bomb_activation_delay_seconds)
+
+
+func _play_assisted_input_sequence(assisted_pairs: Array, initial_delay: float) -> void:
+	_cancel_auto_clear_animation()
+	_auto_clear_generation += 1
+	var generation := _auto_clear_generation
+	_auto_clear_animation_active = true
+	_run_assisted_input_sequence(
+		assisted_pairs.duplicate(true),
+		initial_delay + assisted_clear_activation_hold_seconds,
+		generation
+	)
+
+
+func _run_assisted_input_sequence(assisted_pairs: Array, initial_delay: float, generation: int) -> void:
+	await get_tree().create_timer(maxf(0.0, initial_delay)).timeout
+	for pair in assisted_pairs:
+		if generation != _auto_clear_generation or _game.status != GameStateScript.PLAYING:
+			break
+		if not pair is Array or pair.size() < 2:
+			continue
+		if _game.tray.tiles.size() >= _game.tray.capacity - 1:
+			break
+		var first_tile_id := str(pair[0])
+		var second_tile_id := str(pair[1])
+		if not _game.board.call("is_tile_selectable", first_tile_id) \
+				or not _game.board.call("is_tile_selectable", second_tile_id):
+			continue
+		_assisted_clear_selection_count += 1
+		_select_tile_with_presentation(first_tile_id, true)
+		await get_tree().create_timer(assisted_clear_selection_interval_seconds).timeout
+		if generation != _auto_clear_generation or _game.status != GameStateScript.PLAYING:
+			break
+		if not _game.board.call("is_tile_selectable", second_tile_id):
+			continue
+		_assisted_clear_selection_count += 1
+		_select_tile_with_presentation(second_tile_id, true)
+		_assisted_clear_completed_pair_count += 1
+		await get_tree().create_timer(assisted_clear_pair_interval_seconds).timeout
+	if generation == _auto_clear_generation:
+		_auto_clear_animation_active = false
+
+
+func _play_bomb_clear_sequence(pair_visuals: Array, initial_delay: float) -> void:
+	_cancel_auto_clear_animation()
+	_auto_clear_pending_visuals = pair_visuals.duplicate()
+	_auto_clear_animation_active = true
+	var targets := _bomb_formation_rects(pair_visuals.size())
+	var collision_targets := _bomb_collision_rects(targets)
+	_last_bomb_formation_targets = targets.duplicate(true)
+	_last_bomb_collision_targets.assign(collision_targets)
+	_bomb_formation_count += 1
+	for pair_index in range(pair_visuals.size()):
+		var visuals: Array = pair_visuals[pair_index]
+		for side_index in range(mini(2, visuals.size())):
+			var visual: Dictionary = visuals[side_index]
+			var preview: Control = visual.preview
+			var source_rect: Rect2 = visual.rect
+			add_child(preview)
+			preview.position = _global_to_local(source_rect.position)
+			preview.size = source_rect.size
+			preview.pivot_offset = preview.size * 0.5
+			preview.z_index = 1040 + pair_index
+	var formation_delay := maxf(0.0, initial_delay)
+	var collapse_delay := formation_delay + bomb_formation_seconds + bomb_formation_hold_seconds
+	var chain_delay := collapse_delay + bomb_collapse_seconds + 0.10
+	_auto_clear_tween = create_tween().set_parallel(true)
+	for pair_index in range(pair_visuals.size()):
+		var visuals: Array = pair_visuals[pair_index]
+		for side_index in range(mini(2, visuals.size())):
+			var preview: Control = visuals[side_index].preview
+			var target: Rect2 = targets[pair_index][side_index]
+			var target_position := _global_to_local(target.get_center()) - preview.size * 0.5
+			_auto_clear_tween.tween_property(preview, "position", target_position, bomb_formation_seconds) \
+				.set_delay(formation_delay).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+			_auto_clear_tween.tween_property(
+				preview,
+				"rotation",
+				deg_to_rad(-3.0 if side_index == 0 else 3.0),
+				bomb_formation_seconds
+			).set_delay(formation_delay).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	for pair_index in range(pair_visuals.size()):
+		var visuals: Array = pair_visuals[pair_index]
+		var collision_target: Rect2 = collision_targets[pair_index]
+		for visual in visuals:
+			var preview: Control = visual.preview
+			_auto_clear_tween.tween_property(
+				preview,
+				"position",
+				_global_to_local(collision_target.get_center()) - preview.size * 0.5,
+				bomb_collapse_seconds
+			).set_delay(collapse_delay).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+			_auto_clear_tween.tween_property(preview, "rotation", 0.0, bomb_collapse_seconds) \
+				.set_delay(collapse_delay).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	for pair_index in range(pair_visuals.size()):
+		var visuals: Array = pair_visuals[pair_index]
+		var previews: Array = visuals.map(func(visual: Dictionary) -> Variant: return visual.preview)
+		_auto_clear_tween.tween_callback(_record_bomb_collision.bind(
+			collision_targets[pair_index].get_center()
+		)).set_delay(chain_delay + pair_index * bomb_chain_interval_seconds)
+		_auto_clear_tween.tween_callback(_play_pair_pop.bind(
+			previews,
+			collision_targets[pair_index].get_center()
+		)).set_delay(chain_delay + pair_index * bomb_chain_interval_seconds)
+	_auto_clear_tween.tween_interval(
+		chain_delay + pair_visuals.size() * bomb_chain_interval_seconds \
+			+ PAIR_COLLISION_SECONDS + 0.24
+	)
+	_auto_clear_tween.finished.connect(func() -> void:
+		_auto_clear_animation_active = false
+		_auto_clear_tween = null
+		_auto_clear_pending_visuals.clear()
+	)
+
+
+func _record_bomb_collision(center: Vector2) -> void:
+	_pair_collision_count += 1
+	_last_pair_collision_position = center
+
+
+func _bomb_formation_rects(pair_count: int) -> Array:
+	var targets: Array = []
+	if pair_count <= 0:
+		return targets
+	var board_rect: Rect2 = _regions.board.get_global_rect()
+	var tile_size: Vector2 = _regions.board.call("tile_visual_size")
+	var available_height := board_rect.size.y * 0.74
+	var target_height := minf(tile_size.y * 0.78, available_height / float(pair_count))
+	var target_width := tile_size.x * target_height / maxf(1.0, tile_size.y)
+	var row_step := minf(target_height * 0.90, available_height / float(pair_count))
+	var formation_height := target_height + row_step * float(pair_count - 1)
+	var start_y := board_rect.get_center().y - formation_height * 0.5
+	var center_x := board_rect.get_center().x
+	var center_gap := maxf(4.0, target_width * 0.12)
+	for pair_index in range(pair_count):
+		var y := start_y + row_step * pair_index
+		targets.append([
+			Rect2(Vector2(center_x - center_gap * 0.5 - target_width, y), Vector2(target_width, target_height)),
+			Rect2(Vector2(center_x + center_gap * 0.5, y), Vector2(target_width, target_height)),
+		])
+	return targets
+
+
+func _bomb_collision_rects(formation_targets: Array) -> Array[Rect2]:
+	var targets: Array[Rect2] = []
+	var board_center_x: float = _regions.board.get_global_rect().get_center().x
+	for row in formation_targets:
+		if not row is Array or row.is_empty():
+			continue
+		var source: Rect2 = row[0]
+		targets.append(Rect2(
+			Vector2(board_center_x - source.size.x * 0.5, source.position.y),
+			source.size
+		))
+	return targets
+
+
+func _cancel_auto_clear_animation() -> void:
+	_auto_clear_generation += 1
+	if _auto_clear_tween != null and _auto_clear_tween.is_valid():
+		_auto_clear_tween.kill()
+	for visuals in _auto_clear_pending_visuals:
+		for visual in visuals:
+			var preview: Variant = visual.get("preview")
+			if preview != null and is_instance_valid(preview):
+				preview.queue_free()
+	_auto_clear_pending_visuals.clear()
+	_auto_clear_tween = null
+	_auto_clear_animation_active = false
 
 
 func _play_flipped_pair_via_open_slots(visuals: Array, reveal_incoming: bool = false) -> void:
@@ -979,11 +1389,11 @@ func _play_pair_pop(previews: Array, global_center: Vector2) -> void:
 		var landed_scale: Vector2 = preview.scale
 		var tween := create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		tween.set_parallel(true)
-		tween.tween_property(preview, "scale", landed_scale * 1.09, 0.08)
-		tween.tween_property(preview, "rotation", 0.0, 0.08)
+		tween.tween_property(preview, "scale", landed_scale * 1.09, PAIR_POP_EXPAND_SECONDS)
+		tween.tween_property(preview, "rotation", 0.0, PAIR_POP_EXPAND_SECONDS)
 		tween.chain().set_parallel(true)
-		tween.tween_property(preview, "scale", landed_scale * 0.67, 0.13)
-		tween.tween_property(preview, "modulate:a", 0.0, 0.13)
+		tween.tween_property(preview, "scale", landed_scale * 0.67, PAIR_POP_FADE_SECONDS)
+		tween.tween_property(preview, "modulate:a", 0.0, PAIR_POP_FADE_SECONDS)
 		tween.finished.connect(preview.queue_free)
 
 
@@ -997,9 +1407,12 @@ func _capture_tray_visual(index: int) -> Dictionary:
 	if index < 0 or index >= _game.tray.tiles.size():
 		return {}
 	var tile_id := str(_game.tray.tiles[index].id)
-	var preview: Control = _take_active_tray_compaction(tile_id)
-	var source_rect: Rect2 = preview.get_global_rect() if preview != null \
-		else _regions.tray.call("slot_global_rect", index)
+	var preview: Control = _tile_transfer_previews.get(tile_id)
+	if preview != null:
+		preview.set_meta("pair_owns_transfer", true)
+	if preview == null:
+		preview = _take_active_tray_compaction(tile_id)
+	var source_rect: Rect2 = _regions.tray.call("slot_global_rect", index)
 	if preview == null:
 		preview = _regions.tray.call("create_tile_preview", index)
 	return {"tile_id": tile_id, "preview": preview, "rect": source_rect}
@@ -1084,16 +1497,36 @@ func _free_visual_previews(visuals: Array) -> void:
 
 
 func _spawn_match_burst(global_center: Vector2) -> void:
-	var burst: Control = PairMatchFxScript.new()
-	add_child(burst)
-	burst.position = _global_to_local(global_center) - burst.size * 0.5
+	var burst: Control = _pair_match_fx_pool[_next_pair_match_fx_index]
+	_next_pair_match_fx_index = (_next_pair_match_fx_index + 1) % _pair_match_fx_pool.size()
+	_last_match_fx = burst
 	_last_match_fx_scale = PresentationScaleScript.safe_display_scale(
 		get_viewport_rect().size,
 		_get_safe_area_insets(),
 		PORTRAIT_REFERENCE_SIZE
 	) * match_fx_scale_multiplier
 	burst.scale = Vector2.ONE * _last_match_fx_scale
+	# The pivot is the visual center, so place it only after responsive scale is final.
+	burst.position = _global_to_local(global_center) - burst.pivot_offset
 	burst.z_index = 1001
+	burst.call("play")
+
+
+func _initialize_match_fx_pool() -> void:
+	for index in PAIR_MATCH_FX_POOL_SIZE:
+		var burst: Control = PairMatchFxScript.new()
+		burst.name = "PairMatchFx%d" % index
+		burst.position = Vector2(-burst.size.x, -burst.size.y)
+		burst.z_index = -1
+		add_child(burst)
+		burst.call("play")
+		_pair_match_fx_pool.append(burst)
+	var warmup := create_tween()
+	warmup.tween_interval(0.31)
+	warmup.finished.connect(func() -> void:
+		for burst in _pair_match_fx_pool:
+			burst.z_index = 1001
+	)
 
 
 func _matching_tray_index(tile_id: String) -> int:
@@ -1141,6 +1574,20 @@ func _capture_board_visuals(tile_ids: Array[String], force_face_up: bool = false
 	return visuals
 
 
+func _capture_auto_clear_visuals(transaction: Variant) -> Array:
+	var pair_visuals: Array = []
+	if transaction == null:
+		return pair_visuals
+	if str(transaction.telemetry.get("auto_clear_type", "")) == ModifierLoadoutScript.THREE_PAIR_CLEAR:
+		return pair_visuals
+	for pair in transaction.telemetry.get("auto_clear_pairs", []):
+		var ids: Array[String] = []
+		for tile_id in pair:
+			ids.append(str(tile_id))
+		pair_visuals.append(_capture_board_visuals(ids))
+	return pair_visuals
+
+
 func _global_to_local(point: Vector2) -> Vector2:
 	return get_global_transform_with_canvas().affine_inverse() * point
 
@@ -1157,6 +1604,8 @@ func _process(_delta: float) -> void:
 
 
 func _playback_time_ms() -> int:
+	if _opening_countdown_active:
+		return 0
 	if _game_over_time_ms >= 0:
 		return _game_over_time_ms
 	var now: int = _pause_started_at_ms if _pause_started_at_ms >= 0 else Time.get_ticks_msec()
@@ -1196,6 +1645,8 @@ func _make_region(title: String, subtitle: String, color: Color) -> Panel:
 
 func _apply_layout() -> void:
 	var viewport_size := get_viewport_rect().size
+	if _modifier_picker != null:
+		_modifier_picker.call("set_safe_area_insets", _get_safe_area_insets())
 	var viewport_i := Vector2i(int(viewport_size.x), int(viewport_size.y))
 	var orientation := "Landscape" if viewport_size.x >= viewport_size.y else "Portrait"
 	_tile_skin.call("set_orientation", orientation.to_lower())
@@ -1233,6 +1684,7 @@ func _apply_layout() -> void:
 	_regions.tray.call("set_tile_visual_size", _regions.board.call("tile_visual_size") * tray_tile_scale)
 	_regions.tray.call("refresh")
 	_performance_callout.call("place_over", Rect2(_regions.board.position, _regions.board.size))
+	_opening_countdown.call("place_over", Rect2(_regions.board.position, _regions.board.size))
 	_modifier_feedback.call("place_over", Rect2(_regions.board.position, _regions.board.size))
 	_debug_panel.call(
 		"set_info",

@@ -91,6 +91,23 @@ func _choose_modifier_reward(telemetry: Dictionary) -> Dictionary:
 				"tray_plus_one",
 				"TRAY +1 FOR %d PAIRS" % int(effect.get("pair_duration", 0))
 			)
+		"three_pair_clear":
+			if not bool(effect.get("activated", false)):
+				return {}
+			return _alert(
+				"modifier_reward",
+				"three_pair_clear",
+				"%d PAIR CLEAR!" % int(effect.get("cleared_pair_count", effect.get("pair_count", 3)))
+			)
+		"bomb":
+			if not bool(effect.get("activated", false)):
+				return {}
+			var cleared_pair_count := int(effect.get("cleared_pair_count", effect.get("pair_count", 1)))
+			return _alert(
+				"modifier_reward",
+				"bomb",
+				"BOMB! %d %s!" % [cleared_pair_count, "PAIR" if cleared_pair_count == 1 else "PAIRS"]
+			)
 	return {}
 
 

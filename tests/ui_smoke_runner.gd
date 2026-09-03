@@ -4,7 +4,9 @@ const PairDifficultyRewardsScript := preload("res://scripts/simulation/pair_diff
 const SafeAreaScript := preload("res://scripts/presentation/safe_area.gd")
 const BoardLayoutCatalogScript := preload("res://scripts/simulation/board_layout_catalog.gd")
 const LayoutSolutionPlannerScript := preload("res://scripts/simulation/layout_solution_planner.gd")
+const GameStateDataScript := preload("res://scripts/simulation/game_state_data.gd")
 const MatchSmokeTuft := preload("res://game-assets/fx/match_smoke_tuft.png")
+const MatchImpactBurst := preload("res://game-assets/fx/match_impact_burst.png")
 const PresentationScaleScript := preload("res://scripts/presentation/presentation_scale.gd")
 
 var _failures := 0
@@ -29,6 +31,7 @@ func _run() -> void:
 	var modifier_playtest := OS.get_cmdline_user_args().has("--modifier-playtest") \
 		or OS.get_cmdline_user_args().has("--modifier-callout-capture")
 	shell.set("playtest_all_modifiers", modifier_playtest)
+	shell.set("show_modifier_picker_on_start", false)
 	root.add_child(shell)
 	await process_frame
 	var banner_view: Control = shell.get("_update_banner")
@@ -99,11 +102,11 @@ func _run() -> void:
 		"main scene copies selection gain into game definition"
 	)
 	_check_equal(
-		4 if modifier_playtest else int(modifier_tuning.get("loadout_capacity")),
+		6 if modifier_playtest else int(modifier_tuning.get("loadout_capacity")),
 		int(live_game.definition.configuration.modifier_loadout_capacity),
 		"main scene uses the expected production or playtest modifier capacity"
 	)
-	_check_equal(4 if modifier_playtest else 1, live_game.definition.modifier_attachments.size(), "main scene equips the requested modifier loadout")
+	_check_equal(6 if modifier_playtest else 1, live_game.definition.modifier_attachments.size(), "main scene equips the requested modifier loadout")
 	var attached_tile_id: String = str(live_game.definition.modifier_attachments.keys()[0])
 	var attached_button: Button = shell.get("_regions").board.get("_tile_buttons")[attached_tile_id]
 	var modifier_art: TextureRect = attached_button.get_node("ModifierArt")
@@ -120,6 +123,8 @@ func _run() -> void:
 			"cold_snap": load("res://game-assets/modifiers/tile-overlays/cold_snap.png"),
 			"score_multiplier": load("res://game-assets/modifiers/tile-overlays/score_multiplier.png"),
 			"tray_plus_one": load("res://game-assets/modifiers/tile-overlays/tray_plus_one.png"),
+			"three_pair_clear": load("res://game-assets/modifiers/tile-overlays/three_pair_clear.png"),
+			"bomb": load("res://game-assets/modifiers/tile-overlays/bomb.png"),
 		}
 		for modifier_tile_id in live_game.definition.modifier_attachments:
 			var attachment: Dictionary = live_game.definition.modifier_attachments[modifier_tile_id]
@@ -141,7 +146,7 @@ func _run() -> void:
 	_check_equal(modifier_art.texture, preview_modifier.texture, "moving tile preview preserves attached modifier artwork")
 	modifier_preview.queue_free()
 	var tile_skin: Variant = shell.get("_tile_skin")
-	for modifier_id in ["extra_life", "cold_snap", "score_multiplier", "tray_plus_one"]:
+	for modifier_id in ["extra_life", "cold_snap", "score_multiplier", "tray_plus_one", "three_pair_clear", "bomb"]:
 		_check(
 			tile_skin.call("modifier_texture", modifier_id) != null,
 			"%s has runtime tile-attached artwork" % modifier_id
@@ -469,6 +474,49 @@ func _run() -> void:
 		_check(shell.get("_regions").board.get("_tile_buttons")[undo_tile_id].visible, "restored board tile appears when Undo animation lands")
 		shell.call("_on_restart_requested")
 		live_game = shell.get("_game")
+	var rapid_nonmatch_first := ""
+	for candidate in live_game.board.call("selectable_tiles"):
+		rapid_nonmatch_first = candidate.id
+		break
+	_check(not rapid_nonmatch_first.is_empty(), "reference game exposes a tile for rapid non-match transfer")
+	if not rapid_nonmatch_first.is_empty():
+		shell.call("_on_tile_selected", rapid_nonmatch_first)
+		await create_timer(0.05).timeout
+		var nonmatch_transfer: Control = shell.get("_tile_transfer_previews").get(rapid_nonmatch_first)
+		var nonmatch_tween: Tween = shell.get("_tile_transfer_tweens").get(rapid_nonmatch_first)
+		var nonmatch_position_before_second := nonmatch_transfer.position
+		var rapid_nonmatch_second := _find_selectable_distinct_from_tray(live_game, rapid_nonmatch_first)
+		_check(not rapid_nonmatch_second.is_empty(), "reference game exposes a second rapid non-matching tile")
+		if not rapid_nonmatch_second.is_empty():
+			shell.call("_on_tile_selected", rapid_nonmatch_second)
+			_check_equal(nonmatch_tween, shell.get("_tile_transfer_tweens").get(rapid_nonmatch_first), "rapid non-match preserves the first tile's original tween")
+			_check(nonmatch_transfer.position.is_equal_approx(nonmatch_position_before_second), "rapid non-match does not snap the first tile into its slot")
+			var rapid_nonmatch_slot_art: TextureRect = shell.get("_regions").tray.get("_slot_art")[0]
+			_check(not rapid_nonmatch_slot_art.visible, "rapid non-match keeps the first real tray tile suppressed during transfer")
+			await create_timer(0.08).timeout
+			_check(not nonmatch_transfer.position.is_equal_approx(nonmatch_position_before_second), "first transfer continues moving after a rapid non-match")
+		await create_timer(0.30).timeout
+		shell.call("_on_restart_requested")
+		live_game = shell.get("_game")
+	var rapid_pair := _find_rewardable_pair(live_game)
+	_check_equal(2, rapid_pair.size(), "reference game exposes a pair for rapid in-flight matching")
+	if rapid_pair.size() == 2:
+		shell.call("_on_tile_selected", rapid_pair[0])
+		await create_timer(0.05).timeout
+		var held_transfer: Control = shell.get("_tile_transfer_previews").get(rapid_pair[0])
+		var held_tween: Tween = shell.get("_tile_transfer_tweens").get(rapid_pair[0])
+		var child_count_before_mate := shell.get_child_count()
+		var held_position_before_mate := held_transfer.position
+		shell.call("_on_tile_selected", rapid_pair[1])
+		_check_equal(0, live_game.tray.tiles.size(), "rapid match resolves authoritative tray immediately")
+		_check_equal(held_tween, shell.get("_tile_transfer_tweens").get(rapid_pair[0]), "rapid match preserves the held tile's original tween")
+		_check_equal(child_count_before_mate + 1, shell.get_child_count(), "rapid match adds only the incoming preview without duplicating the held tile")
+		_check(is_instance_valid(held_transfer) and held_transfer.position.is_equal_approx(held_position_before_mate), "rapid match does not stop or restart the held preview")
+		var rapid_first_slot_art: TextureRect = shell.get("_regions").tray.get("_slot_art")[0]
+		_check(not rapid_first_slot_art.visible, "rapid match keeps the real tray tile hidden behind its in-flight preview")
+		await create_timer(0.75).timeout
+		shell.call("_on_restart_requested")
+		live_game = shell.get("_game")
 	var compaction_pair := _find_rewardable_pair(live_game)
 	_check_equal(2, compaction_pair.size(), "reference game exposes a pair for queue-compaction validation")
 	if compaction_pair.size() == 2:
@@ -532,24 +580,53 @@ func _run() -> void:
 		await create_timer(0.30).timeout
 		_check_equal(pair_collision_before + 1, shell.get("_pair_collision_count"), "pair performs one collision before removal pop")
 		_check_equal(pair_feedback_before + 1, shell.get("_pair_feedback_count"), "resolved pair emits one reusable match burst")
-		var live_smoke_emitters := shell.find_children("SmokeParticles", "GPUParticles2D", true, false)
+		var live_smoke_emitters := shell.find_children("SmokeParticles", "CPUParticles2D", true, false)
 		_check(not live_smoke_emitters.is_empty(), "pair collision composes a shared spark-and-smoke effect")
 		_check_equal(Vector2(64.0, 64.0), MatchSmokeTuft.get_size(), "match particles use the compact smoke-tuft texture")
-		if not live_smoke_emitters.is_empty():
-			var smoke_particles: GPUParticles2D = live_smoke_emitters[-1]
+		_check_equal(6, shell.get("_pair_match_fx_pool").size(), "layered match FX pool covers every hit in a six-pair Bomb chain")
+		var active_match_fx: Control = shell.get("_last_match_fx")
+		_check(active_match_fx != null, "pair collision records its reused smoke emitter")
+		if active_match_fx != null:
+			var impact_burst: Sprite2D = active_match_fx.get_node("ImpactBurst")
+			var smoke_particles: CPUParticles2D = active_match_fx.get_node("SmokeParticles")
+			var rendered_fx_center: Vector2 = active_match_fx.get_global_transform_with_canvas() \
+				* active_match_fx.pivot_offset
+			_check(rendered_fx_center.is_equal_approx(shell.get("_last_pair_feedback_position")), "match FX centers on the recorded collision point")
+			var rendered_burst_center := impact_burst.get_global_transform_with_canvas() * Vector2.ZERO
+			_check(rendered_burst_center.is_equal_approx(shell.get("_last_pair_feedback_position")), "impact graphic origin centers exactly on the matched pair")
+			_check(is_equal_approx(float(shell.get("match_fx_scale_multiplier")), 1.30), "match smoke uses the enlarged performance-neutral default scale")
 			var expected_fx_scale := PresentationScaleScript.safe_display_scale(
 				shell.get_viewport_rect().size,
 				shell.call("_get_safe_area_insets")
 			) * float(shell.get("match_fx_scale_multiplier"))
 			_check(is_equal_approx(float(shell.get("_last_match_fx_scale")), expected_fx_scale), "match FX records the limiting safe-display scale")
-			_check(smoke_particles.get_parent().scale.is_equal_approx(Vector2.ONE * expected_fx_scale), "match smoke scales responsively with the safe display")
+			_check(active_match_fx.scale.is_equal_approx(Vector2.ONE * expected_fx_scale), "match smoke scales responsively with the safe display")
+			_check(int(active_match_fx.get("play_count")) >= 2, "match smoke reuses its startup-warmed emitter")
 			_check(not smoke_particles.get_parent().is_processing(), "match smoke uses no per-frame GDScript processing")
-			_check_equal(1, smoke_particles.get_parent().get_child_count(), "each match burst owns one smoke emitter")
+			_check_equal(2, smoke_particles.get_parent().get_child_count(), "each match effect owns one impact burst and one smoke emitter")
+			_check_equal(MatchImpactBurst, impact_burst.texture, "pair collision uses the compact shared impact-burst texture")
+			_check(impact_burst.material is CanvasItemMaterial and impact_burst.material.blend_mode == CanvasItemMaterial.BLEND_MODE_ADD, "impact burst uses one additive sprite layer")
+			_check(impact_burst.scale.x <= 0.66, "impact graphic uses the reduced half-size footprint")
 			_check_equal(6, smoke_particles.amount, "match smoke stays within its six-particle mobile budget")
 			_check(smoke_particles.one_shot, "match smoke uses one-shot particle emission")
 			_check_equal(MatchSmokeTuft, smoke_particles.texture, "match smoke particles share one tuft texture")
-			var smoke_material: ParticleProcessMaterial = smoke_particles.process_material
-			_check(is_equal_approx(float(smoke_material.scale_min), 0.50), "match smoke tufts remain readable at gameplay scale")
+			var smoke_colors: PackedColorArray = smoke_particles.color_ramp.colors
+			var neutral_smoke_ramp := true
+			for color in smoke_colors:
+				neutral_smoke_ramp = neutral_smoke_ramp \
+					and is_equal_approx(color.r, color.g) and is_equal_approx(color.g, color.b)
+			_check(neutral_smoke_ramp, "match smoke fade ramp remains neutral without green or cyan tint")
+			_check(smoke_colors[0].a >= 0.85, "match smoke is visible on the collision frame instead of fading in late")
+			smoke_particles.emitting = false
+			active_match_fx.call("play")
+			_check(impact_burst.visible and impact_burst.modulate.a > 0.80, "impact burst is visible on the exact collision frame")
+			await process_frame
+			_check(smoke_particles.emitting, "pooled match smoke explicitly rearms after one-shot completion")
+			await create_timer(0.15).timeout
+			_check(impact_burst.visible and impact_burst.modulate.a > 0.45, "impact burst remains readable through its hold beat")
+			await create_timer(0.12).timeout
+			_check(not impact_burst.visible, "impact burst finishes before the smoke tail")
+			_check(is_equal_approx(float(smoke_particles.scale_amount_min), 0.50), "match smoke tufts remain readable at gameplay scale")
 		_check_equal(1, live_game.tray.resolved_pair_count, "match feedback follows a committed pair transaction")
 		_check_equal(1, live_game.call("combo_at", shell.call("_playback_time_ms")), "natural pair starts the live Combo readout")
 		var reward: Dictionary = live_game.call("last_transaction").telemetry.get("difficulty_reward", {})
@@ -564,6 +641,9 @@ func _run() -> void:
 		_check_equal(callout_children_before, callout.get_child_count(), "rapid alerts reuse the single callout lane without stacking labels")
 		_check_equal("score", callout.get("last_alert_type"), "latest alert exclusively owns the callout lane")
 		_check_equal("SCORE 10K!", callout.get("last_text"), "single callout lane supports dynamic score text")
+		callout.call("play_alert", {"type": "match", "key": "flipped_auto_match", "text": "MATCH!"})
+		_check_equal("match", callout.get("last_alert_type"), "flipped auto-match alert is accepted by the callout renderer")
+		_check_equal("MATCH!", callout.get("last_text"), "flipped auto-match alert displays its explanation")
 		callout.call("play_alert", {"type": "modifier_reward", "key": "extra_life", "text": "EXTRA LIFE +1"})
 		_check_equal("modifier_reward", callout.get("last_alert_type"), "single callout lane accepts modifier reward presentation")
 	var visible_blocked_tile_id := ""
@@ -591,6 +671,9 @@ func _run() -> void:
 		_check(not target_button.disabled, "Delete Pair mode enables visible tiles blocked from normal movement")
 		_check_equal(Color.WHITE, target_button.modulate, "Delete Pair target uses canonical available-tile brightness")
 		_check(not target_overlay.visible, "Delete Pair target removes the blocked-state veil")
+		var delete_target_style: StyleBoxFlat = target_button.get_theme_stylebox("normal")
+		_check_equal(Color.TRANSPARENT, delete_target_style.bg_color, "Delete Pair mode adds no target background")
+		_check_equal(0, delete_target_style.get_border_width(SIDE_LEFT), "Delete Pair mode adds no selection outline")
 
 	shell.call("_on_restart_requested")
 	live_game = shell.get("_game")
@@ -705,7 +788,14 @@ func _run() -> void:
 	if loss_tiles.size() == 4:
 		for tile in loss_tiles:
 			shell.call("_on_tile_selected", tile.id)
+		_check(not end_game_menu.visible, "%s end game menu waits for the losing tile transfer" % orientation)
+		_check(shell.get("_game_over_pending"), "%s terminal state records pending game-over presentation" % orientation)
+		_check(not shell.get("_regions").tray.get("_slot_art")[3].visible, "%s final tray slot stays hidden during the losing transfer" % orientation)
+		await create_timer(0.12).timeout
+		_check(not end_game_menu.visible, "%s end game menu remains hidden while the losing tile is moving" % orientation)
+		await create_timer(0.16).timeout
 		_check(end_game_menu != null and end_game_menu.visible, "%s end game menu displays on loss" % orientation)
+		_check(shell.get("_regions").tray.get("_slot_art")[3].visible, "%s losing tile is visible in the full tray before game over" % orientation)
 		if end_game_menu != null and end_game_menu.visible:
 			var result_panel: Control = end_game_menu.get("_panel")
 			var result_safe_rect := SafeAreaScript.content_rect(
@@ -794,11 +884,136 @@ func _run() -> void:
 		else:
 			printerr("capture: %s" % ProjectSettings.globalize_path(output_path))
 
-	printerr("PASS: responsive UI smoke" if _failures == 0 else "FAIL: %d responsive UI check(s)" % _failures)
 	shell.queue_free()
 	await process_frame
+	await _verify_modifier_picker(requested_size)
 	await create_timer(0.1).timeout
+	printerr("PASS: responsive UI smoke" if _failures == 0 else "FAIL: %d responsive UI check(s)" % _failures)
 	quit(1 if _failures > 0 else 0)
+
+
+func _verify_modifier_picker(requested_size: Vector2i) -> void:
+	root.size = requested_size
+	var picker_shell: Control = load("res://scenes/main.tscn").instantiate()
+	picker_shell.set("show_modifier_picker_on_start", true)
+	picker_shell.set("playtest_all_modifiers", false)
+	picker_shell.set("opening_countdown_step_seconds", 0.20)
+	root.add_child(picker_shell)
+	await process_frame
+	await create_timer(0.32).timeout
+	var picker: Control = picker_shell.get("_modifier_picker")
+	_check(picker != null and picker.visible, "pregame modifier picker opens before gameplay")
+	_check(picker_shell.get("_game") != null, "pregame modifier picker stages the gameplay chrome behind its sheet")
+	_check(picker_shell.get("_regions").has("board"), "pregame modifier picker lays out the empty Board field")
+	_check(not picker_shell.get("_regions").board.get("_tile_layer").visible, "pregame modifier picker suppresses Board tiles")
+	_check(not picker_shell.get("_pause_button").visible, "pregame modifier picker owns the modal command layer")
+	if picker == null:
+		picker_shell.queue_free()
+		await process_frame
+		return
+	var safe_rect := SafeAreaScript.content_rect(picker.size, picker_shell.call("_get_safe_area_insets"))
+	var panel: Control = picker.get("_panel")
+	var panel_rect := Rect2(panel.position, panel.size)
+	_check(safe_rect.grow(1.0).encloses(panel_rect), "modifier picker sheet stays inside the safe display (%s in %s)" % [panel_rect, safe_rect])
+	var start_button: Button = picker.get("_start_button")
+	var start_rect := Rect2(start_button.global_position, start_button.size)
+	_check(panel_rect.grow(1.0).encloses(start_rect), "modifier picker Start command stays fully inside the sheet (%s in %s)" % [start_rect, panel_rect])
+	_check_equal(15, picker.get("_grid").get_child_count(), "modifier picker presents four base modifiers and every Bomb/Match iteration")
+	_check_equal(3, picker.get("_grid").columns, "modifier picker uses an even three-column tile grid")
+	for tile in picker.get("_tile_visuals").values():
+		_check(is_equal_approx(tile.size.x, tile.size.y), "modifier picker options preserve a square mahjong-tile footprint")
+	_check_equal(1, picker.call("selected_loadout").size(), "modifier picker begins with the starter Score Boost selected")
+	picker.call("toggle_for_testing", "bomb", 0)
+	_check_equal(0, picker.call("selected_loadout").filter(func(entry: Dictionary) -> bool: return entry.type == "bomb")[0].level, "picker selects Bomb 1 as level zero")
+	picker.call("toggle_for_testing", "bomb", 5)
+	_check_equal(5, picker.call("selected_loadout").filter(func(entry: Dictionary) -> bool: return entry.type == "bomb")[0].level, "picker replaces Bomb 1 with Bomb 6")
+	picker.call("toggle_for_testing", "bomb", 5)
+	picker.call("toggle_for_testing", "three_pair_clear", 0)
+	_check_equal(0, picker.call("selected_loadout").filter(func(entry: Dictionary) -> bool: return entry.type == "three_pair_clear")[0].level, "picker selects Match 1 as level zero")
+	picker.call("toggle_for_testing", "three_pair_clear", 4)
+	_check_equal(4, picker.call("selected_loadout").filter(func(entry: Dictionary) -> bool: return entry.type == "three_pair_clear")[0].level, "picker replaces Match 1 with Match 5")
+	picker.call("toggle_for_testing", "three_pair_clear", 4)
+	for type in ["extra_life", "cold_snap", "tray_plus_one", "bomb", "three_pair_clear"]:
+		picker.call("toggle_for_testing", type)
+	_check_equal(6, picker.call("selected_loadout").size(), "debug picker permits all six distinct modifier types")
+	_check_equal(4, picker.call("selected_loadout").filter(func(entry: Dictionary) -> bool: return entry.type == "bomb")[0].level, "default debug Bomb selection uses Bomb 5")
+	_check_equal(2, picker.call("selected_loadout").filter(func(entry: Dictionary) -> bool: return entry.type == "three_pair_clear")[0].level, "default debug Match selection uses Match 3")
+	picker.call("confirm_for_testing")
+	await process_frame
+	await process_frame
+	var live_game: Variant = picker_shell.get("_game")
+	_check(live_game != null, "starting from the modifier picker constructs the game")
+	_check(picker_shell.get("_modifier_picker") == null, "modifier picker leaves the presentation after Start")
+	if live_game != null:
+		_check_equal(6, live_game.definition.modifier_loadout.size(), "selected modifier snapshot reaches GameDefinition")
+		_check_equal(6, live_game.definition.modifier_attachments.size(), "every selected debug modifier is attached to the Board")
+		_check_equal(6, int(live_game.definition.configuration.modifier_loadout_capacity), "selected debug run expands its loadout capacity")
+		_check(picker_shell.get("_regions").board.get("_tile_layer").visible, "Board tiles become visible after Start")
+		_check_equal(1, picker_shell.get("_regions").board.get("_deal_in_count"), "selected game deals its tile stack into the empty field")
+		var opening_countdown: Control = picker_shell.get("_opening_countdown")
+		_check(picker_shell.get("_opening_countdown_active"), "opening countdown owns gameplay before the run starts")
+		_check(opening_countdown.visible and opening_countdown.get("last_text") == "3", "opening countdown begins with a visible 3")
+		_check_equal(0, picker_shell.call("_playback_time_ms"), "opening countdown holds gameplay time at zero")
+		_check_equal(
+			Rect2(picker_shell.get("_regions").board.position, picker_shell.get("_regions").board.size),
+			Rect2(opening_countdown.position, opening_countdown.size),
+			"opening countdown scales over the responsive Board region"
+		)
+		_check(picker_shell.call("_gameplay_input_blocked"), "opening countdown and tile deal block premature Board input")
+		await create_timer(0.22).timeout
+		_check(opening_countdown.visible and opening_countdown.get("last_text") == "2", "opening countdown advances to 2")
+		await create_timer(0.45).timeout
+		_check(not picker_shell.get("_opening_countdown_active") and not opening_countdown.visible, "opening countdown completes after 1")
+		_check(picker_shell.call("_playback_time_ms") < 350, "run clock starts after the countdown rather than at loadout confirmation")
+		_check(not picker_shell.call("_gameplay_input_blocked"), "Board input opens after countdown and tile deal settle")
+		picker_shell.call("_on_restart_requested")
+		var restarted_picker: Control = picker_shell.get("_modifier_picker")
+		_check(restarted_picker != null and restarted_picker.visible, "Restart returns to the modifier loadout picker")
+		_check(not picker_shell.get("_regions").board.get("_tile_layer").visible, "Restart resets to an empty Board field")
+		_check_equal(6, restarted_picker.call("selected_loadout").size(), "Restart keeps the previous loadout preselected for editing")
+		_check_equal(0, picker_shell.get("_game").score, "Restart resets run score before loadout selection")
+		for type in ["extra_life", "cold_snap", "score_multiplier", "tray_plus_one", "three_pair_clear"]:
+			restarted_picker.call("toggle_for_testing", type)
+		_check_equal(1, restarted_picker.call("selected_loadout").size(), "picker can author a Bomb-only run")
+		restarted_picker.call("confirm_for_testing")
+		await create_timer(0.7).timeout
+		var bomb_game: Variant = picker_shell.get("_game")
+		var bomb_tile_id := _find_modifier_tile_id(bomb_game, "bomb")
+		var bomb_pair := await _open_modifier_pair(picker_shell, bomb_game, bomb_tile_id)
+		_check_equal(2, bomb_pair.size(), "picker-created Bomb is attached to an opening solver pair")
+		if bomb_pair.size() == 2:
+			var bomb_feedback_before: int = picker_shell.get("_pair_feedback_count")
+			picker_shell.call("_on_tile_selected", bomb_pair[0])
+			await create_timer(0.28).timeout
+			picker_shell.call("_on_tile_selected", bomb_pair[1])
+			await process_frame
+			var bomb_transaction: Variant = bomb_game.call("last_transaction")
+			_check_equal("bomb", bomb_transaction.telemetry.get("auto_clear_type", ""), "picker-created Bomb fires in its resolving transaction")
+			_check_equal(5, bomb_transaction.telemetry.get("auto_clear_pairs", []).size(), "debug Bomb-only run immediately targets five pairs")
+			_check(is_equal_approx(float(picker_shell.get("bomb_activation_delay_seconds")), 0.30), "Bomb holds for 300 ms before formation begins")
+			_check(picker_shell.get("_auto_clear_animation_active"), "picker-created Bomb starts its presentation immediately")
+			var pending_bomb_visuals: Array = picker_shell.get("_auto_clear_pending_visuals")
+			var waiting_bomb_preview: Control = pending_bomb_visuals[0][0].preview
+			var waiting_bomb_position := waiting_bomb_preview.position
+			var waiting_bomb_scale := waiting_bomb_preview.scale
+			await create_timer(0.75).timeout
+			_check_equal(bomb_feedback_before + 1, picker_shell.get("_pair_feedback_count"), "Bomb waits until its triggering pair has fully disappeared")
+			_check(
+				is_instance_valid(waiting_bomb_preview)
+					and waiting_bomb_preview.position.is_equal_approx(waiting_bomb_position),
+				"Bomb targets remain on the Board during the post-trigger ignition beat"
+			)
+			await create_timer(0.70).timeout
+			_check(
+				is_instance_valid(waiting_bomb_preview)
+					and waiting_bomb_preview.scale.is_equal_approx(waiting_bomb_scale),
+				"Bomb formation preserves each tile's captured Board scale"
+			)
+			await create_timer(1.90).timeout
+			_check(not picker_shell.get("_auto_clear_animation_active"), "picker-created Bomb completes its presentation")
+			_check_equal(bomb_feedback_before + 6, picker_shell.get("_pair_feedback_count"), "picker-created Bomb visibly presents its trigger and five-pair target")
+	picker_shell.queue_free()
+	await process_frame
 
 
 func _validate_regions(shell: Control, orientation: String) -> void:
@@ -924,7 +1139,7 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 	_check(is_equal_approx(tray_tile_scale, 0.80), "%s uses the tuned 80 percent tray tile scale" % orientation)
 	_check(is_equal_approx(float(shell.get("tile_transfer_seconds")), 0.24), "%s uses the slower tray transfer beat" % orientation)
 	_check(is_equal_approx(float(shell.get("tile_flip_seconds")), 0.25), "%s uses the tuned quarter-second tile flip" % orientation)
-	_check(is_equal_approx(float(shell.get("flipped_auto_match_hold_seconds")), 0.24), "%s holds an auto-matching flipped face long enough to read" % orientation)
+	_check(is_equal_approx(float(shell.get("flipped_auto_match_hold_seconds")), 0.14), "%s uses the shortened auto-match readability hold" % orientation)
 	_check(is_equal_approx(float(shell.get("tray_compaction_seconds")), 0.16), "%s uses the tuned queue-compaction beat" % orientation)
 	if orientation == "portrait":
 		_check(tray.get("_portrait_style"), "portrait enables the Figma queue presentation")
@@ -1244,15 +1459,18 @@ func _verify_modifier_activation_feedback(shell: Control) -> void:
 	var feedback: Control = shell.get("_modifier_feedback")
 	var momentum: Control = shell.get("_regions").momentum
 	var tray: Control = shell.get("_regions").tray
-	var expected_types := ["extra_life", "cold_snap", "score_multiplier", "tray_plus_one"]
+	var expected_types := ["extra_life", "cold_snap", "score_multiplier", "tray_plus_one", "bomb", "three_pair_clear"]
 	for modifier_type in expected_types:
 		var modifier_tile_id := _find_modifier_tile_id(game, modifier_type)
-		var pair := _find_solver_pair_for_tile(game, modifier_tile_id)
+		var pair := await _open_modifier_pair(shell, game, modifier_tile_id)
 		_check_equal(2, pair.size(), "%s playtest modifier sits on the next solver-route pair" % modifier_type)
 		if pair.size() != 2:
 			continue
 		var feedback_before: int = feedback.get("play_count")
 		var capacity_feedback_before: int = tray.get("capacity_feedback_count")
+		var pair_feedback_before: int = shell.get("_pair_feedback_count")
+		var assisted_selections_before: int = shell.get("_assisted_clear_selection_count")
+		var assisted_pairs_before: int = shell.get("_assisted_clear_completed_pair_count")
 		shell.call("_on_tile_selected", pair[0])
 		await create_timer(0.28).timeout
 		shell.call("_on_tile_selected", pair[1])
@@ -1282,6 +1500,51 @@ func _verify_modifier_activation_feedback(shell: Control) -> void:
 				_check(tray.get("_bonus_icon").visible, "Tray +1 marks the expanded queue section")
 				_check("PAIRS" in tray.get("_bonus_label").text, "Tray +1 displays its remaining pair duration")
 				_check(shell.get_viewport_rect().encloses(tray.get_global_rect()), "expanded tray remains inside the responsive viewport")
+			"three_pair_clear":
+				var transaction: Variant = game.call("last_transaction")
+				var assisted_pairs: Array = transaction.telemetry.get("auto_clear_pairs", [])
+				_check(assisted_pairs.size() > 0 and assisted_pairs.size() <= 3, "Three Pair Clear records its deterministic input route")
+				_check(game.board.call("is_tile_selectable", assisted_pairs[0][0]), "Three Pair Clear leaves its first target on the Board before automation")
+				_check(shell.get("_auto_clear_animation_active"), "Three Pair Clear locks user input during its automated actions")
+				_check(is_equal_approx(float(shell.get("assisted_clear_activation_hold_seconds")), 0.15), "Three Pair Clear holds briefly before beginning its automated selections")
+				_check(is_equal_approx(float(shell.get("assisted_clear_selection_interval_seconds")), 0.05), "Three Pair Clear uses a 50 ms two-tile selection cadence")
+				_check(is_equal_approx(float(shell.get("assisted_clear_pair_interval_seconds")), 0.55), "Three Pair Clear advances quickly between completed pairs")
+				var locked_revision: int = game.revision
+				shell.call("_on_tile_selected", assisted_pairs[0][0])
+				_check_equal(locked_revision, game.revision, "Three Pair Clear rejects direct Board input while automation owns the turn")
+				await create_timer(0.75).timeout
+				_check_equal(assisted_selections_before, shell.get("_assisted_clear_selection_count"), "Three Pair Clear preserves an anticipation beat before its first pair")
+				var remaining_sequence_seconds: float = assisted_pairs.size() * (
+					float(shell.get("assisted_clear_selection_interval_seconds"))
+					+ float(shell.get("assisted_clear_pair_interval_seconds"))
+				) + 0.80
+				await create_timer(remaining_sequence_seconds).timeout
+				_check_equal(assisted_selections_before + assisted_pairs.size() * 2, shell.get("_assisted_clear_selection_count"), "Three Pair Clear performs two ordinary selections per planned pair")
+				_check_equal(assisted_pairs_before + assisted_pairs.size(), shell.get("_assisted_clear_completed_pair_count"), "Three Pair Clear completes each planned pair through normal matching")
+				_check_equal(pair_feedback_before + 1 + assisted_pairs.size(), shell.get("_pair_feedback_count"), "Three Pair Clear presents its trigger and assisted pairs")
+				_check(not shell.get("_auto_clear_animation_active"), "Three Pair Clear releases input after its planned pairs")
+			"bomb":
+				var transaction: Variant = game.call("last_transaction")
+				var bomb_pairs: Array = transaction.telemetry.get("auto_clear_pairs", [])
+				_check_equal("bomb", transaction.telemetry.get("auto_clear_type", ""), "Bomb selects its distinct formation presentation")
+				_check(is_equal_approx(float(shell.get("bomb_chain_interval_seconds")), 0.05), "Bomb detonates its final pair chain at a 50 ms cadence")
+				_check(
+					bomb_pairs.size() > 0 and bomb_pairs.size() <= 5,
+					"playtest Bomb records every available target up to its five-pair limit"
+				)
+				_check_equal(1, shell.get("_bomb_formation_count"), "Bomb starts one responsive two-column formation")
+				var formation_targets: Array = shell.get("_last_bomb_formation_targets")
+				_check_equal(bomb_pairs.size(), formation_targets.size(), "Bomb forms one left/right row for every selected pair")
+				var collision_targets: Array = shell.get("_last_bomb_collision_targets")
+				_check_equal(bomb_pairs.size(), collision_targets.size(), "Bomb builds one centered collision row per selected pair")
+				for row in formation_targets:
+					_check(row[0].get_center().x < shell.get("_regions").board.get_global_rect().get_center().x, "Bomb first tile forms left of Board center")
+					_check(row[1].get_center().x > shell.get("_regions").board.get_global_rect().get_center().x, "Bomb mate forms right of Board center")
+				for target in collision_targets:
+					_check(is_equal_approx(target.get_center().x, shell.get("_regions").board.get_global_rect().get_center().x), "Bomb pair collapses into the centered vertical stack")
+				await create_timer(2.8).timeout
+				_check_equal(pair_feedback_before + 1 + bomb_pairs.size(), shell.get("_pair_feedback_count"), "Bomb presents its trigger and fast collision chain")
+				_check(not shell.get("_auto_clear_animation_active"), "Bomb releases input after its collision chain")
 		await create_timer(0.55).timeout
 
 
@@ -1290,6 +1553,46 @@ func _find_modifier_tile_id(game: Variant, modifier_type: String) -> String:
 		if str(game.definition.modifier_attachments[tile_id].type) == modifier_type:
 			return str(tile_id)
 	return ""
+
+
+func _open_modifier_pair(shell: Control, game: Variant, modifier_tile_id: String) -> Array[String]:
+	var pair := _find_solver_pair_for_tile(game, modifier_tile_id)
+	for _step in range(16):
+		if pair.size() == 2:
+			return pair
+		var bridge_pair := _find_unmodified_selectable_pair(game)
+		if bridge_pair.size() != 2:
+			break
+		shell.call("_on_tile_selected", bridge_pair[0])
+		await create_timer(0.28).timeout
+		shell.call("_on_tile_selected", bridge_pair[1])
+		await create_timer(0.30).timeout
+		pair = _find_solver_pair_for_tile(game, modifier_tile_id)
+	return pair
+
+
+func _find_unmodified_selectable_pair(game: Variant) -> Array[String]:
+	var state: Variant = game.call("current_snapshot")
+	var selectable: Array = game.board.call("selectable_tiles")
+	selectable.sort_custom(func(first: Variant, second: Variant) -> bool: return first.id < second.id)
+	for first_index in range(selectable.size()):
+		var first: Variant = selectable[first_index]
+		if _face_has_active_modifier(game, state, first.face):
+			continue
+		for second_index in range(first_index + 1, selectable.size()):
+			var second: Variant = selectable[second_index]
+			if first.face.equals(second.face):
+				return [first.id, second.id]
+	return []
+
+
+func _face_has_active_modifier(game: Variant, state: Variant, face: Variant) -> bool:
+	for tile in game.definition.tiles:
+		if state.tile_zones.get(tile.id) != GameStateDataScript.ZONE_RESOLVED \
+				and tile.face.equals(face) \
+				and not game.definition.modifier_for_tile(tile.id).is_empty():
+			return true
+	return false
 
 
 func _find_solver_pair_for_tile(game: Variant, tile_id: String) -> Array[String]:

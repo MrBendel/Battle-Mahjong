@@ -34,6 +34,7 @@ const ArcadeCalloutTuningScript := preload("res://scripts/configuration/arcade_c
 const ArcadeCalloutPolicyScript := preload("res://scripts/presentation/arcade_callout_policy.gd")
 const UpdateCheckerScript := preload("res://scripts/presentation/update_checker.gd")
 const TrayAwareShufflePlannerScript := preload("res://scripts/simulation/tray_aware_shuffle_planner.gd")
+const AssistedPairClearPlannerScript := preload("res://scripts/simulation/three_pair_clear_planner.gd")
 
 var _failures := 0
 var _assertions := 0
@@ -119,8 +120,8 @@ func _run_tile_skin_contract_tests() -> void:
 	_check_equal("arcade_spark", skin.default_back_id, "Default skin selects the Arcade Spark back design")
 	_check_equal(1, skin.back_designs.size(), "tile backs use a replaceable cosmetic design catalog")
 	_check(skin.call("back_design_texture") != null, "Default tile-back design loads independently from its ceramic base")
-	_check_equal(4, skin.modifiers.size(), "Default skin declares all four tile-attached modifier identities")
-	for modifier_id in ["extra_life", "cold_snap", "score_multiplier", "tray_plus_one"]:
+	_check_equal(6, skin.modifiers.size(), "Default skin declares all six tile-attached modifier identities")
+	for modifier_id in ["extra_life", "cold_snap", "score_multiplier", "tray_plus_one", "three_pair_clear", "bomb"]:
 		_check(skin.call("modifier_texture", modifier_id) != null, "%s modifier tile overlay loads" % modifier_id)
 	_check(ResourceLoader.exists(str(skin.base_variants.portrait.asset)) or FileAccess.file_exists(str(skin.base_variants.portrait.asset)), "portrait ceramic base runtime asset exists")
 	_check(ResourceLoader.exists(str(skin.base_variants.landscape.asset)) or FileAccess.file_exists(str(skin.base_variants.landscape.asset)), "landscape ceramic base runtime asset exists")
@@ -229,11 +230,26 @@ func _run_arcade_callout_tests() -> void:
 			"type": ModifierLoadoutScript.TRAY_PLUS_ONE,
 			"effect": {"pair_duration": 3},
 		}]}, 0, tuning),
+		policy.call("choose_for_transaction", {"modifiers_triggered": [{
+			"type": ModifierLoadoutScript.THREE_PAIR_CLEAR,
+			"effect": {"pair_count": 3, "cleared_pair_count": 3, "activated": true},
+		}]}, 0, tuning),
+		policy.call("choose_for_transaction", {"modifiers_triggered": [{
+			"type": ModifierLoadoutScript.BOMB,
+			"effect": {"pair_count": 5, "cleared_pair_count": 5, "activated": true},
+		}]}, 0, tuning),
 	]
 	_check_equal("EXTRA LIFE +1", modifier_alerts[0].text, "Extra Life announces its awarded charge")
 	_check_equal("MOMENTUM FROZEN 8.5S", modifier_alerts[1].text, "Cold Snap announces its tuned duration")
 	_check_equal("SCORE BOOST 2.1X", modifier_alerts[2].text, "Score Multiplier announces its tuned multiplier")
 	_check_equal("TRAY +1 FOR 3 PAIRS", modifier_alerts[3].text, "Tray +1 announces its tuned pair duration")
+	_check_equal("3 PAIR CLEAR!", modifier_alerts[4].text, "Three Pair Clear announces its assisted sequence")
+	_check_equal("BOMB! 5 PAIRS!", modifier_alerts[5].text, "Bomb announces its random clear chain")
+	var single_pair_bomb_alert: Dictionary = policy.call("choose_for_transaction", {"modifiers_triggered": [{
+		"type": ModifierLoadoutScript.BOMB,
+		"effect": {"pair_count": 1, "cleared_pair_count": 1, "activated": true},
+	}]}, 0, tuning)
+	_check_equal("BOMB! 1 PAIR!", single_pair_bomb_alert.text, "level-0 Bomb uses singular callout copy")
 	var extra_life_save: Dictionary = policy.call("choose_for_transaction", {
 		"extra_life_consumed": true,
 	}, 0, tuning)
@@ -688,7 +704,7 @@ func _run_momentum_tests() -> void:
 		TileInstanceScript.new("fourth", second_face, BoardPositionScript.new(12, 0, 0)),
 	])
 	var configuration: Dictionary = definition.configuration
-	_check_equal(14, definition.rules_version, "tray-matching flipped reveals use rules version 14")
+	_check_equal(18, definition.rules_version, "current games snapshot rules version 18")
 	_check_equal(1, MomentumRulesScript.multiplier_for(12499, configuration), "momentum below first threshold stays x1")
 	_check_equal(2, MomentumRulesScript.multiplier_for(12500, configuration), "first visible threshold enters x2")
 	_check_equal(8, MomentumRulesScript.multiplier_for(87500, configuration), "seventh visible threshold enters x8")
@@ -995,12 +1011,14 @@ func _run_opportunity_analysis_tests() -> void:
 		TileInstanceScript.new("hidden_blocker", cover_face, BoardPositionScript.new(8, 0, 1)),
 		TileInstanceScript.new("spare", cover_face, BoardPositionScript.new(14, 0, 0)),
 	]))
-	hidden_setup_game.call("select_tile", "hidden_held", 100)
-	hidden_setup_game.call("select_tile", "hidden_blocker", 200)
+	_check_equal(GameStateScript.SELECTED, hidden_setup_game.call("select_tile", "hidden_held", 100), "hidden-pair setup holds its first tile")
+	_check_equal(GameStateScript.SELECTED, hidden_setup_game.call("select_tile", "hidden_blocker", 200), "hidden-pair setup removes its covering tile")
 	var setup_transaction: Variant = hidden_setup_game.call("last_transaction")
-	_check_equal(1, setup_transaction.telemetry.uncovered_tray_mates.size(), "moving a blocker records the held mate it exposes")
-	_check_equal("hidden_mate", setup_transaction.telemetry.uncovered_tray_mates[0].revealed_mate_tile_id, "setup telemetry preserves the exact newly accessible mate")
-	_check_equal("eagle_eyes", setup_transaction.telemetry.uncovered_tray_mates[0].callout_key, "fully covered mate setup qualifies as Eagle Eyes")
+	var uncovered_tray_mates: Array = setup_transaction.telemetry.get("uncovered_tray_mates", [])
+	_check_equal(1, uncovered_tray_mates.size(), "moving a blocker records the held mate it exposes")
+	if not uncovered_tray_mates.is_empty():
+		_check_equal("hidden_mate", uncovered_tray_mates[0].revealed_mate_tile_id, "setup telemetry preserves the exact newly accessible mate")
+		_check_equal("eagle_eyes", uncovered_tray_mates[0].callout_key, "fully covered mate setup qualifies as Eagle Eyes")
 	hidden_setup_game.call("select_tile", "hidden_mate", 300)
 	var hidden_pair_transaction: Variant = hidden_setup_game.call("last_transaction")
 	_check_equal("eagle_eyes", hidden_pair_transaction.telemetry.hidden_pair_recognition.callout_key, "immediate tray match consumes the hidden setup recognition")
@@ -1016,12 +1034,15 @@ func _run_opportunity_analysis_tests() -> void:
 	var visible_setup_game := GameStateScript.new(_definition([
 		TileInstanceScript.new("visible_held", held_face, BoardPositionScript.new(16, 0, 0)),
 		TileInstanceScript.new("visible_mate", held_face, BoardPositionScript.new(4, 0, 0)),
-		TileInstanceScript.new("left_blocker", cover_face, BoardPositionScript.new(0, 0, 0)),
-		TileInstanceScript.new("right_blocker", cover_face, BoardPositionScript.new(8, 0, 0)),
+		TileInstanceScript.new("left_blocker", cover_face, BoardPositionScript.new(2, 0, 0)),
+		TileInstanceScript.new("right_blocker", cover_face, BoardPositionScript.new(6, 0, 0)),
 	]))
-	visible_setup_game.call("select_tile", "visible_held", 100)
-	visible_setup_game.call("select_tile", "left_blocker", 200)
-	_check_equal("great", visible_setup_game.call("last_transaction").telemetry.uncovered_tray_mates[0].callout_key, "visible side-blocked mate setup qualifies as Well Hidden")
+	_check_equal(GameStateScript.SELECTED, visible_setup_game.call("select_tile", "visible_held", 100), "visible-pair setup holds its first tile")
+	_check_equal(GameStateScript.SELECTED, visible_setup_game.call("select_tile", "left_blocker", 200), "visible-pair setup removes one side blocker")
+	var visible_uncovered: Array = visible_setup_game.call("last_transaction").telemetry.get("uncovered_tray_mates", [])
+	_check_equal(1, visible_uncovered.size(), "visible setup records its newly selectable mate")
+	if not visible_uncovered.is_empty():
+		_check_equal("great", visible_uncovered[0].callout_key, "visible side-blocked mate setup qualifies as Well Hidden")
 	visible_setup_game.call("select_tile", "visible_mate", 300)
 	var visible_alert: Dictionary = ArcadeCalloutPolicyScript.new().call(
 		"choose_for_pair",
@@ -1038,18 +1059,31 @@ func _run_modifier_tests() -> void:
 	_check(tuning != null, "default ModifierTuning resource loads")
 	_check(tuning.call("validation_errors").is_empty(), "default ModifierTuning resource validates")
 	_check_equal(3, tuning.loadout_capacity, "default loadout is limited to three equipped tiles")
+	_check_equal(1, tuning.bomb_base_pairs, "default Bomb begins at one pair")
+	_check_equal(1, tuning.bomb_pairs_per_level, "default Bomb gains one pair per level")
+	_check_equal(6, tuning.bomb_max_pairs, "default Bomb caps at six pairs")
+	_check_equal(1, tuning.three_pair_clear_base_pairs, "default Match begins at one pair")
+	_check_equal(1, tuning.three_pair_clear_pairs_per_level, "default Match gains one pair per level")
 	var starter: Array = ModifierLoadoutScript.starter()
 	_check_equal(1, starter.size(), "new-player loadout contains one starter modifier")
 	_check_equal(ModifierLoadoutScript.SCORE_MULTIPLIER, starter[0].type, "starter modifier is the score multiplier")
 	var playtest_loadout: Array = ModifierLoadoutScript.playtest_all()
-	_check_equal(4, playtest_loadout.size(), "modifier playtest loadout contains all four modifier types")
+	_check_equal(6, playtest_loadout.size(), "modifier playtest loadout contains all six modifier types")
 	_check_equal(
 		ModifierLoadoutScript.TYPES,
 		playtest_loadout.map(func(entry: Dictionary) -> String: return entry.type),
 		"modifier playtest loadout preserves the canonical type order"
 	)
+	var playtest_bomb: Dictionary = playtest_loadout.filter(
+		func(entry: Dictionary) -> bool: return entry.type == ModifierLoadoutScript.BOMB
+	)[0]
+	_check_equal(4, playtest_bomb.level, "modifier playtest equips Bomb at level four")
+	var playtest_match: Dictionary = playtest_loadout.filter(
+		func(entry: Dictionary) -> bool: return entry.type == ModifierLoadoutScript.THREE_PAIR_CLEAR
+	)[0]
+	_check_equal(2, playtest_match.level, "modifier playtest equips Match at level two")
 	_check(
-		ModifierLoadoutScript.normalize(playtest_loadout, 4).errors.is_empty(),
+		ModifierLoadoutScript.normalize(playtest_loadout, 6).errors.is_empty(),
 		"modifier playtest loadout validates at its run-scoped capacity"
 	)
 	var level_two_effect: Dictionary = ModifierRulesScript.effect_for(
@@ -1057,6 +1091,31 @@ func _run_modifier_tests() -> void:
 		GameConfigurationScript.create()
 	)
 	_check_equal(2200, level_two_effect.basis_points, "multiplier levels advance exactly from 2.0x to 2.2x")
+	for bomb_level in range(6):
+		var bomb_level_effect: Dictionary = ModifierRulesScript.effect_for(
+			{"type": ModifierLoadoutScript.BOMB, "level": bomb_level},
+			GameConfigurationScript.create()
+		)
+		_check_equal(
+			bomb_level + 1,
+			bomb_level_effect.pair_count,
+			"Bomb level %d clears %d pair(s)" % [bomb_level, bomb_level + 1]
+		)
+	for match_level in range(5):
+		var match_level_effect: Dictionary = ModifierRulesScript.effect_for(
+			{"type": ModifierLoadoutScript.THREE_PAIR_CLEAR, "level": match_level},
+			GameConfigurationScript.create()
+		)
+		_check_equal(
+			match_level + 1,
+			match_level_effect.pair_count,
+			"Match level %d clears %d pair(s)" % [match_level, match_level + 1]
+		)
+	var capped_bomb_effect: Dictionary = ModifierRulesScript.effect_for(
+		{"type": ModifierLoadoutScript.BOMB, "level": 99},
+		GameConfigurationScript.create()
+	)
+	_check_equal(6, capped_bomb_effect.pair_count, "Bomb upgrades cap at six cleared pairs")
 	var overfilled: Dictionary = ModifierLoadoutScript.normalize([
 		{"modifier_id": "a", "type": ModifierLoadoutScript.EXTRA_LIFE, "level": 0},
 		{"modifier_id": "b", "type": ModifierLoadoutScript.COLD_SNAP, "level": 0},
@@ -1156,26 +1215,272 @@ func _run_modifier_tests() -> void:
 	_check_equal(0, life_game.tray.tiles.size(), "Extra Life returns unresolved tray tiles to the board")
 	_check_equal(0, life_game.call("current_snapshot").extra_life_charges, "Extra Life consumes one charge")
 
+	var clear_modifier := {
+		"modifier_id": "three_clear",
+		"type": ModifierLoadoutScript.THREE_PAIR_CLEAR,
+		"level": 2,
+	}
+	var trigger_face := TileFaceScript.new("modifier", "clear_trigger")
+	var clear_a_face := TileFaceScript.new("modifier", "clear_a")
+	var clear_b_face := TileFaceScript.new("modifier", "clear_b")
+	var clear_c_face := TileFaceScript.new("modifier", "clear_c")
+	var chained_clear_tiles := [
+		TileInstanceScript.new("trigger_a", trigger_face, BoardPositionScript.new(0, 0, 0)),
+		TileInstanceScript.new("trigger_b", trigger_face, BoardPositionScript.new(24, 0, 0)),
+		TileInstanceScript.new("clear_a_1", clear_a_face, BoardPositionScript.new(8, 0, 2)),
+		TileInstanceScript.new("clear_a_2", clear_a_face, BoardPositionScript.new(12, 0, 2)),
+		TileInstanceScript.new("clear_b_1", clear_b_face, BoardPositionScript.new(8, 0, 1)),
+		TileInstanceScript.new("clear_b_2", clear_b_face, BoardPositionScript.new(12, 0, 1)),
+		TileInstanceScript.new("clear_c_1", clear_c_face, BoardPositionScript.new(8, 0, 0)),
+		TileInstanceScript.new("clear_c_2", clear_c_face, BoardPositionScript.new(12, 0, 0)),
+	]
+	var chained_clear_definition: Variant = _definition_with_modifiers(
+		chained_clear_tiles,
+		[clear_modifier],
+		{"trigger_a": clear_modifier}
+	)
+	var chained_clear_game := GameStateScript.new(chained_clear_definition)
+	chained_clear_game.call("select_tile", "trigger_a", 100)
+	chained_clear_game.call("select_tile", "trigger_b", 200)
+	var clear_transaction: Variant = chained_clear_game.call("last_transaction")
+	_check_equal(1, clear_transaction.telemetry.auto_clear_pairs.size(), "Three Pair Clear excludes pairs blocked when the modifier activates")
+	_check_equal(
+		[["clear_a_1", "clear_a_2"]],
+		clear_transaction.telemetry.auto_clear_pairs,
+		"Three Pair Clear freezes eligibility before assisted removals uncover lower layers"
+	)
+	_check_equal(1, chained_clear_game.call("current_snapshot").resolved_pair_count, "Three Pair Clear trigger transaction resolves only its triggering pair")
+	_check(chained_clear_game.board.call("is_tile_selectable", "clear_a_1"), "recorded Three Pair Clear target remains selectable until its automated action")
+	_check(chained_clear_game.board.call("is_tile_active", "clear_b_1"), "newly uncovered pair is not retroactively admitted to Three Pair Clear")
+	_check(chained_clear_game.board.call("is_tile_active", "clear_c_1"), "deeper blocked pair remains on the board")
+	_check_equal(100, chained_clear_game.score, "Three Pair Clear route planning awards no score before automated selections")
+	_check_equal(GameStateScript.PLAYING, chained_clear_game.status, "blocked lower pairs prevent Three Pair Clear from finishing the board")
+	_check(bool(clear_transaction.telemetry.modifiers_triggered[0].effect.activated), "successful Three Pair Clear reports activation")
+	var reversed_clear: Variant = GameReducerScript.new().call(
+		"apply_reverse",
+		chained_clear_definition,
+		chained_clear_game.call("current_snapshot"),
+		clear_transaction
+	)
+	_check(reversed_clear != null, "Three Pair Clear transaction reverses through the production reducer")
+	if reversed_clear != null:
+		_check_equal(GameStateDataScript.ZONE_TRAY, reversed_clear.tile_zones.trigger_a, "reverse restores the triggering tray tile")
+		_check_equal(GameStateDataScript.ZONE_BOARD, reversed_clear.tile_zones.clear_a_1, "reverse restores the eligible assisted pair")
+	var assisted_timeline_before: int = chained_clear_game.call("transactions").size()
+	_check_equal(GameStateScript.SELECTED, chained_clear_game.call("select_tile", "clear_a_1", 300), "Three Pair Clear automation uses the ordinary first-tile transaction")
+	_check_equal(GameStateScript.PAIR_RESOLVED, chained_clear_game.call("select_tile", "clear_a_2", 400), "Three Pair Clear automation uses the ordinary matching transaction")
+	_check_equal(assisted_timeline_before + 2, chained_clear_game.call("transactions").size(), "assisted pair records two replayable selection transactions")
+	_check_equal(2, chained_clear_game.call("current_snapshot").resolved_pair_count, "ordinary assisted actions resolve the planned pair")
+	_check(chained_clear_game.board.call("is_tile_selectable", "clear_b_1"), "completed assisted pair uncovers the lower pair for later normal play")
+	_check(chained_clear_game.score > 100, "ordinary assisted match follows the existing score and difficulty reward path")
+
+	var upper_face := TileFaceScript.new("modifier", "upper")
+	var lower_face := TileFaceScript.new("modifier", "lower")
+	var layer_priority_tiles := [
+		TileInstanceScript.new("trigger_a", trigger_face, BoardPositionScript.new(0, 16, 0)),
+		TileInstanceScript.new("trigger_b", trigger_face, BoardPositionScript.new(24, 16, 0)),
+		TileInstanceScript.new("a_lower_1", lower_face, BoardPositionScript.new(8, 0, 0)),
+		TileInstanceScript.new("a_lower_2", lower_face, BoardPositionScript.new(12, 0, 0)),
+		TileInstanceScript.new("z_upper_1", upper_face, BoardPositionScript.new(8, 8, 2)),
+		TileInstanceScript.new("z_upper_2", upper_face, BoardPositionScript.new(12, 8, 2)),
+	]
+	var layer_priority_definition: Variant = _definition_with_modifiers(
+		layer_priority_tiles,
+		[clear_modifier],
+		{"trigger_a": clear_modifier}
+	)
+	var layer_priority_game := GameStateScript.new(layer_priority_definition)
+	layer_priority_game.call("select_tile", "trigger_a", 100)
+	layer_priority_game.call("select_tile", "trigger_b", 200)
+	_check_equal(
+		[["z_upper_1", "z_upper_2"], ["a_lower_1", "a_lower_2"]],
+		layer_priority_game.call("last_transaction").telemetry.auto_clear_pairs,
+		"Three Pair Clear selects simultaneously available pairs from the highest authored layer first"
+	)
+	var mixed_face := TileFaceScript.new("modifier", "mixed")
+	var even_face := TileFaceScript.new("modifier", "even")
+	var whole_pair_priority_tiles := [
+		TileInstanceScript.new("trigger_a", trigger_face, BoardPositionScript.new(0, 20, 0)),
+		TileInstanceScript.new("trigger_b", trigger_face, BoardPositionScript.new(24, 20, 0)),
+		TileInstanceScript.new("mixed_high", mixed_face, BoardPositionScript.new(0, 0, 3)),
+		TileInstanceScript.new("mixed_low", mixed_face, BoardPositionScript.new(24, 0, 0)),
+		TileInstanceScript.new("even_high_1", even_face, BoardPositionScript.new(8, 10, 2)),
+		TileInstanceScript.new("even_high_2", even_face, BoardPositionScript.new(12, 10, 2)),
+	]
+	var whole_pair_priority_definition: Variant = _definition_with_modifiers(
+		whole_pair_priority_tiles,
+		[clear_modifier],
+		{"trigger_a": clear_modifier}
+	)
+	var whole_pair_priority_game := GameStateScript.new(whole_pair_priority_definition)
+	whole_pair_priority_game.call("select_tile", "trigger_a", 100)
+	whole_pair_priority_game.call("select_tile", "trigger_b", 200)
+	_check_equal(
+		[["even_high_1", "even_high_2"], ["mixed_high", "mixed_low"]],
+		whole_pair_priority_game.call("last_transaction").telemetry.auto_clear_pairs,
+		"Three Pair Clear ranks the lower tile of each pair before considering its upper tile"
+	)
+	var shuffled_priority_state := GameStateDataScript.new(whole_pair_priority_definition)
+	shuffled_priority_state.tile_slot_ids.mixed_high = "trigger_a"
+	shuffled_priority_state.tile_slot_ids.trigger_a = "mixed_high"
+	shuffled_priority_state.tile_slot_ids.mixed_low = "trigger_b"
+	shuffled_priority_state.tile_slot_ids.trigger_b = "mixed_low"
+	var shuffled_priority_route: Array = AssistedPairClearPlannerScript.new().call(
+		"build_route",
+		whole_pair_priority_definition,
+		shuffled_priority_state,
+		2,
+		true
+	)
+	_check_equal(
+		[["even_high_1", "even_high_2"], ["mixed_high", "mixed_low"]],
+		shuffled_priority_route,
+		"Three Pair Clear ranks current shuffled slots instead of stale authored tile positions"
+	)
+	var legacy_layer_definition := GameDefinitionScript.new(
+		1,
+		layer_priority_tiles,
+		GameConfigurationScript.create(),
+		15,
+		[clear_modifier],
+		{"trigger_a": clear_modifier}
+	)
+	var legacy_layer_game := GameStateScript.new(legacy_layer_definition)
+	legacy_layer_game.call("select_tile", "trigger_a", 100)
+	legacy_layer_game.call("select_tile", "trigger_b", 200)
+	_check_equal(
+		[["a_lower_1", "a_lower_2"], ["z_upper_1", "z_upper_2"]],
+		legacy_layer_game.call("last_transaction").telemetry.auto_clear_pairs,
+		"rules version 15 preserves Three Pair Clear lexical ordering for replay compatibility"
+	)
+
+	var insufficient_tiles: Array = chained_clear_tiles.slice(0, 6)
+	var insufficient_definition: Variant = _definition_with_modifiers(
+		insufficient_tiles,
+		[clear_modifier],
+		{"trigger_a": clear_modifier}
+	)
+	var insufficient_game := GameStateScript.new(insufficient_definition)
+	insufficient_game.call("select_tile", "trigger_a", 100)
+	insufficient_game.call("select_tile", "trigger_b", 200)
+	var insufficient_transaction: Variant = insufficient_game.call("last_transaction")
+	_check_equal(1, insufficient_transaction.telemetry.auto_clear_pairs.size(), "Three Pair Clear partial route includes only the initially selectable pair")
+	_check_equal(4, insufficient_game.board.call("active_tiles").size(), "partial Three Pair Clear leaves its planned pair on the board for automation")
+	var insufficient_pair: Array = insufficient_transaction.telemetry.auto_clear_pairs[0]
+	insufficient_game.call("select_tile", insufficient_pair[0], 300)
+	insufficient_game.call("select_tile", insufficient_pair[1], 400)
+	_check_equal(2, insufficient_game.board.call("active_tiles").size(), "partial Three Pair Clear automated actions leave the initially blocked pair")
+	_check_equal(1, int(insufficient_transaction.telemetry.modifiers_triggered[0].effect.cleared_pair_count), "partial Three Pair Clear reports its actual eligible reward")
+	_check(bool(insufficient_transaction.telemetry.modifiers_triggered[0].effect.activated), "partial Three Pair Clear reports activation")
+
+	var bomb_modifier := {
+		"modifier_id": "bomb",
+		"type": ModifierLoadoutScript.BOMB,
+		"level": 4,
+	}
+	var bomb_tiles: Array = [
+		TileInstanceScript.new("bomb_trigger_a", trigger_face, BoardPositionScript.new(0, 0, 0)),
+		TileInstanceScript.new("bomb_trigger_b", trigger_face, BoardPositionScript.new(4, 0, 0)),
+	]
+	for pair_index in range(6):
+		var bomb_face := TileFaceScript.new("bomb_target", str(pair_index))
+		bomb_tiles.append(TileInstanceScript.new(
+			"bomb_%d_a" % pair_index,
+			bomb_face,
+			BoardPositionScript.new(8 + pair_index * 8, 0, 0)
+		))
+		bomb_tiles.append(TileInstanceScript.new(
+			"bomb_%d_b" % pair_index,
+			bomb_face,
+			BoardPositionScript.new(12 + pair_index * 8, 0, 0)
+		))
+	var bomb_definition: Variant = _definition_with_modifiers(
+		bomb_tiles,
+		[bomb_modifier],
+		{"bomb_trigger_a": bomb_modifier}
+	)
+	var bomb_game := GameStateScript.new(bomb_definition)
+	bomb_game.call("select_tile", "bomb_trigger_a", 100)
+	bomb_game.call("select_tile", "bomb_trigger_b", 200)
+	var bomb_transaction: Variant = bomb_game.call("last_transaction")
+	_check_equal(5, bomb_transaction.telemetry.auto_clear_pairs.size(), "Bomb records five random assisted pairs")
+	_check_equal(ModifierLoadoutScript.BOMB, bomb_transaction.telemetry.auto_clear_type, "Bomb marks its distinct presentation route")
+	_check_equal(6, bomb_game.call("current_snapshot").resolved_pair_count, "Bomb resolves its trigger and five assisted pairs atomically")
+	_check_equal(100, bomb_game.score, "Bomb-assisted pairs award no additional score")
+	_check_equal(2, bomb_game.board.call("active_tiles").size(), "Bomb leaves an unchosen sixth pair on the board")
+	_check(bomb_game.call("current_snapshot").rng_state != bomb_definition.seed, "Bomb advances the deterministic gameplay RNG")
+	var repeated_bomb_game := GameStateScript.new(bomb_definition)
+	repeated_bomb_game.call("select_tile", "bomb_trigger_a", 100)
+	repeated_bomb_game.call("select_tile", "bomb_trigger_b", 200)
+	_check_equal(
+		bomb_transaction.telemetry.auto_clear_pairs,
+		repeated_bomb_game.call("last_transaction").telemetry.auto_clear_pairs,
+		"same seed produces the same Bomb route"
+	)
+	var maximum_bomb_modifier := bomb_modifier.duplicate(true)
+	maximum_bomb_modifier.level = 5
+	var maximum_bomb_definition: Variant = _definition_with_modifiers(
+		bomb_tiles,
+		[maximum_bomb_modifier],
+		{"bomb_trigger_a": maximum_bomb_modifier}
+	)
+	var maximum_bomb_game := GameStateScript.new(maximum_bomb_definition)
+	maximum_bomb_game.call("select_tile", "bomb_trigger_a", 100)
+	maximum_bomb_game.call("select_tile", "bomb_trigger_b", 200)
+	_check_equal(
+		6,
+		maximum_bomb_game.call("last_transaction").telemetry.auto_clear_pairs.size(),
+		"level-5 Bomb clears all six available pairs"
+	)
+	_check_equal(GameStateScript.WON, maximum_bomb_game.status, "level-5 Bomb can finish the board")
+	var reversed_bomb: Variant = GameReducerScript.new().call(
+		"apply_reverse",
+		bomb_definition,
+		bomb_game.call("current_snapshot"),
+		bomb_transaction
+	)
+	_check(reversed_bomb != null, "Bomb transaction reverses through the production reducer")
+	if reversed_bomb != null:
+		_check_equal(bomb_definition.seed, reversed_bomb.rng_state, "Bomb reverse restores the prior RNG state")
+		_check_equal(13, BoardStateScript.new(bomb_definition, reversed_bomb).call("active_tiles").size(), "Bomb reverse restores every assisted target and the triggering mate")
+
 	var factory := ReferenceGameFactoryScript.new()
 	var placed_a: Variant = factory.call("create_definition", 99)
 	var placed_b: Variant = factory.call("create_definition", 99)
 	_check_equal(starter, placed_a.modifier_loadout, "reference games use the starter loadout by default")
 	_check_equal(placed_a.modifier_attachments, placed_b.modifier_attachments, "same seed places equipped modifiers identically")
 	var playtest_definition: Variant = factory.call("create_modifier_playtest_definition", 99)
-	_check_equal(playtest_loadout, playtest_definition.modifier_loadout, "modifier playtest games snapshot all four modifiers")
-	_check_equal(4, playtest_definition.configuration.modifier_loadout_capacity, "modifier playtest games expand only their snapshotted loadout capacity")
-	_check_equal(4, playtest_definition.modifier_attachments.size(), "modifier playtest games attach every equipped modifier")
+	_check_equal(playtest_loadout, playtest_definition.modifier_loadout, "modifier playtest games snapshot all six modifiers")
+	_check_equal(6, playtest_definition.configuration.modifier_loadout_capacity, "modifier playtest games expand only their snapshotted loadout capacity")
+	_check_equal(6, playtest_definition.modifier_attachments.size(), "modifier playtest games attach every equipped modifier")
 	var playtest_solution: Array = factory.call("create_generated", 99).solution
 	var expected_early_route_ids := [
 		playtest_solution[0],
 		playtest_solution[2],
 		playtest_solution[4],
 		playtest_solution[6],
+		playtest_solution[8],
+		playtest_solution[10],
 	]
 	_check_equal(
 		expected_early_route_ids,
 		playtest_definition.modifier_attachments.keys(),
-		"modifier playtest attachments follow the first tile of the opening four solver pairs"
+		"modifier playtest attachments follow the first tile of the opening six solver pairs"
+	)
+	var selected_definition: Variant = factory.call(
+		"create_selected_modifier_definition",
+		99,
+		4,
+		{},
+		BoardLayoutCatalogScript.DEFAULT_LAYOUT_ID,
+		playtest_loadout
+	)
+	_check_equal(playtest_loadout, selected_definition.modifier_loadout, "pregame selection snapshots the chosen modifier loadout")
+	_check_equal(6, selected_definition.configuration.modifier_loadout_capacity, "debug selection expands capacity to the chosen type count")
+	_check_equal(
+		expected_early_route_ids,
+		selected_definition.modifier_attachments.keys(),
+		"pregame-selected modifiers are placed on early solver-route pairs for testing"
 	)
 	var serialized_definition: Variant = JSON.parse_string(JSON.stringify(placed_a.to_dict()))
 	var parsed_definition: Variant = GameDefinitionScript.from_dict(serialized_definition)

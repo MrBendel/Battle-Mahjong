@@ -199,6 +199,14 @@ Multiplier symbol, starburst, or arcade-scoring visual language.
 
 Tray-slot expansion or plus visual language.
 
+### Three Pair Clear
+
+A circular `3` badge with arcade impact language.
+
+### Bomb
+
+A readable cartoon bomb and lit fuse. Activation forms up to five pairs in two columns around Board center before a rapid collision chain.
+
 Each modifier must support:
 
 - a master icon;
@@ -564,7 +572,7 @@ Produce:
 
 Goal: give the current gameplay systems a consistent visual language.
 
-Current status: complete candidate. The responsive Momentum/multiplier HUD and portrait consumable controls use production-style exported artwork. All four modifiers have a tile-attached visual identity rendered as skin-declared overlays across Board, Tray, and moving previews. A shared lightweight Board-edge flash and icon beat announces activation while live text reports the snapshotted reward. Persistent state stays attached to the system it affects: Extra Life beside Score, Cold Snap and Score Multiplier on Momentum, and Tray +1 on the expandable queue. Tray +1 appends a repeat section to the existing queue artwork, moves the end cap, and shows the remaining pair duration without drawing a competing slot background. Final visual approval remains part of M7 review.
+Current status: complete candidate. The responsive Momentum/multiplier HUD and portrait consumable controls use production-style exported artwork. All six modifiers have a tile-attached visual identity rendered as skin-declared overlays across Board, Tray, and moving previews. A shared lightweight Board-edge flash and icon beat announces activation while live text reports the snapshotted reward. Persistent state stays attached to the system it affects: Extra Life beside Score, Cold Snap and Score Multiplier on Momentum, and Tray +1 on the expandable queue. Three Pair Clear uses a circular `3` badge and plays its deterministic route through timed ordinary tile selection and match presentation while Board input is locked. Bomb uses a lit-fuse badge and a responsive left/right target formation followed by a rapid collision chain. Tray +1 appends a repeat section to the existing queue artwork, moves the end cap, and shows the remaining pair duration without drawing a competing slot background. Final visual approval remains part of M7 review.
 
 ### Batch C - Feel
 
@@ -581,7 +589,9 @@ Produce or prototype:
 
 Goal: establish the arcade and anime feedback loop.
 
-Current status: in progress. Pair collision uses a restrained six-particle radial smoke burst with larger, independently moving tufts for gameplay-scale readability. Its full-resolution transparent master lives under `art-source/fx/`; runtime particles share one compact `64 x 64` tuft texture. The transient effect owns one short lifetime Tween and one one-shot GPU emitter with no central cloud stamp, radial blast drawing, or per-frame GDScript work. Richer reusable FX remain outstanding.
+Current status: in progress. Pair collision uses one shared two-layer primitive for natural matches, flipped matches, assisted matches, and every Bomb detonation. A compact additive ivory/gold impact sprite expands, holds, and fades over `260 ms`, centered on the collision point; six independently moving neutral ivory/gray smoke tufts provide the `280 ms` tail. Full-resolution transparent masters live under `art-source/fx/`; runtime uses one `128 x 128` burst and one `64 x 64` tuft texture. A startup-warmed six-entry pool covers the complete six-pair Bomb chain without match-time node construction, emitter interruption, or per-frame GDScript work. Each pooled replay explicitly rearms emission after restarting. The responsive effect transform defaults to `1.30x`. This path avoids the first-use GPU-particle stalls measured on the Pixel reference device. Richer reusable FX remain outstanding.
+
+Starting a selected loadout now plays a responsive anime-style `3`, `2`, `1` countdown over the Board while tiles deal in behind it. Each beat uses live Mila Script Sans text, chromatic shadows, radial streaks, and a scale impact. Input, elapsed run time, and Momentum decay begin only after both opening presentations complete; the per-number duration remains Inspector-tunable.
 
 ### Batch D - Personality
 

@@ -5,6 +5,7 @@ const TileSkinScript := preload("res://scripts/presentation/tile_skin.gd")
 
 signal tile_selected(tile_id: String)
 signal locked_tile_tapped(tile_id: String)
+signal deal_in_finished
 
 const HEADER_HEIGHT := 48.0
 const BOARD_MARGIN := 14.0
@@ -58,9 +59,10 @@ var _performance_layout_count := 0
 var _performance_style_application_count := 0
 var _performance_preview_creation_count := 0
 var _performance_input_sort_count := 0
+var _deal_in_tween: Tween
+var _deal_in_count := 0
 var _art_backing_style_cache: StyleBoxFlat
 var _disabled_tile_style_cache: StyleBoxFlat
-var _delete_pair_style_cache: StyleBoxFlat
 
 
 func _init(game_state: Variant, tile_skin: Variant = null) -> void:
@@ -82,6 +84,7 @@ func _process(delta: float) -> void:
 
 
 func set_game_state(game_state: Variant) -> void:
+	_cancel_deal_in()
 	_cancel_shuffle_presentation()
 	_game = game_state
 	_delete_pair_armed = false
@@ -89,6 +92,56 @@ func set_game_state(game_state: Variant) -> void:
 	_temporarily_face_down_tile_ids.clear()
 	_rebuild_tiles()
 	_layout_tiles()
+
+
+func set_tiles_visible(visible: bool) -> void:
+	if _tile_layer != null:
+		_tile_layer.visible = visible
+
+
+func is_deal_in_active() -> bool:
+	return _deal_in_tween != null and _deal_in_tween.is_valid()
+
+
+func play_deal_in(duration_seconds: float = 0.24, stagger_seconds: float = 0.34) -> void:
+	_cancel_deal_in()
+	if _tile_layer == null:
+		return
+	_tile_layer.visible = true
+	var active_buttons: Array[Button] = []
+	for tile in _game.board.tiles:
+		var button: Button = _tile_buttons.get(tile.id)
+		if button != null and button.visible:
+			active_buttons.append(button)
+	if active_buttons.is_empty():
+		return
+	_deal_in_count += 1
+	_deal_in_tween = create_tween().set_parallel(true)
+	var duration := maxf(0.08, duration_seconds)
+	var stagger := maxf(0.0, stagger_seconds)
+	for index in range(active_buttons.size()):
+		var button := active_buttons[index]
+		var target_modulate := button.modulate
+		button.pivot_offset = button.size * 0.5
+		button.scale = Vector2(0.82, 0.82)
+		button.modulate = Color(target_modulate.r, target_modulate.g, target_modulate.b, 0.0)
+		var delay := stagger * float(index) / float(maxi(1, active_buttons.size() - 1))
+		_deal_in_tween.tween_property(button, "scale", Vector2.ONE, duration) \
+			.set_delay(delay).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		_deal_in_tween.tween_property(button, "modulate", target_modulate, duration * 0.72) \
+			.set_delay(delay).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_deal_in_tween.finished.connect(func() -> void:
+		_deal_in_tween = null
+		deal_in_finished.emit()
+	)
+
+
+func _cancel_deal_in() -> void:
+	if _deal_in_tween != null and _deal_in_tween.is_valid():
+		_deal_in_tween.kill()
+	_deal_in_tween = null
+	for button in _tile_buttons.values():
+		button.scale = Vector2.ONE
 
 
 func set_flip_duration(seconds: float) -> void:
@@ -102,6 +155,7 @@ func refresh_layout(refresh_static_art: bool = true) -> void:
 
 
 func reset_input_state() -> void:
+	_cancel_deal_in()
 	_rebuild_tiles()
 	_layout_tiles()
 
@@ -354,10 +408,7 @@ func refresh() -> void:
 		button.set_meta("depth_brightness", depth_brightness)
 		if not button.has_meta("style_initialized"):
 			_apply_tile_style(button)
-		button.add_theme_stylebox_override(
-			"normal",
-			_delete_pair_style() if _delete_pair_armed and selectable else _art_backing_style()
-		)
+		button.add_theme_stylebox_override("normal", _art_backing_style())
 		var shadow_art: TextureRect = _shadow_art[tile.id]
 		shadow_art.visible = shadow_art.texture != null
 		var base_art: TextureRect = _base_art[tile.id]
@@ -904,12 +955,6 @@ func _disabled_tile_style() -> StyleBoxFlat:
 	if _disabled_tile_style_cache == null:
 		_disabled_tile_style_cache = _tile_style(Color("8f9189"), Color("394140"), 2, Vector2(0.0, 2.0))
 	return _disabled_tile_style_cache
-
-
-func _delete_pair_style() -> StyleBoxFlat:
-	if _delete_pair_style_cache == null:
-		_delete_pair_style_cache = _tile_style(Color("fff8e8"), Color("ef496f"), 4, Vector2(0.0, 3.0))
-	return _delete_pair_style_cache
 
 
 func _tile_style(face_color: Color, border_color: Color, border_width: int, shadow_offset: Vector2) -> StyleBoxFlat:
