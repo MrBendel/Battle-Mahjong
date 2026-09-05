@@ -9,6 +9,7 @@ const BASE_CALLOUT_HEIGHT := 84.0
 const BASE_RISE_DISTANCE := 18.0
 
 const TYPE_COLORS := {
+	"match": Color("fff27a"),
 	"difficulty": Color("fff27a"),
 	"combo": Color("7af2bd"),
 	"score": Color("72d8ff"),

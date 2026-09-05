@@ -5,6 +5,12 @@ const SHAPE_RECTANGLE := "rectangle"
 const SHAPE_ELLIPSE := "ellipse"
 const SHAPE_DIAMOND := "diamond"
 const SHAPES := [SHAPE_RECTANGLE, SHAPE_ELLIPSE, SHAPE_DIAMOND]
+const MOTIF_SOLID := "solid"
+const MOTIF_WINGS := "wings"
+const MOTIF_BRIDGE := "bridge"
+const MOTIF_TOWER := "tower"
+const MOTIF_HOURGLASS := "hourglass"
+const MOTIFS := [MOTIF_SOLID, MOTIF_WINGS, MOTIF_BRIDGE, MOTIF_TOWER, MOTIF_HOURGLASS]
 
 var id: String
 var revision: int
@@ -15,6 +21,9 @@ var layer_counts: Array[int]
 var shape: String
 var horizontal_symmetry: bool
 var require_support: bool
+var progressive_layer_inset: bool
+var layer_motif_choices: Array
+var mobile_constraints: Dictionary
 
 
 func _init(
@@ -26,7 +35,10 @@ func _init(
 		requirements_shape: String = SHAPE_ELLIPSE,
 		requirements_horizontal_symmetry: bool = true,
 		requirements_require_support: bool = true,
-		requirements_revision: int = 1
+		requirements_revision: int = 1,
+		requirements_layer_motif_choices: Array = [],
+		requirements_mobile_constraints: Dictionary = {},
+		requirements_progressive_layer_inset: bool = true
 ) -> void:
 	id = requirements_id
 	revision = requirements_revision
@@ -38,6 +50,10 @@ func _init(
 	shape = requirements_shape
 	horizontal_symmetry = requirements_horizontal_symmetry
 	require_support = requirements_require_support
+	progressive_layer_inset = requirements_progressive_layer_inset
+	for choices in requirements_layer_motif_choices:
+		layer_motif_choices.append(choices.duplicate() if choices is Array else [])
+	mobile_constraints = requirements_mobile_constraints.duplicate(true)
 
 
 func validation_errors() -> Array[String]:
@@ -54,13 +70,41 @@ func validation_errors() -> Array[String]:
 		errors.append("at least one layer count is required")
 	if not SHAPES.has(shape):
 		errors.append("shape must be one of: %s" % ", ".join(SHAPES))
+	if not layer_motif_choices.is_empty() and layer_motif_choices.size() != layer_counts.size():
+		errors.append("layer motif choices must contain one entry per layer")
+	for z in range(layer_motif_choices.size()):
+		if layer_motif_choices[z].is_empty():
+			errors.append("layer %d must have at least one motif choice" % z)
+		for motif in layer_motif_choices[z]:
+			if not MOTIFS.has(str(motif)):
+				errors.append("layer %d has unknown motif: %s" % [z, motif])
+	for key in [
+		"maximum_width_to_height_bps",
+		"minimum_initial_selectable_tiles",
+		"maximum_initial_selectable_tiles",
+		"maximum_layer_count",
+		"reference_board_width_px",
+		"reference_board_height_px",
+		"tile_height_to_width_bps",
+		"minimum_tile_width_px",
+		"minimum_row_width_variation",
+		"minimum_widest_row_tiles",
+	]:
+		if mobile_constraints.has(key) and int(mobile_constraints[key]) < 0:
+			errors.append("mobile constraint %s must not be negative" % key)
+	if mobile_constraints.has("minimum_initial_selectable_tiles") \
+			and mobile_constraints.has("maximum_initial_selectable_tiles") \
+			and int(mobile_constraints.minimum_initial_selectable_tiles) \
+				> int(mobile_constraints.maximum_initial_selectable_tiles):
+		errors.append("minimum initial selectable tiles must not exceed maximum")
 
 	var total := 0
 	for z in range(layer_counts.size()):
 		var count: int = layer_counts[z]
 		total += count
-		var layer_columns := columns - z
-		var layer_rows := rows - z
+		var inset := z if progressive_layer_inset else z % 2
+		var layer_columns := columns - inset
+		var layer_rows := rows - inset
 		if count <= 0:
 			errors.append("layer %d count must be positive" % z)
 		elif layer_columns <= 0 or layer_rows <= 0 or count > layer_columns * layer_rows:
@@ -73,7 +117,7 @@ func validation_errors() -> Array[String]:
 
 
 func to_dict() -> Dictionary:
-	return {
+	var data := {
 		"schema_version": SCHEMA_VERSION,
 		"requirements_id": id,
 		"revision": revision,
@@ -84,7 +128,13 @@ func to_dict() -> Dictionary:
 		"shape": shape,
 		"horizontal_symmetry": horizontal_symmetry,
 		"require_support": require_support,
+		"progressive_layer_inset": progressive_layer_inset,
 	}
+	if not layer_motif_choices.is_empty():
+		data["layer_motif_choices"] = layer_motif_choices.duplicate(true)
+	if not mobile_constraints.is_empty():
+		data["mobile_constraints"] = mobile_constraints.duplicate(true)
+	return data
 
 
 func content_hash() -> String:
@@ -102,7 +152,10 @@ static func from_dict(data: Dictionary) -> RefCounted:
 		str(data.get("shape", SHAPE_ELLIPSE)),
 		bool(data.get("horizontal_symmetry", true)),
 		bool(data.get("require_support", true)),
-		int(data.get("revision", 1))
+		int(data.get("revision", 1)),
+		data.get("layer_motif_choices", []),
+		data.get("mobile_constraints", {}),
+		bool(data.get("progressive_layer_inset", true))
 	)
 
 

@@ -1,6 +1,6 @@
 # M04 - Generator + Solver
 
-Status: Implemented authoring and procedural baseline
+Status: Implemented authoring, procedural, and difficulty-tooling baseline
 
 Goal: generate deterministic games on varied layered layouts while proving that every generated game has at least one legal solution.
 
@@ -17,6 +17,7 @@ Goal: generate deterministic games on varied layered layouts while proving that 
 - versioned JSON authoring with stable coordinate-derived slot IDs
 - deterministic requirements-driven generation for rectangular, elliptical, and diamond silhouettes
 - automatic authored-layout discovery and a command-line generation tool
+- deterministic Tower-segment sampling with route-based difficulty reports
 
 ## Success Criteria
 
@@ -43,6 +44,8 @@ Goal: generate deterministic games on varied layered layouts while proving that 
 
 Authoring and generation workflow: [Board Layout Authoring](../LAYOUT_AUTHORING.md)
 
+Tower segment generation and provisional ranking: [Tower Generation And Difficulty Tooling](../TOWER_GENERATION.md)
+
 ## Reference Layouts
 
 ### `classic_96`
@@ -60,7 +63,7 @@ A tall, irregular layout transcribed from a hand-authored half-tile grid based o
 ## Non-Goals
 
 - Arbitrary image-mask or natural-language layout synthesis.
-- Difficulty scoring or ranking.
+- Player-facing difficulty labels or a finalized difficulty formula.
 - Requiring unmatched tray occupancy in a solution.
 - Enumerating all solutions or measuring alternate-route density.
 - Changing the current 24-identity, four-copies-per-identity reference composition.

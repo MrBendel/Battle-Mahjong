@@ -1,11 +1,20 @@
 extends RefCounted
 
 const BoardSelectabilityScript := preload("res://scripts/simulation/board_selectability.gd")
+const DeterministicRngScript := preload("res://scripts/simulation/deterministic_rng.gd")
 const TileFaceScript := preload("res://scripts/simulation/tile_face.gd")
 const TileInstanceScript := preload("res://scripts/simulation/tile_instance.gd")
 
 
 func build_plan(layout: Variant) -> Array:
+	return _build_plan(layout, null)
+
+
+func build_seeded_plan(layout: Variant, seed: int) -> Array:
+	return _build_plan(layout, DeterministicRngScript.new(seed))
+
+
+func _build_plan(layout: Variant, rng: Variant) -> Array:
 	if layout == null or not layout.call("validation_errors").is_empty():
 		return []
 
@@ -24,6 +33,8 @@ func build_plan(layout: Variant) -> Array:
 		selectable.sort_custom(_slot_precedes)
 		if selectable.size() < 2:
 			return []
+		if rng != null:
+			_shuffle(selectable, rng)
 
 		var first: Variant = selectable[0]
 		var second: Variant = selectable[1]
@@ -32,6 +43,14 @@ func build_plan(layout: Variant) -> Array:
 		active.erase(second)
 
 	return plan
+
+
+func _shuffle(values: Array, rng: Variant) -> void:
+	for index in range(values.size() - 1, 0, -1):
+		var swap_index: int = rng.call("range_int", 0, index)
+		var value: Variant = values[index]
+		values[index] = values[swap_index]
+		values[swap_index] = value
 
 
 func _slot_precedes(first: Variant, second: Variant) -> bool:

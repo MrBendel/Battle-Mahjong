@@ -7,7 +7,7 @@ const ProceduralLayoutGeneratorScript := preload("res://scripts/simulation/proce
 func _init() -> void:
 	var args := OS.get_cmdline_user_args()
 	if args.size() < 2:
-		printerr("Usage: -- <requirements.json> <seed> [output.json]")
+		printerr("Usage: -- <requirements.json> <seed> [output.json] [layout-id]")
 		quit(2)
 		return
 
@@ -18,7 +18,10 @@ func _init() -> void:
 		return
 
 	var seed := int(args[1])
-	var layout: Variant = ProceduralLayoutGeneratorScript.new().call("generate", requirements, seed)
+	var layout_id := str(args[3]) if args.size() >= 4 else ""
+	var layout: Variant = ProceduralLayoutGeneratorScript.new().call(
+		"generate", requirements, seed, layout_id
+	)
 	if layout == null:
 		printerr("Could not generate a solvable layout")
 		quit(1)

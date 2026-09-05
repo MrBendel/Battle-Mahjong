@@ -5,10 +5,11 @@ const BoardPositionScript := preload("res://scripts/simulation/board_position.gd
 const DeterministicRngScript := preload("res://scripts/simulation/deterministic_rng.gd")
 const LayoutSlotScript := preload("res://scripts/simulation/layout_slot.gd")
 const LayoutSolutionPlannerScript := preload("res://scripts/simulation/layout_solution_planner.gd")
+const LayoutMobileFitAnalyzerScript := preload("res://scripts/simulation/layout_mobile_fit_analyzer.gd")
 const RequirementsScript := preload("res://scripts/simulation/board_layout_requirements.gd")
 
 
-func generate(requirements: Variant, seed: int) -> Variant:
+func generate(requirements: Variant, seed: int, generated_layout_id: String = "") -> Variant:
 	if requirements == null:
 		return null
 	var requirements_errors: Array[String] = requirements.call("validation_errors")
@@ -19,8 +20,11 @@ func generate(requirements: Variant, seed: int) -> Variant:
 	var rng := DeterministicRngScript.new(seed)
 	var slots: Array = []
 	var lower_positions: Array = []
+	var selected_motifs: Array[String] = []
 	for z in range(requirements.layer_counts.size()):
-		var selected: Array = _generate_layer(requirements, z, lower_positions, rng)
+		var motif := _choose_motif(requirements, z, rng)
+		selected_motifs.append(motif)
+		var selected: Array = _generate_layer(requirements, z, lower_positions, rng, motif)
 		if selected.size() != requirements.layer_counts[z]:
 			push_error("Could not satisfy procedural layout layer %d" % z)
 			return null
@@ -29,19 +33,27 @@ func generate(requirements: Variant, seed: int) -> Variant:
 			slots.append(LayoutSlotScript.new(LayoutSlotScript.coordinate_id(position), position))
 			lower_positions.append(position)
 
-	var layout := BoardLayoutScript.new(
-		requirements.id,
-		slots,
-		requirements.revision,
-		{
-			"source": "procedural",
-			"generator_seed": seed,
-			"requirements": requirements.to_dict(),
-			"requirements_hash": requirements.content_hash(),
-		}
-	)
+	var metadata := {
+		"source": "procedural",
+		"generator_seed": seed,
+		"requirements": requirements.to_dict(),
+		"requirements_hash": requirements.content_hash(),
+	}
+	if not requirements.layer_motif_choices.is_empty():
+		metadata["selected_motifs"] = selected_motifs
+	var layout_id: String = requirements.id if generated_layout_id.is_empty() else generated_layout_id
+	var layout := BoardLayoutScript.new(layout_id, slots, requirements.revision, metadata)
 	if not layout.validation_errors().is_empty():
 		return null
+	if not requirements.mobile_constraints.is_empty():
+		var mobile_fit: Dictionary = LayoutMobileFitAnalyzerScript.new().call(
+			"analyze", layout, requirements.mobile_constraints
+		)
+		if not mobile_fit.valid:
+			push_error("Procedural layout failed mobile fit: %s" % "; ".join(mobile_fit.errors))
+			return null
+		metadata["mobile_fit"] = mobile_fit.metrics
+		layout = BoardLayoutScript.new(layout_id, slots, requirements.revision, metadata)
 	var plan: Array = LayoutSolutionPlannerScript.new().call("build_plan", layout)
 	if plan.size() * 2 != requirements.tile_count:
 		push_error("Procedural layout has no complete removal plan")
@@ -49,11 +61,14 @@ func generate(requirements: Variant, seed: int) -> Variant:
 	return layout
 
 
-func _generate_layer(requirements: Variant, z: int, lower_positions: Array, rng: Variant) -> Array:
-	var layer_columns: int = requirements.columns - z
-	var layer_rows: int = requirements.rows - z
-	var start_x := z
-	var start_y := z
+func _generate_layer(
+		requirements: Variant, z: int, lower_positions: Array, rng: Variant, motif: String
+) -> Array:
+	var inset: int = z if requirements.progressive_layer_inset else z % 2
+	var layer_columns: int = requirements.columns - inset
+	var layer_rows: int = requirements.rows - inset
+	var start_x := inset
+	var start_y := inset
 	var candidates := {}
 	for row in range(layer_rows):
 		for column in range(layer_columns):
@@ -64,7 +79,8 @@ func _generate_layer(requirements: Variant, z: int, lower_positions: Array, rng:
 				"column": column,
 				"row": row,
 				"position": position,
-				"score": _shape_score(requirements.shape, column, row, layer_columns, layer_rows),
+				"score": _shape_score(requirements.shape, column, row, layer_columns, layer_rows)
+					+ _motif_score(motif, column, row, layer_columns, layer_rows) * 8,
 			}
 
 	if not requirements.horizontal_symmetry:
@@ -131,6 +147,30 @@ func _shape_score(shape: String, column: int, row: int, columns: int, rows: int)
 			return maxi(dx * rows, dy * columns)
 		_:
 			return dx * dx * rows * rows + dy * dy * columns * columns
+
+
+func _choose_motif(requirements: Variant, z: int, rng: Variant) -> String:
+	if requirements.layer_motif_choices.is_empty():
+		return RequirementsScript.MOTIF_SOLID
+	var choices: Array = requirements.layer_motif_choices[z]
+	return str(choices[rng.call("range_int", 0, choices.size() - 1)])
+
+
+func _motif_score(motif: String, column: int, row: int, columns: int, rows: int) -> int:
+	var dx := absi(column * 2 - (columns - 1))
+	var dy := absi(row * 2 - (rows - 1))
+	match motif:
+		RequirementsScript.MOTIF_WINGS:
+			return ((columns - 1) - dx) * rows * 2 + dy * columns
+		RequirementsScript.MOTIF_BRIDGE:
+			return dy * columns * 3 + dx
+		RequirementsScript.MOTIF_TOWER:
+			return dx * rows * 2 + dy * columns * 2
+		RequirementsScript.MOTIF_HOURGLASS:
+			var target_dx: int = dy * maxi(1, columns - 1) / maxi(1, rows - 1)
+			return absi(dx - target_dx) * rows * 2
+		_:
+			return 0
 
 
 func _candidate_key(column: int, row: int) -> String:

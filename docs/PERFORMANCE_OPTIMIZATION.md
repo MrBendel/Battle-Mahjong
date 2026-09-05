@@ -61,7 +61,7 @@ The assisted Android capture runner measures the installed game with Android fra
 powershell -ExecutionPolicy Bypass -File scripts/capture_android_performance.ps1
 ```
 
-Connect and authorize one device over ADB before starting. The runner launches the installed `com.platypus.battlemahjong` package, guides each representative setup, resets `dumpsys gfxinfo` before every capture, and writes parsed JSON plus raw frame, memory, display, and thermal evidence under `build/performance/android/`. Use `-ListScenarios` to inspect the capture set, `-Scenarios shuffle,hint_glow` for a focused run, `-Serial <adb-serial>` when multiple devices are connected, or `-ApkPath <path>` to install a local APK first. Release or release-like Play builds remain preferred over debug APKs.
+Connect and authorize one device over ADB before starting. The runner launches the installed `com.platypus.battlemahjong` package, guides each representative setup, resets `dumpsys gfxinfo` before every capture, and writes parsed JSON plus raw frame, memory, display, and thermal evidence under `build/performance/android/`. Use `-ListScenarios` to inspect the capture set, `-Scenarios shuffle,hint_glow` for a focused run, `-Serial <adb-serial>` when multiple devices are connected, or `-ApkPath <path>` to install a local APK first. Release or release-like Play builds remain preferred over debug APKs. Some Android builds do not expose Godot `SurfaceView` frames through `gfxinfo`; the runner fails instead of accepting an empty report. Use SurfaceFlinger presentation timestamps for those devices until that fallback is integrated into the runner.
 
 The frame summary uses `FrameCompleted - IntendedVsync` from Android's `framestats` output and reports median, p95, worst, and counts over 16.7 and 33.3 ms. Keep the raw files: lifecycle transitions and device compositor behavior can produce frames that deserve inspection rather than automatic filtering.
 
@@ -81,7 +81,21 @@ Batch 0 instrumentation and the first Batch 1 refresh/allocation changes were me
 
 The desktop result supports keeping visual-state refresh separate from geometry, static art assignment, and input ordering. Ordinary selection improved by about 25%, natural pair setup by about 30%, and Hint activation by about 22% in synchronous action time. Shuffle's synchronous transaction and presentation setup improved by about 94%. Its Board work now performs one slot-remap layout and no full style pass; the separate Inspector-tunable reposition animation defaults to `240 ms` for readable motion.
 
-This is not the Android baseline required to close Batch 0. Capture the same runner scenarios and `adb shell dumpsys gfxinfo` data on the primary phone before choosing Batch 2 work. In particular, desktop results cannot determine whether transparent tile layers are fill-rate limited on the Pixel GPU.
+## Initial Pixel Results
+
+Primary-device animation profiling ran on a Pixel 11 Pro XL at `1080 x 2404`, 60 Hz application presentation, and thermal status 0. Android `gfxinfo` returned zero frames for Godot's `SurfaceView`, so these measurements use consecutive SurfaceFlinger presentation timestamps after clearing the target layer. Each result contains 62 displayed-frame intervals without screen recording.
+
+| Scenario | Median | p95 | Worst | Frames over 20 ms |
+| --- | ---: | ---: | ---: | ---: |
+| Fresh Board idle | 16.67 ms | 16.70 ms | 16.71 ms | 0 |
+| Ordinary selection | 16.66 ms | 16.70 ms | 17.07 ms | 0 |
+| Shuffle | 16.67 ms | 16.70 ms | 16.73 ms | 0 |
+| Natural pair, transient GPU smoke | 16.67 ms | 16.71 ms | 83.36 ms | 2 |
+| Natural pair, no smoke control (3 runs) | 16.67 ms | 16.70 ms | 16.89 ms | 0 |
+| Natural pair, transient CPU smoke (3 runs) | 16.66-16.67 ms | 16.68-16.73 ms | 33.36-50.04 ms | 1 per run |
+| Natural pair, warmed pooled CPU smoke (3 runs) | 16.67 ms | 16.70-16.71 ms | 16.71-16.76 ms | 0 |
+
+The controlled progression isolates match-time particle creation and first use as the hitch. A startup-warmed six-entry pool preserves the six-tuft effect while covering every hit in the fastest six-pair Bomb chain without restarting an active emitter. Each entry also owns one compact additive impact sprite, giving the collision frame a deterministic visual mark without adding particles or per-frame GDScript. Keep raw evidence under the ignored `build/performance/android/` directory and repeat this capture after material FX changes.
 
 ## Current Rendering Cost Centers
 
@@ -105,7 +119,7 @@ Goal: identify whether the current bottleneck is GDScript/UI traversal, renderin
 
 Complete when the next optimization can be chosen from evidence rather than feel alone.
 
-Status: desktop rendered instrumentation and baseline capture are complete. The assisted ADB capture workflow now covers the representative scenarios, including automated background/foreground cycles. Primary-device and lower-performance-device captures remain open; a representative late-game Board still requires manual setup.
+Status: desktop rendered instrumentation and the primary Pixel animation baseline are complete. The assisted ADB workflow covers the representative setup and lifecycle scenarios, but its `gfxinfo` parser cannot observe Godot `SurfaceView` frames on the Pixel; SurfaceFlinger supplied the primary-device frame evidence above. Lower-performance-device capture, automated SurfaceFlinger fallback, and a representative late-game Board remain open.
 
 ## Batch 1: Refresh and Allocation
 
