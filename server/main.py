@@ -47,7 +47,7 @@ if HAS_FASTAPI:
         config = get_startup_config(platform=platform)
         if not config["server_time"]:
             config["server_time"] = datetime.now(timezone.utc).isoformat()
-        
+
         # Include client reflection for debugging/analytics
         config["client_request"] = {
             "platform": platform,

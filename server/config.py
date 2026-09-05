@@ -10,7 +10,7 @@ def get_startup_config(platform: str = "android") -> Dict[str, Any]:
     latest_version_code = int(os.getenv("LATEST_VERSION_CODE", "8"))
     latest_version_name = os.getenv("LATEST_VERSION_NAME", "0.1.7")
     min_version_code = int(os.getenv("MIN_VERSION_CODE", "0"))
-    
+
     # Store URLs can be configured per platform
     default_store_url = os.getenv(
         "STORE_URL",
