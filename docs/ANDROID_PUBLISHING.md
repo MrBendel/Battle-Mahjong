@@ -108,14 +108,25 @@ Configure the following secrets in GitHub Repository Settings (`Settings > Secre
 - `ANDROID_KEYSTORE_ALIAS`: Keystore key alias from `secrets/android-upload.env`.
 - `ANDROID_KEYSTORE_PASSWORD`: Keystore password from `secrets/android-upload.env`.
 
-## Google Play In-App Updates & Versioning Integration
+## Google Play In-App Updates & Cloud Run Startup Service
 
-The game uses `UpdateChecker` (`res://scripts/presentation/update_checker.gd`) to handle update availability checks and trigger in-app updates or Play Store redirects:
+The game uses `UpdateChecker` (`res://scripts/presentation/update_checker.gd`) to handle dynamic update availability checks and trigger in-app updates or Play Store redirects:
 
-- **Native Play Core Integration**: At runtime on Android, `UpdateChecker` inspects the engine singletons (`GodotPlayCore`, `GodotGooglePlayInAppUpdate`, `InAppUpdate`). If a native plugin is registered, update checks and immediate/flexible in-app updates are handled via Play Core APIs with variadic signal parameter safety.
-- **Remote Version JSON Endpoint**: If no native plugin is loaded, `UpdateChecker` queries `check_version_url` (defaulting to `https://raw.githubusercontent.com/MrBendel/Battle-Mahjong/main/version.json`). When a new build version code is pushed to `main`, installed builds compare their local version code against the remote version code. If `remote_code > current_code`, the game automatically emits `update_available` and displays the Update Banner with a 1-tap store link.
-- **Local Fallback**: If offline or if HTTP fails, `UpdateChecker` evaluates local `res://version.json`.
-- **Version Synchronization**: Invoking `res://scripts/tools/set_android_export_version.gd` updates both `export_presets.cfg` (`preset.0.options` `version/code` & `version/name`) and `res://version.json` simultaneously, ensuring release version metadata remains synchronized across local builds and CI/CD pipelines.
+- **Authoritative GCP Cloud Run Service**: On app startup, `UpdateChecker` queries the live Google Cloud Run startup endpoint:
+  ```text
+  https://battle-mahjong-backend-yz6hgthnca-uc.a.run.app/v1/startup
+  ```
+  The endpoint dynamically delivers the latest published version code, semantic version name, maintenance mode status, and feature flags. If `remote_code > current_code`, the game client automatically emits `update_available` and displays the `UpdateBannerView` with an **Update** button.
+- **Native Play Core Integration**: At runtime on Android, `UpdateChecker` inspects engine singletons (`GodotPlayCore`, `GodotGooglePlayInAppUpdate`, `InAppUpdate`). If a native plugin is registered, update checks and immediate/flexible in-app updates are handled via Play Core APIs with variadic signal parameter safety.
+- **Local Fallback**: If offline, in airplane mode, or if HTTP fails, `UpdateChecker` evaluates local `res://version.json` and `res://export_presets.cfg` without blocking gameplay.
+- **Syncing Cloud Run on Release**: After publishing a new release to Google Play, update the Cloud Run service environment variables so existing client installations immediately receive the update banner:
+  ```bash
+  gcloud run services update battle-mahjong-backend \
+    --project=battle-mahjong \
+    --region=us-central1 \
+    --update-env-vars LATEST_VERSION_CODE=<NEW_CODE>,LATEST_VERSION_NAME=<NEW_NAME>
+  ```
+  For complete documentation of the backend architecture, maintenance mode, and live-ops commands, see [Google Cloud Platform Backend Setup](GCP_BACKEND_SETUP.md).
 
 
 

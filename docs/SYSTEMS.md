@@ -199,3 +199,19 @@ EXPERT
 ```
 
 These values are illustrative, not finalized constants.
+ 
+## Startup & Live-Ops Service (`server/`)
+
+Battle Mahjong connects to a lightweight, serverless Google Cloud Run service on app launch to decouple live operations, dynamic version checking, and emergency maintenance from client releases.
+
+### Components:
+* **Backend Microservice (`server/`)**: FastAPI app container running on Google Cloud Run (`battle-mahjong` project). Exposes `GET /health` and `GET /v1/startup`.
+* **Client Updater (`scripts/presentation/update_checker.gd`)**: Node in `game_shell` that queries the startup endpoint on launch, compares version codes (`remote_code > current_code`), checks maintenance status, and bridges native Google Play In-App Updates.
+* **Update Banner (`scripts/presentation/update_banner_view.gd`)**: Top-anchored responsive UI banner that alerts players when a new version is available on Google Play, providing a 1-tap update action.
+
+### Key Characteristics:
+* **Offline First**: If offline or if the network request fails, the game falls back to local configuration; players are never blocked from playing.
+* **Scale-to-Zero**: Operates within GCP free tier without persistent VM costs.
+* **Live-Ops Levers**: Version checks, mandatory updates (`min_version_code`), and maintenance downtime messages can be updated dynamically via Cloud Run environment variables in seconds.
+
+For complete endpoint schemas, deployment scripts, and operational procedures, see [GCP Backend Setup Guide](GCP_BACKEND_SETUP.md).
