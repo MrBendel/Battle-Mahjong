@@ -2,8 +2,8 @@ extends Control
 class_name PairMatchFx
 
 const DEFAULT_SIZE := Vector2(104.0, 104.0)
-const IMPACT_BURST := preload("res://game-assets/fx/match_impact_burst.png")
-const SMOKE_TUFT := preload("res://game-assets/fx/match_smoke_tuft.png")
+const IMPACT_BURST_PATH := "res://game-assets/fx/match_impact_burst.png"
+const SMOKE_TUFT_PATH := "res://game-assets/fx/match_smoke_tuft.png"
 const SMOKE_PARTICLE_COUNT := 6
 const BURST_VISUAL_SCALE := 0.50
 const BURST_EXPAND_SECONDS := 0.07
@@ -25,7 +25,7 @@ func _init(effect_size: Vector2 = DEFAULT_SIZE) -> void:
 func _ready() -> void:
 	_burst = Sprite2D.new()
 	_burst.name = "ImpactBurst"
-	_burst.texture = IMPACT_BURST
+	_burst.texture = _load_texture(IMPACT_BURST_PATH)
 	_burst.position = size * 0.5
 	_burst.centered = true
 	_burst.visible = false
@@ -42,7 +42,7 @@ func _ready() -> void:
 	_particles.one_shot = true
 	_particles.explosiveness = 1.0
 	_particles.randomness = 0.64
-	_particles.texture = SMOKE_TUFT
+	_particles.texture = _load_texture(SMOKE_TUFT_PATH)
 	_particles.direction = Vector2.RIGHT
 	_particles.spread = 180.0
 	_particles.initial_velocity_min = 38.0
@@ -106,3 +106,13 @@ static func _smoke_gradient() -> Gradient:
 		Color(0.82, 0.82, 0.82, 0.0),
 	])
 	return gradient
+
+
+static func _load_texture(asset_path: String) -> Texture2D:
+	if ResourceLoader.exists(asset_path):
+		return load(asset_path) as Texture2D
+	elif FileAccess.file_exists(asset_path):
+		var img := Image.load_from_file(asset_path)
+		if img != null:
+			return ImageTexture.create_from_image(img)
+	return null
