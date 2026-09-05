@@ -139,28 +139,24 @@ jobs:
           releaseFiles: build/android/battle-mahjong.aab
           track: internal
 
-      - name: Authenticate to Google Cloud
-        id: gcp-auth
-        if: success() && (secrets.GCP_SA_KEY != '' || secrets.PLAY_STORE_JSON_KEY != '')
-        uses: google-github-actions/auth@v2
-        continue-on-error: true
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY || secrets.PLAY_STORE_JSON_KEY }}
-
-      - name: Set up Cloud SDK
-        if: success() && steps.gcp-auth.outcome == 'success'
-        uses: google-github-actions/setup-gcloud@v2
-        continue-on-error: true
-
       - name: Sync Version to Cloud Run Startup Endpoint
         id: sync-cloud-run
-        if: success() && steps.gcp-auth.outcome == 'success'
+        if: success()
         continue-on-error: true
+        env:
+          GCP_CREDENTIALS: ${{ secrets.GCP_SA_KEY || secrets.PLAY_STORE_JSON_KEY }}
         run: |
+          if [ -z "${GCP_CREDENTIALS}" ]; then
+            echo "No GCP credentials provided; skipping automatic Cloud Run sync."
+            exit 0
+          fi
+          echo "${GCP_CREDENTIALS}" > /tmp/gcp_sa_key.json
+          gcloud auth activate-service-account --key-file=/tmp/gcp_sa_key.json
           gcloud run services update battle-mahjong-backend \
             --project=battle-mahjong \
             --region=us-central1 \
             --update-env-vars LATEST_VERSION_CODE=${{ steps.version.outputs.version_code }},LATEST_VERSION_NAME=${{ steps.version.outputs.version_name }}
+          rm -f /tmp/gcp_sa_key.json
 
       - name: Post Success Comment
         if: success()
