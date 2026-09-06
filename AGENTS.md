@@ -98,10 +98,12 @@ Project-level instructions for Codex working on Battle Mahjong.
 - Android performance evidence is captured with `scripts/capture_android_performance.ps1`; keep generated reports under ignored `build/performance/android/` and preserve raw `gfxinfo`, memory, display, and thermal output alongside parsed summaries.
 - Pair-difficulty reward tuning favors a lively arcade cadence: notable requires score `130` and percentile `6000`; exceptional requires score `190` and percentile `8500`. Bonuses remain 25 and 50 percent respectively, and all values are snapshotted into `GameDefinition`.
 - Cross-game state boundaries are documented in `docs/PLAYER_PROFILE.md`. M9 will implement local profiles and a durable game library before replay presentation, game modes, backend work, or progression.
+- The application now launches into a responsive Town Hub. `AppRoot` owns navigation between the hub and `GameShell`; destination views emit intent and never own simulation or persistence. The Mall is the only active first-slice destination and enters the existing Tower-generation playtest flow.
+- Town presentation is theme-driven through `TownTheme`. The runtime hub is constructed from separate ground, destination-building, vegetation, foreground, sign, and HUD layers. Portrait and landscape recompose the same themed pieces. Destination buildings use alpha-derived click masks; do not introduce large rectangular hotspots. Theme selection stays outside deterministic game hashes.
 
 ## Current Boundary
 
-M7 Art Foundation is the current implementation scope. Keep art identity and presentation independent from gameplay matching, and do not begin M8 or later implementation. The M9 cross-game architecture is documented for planning only; profile and game-library code remains deferred. Do not change the 24-identity reference deal composition as part of visual production without an explicit gameplay decision.
+M9 Local Profile and Game Library is the current implementation scope, beginning with the Town Hub application-navigation foundation. Keep hub and theme presentation independent from profile repositories and gameplay simulation. Local profile persistence, durable game records, and result application must follow the documented M9 contracts; currencies, progression, shops, social features, and backend ownership remain deferred. Do not change the 24-identity reference deal composition without an explicit gameplay decision.
 
 ## Validation
 
@@ -113,6 +115,7 @@ Run Godot commands from the repository root using the Godot 4.6.3 console execut
 - Small-phone UI smoke test: `godot --headless --path . --script res://tests/ui_smoke_runner.gd -- --small-phone`
 - Safe-area portrait smoke test: `godot --headless --path . --script res://tests/ui_smoke_runner.gd -- --portrait --safe-area`
 - Safe-area landscape smoke test: `godot --headless --path . --script res://tests/ui_smoke_runner.gd -- --landscape --safe-area`
+- Town Hub smoke test: `godot --headless --path . --script res://tests/town_hub_runner.gd`
 - Android orientation screenshots: `powershell -ExecutionPolicy Bypass -File scripts/test_android_screenshots.ps1`
 - Simulation suite: `godot --headless --path . --script res://tests/simulation_runner.gd`
 - Layout generation: `godot --headless --path . --script res://scripts/tools/generate_layout.gd -- <requirements.json> <seed> <output.json>`
@@ -129,6 +132,7 @@ For documentation-only changes, `git diff --check` is sufficient unless the docu
 - `docs/PLAYER_PROFILE.md`: profile, game-record, result-application, and future account boundaries.
 - `docs/PAIR_DIFFICULTY.md`: deterministic opportunity scoring, ranking, telemetry, and tuning boundary.
 - `docs/TOWER_GENERATION.md`: deterministic Tower segment generation, authoring difficulty metrics, and deferred runtime boundaries.
+- `docs/TOWN_HUB.md`: responsive destination map, application navigation, seasonal theme contract, and production-art handoff.
 - `docs/PERFORMANCE_OPTIMIZATION.md`: measurement protocol and ordered Board rendering optimization backlog.
 - `docs/FLIPPED_TILES.md`: seeded face-down assignment, reveal, direct-match, consumable, and replay rules.
 - `docs/ARCADE_CALLOUTS.md`: single-lane alert arbitration, Combo cadence, score milestones, and profile boundary.

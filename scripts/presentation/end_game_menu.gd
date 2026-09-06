@@ -3,17 +3,19 @@ class_name EndGameMenu
 
 signal restart_requested
 signal undo_requested
+signal town_requested
 
 const GameStateDataScript := preload("res://scripts/simulation/game_state_data.gd")
 const PANEL_REFERENCE_WIDTH := 330.0
-const PANEL_REFERENCE_HEIGHT := 340.0
-const PANEL_REFERENCE_HEIGHT_WITH_UNDO := 394.0
+const PANEL_REFERENCE_HEIGHT := 398.0
+const PANEL_REFERENCE_HEIGHT_WITH_UNDO := 452.0
 
 var _title_label: Label
 var _subtitle_label: Label
 var _stats_container: VBoxContainer
 var _restart_button: Button
 var _undo_button: Button
+var _town_button: Button
 var _stat_labels: Array[Label] = []
 
 
@@ -43,6 +45,7 @@ func show_result(game: Variant, elapsed_ms: int) -> void:
 func close() -> void:
 	_restart_button.release_focus()
 	_undo_button.release_focus()
+	_town_button.release_focus()
 	visible = false
 
 
@@ -85,6 +88,11 @@ func _build_overlay_content() -> void:
 	_undo_button.name = "UndoButton"
 	_undo_button.pressed.connect(func() -> void: undo_requested.emit())
 	_content.add_child(_undo_button)
+
+	_town_button = _make_command_button("RETURN TO TOWN")
+	_town_button.name = "TownButton"
+	_town_button.pressed.connect(func() -> void: town_requested.emit())
+	_content.add_child(_town_button)
 
 
 func _populate_stats(game: Variant, elapsed_ms: int) -> void:
@@ -136,3 +144,4 @@ func _layout_overlay_content(scale_factor: float) -> void:
 		label.add_theme_font_size_override("font_size", roundi(15.0 * scale_factor))
 	_apply_command_button_layout(_restart_button, scale_factor)
 	_apply_command_button_layout(_undo_button, scale_factor, 17.0)
+	_apply_command_button_layout(_town_button, scale_factor, 17.0)

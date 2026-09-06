@@ -3,16 +3,18 @@ class_name PauseMenu
 
 signal resumed
 signal restart_requested
+signal town_requested
 signal sound_changed(enabled: bool)
 signal haptics_changed(enabled: bool)
 
-const PANEL_REFERENCE_SIZE := Vector2(330.0, 340.0)
+const PANEL_REFERENCE_SIZE := Vector2(330.0, 398.0)
 
 var _title: Label
 var _sound_toggle: CheckButton
 var _haptics_toggle: CheckButton
 var _resume_button: Button
 var _restart_button: Button
+var _town_button: Button
 var _transparent_toggle_icon: ImageTexture
 
 
@@ -25,6 +27,7 @@ func open() -> void:
 func close() -> void:
 	_resume_button.release_focus()
 	_restart_button.release_focus()
+	_town_button.release_focus()
 	_sound_toggle.release_focus()
 	_haptics_toggle.release_focus()
 	visible = false
@@ -72,6 +75,10 @@ func _build_overlay_content() -> void:
 	_restart_button.pressed.connect(func() -> void: restart_requested.emit())
 	_content.add_child(_restart_button)
 
+	_town_button = _make_command_button("RETURN TO TOWN")
+	_town_button.pressed.connect(func() -> void: town_requested.emit())
+	_content.add_child(_town_button)
+
 
 func _make_toggle(label_text: String) -> CheckButton:
 	var toggle := CheckButton.new()
@@ -111,5 +118,5 @@ func _layout_overlay_content(scale_factor: float) -> void:
 		toggle.add_theme_stylebox_override("hover", _button_style(scale_factor, Color("12352e"), Color("d6a83a")))
 		toggle.add_theme_stylebox_override("pressed", _button_style(scale_factor, Color("081b18"), Color("f5d56d")))
 		toggle.add_theme_stylebox_override("focus", _button_style(scale_factor, Color.TRANSPARENT, Color("f5d56d")))
-	for button in [_resume_button, _restart_button]:
+	for button in [_resume_button, _restart_button, _town_button]:
 		_apply_command_button_layout(button, scale_factor)

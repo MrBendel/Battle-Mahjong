@@ -1,9 +1,7 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=3 format=3]
 
-[ext_resource type="Script" path="res://scripts/presentation/game_shell.gd" id="1_game_shell"]
-[ext_resource type="Resource" path="res://configuration/default_momentum_tuning.tres" id="2_momentum"]
-[ext_resource type="Resource" path="res://configuration/default_modifier_tuning.tres" id="3_modifiers"]
-[ext_resource type="Resource" path="res://configuration/default_arcade_callout_tuning.tres" id="4_callouts"]
+[ext_resource type="Script" path="res://scripts/presentation/app_root.gd" id="1_app_root"]
+[ext_resource type="Resource" path="res://configuration/town/default_theme.tres" id="2_theme"]
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -12,7 +10,5 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-script = ExtResource("1_game_shell")
-momentum_tuning = ExtResource("2_momentum")
-modifier_tuning = ExtResource("3_modifiers")
-arcade_callout_tuning = ExtResource("4_callouts")
+script = ExtResource("1_app_root")
+town_theme = ExtResource("2_theme")

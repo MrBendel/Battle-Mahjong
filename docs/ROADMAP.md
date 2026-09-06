@@ -147,7 +147,7 @@ Detailed contracts: [M07 Art Foundation](milestones/M07_ART_FOUNDATION.md) and [
 Later milestones are recorded here to preserve ordering. Detailed implementation contracts remain deferred unless linked below.
 
 - M8 Art Expansion + Cosmetics - additional skins, characters, backgrounds, and visual breadth built on the M7 contracts
-- [M9 Local Profile + Game Library](milestones/M09_LOCAL_PROFILE_GAME_LIBRARY.md) - local profile persistence, durable deterministic game records, resume, history, and idempotent result application
+- [M9 Local Profile + Game Library](milestones/M09_LOCAL_PROFILE_GAME_LIBRARY.md) - local profile persistence, durable deterministic game records, resume, history, and idempotent result application. The responsive [Town Hub](TOWN_HUB.md) presentation foundation now provides the application-level entry point; profile repositories remain the next M9 increment.
 - M10 Replays + Ghosts - playback and ghost presentation built on the durable M9 game library
 - M11 Game Modes - begin with endless Tower play, consuming deterministic finite segments from the M4 authoring pipeline
 - M12 Backend + Async Battle

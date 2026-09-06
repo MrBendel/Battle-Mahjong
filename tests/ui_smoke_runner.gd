@@ -27,7 +27,7 @@ func _run() -> void:
 	elif OS.get_cmdline_user_args().has("--portrait"):
 		requested_size = Vector2i(430, 932)
 	root.size = requested_size
-	var shell: Control = load("res://scenes/main.tscn").instantiate()
+	var shell: Control = load("res://scenes/game_shell.tscn").instantiate()
 	var modifier_playtest := OS.get_cmdline_user_args().has("--modifier-playtest") \
 		or OS.get_cmdline_user_args().has("--modifier-callout-capture")
 	shell.set("playtest_all_modifiers", modifier_playtest)
@@ -908,7 +908,7 @@ func _run() -> void:
 
 func _verify_layout_generator(requested_size: Vector2i) -> void:
 	root.size = requested_size
-	var generator_shell: Control = load("res://scenes/main.tscn").instantiate()
+	var generator_shell: Control = load("res://scenes/game_shell.tscn").instantiate()
 	generator_shell.set("show_layout_generator_on_start", true)
 	generator_shell.set("show_modifier_picker_on_start", true)
 	generator_shell.set("playtest_all_modifiers", false)
@@ -955,7 +955,7 @@ func _verify_layout_generator(requested_size: Vector2i) -> void:
 
 func _verify_modifier_picker(requested_size: Vector2i) -> void:
 	root.size = requested_size
-	var picker_shell: Control = load("res://scenes/main.tscn").instantiate()
+	var picker_shell: Control = load("res://scenes/game_shell.tscn").instantiate()
 	picker_shell.set("show_modifier_picker_on_start", true)
 	picker_shell.set("show_layout_generator_on_start", false)
 	picker_shell.set("playtest_all_modifiers", false)
