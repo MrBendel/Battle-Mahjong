@@ -29,11 +29,13 @@ Battle-Mahjong/
 │   └── tools/
 │       ├── build_custom_font.py                  # Core FontForge font generation script
 │       ├── build_font.bat                        # One-click Windows build batch runner
-│       ├── optical_kerning.json                  # Authoritative optical kerning table (429 pairs)
+│       ├── optical_kerning.json                  # Authoritative optical kerning table (1,067 pairs)
+│       ├── apply_uppercase_kerning.py            # Automated uppercase-to-uppercase (A-Z x A-Z) optical calibrator
 │       ├── calibrate_all_phrases.py              # Automated collision detector & optical metric scanner
 │       └── calibrate_numbers.py                  # Digit (0-9) & punctuation (comma, period) calibrator
 └── tests/
-    └── test_custom_font.gd                       # Godot headless font verification test
+    ├── test_custom_font.gd                       # Godot headless font verification test
+    └── test_score_ui_font.gd                     # In-game HUD font variation & shadow style test
 ```
 
 ---
@@ -134,6 +136,10 @@ This script evaluates 13 core game phrases and 380+ character pairs across:
 
 ### Step 4: Fine-Tune Kerning in `scripts/tools/optical_kerning.json`
 Key typography rules discovered for this brush script:
+- **All-Caps Optical Alignment (`FONT`, `STREAK`, `EXTRA TIME`)**:
+  - Uppercase letters without kerning leave massive optical voids due to wide bounding-box overhangs (`T`, `F`, `E`, `R`, `I`, `X`).
+  - Calibrated via `scripts/tools/apply_uppercase_kerning.py` across all 676 uppercase pairs ($A\text{–}Z \times A\text{–}Z$), generating 641 uppercase pairs (e.g. `"F,O": -150`, `"T,R": -155`, `"E,A": -75`, `"T,I": -150`, `"E,X": -110`, `"M,E": -90`).
+  - Maintains strict physical safety clearance ($gap \ge 24$ px) to prevent contour clipping.
 - **Capital Overhangs (`T`, `P`, `F`, `V`, `W`, `Y`)**:
   - Lowercase vowels sit beneath the horizontal crossbars or diagonal arms.
   - Require deep negative kerning (e.g. `"T,a": -305`, `"P,a": -100`, `"P,e": -90`, `"V,i": -70`).
@@ -167,6 +173,27 @@ godot --headless --path . -s tests/ui_smoke_runner.gd
 ## 6. Godot Integration
 
 The compiled font is imported into Godot via `assets/fonts/battle-mahjong-poster-script.tres`.
+
+### Font Metrics Normalization in Godot
+FontForge by default enables `os2_typoascent_add = 1` and `hhea_ascent_add = 1`. In an EM=1000 font, this automatically calculates `os2_typoascent` and `hhea_ascent` by adding EM ascent to glyph bounding box heights (yielding ~1600), effectively doubling font line-height in Godot (`get_height()` at size 33 became 67px!). This causes Godot `Label` controls to have inflated minimum heights and pushes baselines down into UI borders.
+`scripts/tools/build_custom_font.py` explicitly disables this automatic addition:
+```python
+font.os2_typoascent_add = 0
+font.os2_typodescent_add = 0
+font.os2_winascent_add = 0
+font.os2_windescent_add = 0
+font.hhea_ascent_add = 0
+font.hhea_descent_add = 0
+font.os2_typoascent = 800
+font.os2_typodescent = -200
+font.os2_winascent = 800
+font.os2_windescent = 200
+font.hhea_ascent = 800
+font.hhea_descent = -200
+font.hhea_linegap = 0
+font.os2_typolinegap = 0
+```
+This ensures 1:1 metric fidelity in Godot (e.g., font size 18 = 19px line height, font size 30 = 30px line height).
 
 To use in GDScript:
 ```gdscript

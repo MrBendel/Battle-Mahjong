@@ -10,6 +10,11 @@ const MOMENTUM_BADGE_PATH := "res://game-assets/ui/portrait/momentum_badge.png"
 const EXTRA_LIFE_ICON_PATH := "res://game-assets/modifiers/tile-overlays/extra_life.png"
 const MILA_REGULAR_PATH := "res://assets/fonts/mila-script-sans-regular-tight.tres"
 const MILA_BOLD_PATH := "res://assets/fonts/mila-script-sans-bold-tight.tres"
+const POSTER_SCRIPT_PATH := "res://assets/fonts/battle-mahjong-poster-script.tres"
+const POSTER_SCRIPT_FACE_COLOR := Color("fff6e5")
+const POSTER_SCRIPT_PINK_SHADOW_COLOR := Color("eb576f")
+const POSTER_SCRIPT_DARK_SHADOW_COLOR := Color("040d0a")
+const POSTER_SCRIPT_SHADOW_COLOR := POSTER_SCRIPT_PINK_SHADOW_COLOR
 
 const PORTRAIT_REFERENCE_SIZE := Vector2(322.0, 81.0)
 const PORTRAIT_FRAME_RECT := Rect2(118.0, 30.0, 173.3, 25.3)
@@ -19,12 +24,17 @@ var _portrait_style := false
 var _legacy_background: Panel
 var _title: Label
 var _multiplier: Label
+var _multiplier_shadow: Label
 var _score: Label
+var _score_shadow: Label
 var _combo: Label
+var _combo_shadow: Label
 var _meter: ProgressBar
 var _score_art: TextureRect
 var _score_title: Label
+var _score_title_shadow: Label
 var _timer: Label
+var _timer_shadow: Label
 var _momentum_frame: TextureRect
 var _fill_clip: Control
 var _momentum_fill: TextureRect
@@ -71,13 +81,14 @@ func refresh(playback_time_ms: int) -> void:
 	var maximum: int = int(_game.definition.configuration.momentum_max)
 	_meter.max_value = maximum
 	_meter.value = momentum
-	_multiplier.text = "x%d" % multiplier
-	_score.text = _format_score(_game.score) if _portrait_style else "Score  %d" % _game.score
-	_timer.text = _format_time(playback_time_ms)
+	_set_poster_text(_multiplier, _multiplier_shadow, "x%d" % multiplier)
+	_set_poster_text(_score, _score_shadow, _format_score(_game.score) if _portrait_style else "Score  %d" % _game.score)
+	_set_poster_text(_timer, _timer_shadow, _format_time(playback_time_ms))
 	var combo: int = _game.call("combo_at", playback_time_ms)
-	_combo.text = "STREAK %dX" % combo if _portrait_style and combo > 0 \
+	var combo_text := "STREAK %dX" % combo if _portrait_style and combo > 0 \
 		else "STREAK READY" if _portrait_style \
 		else "Combo x%d" % combo if combo > 0 else "Combo ready"
+	_set_poster_text(_combo, _combo_shadow, combo_text)
 	var ratio := clampf(float(momentum) / float(maximum), 0.0, 1.0) if maximum > 0 else 0.0
 	_fill_clip.size.x = _momentum_fill.size.x * ratio
 	var snapshot: Variant = _game.call("current_snapshot")
@@ -115,34 +126,26 @@ func play_pair_feedback(multiplier: int) -> void:
 
 
 func play_modifier_activation(modifier_type: String) -> void:
-	var target: Control
-	match modifier_type:
-		"extra_life", "extra_life_save":
-			target = _extra_life_icon
-		"cold_snap":
-			target = _momentum_frame if _portrait_style else _meter
-		"score_multiplier":
-			target = _momentum_badge if _portrait_style else _multiplier
-		_:
-			return
+	modifier_feedback_count += 1
+	last_modifier_feedback = modifier_type
+	if _multiplier == null:
+		return
 	if _modifier_tween != null and _modifier_tween.is_valid():
 		_modifier_tween.kill()
 	_modifier_tween = create_tween()
-	modifier_feedback_count += 1
-	last_modifier_feedback = modifier_type
-	target.scale = Vector2(0.72, 0.72)
-	_modifier_tween.tween_property(target, "scale", Vector2(1.18, 1.18), 0.14) \
-		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	_modifier_tween.tween_property(target, "scale", Vector2.ONE, 0.12)
+	_modifier_tween.set_parallel(true)
+	_modifier_tween.tween_property(_multiplier, "scale", Vector2(1.16, 1.16), 0.08)
+	_modifier_tween.tween_property(_multiplier, "scale", Vector2.ONE, 0.18).set_delay(0.08)
+	if _multiplier_shadow != null:
+		_modifier_tween.tween_property(_multiplier_shadow, "scale", Vector2(1.16, 1.16), 0.08)
+		_modifier_tween.tween_property(_multiplier_shadow, "scale", Vector2.ONE, 0.18).set_delay(0.08)
 
 
 func _build() -> void:
 	_legacy_background = Panel.new()
-	_legacy_background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_legacy_background.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color("241b2e")
-	style.border_color = Color("76578b")
+	style.bg_color = Color("14101c")
+	style.border_color = Color("2d2238")
 	style.set_border_width_all(2)
 	style.set_corner_radius_all(8)
 	_legacy_background.add_theme_stylebox_override("panel", style)
@@ -165,23 +168,52 @@ func _build() -> void:
 
 	var regular_font := _load_font(MILA_REGULAR_PATH)
 	var bold_font := _load_font(MILA_BOLD_PATH)
+	var score_font := _load_font(POSTER_SCRIPT_PATH)
+	if score_font == null:
+		score_font = regular_font
 	_title = _label("Momentum", regular_font, 14, Color("cbbbd3"))
 	add_child(_title)
-	_multiplier = _label("", bold_font, 25, Color("fce8cd"))
+
+	# Multiplier (Dark base shadow behind front face)
+	_multiplier_shadow = _label("", score_font, 20, POSTER_SCRIPT_DARK_SHADOW_COLOR)
+	_multiplier_shadow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	add_child(_multiplier_shadow)
+	_multiplier = _label("", score_font, 20, POSTER_SCRIPT_FACE_COLOR)
 	_multiplier.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_multiplier)
-	_score_title = _label("SCORE", bold_font, 9, Color("fdf1d8"))
+
+	# Score Title
+	_score_title_shadow = _label("SCORE", score_font, 10, POSTER_SCRIPT_DARK_SHADOW_COLOR)
+	_score_title_shadow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	add_child(_score_title_shadow)
+	_score_title = _label("SCORE", score_font, 10, POSTER_SCRIPT_FACE_COLOR)
 	_score_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_score_title)
-	_score = _label("", regular_font, 15, Color("fdf1d8"))
+
+	# Dynamic Score
+	_score_shadow = _label("", score_font, 16, POSTER_SCRIPT_DARK_SHADOW_COLOR)
+	_score_shadow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	add_child(_score_shadow)
+	_score = _label("", score_font, 16, POSTER_SCRIPT_FACE_COLOR)
 	_score.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_score)
-	_timer = _label("", regular_font, 11, Color("fdf1d8"))
+
+	# Timer
+	_timer_shadow = _label("", score_font, 12, POSTER_SCRIPT_DARK_SHADOW_COLOR)
+	_timer_shadow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	add_child(_timer_shadow)
+	_timer = _label("", score_font, 12, POSTER_SCRIPT_FACE_COLOR)
 	_timer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_timer)
-	_combo = _label("", bold_font, 12, Color("fcf0d6"))
+
+	# Combo / Streak
+	_combo_shadow = _label("", score_font, 12, POSTER_SCRIPT_DARK_SHADOW_COLOR)
+	_combo_shadow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	add_child(_combo_shadow)
+	_combo = _label("", score_font, 12, POSTER_SCRIPT_FACE_COLOR)
 	_combo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_combo)
+
 	_extra_life_count = _label("", bold_font, 10, Color("fff4dc"))
 	_extra_life_count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_extra_life_count.add_theme_color_override("font_outline_color", Color("28151e"))
@@ -228,7 +260,12 @@ func _update_style_visibility() -> void:
 	_meter.visible = not _portrait_style
 	_score_art.visible = _portrait_style
 	_score_title.visible = _portrait_style
+	_score_title_shadow.visible = _portrait_style
 	_timer.visible = _portrait_style
+	_timer_shadow.visible = _portrait_style
+	_score_shadow.visible = _score.visible
+	_multiplier_shadow.visible = _multiplier.visible
+	_combo_shadow.visible = _combo.visible
 	_momentum_frame.visible = _portrait_style
 	_fill_clip.visible = _portrait_style
 	_momentum_badge.visible = _portrait_style
@@ -250,20 +287,25 @@ func _layout() -> void:
 	var frame_center_x := PORTRAIT_FRAME_RECT.get_center().x * scale
 	var momentum_origin := score_origin + Vector2(size.x * 0.5 - frame_center_x, 0.0)
 	_place_scaled(_score_art, Rect2(2.0, 5.0, 115.5, 77.0), score_origin, scale)
-	_place_scaled(_score_title, Rect2(34.0, 15.0, 70.0, 13.0), score_origin, scale, 9)
-	_place_scaled(_score, Rect2(14.0, 25.0, 110.0, 22.0), score_origin, scale, 15)
-	_place_scaled(_timer, Rect2(35.0, 50.0, 70.0, 17.0), score_origin, scale, 11)
+
+	_place_poster_pair(_score_title, _score_title_shadow, Rect2(14.0, 13.0, 90.0, 12.0), score_origin, scale, 10)
+	_place_poster_pair(_score, _score_shadow, Rect2(14.0, 23.0, 90.0, 22.0), score_origin, scale, 16)
+	_place_poster_pair(_timer, _timer_shadow, Rect2(36.0, 50.5, 72.0, 19.0), score_origin, scale, 11)
+
 	_place_scaled(_momentum_frame, PORTRAIT_FRAME_RECT, momentum_origin, scale)
+	_fill_clip.size = Vector2(162.9, 18.6) * scale
 	_place_scaled(_fill_clip, Rect2(122.7, 32.9, 162.9, 18.6), momentum_origin, scale)
 	_momentum_fill.position = Vector2.ZERO
 	_momentum_fill.size = Vector2(162.9, 18.6) * scale
 	_place_scaled(_momentum_badge, Rect2(275.9, 25.8, 34.2, 34.2), momentum_origin, scale)
 	_place_scaled(_extra_life_icon, Rect2(99.0, 7.0, 22.0, 22.0), score_origin, scale)
 	_place_scaled(_extra_life_count, Rect2(108.0, 8.0, 16.0, 16.0), score_origin, scale, 10)
-	_place_scaled(_multiplier, Rect2(278.0, 31.0, 30.0, 22.0), momentum_origin, scale, 15)
-	_place_scaled(_combo, Rect2(155.0, 7.0, 92.0, 18.0), momentum_origin, scale, 12)
+
+	_place_poster_pair(_multiplier, _multiplier_shadow, Rect2(275.0, 24.5, 34.2, 34.2), momentum_origin, scale, 16)
+	_place_poster_pair(_combo, _combo_shadow, Rect2(135.0, 6.0, 140.0, 20.0), momentum_origin, scale, 12)
+
 	_place_scaled(_effect_status, Rect2(125.0, 34.0, 147.0, 15.0), momentum_origin, scale, 8)
-	for control in [_momentum_frame, _momentum_badge, _extra_life_icon]:
+	for control in [_momentum_frame, _momentum_badge, _extra_life_icon, _multiplier, _multiplier_shadow]:
 		control.pivot_offset = control.size * 0.5
 	for index in range(_ticks.size()):
 		var tick_center_x := 122.7 + 162.9 * float(index + 1) / 8.0
@@ -274,14 +316,25 @@ func _layout() -> void:
 func _layout_legacy() -> void:
 	var margin := 10.0
 	var compact := size.y <= 72.0
+	var base_off := Vector2(2.0, 2.5)
 	_title.position = Vector2(margin, 5.0 if compact else 8.0)
 	_title.size = Vector2(90.0, 24.0)
+
 	_multiplier.position = Vector2(96.0, 1.0 if compact else 5.0)
 	_multiplier.size = Vector2(58.0, 34.0)
+	_multiplier_shadow.position = _multiplier.position + base_off
+	_multiplier_shadow.size = _multiplier.size
+
 	_score.position = Vector2(154.0, 5.0 if compact else 8.0)
 	_score.size = Vector2(maxf(56.0, size.x - 198.0), 20.0)
+	_score_shadow.position = _score.position + base_off
+	_score_shadow.size = _score.size
+
 	_combo.position = Vector2(154.0, 24.0 if compact else 30.0)
 	_combo.size = Vector2(maxf(56.0, size.x - 164.0), 18.0)
+	_combo_shadow.position = _combo.position + base_off
+	_combo_shadow.size = _combo.size
+
 	_meter.position = Vector2(margin, 44.0 if compact else 55.0)
 	_meter.size = Vector2(maxf(1.0, size.x - margin * 2.0), 12.0 if compact else 18.0)
 	_extra_life_icon.position = Vector2(maxf(164.0, size.x - 31.0), 3.0 if compact else 6.0)
@@ -293,6 +346,22 @@ func _layout_legacy() -> void:
 	_effect_status.position = Vector2(margin, 24.0 if compact else 31.0)
 	_effect_status.size = Vector2(140.0, 16.0)
 	_effect_status.add_theme_font_size_override("font_size", 8)
+
+
+func _place_poster_pair(label: Label, shadow_label: Label, rect: Rect2, origin: Vector2, scale: float, font_size := 0, base_offset := Vector2(1.2, 1.6)) -> void:
+	if shadow_label != null:
+		var shadow_rect := Rect2(rect.position + base_offset, rect.size)
+		_place_scaled(shadow_label, shadow_rect, origin, scale, font_size)
+	if label != null:
+		_place_scaled(label, rect, origin, scale, font_size)
+		_apply_poster_script_shadow(label, scale)
+
+
+func _set_poster_text(label: Label, shadow_label: Label, text: String) -> void:
+	if label != null:
+		label.text = text
+	if shadow_label != null:
+		shadow_label.text = text
 
 
 func _place_scaled(control: Control, rect: Rect2, origin: Vector2, scale: float, font_size := 0) -> void:
@@ -320,6 +389,16 @@ func _label(text: String, font: Font, font_size: int, color: Color) -> Label:
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return label
+
+
+func _apply_poster_script_shadow(label: Label, scale: float, pink_offset := Vector2(0.6, 0.9)) -> void:
+	if label == null:
+		return
+	label.add_theme_color_override("font_color", POSTER_SCRIPT_FACE_COLOR)
+	label.add_theme_color_override("font_shadow_color", POSTER_SCRIPT_PINK_SHADOW_COLOR)
+	label.add_theme_constant_override("shadow_offset_x", maxi(1, roundi(pink_offset.x * scale)))
+	label.add_theme_constant_override("shadow_offset_y", maxi(1, roundi(pink_offset.y * scale)))
+	label.add_theme_constant_override("shadow_outline_size", 0)
 
 
 func _format_score(value: int) -> String:

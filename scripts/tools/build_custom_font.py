@@ -348,12 +348,21 @@ def build_font(
             print("Notice: No optical_kerning.json found; skipping custom kerning pairs.")
 
         # 6. OS/2 & Font Metrics Normalization
+        font.os2_typoascent_add = 0
+        font.os2_typodescent_add = 0
+        font.os2_winascent_add = 0
+        font.os2_windescent_add = 0
+        font.hhea_ascent_add = 0
+        font.hhea_descent_add = 0
+
         font.os2_typoascent = ascent
         font.os2_typodescent = -descent
         font.os2_winascent = ascent
         font.os2_windescent = descent
         font.hhea_ascent = ascent
         font.hhea_descent = -descent
+        font.hhea_linegap = 0
+        font.os2_typolinegap = 0
 
         # 7. Generate Font Files
         slug = font_family.lower().replace(" ", "-")
