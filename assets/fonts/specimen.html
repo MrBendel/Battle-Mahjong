@@ -6,8 +6,8 @@
   <style>
     @font-face {
       font-family: 'Battle Mahjong Poster Script';
-      src: url('battle-mahjong-poster-script.woff2?v=optical23') format('woff2'),
-           url('battle-mahjong-poster-script.ttf?v=optical23') format('truetype');
+      src: url('battle-mahjong-poster-script.woff2?v=optical24') format('woff2'),
+           url('battle-mahjong-poster-script.ttf?v=optical24') format('truetype');
       font-weight: normal;
       font-style: normal;
     }
@@ -535,24 +535,31 @@
   <div class="editable-test">
     <h3>Live Testing Playground (Click phrase or type below)</h3>
     <div class="chip-bar" id="chipBar">
+      <button class="phrase-chip" data-phrase="FONT">FONT (F-O-N-T)</button>
+      <button class="phrase-chip" data-phrase="STREAK">STREAK (S-T-R-E-A-K)</button>
+      <button class="phrase-chip" data-phrase="EXTRA TIME">EXTRA TIME (E-X-T-R-A  T-I-M-E)</button>
+      <button class="phrase-chip" data-phrase="SCORE FONT">SCORE FONT</button>
+      <button class="phrase-chip" data-phrase="BATTLE MAHJONG">BATTLE MAHJONG</button>
       <button class="phrase-chip" data-phrase="12,430">Hero Score (12,430)</button>
       <button class="phrase-chip" data-phrase="72,590">Game Score (72,590)</button>
       <button class="phrase-chip" data-phrase="1234567890">Numerals (1234567890)</button>
-      <button class="phrase-chip" data-phrase="14,820  350,195  1,048,576">Tiered Scores</button>
-      <button class="phrase-chip" data-phrase="2,500  89,410  63,745">Random Scores</button>
-      <button class="phrase-chip" data-phrase="910,234  12,345  999,999">High Scores</button>
-      <button class="phrase-chip" data-phrase="1,234,567,890.00">Currency (1,234,567,890.00)</button>
-      <button class="phrase-chip" data-phrase="Champion League (Grand Champion)">Champion League</button>
-      <button class="phrase-chip" data-phrase="The quick brown fox jumps over the lazy dog.">Pangram 1</button>
+      <button class="phrase-chip" data-phrase="Champion League">Champion League</button>
     </div>
-    <textarea class="editable-input has-poster-shadow" rows="4" id="customInput">12,430
-72,590
-1234567890
-14,820   350,195   1,048,576</textarea>
+    <textarea class="editable-input has-poster-shadow" rows="4" id="customInput">FONT   STREAK   EXTRA TIME
+12,430   72,590   1,048,576
+SCORE FONT   BATTLE MAHJONG</textarea>
   </div>
 
   <!-- In-Game Usage Showcase Gallery -->
   <div class="phrase-gallery">
+    <div class="gallery-item">
+      <div class="gallery-label">All-Caps Optical Kerning Verification (Focus: FONT, STREAK, EXTRA TIME)</div>
+      <div class="gallery-text has-poster-shadow">FONT   STREAK   EXTRA TIME</div>
+    </div>
+    <div class="gallery-item">
+      <div class="gallery-label">Poster Script Titles (Focus: SCORE FONT, BATTLE MAHJONG)</div>
+      <div class="gallery-text has-poster-shadow">SCORE FONT   BATTLE MAHJONG</div>
+    </div>
     <div class="gallery-item">
       <div class="gallery-label">1. Score HUD (Primary Game Metric)</div>
       <div class="gallery-text has-poster-shadow">SCORE: 12,430   72,590   1,048,576</div>

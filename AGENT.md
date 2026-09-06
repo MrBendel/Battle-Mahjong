@@ -29,11 +29,13 @@ Battle-Mahjong/
 │   └── tools/
 │       ├── build_custom_font.py                  # Core FontForge font generation script
 │       ├── build_font.bat                        # One-click Windows build batch runner
-│       ├── optical_kerning.json                  # Authoritative optical kerning table (429 pairs)
+│       ├── optical_kerning.json                  # Authoritative optical kerning table (1,067 pairs)
+│       ├── apply_uppercase_kerning.py            # Automated uppercase-to-uppercase (A-Z x A-Z) optical calibrator
 │       ├── calibrate_all_phrases.py              # Automated collision detector & optical metric scanner
 │       └── calibrate_numbers.py                  # Digit (0-9) & punctuation (comma, period) calibrator
 └── tests/
-    └── test_custom_font.gd                       # Godot headless font verification test
+    ├── test_custom_font.gd                       # Godot headless font verification test
+    └── test_score_ui_font.gd                     # In-game HUD font variation & shadow style test
 ```
 
 ---
@@ -134,6 +136,10 @@ This script evaluates 13 core game phrases and 380+ character pairs across:
 
 ### Step 4: Fine-Tune Kerning in `scripts/tools/optical_kerning.json`
 Key typography rules discovered for this brush script:
+- **All-Caps Optical Alignment (`FONT`, `STREAK`, `EXTRA TIME`)**:
+  - Uppercase letters without kerning leave massive optical voids due to wide bounding-box overhangs (`T`, `F`, `E`, `R`, `I`, `X`).
+  - Calibrated via `scripts/tools/apply_uppercase_kerning.py` across all 676 uppercase pairs ($A\text{–}Z \times A\text{–}Z$), generating 641 uppercase pairs (e.g. `"F,O": -150`, `"T,R": -155`, `"E,A": -75`, `"T,I": -150`, `"E,X": -110`, `"M,E": -90`).
+  - Maintains strict physical safety clearance ($gap \ge 24$ px) to prevent contour clipping.
 - **Capital Overhangs (`T`, `P`, `F`, `V`, `W`, `Y`)**:
   - Lowercase vowels sit beneath the horizontal crossbars or diagonal arms.
   - Require deep negative kerning (e.g. `"T,a": -305`, `"P,a": -100`, `"P,e": -90`, `"V,i": -70`).
