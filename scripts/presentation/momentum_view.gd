@@ -133,8 +133,12 @@ func play_modifier_activation(modifier_type: String) -> void:
 	if _modifier_tween != null and _modifier_tween.is_valid():
 		_modifier_tween.kill()
 	_modifier_tween = create_tween()
+	_modifier_tween.set_parallel(true)
 	_modifier_tween.tween_property(_multiplier, "scale", Vector2(1.16, 1.16), 0.08)
-	_modifier_tween.tween_property(_multiplier, "scale", Vector2.ONE, 0.18)
+	_modifier_tween.tween_property(_multiplier, "scale", Vector2.ONE, 0.18).set_delay(0.08)
+	if _multiplier_shadow != null:
+		_modifier_tween.tween_property(_multiplier_shadow, "scale", Vector2(1.16, 1.16), 0.08)
+		_modifier_tween.tween_property(_multiplier_shadow, "scale", Vector2.ONE, 0.18).set_delay(0.08)
 
 
 func _build() -> void:
@@ -284,9 +288,9 @@ func _layout() -> void:
 	var momentum_origin := score_origin + Vector2(size.x * 0.5 - frame_center_x, 0.0)
 	_place_scaled(_score_art, Rect2(2.0, 5.0, 115.5, 77.0), score_origin, scale)
 
-	_place_poster_pair(_score_title, _score_title_shadow, Rect2(34.0, 15.0, 70.0, 13.0), score_origin, scale, 10)
-	_place_poster_pair(_score, _score_shadow, Rect2(14.0, 25.0, 110.0, 22.0), score_origin, scale, 16)
-	_place_poster_pair(_timer, _timer_shadow, Rect2(35.0, 50.0, 70.0, 17.0), score_origin, scale, 12)
+	_place_poster_pair(_score_title, _score_title_shadow, Rect2(14.0, 13.0, 90.0, 12.0), score_origin, scale, 10)
+	_place_poster_pair(_score, _score_shadow, Rect2(14.0, 23.0, 90.0, 22.0), score_origin, scale, 16)
+	_place_poster_pair(_timer, _timer_shadow, Rect2(36.0, 50.5, 72.0, 19.0), score_origin, scale, 11)
 
 	_place_scaled(_momentum_frame, PORTRAIT_FRAME_RECT, momentum_origin, scale)
 	_fill_clip.size = Vector2(162.9, 18.6) * scale
@@ -297,11 +301,11 @@ func _layout() -> void:
 	_place_scaled(_extra_life_icon, Rect2(99.0, 7.0, 22.0, 22.0), score_origin, scale)
 	_place_scaled(_extra_life_count, Rect2(108.0, 8.0, 16.0, 16.0), score_origin, scale, 10)
 
-	_place_poster_pair(_multiplier, _multiplier_shadow, Rect2(278.0, 31.0, 30.0, 22.0), momentum_origin, scale, 18)
-	_place_poster_pair(_combo, _combo_shadow, Rect2(155.0, 7.0, 92.0, 18.0), momentum_origin, scale, 12)
+	_place_poster_pair(_multiplier, _multiplier_shadow, Rect2(275.0, 24.5, 34.2, 34.2), momentum_origin, scale, 16)
+	_place_poster_pair(_combo, _combo_shadow, Rect2(135.0, 6.0, 140.0, 20.0), momentum_origin, scale, 12)
 
 	_place_scaled(_effect_status, Rect2(125.0, 34.0, 147.0, 15.0), momentum_origin, scale, 8)
-	for control in [_momentum_frame, _momentum_badge, _extra_life_icon]:
+	for control in [_momentum_frame, _momentum_badge, _extra_life_icon, _multiplier, _multiplier_shadow]:
 		control.pivot_offset = control.size * 0.5
 	for index in range(_ticks.size()):
 		var tick_center_x := 122.7 + 162.9 * float(index + 1) / 8.0
@@ -344,7 +348,7 @@ func _layout_legacy() -> void:
 	_effect_status.add_theme_font_size_override("font_size", 8)
 
 
-func _place_poster_pair(label: Label, shadow_label: Label, rect: Rect2, origin: Vector2, scale: float, font_size := 0, base_offset := Vector2(2.0, 2.5)) -> void:
+func _place_poster_pair(label: Label, shadow_label: Label, rect: Rect2, origin: Vector2, scale: float, font_size := 0, base_offset := Vector2(1.2, 1.6)) -> void:
 	if shadow_label != null:
 		var shadow_rect := Rect2(rect.position + base_offset, rect.size)
 		_place_scaled(shadow_label, shadow_rect, origin, scale, font_size)
@@ -387,7 +391,7 @@ func _label(text: String, font: Font, font_size: int, color: Color) -> Label:
 	return label
 
 
-func _apply_poster_script_shadow(label: Label, scale: float, pink_offset := Vector2(1.0, 1.4)) -> void:
+func _apply_poster_script_shadow(label: Label, scale: float, pink_offset := Vector2(0.6, 0.9)) -> void:
 	if label == null:
 		return
 	label.add_theme_color_override("font_color", POSTER_SCRIPT_FACE_COLOR)

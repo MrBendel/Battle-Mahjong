@@ -174,6 +174,27 @@ godot --headless --path . -s tests/ui_smoke_runner.gd
 
 The compiled font is imported into Godot via `assets/fonts/battle-mahjong-poster-script.tres`.
 
+### Font Metrics Normalization in Godot
+FontForge by default enables `os2_typoascent_add = 1` and `hhea_ascent_add = 1`. In an EM=1000 font, this automatically calculates `os2_typoascent` and `hhea_ascent` by adding EM ascent to glyph bounding box heights (yielding ~1600), effectively doubling font line-height in Godot (`get_height()` at size 33 became 67px!). This causes Godot `Label` controls to have inflated minimum heights and pushes baselines down into UI borders.
+`scripts/tools/build_custom_font.py` explicitly disables this automatic addition:
+```python
+font.os2_typoascent_add = 0
+font.os2_typodescent_add = 0
+font.os2_winascent_add = 0
+font.os2_windescent_add = 0
+font.hhea_ascent_add = 0
+font.hhea_descent_add = 0
+font.os2_typoascent = 800
+font.os2_typodescent = -200
+font.os2_winascent = 800
+font.os2_windescent = 200
+font.hhea_ascent = 800
+font.hhea_descent = -200
+font.hhea_linegap = 0
+font.os2_typolinegap = 0
+```
+This ensures 1:1 metric fidelity in Godot (e.g., font size 18 = 19px line height, font size 30 = 30px line height).
+
 To use in GDScript:
 ```gdscript
 var poster_font: FontFile = load("res://assets/fonts/battle-mahjong-poster-script.tres")
