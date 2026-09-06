@@ -14,7 +14,7 @@ func _init() -> void:
 
 func _run() -> void:
 	root.size = DEFAULT_VIEWPORT
-	_shell = load("res://scenes/main.tscn").instantiate()
+	_shell = load("res://scenes/game_shell.tscn").instantiate()
 	_shell.set("haptics_enabled_on_start", false)
 	root.add_child(_shell)
 	await process_frame

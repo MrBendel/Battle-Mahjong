@@ -1,0 +1,100 @@
+[gd_resource type="Resource" script_class="TownTheme" load_steps=16 format=3]
+
+[ext_resource type="Script" path="res://scripts/configuration/town_theme.gd" id="1_theme"]
+[ext_resource type="Texture2D" path="res://game-assets/town/default/town-ground.png" id="2_ground"]
+[ext_resource type="Texture2D" path="res://game-assets/town/default/destination-buildings-atlas.png" id="3_buildings"]
+[ext_resource type="Texture2D" path="res://game-assets/town/default/vegetation-atlas.png" id="4_vegetation"]
+
+[sub_resource type="AtlasTexture" id="Atlas_tower"]
+atlas = ExtResource("3_buildings")
+region = Rect2(0, 0, 418, 627)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="Atlas_home"]
+atlas = ExtResource("3_buildings")
+region = Rect2(418, 0, 418, 627)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="Atlas_game_hall"]
+atlas = ExtResource("3_buildings")
+region = Rect2(836, 0, 418, 627)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="Atlas_daily_shrine"]
+atlas = ExtResource("3_buildings")
+region = Rect2(0, 627, 418, 627)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="Atlas_dojo"]
+atlas = ExtResource("3_buildings")
+region = Rect2(418, 627, 418, 627)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="Atlas_downtown"]
+atlas = ExtResource("3_buildings")
+region = Rect2(836, 627, 418, 627)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="Atlas_tree_a"]
+atlas = ExtResource("4_vegetation")
+region = Rect2(0, 0, 512, 512)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="Atlas_tree_b"]
+atlas = ExtResource("4_vegetation")
+region = Rect2(512, 0, 512, 512)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="Atlas_tree_tall"]
+atlas = ExtResource("4_vegetation")
+region = Rect2(1024, 0, 512, 512)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="Atlas_cherry"]
+atlas = ExtResource("4_vegetation")
+region = Rect2(0, 512, 512, 512)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="Atlas_hedge"]
+atlas = ExtResource("4_vegetation")
+region = Rect2(512, 512, 512, 512)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="Atlas_bamboo"]
+atlas = ExtResource("4_vegetation")
+region = Rect2(1024, 512, 512, 512)
+filter_clip = true
+
+[resource]
+script = ExtResource("1_theme")
+theme_id = "default"
+display_name = "Mahjong Town"
+map_texture = ExtResource("2_ground")
+ambient_tint = Color(1, 1, 1, 1)
+available_accent = Color(0.960784, 0.835294, 0.427451, 1)
+locked_tint = Color(0.58, 0.62, 0.59, 0.92)
+map_clear_color = Color(0.0431373, 0.129412, 0.117647, 1)
+destination_overlays = {
+"daily_shrine": SubResource("Atlas_daily_shrine"),
+"dojo": SubResource("Atlas_dojo"),
+"downtown": SubResource("Atlas_downtown"),
+"game_hall": SubResource("Atlas_game_hall"),
+"home": SubResource("Atlas_home"),
+"tower": SubResource("Atlas_tower")
+}
+decoration_overlays = {
+"bamboo": SubResource("Atlas_bamboo"),
+"cherry": SubResource("Atlas_cherry"),
+"hedge": SubResource("Atlas_hedge"),
+"tree_a": SubResource("Atlas_tree_a"),
+"tree_b": SubResource("Atlas_tree_b"),
+"tree_tall": SubResource("Atlas_tree_tall")
+}
+destination_sign_colors = {
+"daily_shrine": Color(0.45, 0.16, 0.10, 1),
+"dojo": Color(0.07, 0.20, 0.32, 1),
+"downtown": Color(0.42, 0.24, 0.06, 1),
+"game_hall": Color(0.43, 0.13, 0.10, 1),
+"home": Color(0.10, 0.29, 0.18, 1),
+"tower": Color(0.22, 0.10, 0.34, 1)
+}

@@ -1,5 +1,7 @@
 extends Control
 
+signal return_to_town_requested
+
 const DebugPanelScript := preload("res://scripts/ui/debug_panel.gd")
 const DeterministicRngScript := preload("res://scripts/simulation/deterministic_rng.gd")
 const BoardViewScript := preload("res://scripts/presentation/board_view.gd")
@@ -299,6 +301,7 @@ func _build_pause_menu() -> void:
 	_pause_menu.visible = false
 	_pause_menu.resumed.connect(_on_resume_requested)
 	_pause_menu.restart_requested.connect(_on_restart_requested)
+	_pause_menu.town_requested.connect(_on_return_to_town_requested)
 	_pause_menu.sound_changed.connect(_on_sound_changed)
 	_pause_menu.haptics_changed.connect(_on_haptics_changed)
 	add_child(_pause_menu)
@@ -310,6 +313,7 @@ func _build_end_game_menu() -> void:
 	_end_game_menu.visible = false
 	_end_game_menu.restart_requested.connect(_on_restart_requested)
 	_end_game_menu.undo_requested.connect(_on_end_game_undo_requested)
+	_end_game_menu.town_requested.connect(_on_return_to_town_requested)
 	add_child(_end_game_menu)
 
 
@@ -912,6 +916,11 @@ func _on_resume_requested() -> void:
 	_pause_started_at_ms = -1
 	_pause_menu.call("close")
 	_pause_button.visible = true
+
+
+func _on_return_to_town_requested() -> void:
+	get_tree().paused = false
+	return_to_town_requested.emit()
 
 
 func _on_application_backgrounded() -> void:

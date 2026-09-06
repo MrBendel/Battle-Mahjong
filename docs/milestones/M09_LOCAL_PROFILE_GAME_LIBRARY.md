@@ -1,6 +1,6 @@
 # M09 - Local Profile And Game Library
 
-Status: Planned
+Status: Foundation in progress
 
 Goal: persist cross-game player state and deterministic game records locally without introducing accounts, cloud services, or progression systems.
 
@@ -16,6 +16,7 @@ M8 art expansion may use debug-unlocked cosmetics. Persistent cosmetic ownership
 
 ## Scope
 
+- application-level navigation rooted in a responsive, seasonally themeable Town Hub;
 - versioned `PlayerProfile` data with a stable local identifier and revision;
 - separate device-level `PlayerPreferences`;
 - durable `GameRecord` envelopes for active and completed runs;
@@ -48,6 +49,8 @@ M8 art expansion may use debug-unlocked cosmetics. Persistent cosmetic ownership
 
 ## Initial Decisions
 
+- The Town Hub emits navigation intents and never reads persistence or constructs game definitions directly.
+- Town themes are presentation/profile choices outside deterministic gameplay hashes.
 - One local profile is sufficient for the first implementation, but identifiers and repositories must not assume there can only ever be one.
 - Game records and profiles are separate aggregates.
 - `definition + transactions` is authoritative for a game record.
