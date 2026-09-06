@@ -1002,6 +1002,9 @@ func _cancel_active_pointer_events() -> void:
 	mouse_release.pressed = false
 	Input.parse_input_event(mouse_release)
 
+	if _regions.has("consumables") and _regions.consumables != null and _regions.consumables.has_method("disarm_all_gestures"):
+		_regions.consumables.call("disarm_all_gestures")
+
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:

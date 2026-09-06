@@ -2,6 +2,7 @@ extends Control
 class_name ConsumablesView
 
 const PresentationScaleScript := preload("res://scripts/presentation/presentation_scale.gd")
+const ConsumableButtonScript := preload("res://scripts/presentation/consumable_button.gd")
 const PORTRAIT_BACKGROUND := preload("res://assets/UI/bottom-bar/bottom-tray-background-export.png")
 const PORTRAIT_TILE_CAP := preload("res://assets/UI/bottom-bar/tile-cap.png")
 const PORTRAIT_NUMBER_BACKGROUND := preload("res://assets/UI/bottom-bar/count-bg.png")
@@ -148,8 +149,14 @@ func set_horizontal_dock(enabled: bool) -> void:
 	_layout()
 
 
+func disarm_all_gestures() -> void:
+	for button in _buttons.values():
+		if button != null and button.has_method("disarm"):
+			button.call("disarm")
+
+
 func _add_button(consumable_type: String, label: String, callback: Callable) -> void:
-	var button := Button.new()
+	var button: Button = ConsumableButtonScript.new()
 	button.name = consumable_type.capitalize().replace("_", "")
 	button.set_meta("label", label)
 	button.focus_mode = Control.FOCUS_NONE
@@ -286,6 +293,8 @@ func _layout_portrait_actions() -> void:
 		button.position = origin + Vector2(action_x, 14.0) * component_scale
 		# Keep neighboring touch targets fractionally separated while their artwork meets exactly.
 		button.size = Vector2(81.6, 113.0) * component_scale
+		if button.has_method("set_scale_factor"):
+			button.call("set_scale_factor", component_scale)
 		button.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
 		button.add_theme_stylebox_override("hover", StyleBoxEmpty.new())
 		button.add_theme_stylebox_override("pressed", StyleBoxEmpty.new())
