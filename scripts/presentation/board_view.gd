@@ -197,12 +197,6 @@ func set_tiles_temporarily_face_down(tile_ids: Array[String], face_down: bool, r
 
 
 func _build() -> void:
-	var background := Panel.new()
-	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	background.add_theme_stylebox_override("panel", _panel_style())
-	add_child(background)
-
 	_title_label = Label.new()
 	_title_label.text = "Board"
 	_title_label.position = Vector2(BOARD_MARGIN, 8.0)
