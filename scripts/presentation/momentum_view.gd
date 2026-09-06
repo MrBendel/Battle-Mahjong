@@ -10,6 +10,7 @@ const MOMENTUM_BADGE_PATH := "res://game-assets/ui/portrait/momentum_badge.png"
 const EXTRA_LIFE_ICON_PATH := "res://game-assets/modifiers/tile-overlays/extra_life.png"
 const MILA_REGULAR_PATH := "res://assets/fonts/mila-script-sans-regular-tight.tres"
 const MILA_BOLD_PATH := "res://assets/fonts/mila-script-sans-bold-tight.tres"
+const POSTER_SCRIPT_PATH := "res://assets/fonts/battle-mahjong-poster-script.tres"
 
 const PORTRAIT_REFERENCE_SIZE := Vector2(322.0, 81.0)
 const PORTRAIT_FRAME_RECT := Rect2(118.0, 30.0, 173.3, 25.3)
@@ -165,6 +166,9 @@ func _build() -> void:
 
 	var regular_font := _load_font(MILA_REGULAR_PATH)
 	var bold_font := _load_font(MILA_BOLD_PATH)
+	var score_font := _load_font(POSTER_SCRIPT_PATH)
+	if score_font == null:
+		score_font = regular_font
 	_title = _label("Momentum", regular_font, 14, Color("cbbbd3"))
 	add_child(_title)
 	_multiplier = _label("", bold_font, 25, Color("fce8cd"))
@@ -173,7 +177,7 @@ func _build() -> void:
 	_score_title = _label("SCORE", bold_font, 9, Color("fdf1d8"))
 	_score_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_score_title)
-	_score = _label("", regular_font, 15, Color("fdf1d8"))
+	_score = _label("", score_font, 16, Color("fdf1d8"))
 	_score.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_score)
 	_timer = _label("", regular_font, 11, Color("fdf1d8"))
@@ -251,7 +255,7 @@ func _layout() -> void:
 	var momentum_origin := score_origin + Vector2(size.x * 0.5 - frame_center_x, 0.0)
 	_place_scaled(_score_art, Rect2(2.0, 5.0, 115.5, 77.0), score_origin, scale)
 	_place_scaled(_score_title, Rect2(34.0, 15.0, 70.0, 13.0), score_origin, scale, 9)
-	_place_scaled(_score, Rect2(14.0, 25.0, 110.0, 22.0), score_origin, scale, 15)
+	_place_scaled(_score, Rect2(14.0, 25.0, 110.0, 22.0), score_origin, scale, 16)
 	_place_scaled(_timer, Rect2(35.0, 50.0, 70.0, 17.0), score_origin, scale, 11)
 	_place_scaled(_momentum_frame, PORTRAIT_FRAME_RECT, momentum_origin, scale)
 	_place_scaled(_fill_clip, Rect2(122.7, 32.9, 162.9, 18.6), momentum_origin, scale)
