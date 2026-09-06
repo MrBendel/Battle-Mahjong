@@ -52,12 +52,6 @@ func _connect_plugin_signals() -> void:
 
 
 func get_current_version_code() -> int:
-	if FileAccess.file_exists("res://export_presets.cfg"):
-		var presets := ConfigFile.new()
-		if presets.load("res://export_presets.cfg") == OK:
-			var code: Variant = presets.get_value("preset.0.options", "version/code", null)
-			if code != null and int(code) > 0:
-				return int(code)
 	if FileAccess.file_exists("res://version.json"):
 		var file := FileAccess.open("res://version.json", FileAccess.READ)
 		if file != null:
@@ -66,16 +60,16 @@ func get_current_version_code() -> int:
 				var code: int = int(json.data.get("latest_version_code", 0))
 				if code > 0:
 					return code
+	if FileAccess.file_exists("res://export_presets.cfg"):
+		var presets := ConfigFile.new()
+		if presets.load("res://export_presets.cfg") == OK:
+			var code: Variant = presets.get_value("preset.0.options", "version/code", null)
+			if code != null and int(code) > 0:
+				return int(code)
 	return 1
 
 
 func get_current_version_name() -> String:
-	if FileAccess.file_exists("res://export_presets.cfg"):
-		var presets := ConfigFile.new()
-		if presets.load("res://export_presets.cfg") == OK:
-			var vname: String = str(presets.get_value("preset.0.options", "version/name", ""))
-			if not vname.is_empty():
-				return vname
 	if FileAccess.file_exists("res://version.json"):
 		var file := FileAccess.open("res://version.json", FileAccess.READ)
 		if file != null:
@@ -84,6 +78,12 @@ func get_current_version_name() -> String:
 				var vname: String = str(json.data.get("latest_version_name", ""))
 				if not vname.is_empty():
 					return vname
+	if FileAccess.file_exists("res://export_presets.cfg"):
+		var presets := ConfigFile.new()
+		if presets.load("res://export_presets.cfg") == OK:
+			var vname: String = str(presets.get_value("preset.0.options", "version/name", ""))
+			if not vname.is_empty():
+				return vname
 	return "0.1.0"
 
 

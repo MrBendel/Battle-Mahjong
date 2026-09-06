@@ -269,10 +269,13 @@ func _build_shell() -> void:
 	_update_checker.name = "UpdateChecker"
 	_update_checker.update_available.connect(_on_update_available)
 	add_child(_update_checker)
-	_update_checker.call("check_for_updates")
+	if get_parent() == null or not get_parent().has_node("GlobalUpdateBanner"):
+		_update_checker.call("check_for_updates")
 
 
 func _on_update_available(version_name: String, store_url: String, mandatory: bool) -> void:
+	if get_parent() != null and get_parent().has_node("GlobalUpdateBanner"):
+		return
 	_update_banner.call("show_update", version_name, store_url, mandatory)
 	_apply_layout()
 
