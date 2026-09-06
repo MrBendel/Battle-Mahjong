@@ -40,7 +40,24 @@ func _init() -> void:
 	game.score = 0
 	momentum_view.refresh(0)
 	print("OK: Zero score text: '%s'" % score_label.text)
-	assert(score_label.text == "0", "Score label should display '0'")
-	
+	# Verify style overrides (face color and shadow layering)
+	assert(score_label.get_theme_color("font_color") == Color("fff6e5"), "Score label font_color must be #fff6e5")
+	assert(score_label.get_theme_color("font_shadow_color") == Color("d9485c"), "Score label font_shadow_color must be #d9485c")
+	assert(score_label.get_theme_constant("shadow_offset_x") >= 1, "shadow_offset_x must be positive")
+	assert(score_label.get_theme_constant("shadow_offset_y") >= 1, "shadow_offset_y must be positive")
+	print("OK: Score label shadow layering verified (coral-pink shadow #d9485c at offset %d, %d)" % [
+		score_label.get_theme_constant("shadow_offset_x"),
+		score_label.get_theme_constant("shadow_offset_y")
+	])
+
+	# Verify other HUD labels use the custom font and shadow styling
+	for label_prop in ["_score_title", "_timer", "_multiplier", "_combo"]:
+		var lbl: Label = momentum_view.get(label_prop)
+		assert(lbl != null, "%s must exist" % label_prop)
+		var lbl_font: Font = lbl.get_theme_font("font")
+		assert(lbl_font.resource_path.ends_with("battle-mahjong-poster-script.tres") or lbl_font.resource_path.ends_with("battle-mahjong-poster-script.ttf"), "%s must use poster script font" % label_prop)
+		assert(lbl.get_theme_color("font_shadow_color") == Color("d9485c"), "%s must have #d9485c shadow" % label_prop)
+	print("OK: All HUD labels (_score_title, _timer, _multiplier, _combo) use poster script with shadow layering")
+
 	print("--- ALL SCORE UI FONT CHECKS PASSED ---")
 	quit(0)

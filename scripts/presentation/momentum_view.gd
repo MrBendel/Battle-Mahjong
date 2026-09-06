@@ -11,6 +11,8 @@ const EXTRA_LIFE_ICON_PATH := "res://game-assets/modifiers/tile-overlays/extra_l
 const MILA_REGULAR_PATH := "res://assets/fonts/mila-script-sans-regular-tight.tres"
 const MILA_BOLD_PATH := "res://assets/fonts/mila-script-sans-bold-tight.tres"
 const POSTER_SCRIPT_PATH := "res://assets/fonts/battle-mahjong-poster-script.tres"
+const POSTER_SCRIPT_FACE_COLOR := Color("fff6e5")
+const POSTER_SCRIPT_SHADOW_COLOR := Color("d9485c")
 
 const PORTRAIT_REFERENCE_SIZE := Vector2(322.0, 81.0)
 const PORTRAIT_FRAME_RECT := Rect2(118.0, 30.0, 173.3, 25.3)
@@ -171,19 +173,19 @@ func _build() -> void:
 		score_font = regular_font
 	_title = _label("Momentum", regular_font, 14, Color("cbbbd3"))
 	add_child(_title)
-	_multiplier = _label("", bold_font, 25, Color("fce8cd"))
+	_multiplier = _label("", score_font, 20, POSTER_SCRIPT_FACE_COLOR)
 	_multiplier.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_multiplier)
-	_score_title = _label("SCORE", bold_font, 9, Color("fdf1d8"))
+	_score_title = _label("SCORE", score_font, 10, POSTER_SCRIPT_FACE_COLOR)
 	_score_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_score_title)
-	_score = _label("", score_font, 16, Color("fdf1d8"))
+	_score = _label("", score_font, 16, POSTER_SCRIPT_FACE_COLOR)
 	_score.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_score)
-	_timer = _label("", regular_font, 11, Color("fdf1d8"))
+	_timer = _label("", score_font, 12, POSTER_SCRIPT_FACE_COLOR)
 	_timer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_timer)
-	_combo = _label("", bold_font, 12, Color("fcf0d6"))
+	_combo = _label("", score_font, 12, POSTER_SCRIPT_FACE_COLOR)
 	_combo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_combo)
 	_extra_life_count = _label("", bold_font, 10, Color("fff4dc"))
@@ -254,19 +256,22 @@ func _layout() -> void:
 	var frame_center_x := PORTRAIT_FRAME_RECT.get_center().x * scale
 	var momentum_origin := score_origin + Vector2(size.x * 0.5 - frame_center_x, 0.0)
 	_place_scaled(_score_art, Rect2(2.0, 5.0, 115.5, 77.0), score_origin, scale)
-	_place_scaled(_score_title, Rect2(34.0, 15.0, 70.0, 13.0), score_origin, scale, 9)
+	_place_scaled(_score_title, Rect2(34.0, 15.0, 70.0, 13.0), score_origin, scale, 10)
 	_place_scaled(_score, Rect2(14.0, 25.0, 110.0, 22.0), score_origin, scale, 16)
-	_place_scaled(_timer, Rect2(35.0, 50.0, 70.0, 17.0), score_origin, scale, 11)
+	_place_scaled(_timer, Rect2(35.0, 50.0, 70.0, 17.0), score_origin, scale, 12)
 	_place_scaled(_momentum_frame, PORTRAIT_FRAME_RECT, momentum_origin, scale)
+	_fill_clip.size = Vector2(162.9, 18.6) * scale
 	_place_scaled(_fill_clip, Rect2(122.7, 32.9, 162.9, 18.6), momentum_origin, scale)
 	_momentum_fill.position = Vector2.ZERO
 	_momentum_fill.size = Vector2(162.9, 18.6) * scale
 	_place_scaled(_momentum_badge, Rect2(275.9, 25.8, 34.2, 34.2), momentum_origin, scale)
 	_place_scaled(_extra_life_icon, Rect2(99.0, 7.0, 22.0, 22.0), score_origin, scale)
 	_place_scaled(_extra_life_count, Rect2(108.0, 8.0, 16.0, 16.0), score_origin, scale, 10)
-	_place_scaled(_multiplier, Rect2(278.0, 31.0, 30.0, 22.0), momentum_origin, scale, 15)
+	_place_scaled(_multiplier, Rect2(278.0, 31.0, 30.0, 22.0), momentum_origin, scale, 18)
 	_place_scaled(_combo, Rect2(155.0, 7.0, 92.0, 18.0), momentum_origin, scale, 12)
 	_place_scaled(_effect_status, Rect2(125.0, 34.0, 147.0, 15.0), momentum_origin, scale, 8)
+	for label in [_score, _score_title, _timer, _multiplier, _combo]:
+		_apply_poster_script_shadow(label, scale)
 	for control in [_momentum_frame, _momentum_badge, _extra_life_icon]:
 		control.pivot_offset = control.size * 0.5
 	for index in range(_ticks.size()):
@@ -324,6 +329,16 @@ func _label(text: String, font: Font, font_size: int, color: Color) -> Label:
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return label
+
+
+func _apply_poster_script_shadow(label: Label, scale: float, offset := Vector2(1.5, 2.0)) -> void:
+	if label == null:
+		return
+	label.add_theme_color_override("font_color", POSTER_SCRIPT_FACE_COLOR)
+	label.add_theme_color_override("font_shadow_color", POSTER_SCRIPT_SHADOW_COLOR)
+	label.add_theme_constant_override("shadow_offset_x", maxi(1, roundi(offset.x * scale)))
+	label.add_theme_constant_override("shadow_offset_y", maxi(1, roundi(offset.y * scale)))
+	label.add_theme_constant_override("shadow_outline_size", 0)
 
 
 func _format_score(value: int) -> String:

@@ -2,22 +2,30 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Battle Mahjong Poster Script - Font Specimen</title>
+  <title>Battle Mahjong Poster Script - Font Specimen & Style Guide</title>
   <style>
     @font-face {
       font-family: 'Battle Mahjong Poster Script';
-      src: url('battle-mahjong-poster-script.woff2?v=optical22') format('woff2'),
-           url('battle-mahjong-poster-script.ttf?v=optical22') format('truetype');
+      src: url('battle-mahjong-poster-script.woff2?v=optical23') format('woff2'),
+           url('battle-mahjong-poster-script.ttf?v=optical23') format('truetype');
       font-weight: normal;
       font-style: normal;
     }
 
     :root {
-      --bg-color: #171614;
+      --bg-board: #0a1714;
+      --board-inner: #0d1e1a;
+      --board-grid-line: #18372f;
+      --board-border: #235144;
+      --chalk-ivory: #fff6e5;
+      --shadow-coral: #d9485c;
+      --shadow-coral-dark: #b83346;
+      --chalk-mint: #459a82;
+      --chalk-yellow: #f8d558;
+      --chalk-pink: #eb576f;
       --text-color: #f1ede4;
-      --accent-color: #e5dfd3;
-      --muted-color: #8c8880;
-      --slider-blue: #2f80ed;
+      --muted-color: #6d9388;
+      --slider-blue: #38bdf8;
       --font-family: 'Battle Mahjong Poster Script', cursive, sans-serif;
     }
 
@@ -28,160 +36,348 @@
     }
 
     body {
-      background-color: var(--bg-color);
+      background-color: var(--bg-board);
       color: var(--text-color);
       font-family: system-ui, -apple-system, sans-serif;
-      padding: 40px 60px;
+      padding: 30px 50px;
       line-height: 1.5;
+      background-image: 
+        radial-gradient(ellipse at 50% 10%, rgba(27, 66, 56, 0.4) 0%, transparent 70%),
+        radial-gradient(circle at 85% 85%, rgba(217, 72, 92, 0.08) 0%, transparent 50%);
     }
 
-    .header-title {
-      font-size: 20px;
-      font-weight: 500;
-      color: #dfdbd2;
-      margin-bottom: 30px;
+    /* 3D Coral Shadow Layering (Matches Inspiration Art) */
+    .has-poster-shadow {
+      color: var(--chalk-ivory) !important;
+      text-shadow: 
+        2.5px 3.5px 0px var(--shadow-coral),
+        0 0 16px rgba(45, 170, 120, 0.22);
     }
 
-    .main-display {
+    /* Inspiration Hero Header Section */
+    .hero-board {
+      background: linear-gradient(175deg, #0d221d 0%, #091714 100%);
+      border: 3px solid var(--board-border);
+      border-radius: 16px;
+      padding: 32px 40px;
+      margin-bottom: 35px;
+      box-shadow: 
+        inset 0 0 40px rgba(0, 0, 0, 0.6),
+        0 8px 30px rgba(0, 0, 0, 0.5);
+      position: relative;
+    }
+
+    .hero-top-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 30px;
+      flex-wrap: wrap;
+    }
+
+    .hero-title-group {
+      flex: 1;
+      min-width: 280px;
+    }
+
+    .hero-score-font {
       font-family: var(--font-family);
-      font-size: 87px;
-      line-height: 1.15;
-      color: #f6f2ea;
-      margin-bottom: 40px;
-      word-break: break-word;
+      font-size: 76px;
+      line-height: 1.05;
+      color: var(--chalk-ivory);
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+      display: inline-block;
     }
 
+    .brush-underline {
+      height: 6px;
+      background: linear-gradient(90deg, var(--shadow-coral) 0%, var(--chalk-pink) 70%, transparent 100%);
+      border-radius: 3px;
+      width: 85%;
+      margin-bottom: 12px;
+      transform: rotate(-0.5deg);
+    }
+
+    .hero-subtitle {
+      font-family: var(--font-family);
+      font-size: 30px;
+      color: var(--chalk-pink);
+      letter-spacing: 2px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .doodle {
+      font-family: system-ui, sans-serif;
+      font-size: 18px;
+      opacity: 0.85;
+    }
+    .doodle-yellow { color: var(--chalk-yellow); }
+    .doodle-pink { color: var(--chalk-pink); }
+    .doodle-mint { color: var(--chalk-mint); }
+
+    /* Used For Badge */
+    .hero-used-for {
+      background: #dfcb9f;
+      color: #3b2a14;
+      border-radius: 8px;
+      padding: 14px 20px;
+      box-shadow: 2px 3px 8px rgba(0, 0, 0, 0.4);
+      transform: rotate(-1deg);
+      min-width: 200px;
+    }
+
+    .used-for-header {
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+      color: #6a4918;
+      border-bottom: 1.5px dashed rgba(106, 73, 24, 0.4);
+      padding-bottom: 4px;
+    }
+
+    .used-for-list {
+      list-style: none;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.7;
+      letter-spacing: 0.5px;
+    }
+
+    .used-for-list li {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .used-for-star {
+      color: var(--shadow-coral);
+      font-size: 14px;
+    }
+
+    /* Score Badge Frame (Matching Top-Right of Inspiration) */
+    .hero-score-badge {
+      border: 3px dashed var(--chalk-mint);
+      background: rgba(8, 20, 17, 0.75);
+      border-radius: 18px;
+      padding: 16px 28px;
+      text-align: center;
+      min-width: 240px;
+      box-shadow: 
+        0 0 20px rgba(69, 154, 130, 0.2),
+        inset 0 0 15px rgba(0, 0, 0, 0.5);
+    }
+
+    .score-badge-label {
+      font-family: var(--font-family);
+      font-size: 26px;
+      color: var(--chalk-ivory);
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      margin-bottom: 2px;
+    }
+
+    .score-badge-value-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+    }
+
+    .spark-left, .spark-right {
+      color: var(--chalk-yellow);
+      font-family: var(--font-family);
+      font-size: 32px;
+      line-height: 1;
+      transform: scaleY(1.2);
+    }
+
+    .score-badge-value {
+      font-family: var(--font-family);
+      font-size: 58px;
+      line-height: 1.1;
+      color: var(--chalk-ivory);
+      letter-spacing: 1px;
+    }
+
+    .score-badge-underline {
+      height: 4px;
+      background: var(--shadow-coral);
+      border-radius: 2px;
+      width: 70%;
+      margin: 4px auto 0;
+    }
+
+    /* Interactive Controls Bar */
     .controls {
       display: flex;
       align-items: center;
-      gap: 20px;
-      padding: 20px 0;
-      border-top: 1px solid #2a2926;
-      border-bottom: 1px solid #2a2926;
-      margin-bottom: 40px;
+      gap: 22px;
+      padding: 16px 24px;
+      background: #0f2420;
+      border: 1px solid var(--board-border);
+      border-radius: 10px;
+      margin-bottom: 35px;
+      flex-wrap: wrap;
     }
 
     .control-label {
       font-size: 14px;
       color: var(--muted-color);
+      font-weight: 500;
     }
 
     .size-val {
       font-size: 14px;
       font-weight: 600;
-      color: var(--text-color);
+      color: var(--chalk-ivory);
       min-width: 45px;
     }
 
     input[type="range"] {
       -webkit-appearance: none;
-      width: 200px;
-      height: 4px;
-      background: #3a3834;
-      border-radius: 2px;
+      width: 180px;
+      height: 5px;
+      background: #1b3d34;
+      border-radius: 3px;
       outline: none;
     }
 
     input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none;
-      width: 14px;
-      height: 14px;
+      width: 16px;
+      height: 16px;
       border-radius: 50%;
-      background: var(--slider-blue);
+      background: var(--chalk-yellow);
       cursor: pointer;
+      box-shadow: 0 0 8px rgba(248, 213, 88, 0.6);
     }
 
-    .nav-tabs {
+    .toggle-wrap {
       display: flex;
-      gap: 24px;
-      font-size: 15px;
-      color: var(--muted-color);
-      margin-bottom: 40px;
-      list-style: none;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      color: var(--chalk-ivory);
+      cursor: pointer;
+      background: #16362e;
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1px solid #285549;
     }
 
-    .nav-tabs li.active {
-      color: var(--text-color);
-      text-decoration: underline;
-      text-underline-offset: 6px;
-      font-weight: 500;
-    }
-
-    .specimen-section {
-      margin-bottom: 50px;
-    }
-
-    .sample-word {
+    .main-display {
       font-family: var(--font-family);
-      font-size: 72px;
-      color: #f6f2ea;
-      margin-bottom: 24px;
-      line-height: 1.2;
+      font-size: 80px;
+      line-height: 1.15;
+      color: var(--chalk-ivory);
+      margin-bottom: 35px;
+      word-break: break-word;
     }
 
-    .grid-section {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 40px;
-      margin-top: 50px;
-    }
-
-    .body-copy {
-      font-family: var(--font-family);
-      font-size: 20px;
-      color: #dcd7ce;
-      line-height: 1.6;
-    }
-
-    .char-inventory {
-      font-family: var(--font-family);
-      font-size: 22px;
-      color: #dcd7ce;
-      line-height: 2.2;
-      letter-spacing: 2px;
-    }
-
-    .editable-test {
-      margin-top: 50px;
-      padding: 30px;
-      background: #1f1e1a;
+    /* Blackboard Glyphs Grid System (Matching Specimen Sheet) */
+    .specimen-grid-container {
+      margin-bottom: 45px;
+      background: var(--board-inner);
+      border: 2px solid var(--board-border);
       border-radius: 12px;
-      border: 1px solid #33312c;
+      padding: 24px;
+      box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.4);
+    }
+
+    .grid-category-header {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--chalk-mint);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .grid-category-header::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--board-grid-line);
+    }
+
+    .glyph-cells-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+      border: 1px solid var(--board-grid-line);
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 24px;
+      background: #091714;
+    }
+
+    .glyph-cell {
+      border: 1px solid var(--board-grid-line);
+      padding: 10px 4px 6px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 90px;
+      transition: background 0.15s ease;
+    }
+    .glyph-cell:hover {
+      background: #132d26;
+    }
+
+    .glyph-label {
+      font-size: 11px;
+      color: var(--chalk-mint);
+      font-weight: 500;
+      margin-bottom: 4px;
+      font-family: system-ui, sans-serif;
+    }
+
+    .glyph-char {
+      font-family: var(--font-family);
+      font-size: 40px;
+      line-height: 1;
+      color: var(--chalk-ivory);
+    }
+
+    /* Live Testing Playground */
+    .editable-test {
+      margin-top: 40px;
+      padding: 30px;
+      background: var(--board-inner);
+      border-radius: 12px;
+      border: 2px solid var(--board-border);
+      box-shadow: inset 0 0 25px rgba(0, 0, 0, 0.5);
     }
 
     .editable-test h3 {
-      font-size: 16px;
-      color: var(--muted-color);
-      margin-bottom: 15px;
+      font-size: 15px;
+      color: var(--chalk-mint);
+      margin-bottom: 16px;
       font-family: system-ui, sans-serif;
       text-transform: uppercase;
-      letter-spacing: 1px;
+      letter-spacing: 1.5px;
     }
 
-    .editable-input {
-      font-family: var(--font-family);
-      font-size: 64px;
-      color: #fff;
-      background: transparent;
-      border: none;
-      outline: none;
-      width: 100%;
-      resize: vertical;
-      line-height: 1.3;
-    }
     .chip-bar {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
-      margin-bottom: 15px;
+      gap: 10px;
+      margin-bottom: 20px;
     }
 
     .phrase-chip {
-      background: #2a2824;
-      color: #dfdbd2;
-      border: 1px solid #3d3a34;
+      background: #14312a;
+      color: #e3dec3;
+      border: 1px solid #234f43;
       border-radius: 20px;
-      padding: 6px 14px;
+      padding: 7px 16px;
       font-size: 13px;
       cursor: pointer;
       font-family: system-ui, sans-serif;
@@ -189,92 +385,141 @@
     }
 
     .phrase-chip:hover {
-      background: #3a3731;
-      border-color: var(--slider-blue);
+      background: #1f493e;
+      border-color: var(--chalk-yellow);
       color: #fff;
     }
 
+    .editable-input {
+      font-family: var(--font-family);
+      font-size: 56px;
+      color: var(--chalk-ivory);
+      background: transparent;
+      border: none;
+      outline: none;
+      width: 100%;
+      resize: vertical;
+      line-height: 1.35;
+    }
+
+    /* In-Game Score Gallery */
     .phrase-gallery {
       margin-top: 40px;
       display: flex;
       flex-direction: column;
-      gap: 25px;
+      gap: 22px;
     }
 
     .gallery-item {
-      padding: 20px;
-      background: #1a1916;
-      border-radius: 8px;
-      border-left: 3px solid var(--slider-blue);
+      padding: 22px 26px;
+      background: var(--board-inner);
+      border-radius: 10px;
+      border-left: 4px solid var(--shadow-coral);
+      border-top: 1px solid var(--board-grid-line);
+      border-right: 1px solid var(--board-grid-line);
+      border-bottom: 1px solid var(--board-grid-line);
     }
 
     .gallery-label {
       font-size: 12px;
-      color: var(--muted-color);
+      color: var(--chalk-mint);
       margin-bottom: 8px;
       text-transform: uppercase;
-      letter-spacing: 1px;
+      letter-spacing: 1.5px;
+      font-weight: 600;
     }
 
     .gallery-text {
       font-family: var(--font-family);
-      font-size: 48px;
+      font-size: 46px;
       line-height: 1.25;
-      color: #f6f2ea;
+      color: var(--chalk-ivory);
     }
   </style>
 </head>
 <body>
 
-  <div class="header-title">Battle Mahjong Poster Script</div>
+  <!-- Inspiration Hero Showcase Card -->
+  <div class="hero-board">
+    <div class="hero-top-row">
+      <div class="hero-title-group">
+        <div class="hero-score-font has-poster-shadow">SCORE FONT</div>
+        <div class="brush-underline"></div>
+        <div class="hero-subtitle">
+          <span class="doodle doodle-yellow">★</span>
+          <span>BATTLE MAHJONG</span>
+          <span class="doodle doodle-pink">★</span>
+          <span class="doodle doodle-yellow">⚡</span>
+          <span class="doodle doodle-mint">💀</span>
+        </div>
+      </div>
 
-  <div class="main-display" id="mainDisplay">
+      <!-- Used For Label -->
+      <div class="hero-used-for">
+        <div class="used-for-header">USED FOR:</div>
+        <ul class="used-for-list">
+          <li><span class="used-for-star">★</span> SCORE</li>
+          <li><span class="used-for-star">★</span> STREAK SCORE</li>
+          <li><span class="used-for-star">★</span> MULTIPLIERS</li>
+          <li><span class="used-for-star">★</span> TIME</li>
+        </ul>
+      </div>
+
+      <!-- Score 12,430 Badge -->
+      <div class="hero-score-badge">
+        <div class="score-badge-label has-poster-shadow">SCORE</div>
+        <div class="score-badge-value-wrap">
+          <span class="spark-left">⁝</span>
+          <span class="score-badge-value has-poster-shadow" id="heroScore">12,430</span>
+          <span class="spark-right">⁝</span>
+        </div>
+        <div class="score-badge-underline"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="main-display has-poster-shadow" id="mainDisplay">
     Battle Mahjong Poster Script
   </div>
 
+  <!-- Interactive Controls Bar -->
   <div class="controls">
     <span class="control-label">Size</span>
-    <span class="size-val" id="sizeVal">87px</span>
-    <input type="range" id="sizeSlider" min="24" max="160" value="87">
+    <span class="size-val" id="sizeVal">80px</span>
+    <input type="range" id="sizeSlider" min="24" max="140" value="80">
 
-    <span class="control-label" style="margin-left: 30px;">Optical Kerning:</span>
-    <label style="font-size: 14px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
-      <input type="checkbox" id="kernToggle" checked> Active (font-kerning: normal)
+    <label class="toggle-wrap">
+      <input type="checkbox" id="shadowToggle" checked>
+      <span>3D Coral Shadow Layering</span>
+    </label>
+
+    <label class="toggle-wrap">
+      <input type="checkbox" id="kernToggle" checked>
+      <span>Optical Kerning</span>
     </label>
   </div>
 
-  <ul class="nav-tabs">
-    <li class="active">Basic</li>
-    <li>Numbers</li>
-    <li>Latin</li>
-    <li>Punctuation</li>
-  </ul>
+  <!-- Blackboard Glyphs Grid System -->
+  <div class="specimen-grid-container">
+    <div class="grid-category-header">Numbers</div>
+    <div class="glyph-cells-row" id="gridNumbers"></div>
 
-  <div class="sample-word" id="sample1">Handgloves</div>
-  <div class="sample-word" id="sample2">Hamburgefontsiv</div>
+    <div class="grid-category-header">Uppercase</div>
+    <div class="glyph-cells-row" id="gridUppercase"></div>
 
-  <div class="grid-section">
-    <div class="body-copy" id="body1">
-      Lorem ipsum dolor sit amet, consectetur adipiscing elit. Handgloves ergonomia et proteccio manus praestant, texturae molles et flexibilitas singulares. Suspendisse potenti. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Praesent commodo hendrerit diam, non vehicula justo interdum vel.
-    </div>
-    <div class="body-copy" id="body2">
-      praecisione assuuntur. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Fusce id velit ut lectus varius faucibus.<br><br>
-      In thermoregulatione, handgloves microfibra innovans aut insulatione polaris utuntur. Curabitur pretium tincidunt lacus, non laoreet lorem tempor vitae.
-    </div>
-    <div class="char-inventory" id="charInv">
-      A B C D E F G H I J K L M N O P Q R S T U V W X Y Z<br>
-      a b c d e f g h i j k l m n o p q r s t u v w x y z<br>
-      # 0 1 2 3 4 5 6 7 8 9 % + - =<br>
-      &lt; &gt; ( ) [ ] { } $ @ / \<br>
-      . , ! ? : ; ' " ^ _ & ♥<br>
-      Il1 0oO dbqp
-    </div>
+    <div class="grid-category-header">Lowercase</div>
+    <div class="glyph-cells-row" id="gridLowercase"></div>
+
+    <div class="grid-category-header">Punctuation & Symbols</div>
+    <div class="glyph-cells-row" id="gridSymbols"></div>
   </div>
 
+  <!-- Live Playground -->
   <div class="editable-test">
-    <h3>Live Testing Playground (Click any phrase or type below)</h3>
+    <h3>Live Testing Playground (Click phrase or type below)</h3>
     <div class="chip-bar" id="chipBar">
-      <button class="phrase-chip" data-phrase="72,590">Score: 72,590</button>
+      <button class="phrase-chip" data-phrase="12,430">Hero Score (12,430)</button>
+      <button class="phrase-chip" data-phrase="72,590">Game Score (72,590)</button>
       <button class="phrase-chip" data-phrase="1234567890">Numerals (1234567890)</button>
       <button class="phrase-chip" data-phrase="14,820  350,195  1,048,576">Tiered Scores</button>
       <button class="phrase-chip" data-phrase="2,500  89,410  63,745">Random Scores</button>
@@ -283,48 +528,37 @@
       <button class="phrase-chip" data-phrase="Champion League (Grand Champion)">Champion League</button>
       <button class="phrase-chip" data-phrase="The quick brown fox jumps over the lazy dog.">Pangram 1</button>
     </div>
-    <textarea class="editable-input" rows="4" id="customInput">72,590
+    <textarea class="editable-input has-poster-shadow" rows="4" id="customInput">12,430
+72,590
 1234567890
-14,820  350,195  1,048,576
-2,500   89,410   63,745   910,234</textarea>
+14,820   350,195   1,048,576</textarea>
   </div>
 
+  <!-- In-Game Usage Showcase Gallery -->
   <div class="phrase-gallery">
     <div class="gallery-item">
-      <div class="gallery-label">Game Scores (User Focus: 72,590 & Random Milestones)</div>
-      <div class="gallery-text">72,590  14,820  350,195  1,048,576</div>
+      <div class="gallery-label">1. Score HUD (Primary Game Metric)</div>
+      <div class="gallery-text has-poster-shadow">SCORE: 12,430   72,590   1,048,576</div>
     </div>
     <div class="gallery-item">
-      <div class="gallery-label">Numerals Progression (Focus: 1-2, 2-3, 3-4, 4-5, 5-6, 6-7, 7-8, 8-9, 9-0)</div>
-      <div class="gallery-text">1234567890</div>
+      <div class="gallery-label">2. Streak Score & Combos</div>
+      <div class="gallery-text has-poster-shadow">STREAK: 14x COMBO   350,195 PTS</div>
     </div>
     <div class="gallery-item">
-      <div class="gallery-label">High Scores & Milestones (Focus: 2-5, 8-9, 6-3, 9-1, 1-2, 9-9)</div>
-      <div class="gallery-text">2,500  89,410  63,745  910,234  999,999</div>
+      <div class="gallery-label">3. Multipliers & Boosts</div>
+      <div class="gallery-text has-poster-shadow">x2.5 MULTIPLIER   +500 BONUS</div>
     </div>
     <div class="gallery-item">
-      <div class="gallery-label">Champion League (Focus: C-h, a-m, m-p, p-i, i-o, o-n, L-e, e-a, a-g, g-u, u-e)</div>
-      <div class="gallery-text">Champion League</div>
+      <div class="gallery-label">4. Time & Countdown</div>
+      <div class="gallery-text has-poster-shadow">TIME: 01:45   EXTRA TIME +30s</div>
     </div>
     <div class="gallery-item">
-      <div class="gallery-label">Classic Pangram (Focus: T-h, w-n, m-p, p-s, l-a, o-x, d-o)</div>
-      <div class="gallery-text">The quick brown fox jumps over the lazy dog.</div>
+      <div class="gallery-label">Complete Numerals Sequence</div>
+      <div class="gallery-text has-poster-shadow">0 1 2 3 4 5 6 7 8 9</div>
     </div>
     <div class="gallery-item">
-      <div class="gallery-label">Liquor Jugs (Focus: P-a, c-k, b-o, x-w, v-e, d-o, z-e, q-u, j-u)</div>
-      <div class="gallery-text">Pack my box with five dozen liquor jugs.</div>
-    </div>
-    <div class="gallery-item">
-      <div class="gallery-label">Quartz Vow (Focus: S-p, q-u, z-j, v-o, w-!)</div>
-      <div class="gallery-text">Sphinx of black quartz, judge my vow!</div>
-    </div>
-    <div class="gallery-item">
-      <div class="gallery-label">Poster Script (Focus: B-a, t-t, l-e, M-a, h-j, P-o, S-c, r-i-p-t)</div>
-      <div class="gallery-text">Battle Mahjong Poster Script 100% ♥</div>
-    </div>
-    <div class="gallery-item">
-      <div class="gallery-label">Tavern Trophy (Focus: T-a, v-e, r-n, T-r, o-p, h-y, C-h)</div>
-      <div class="gallery-text">Tavern Trophy Champion League</div>
+      <div class="gallery-label">Champion League & Posters</div>
+      <div class="gallery-text has-poster-shadow">Champion League Grand Final 100% ♥</div>
     </div>
   </div>
 
@@ -333,19 +567,61 @@
     const sizeVal = document.getElementById('sizeVal');
     const mainDisplay = document.getElementById('mainDisplay');
     const kernToggle = document.getElementById('kernToggle');
+    const shadowToggle = document.getElementById('shadowToggle');
     const customInput = document.getElementById('customInput');
 
+    // Populate Grid Categories
+    const numbers = ['0','1','2','3','4','5','6','7','8','9'];
+    const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+    const lowercase = 'abcdefghijklmnopqrstuvwxyz'.split('');
+    const symbols = ['!','?','. ',',',':',';','-','/','\\','(',')','[',']','{','}','@','#','$','%','^','&','*','+','=','<','>',"'",'"','♥'];
+
+    function populateGrid(containerId, items) {
+      const container = document.getElementById(containerId);
+      items.forEach(item => {
+        const cell = document.createElement('div');
+        cell.className = 'glyph-cell';
+        cell.innerHTML = `
+          <div class="glyph-label">${item.trim() || 'sp'}</div>
+          <div class="glyph-char has-poster-shadow">${item}</div>
+        `;
+        container.appendChild(cell);
+      });
+    }
+
+    populateGrid('gridNumbers', numbers);
+    populateGrid('gridUppercase', uppercase);
+    populateGrid('gridLowercase', lowercase);
+    populateGrid('gridSymbols', symbols);
+
+    // Interactive Size Slider
     slider.addEventListener('input', (e) => {
       const sz = e.target.value + 'px';
       sizeVal.textContent = sz;
       mainDisplay.style.fontSize = sz;
     });
 
+    // Optical Kerning Toggle
     kernToggle.addEventListener('change', (e) => {
       const mode = e.target.checked ? 'normal' : 'none';
       document.body.style.fontKerning = mode;
     });
 
+    // 3D Shadow Layering Toggle
+    shadowToggle.addEventListener('change', (e) => {
+      const elements = document.querySelectorAll('.has-poster-shadow');
+      elements.forEach(el => {
+        if (e.target.checked) {
+          el.style.textShadow = '2.5px 3.5px 0px var(--shadow-coral), 0 0 16px rgba(45, 170, 120, 0.22)';
+          el.style.color = 'var(--chalk-ivory)';
+        } else {
+          el.style.textShadow = 'none';
+          el.style.color = 'var(--text-color)';
+        }
+      });
+    });
+
+    // Playground Phrase Chips
     document.querySelectorAll('.phrase-chip').forEach(btn => {
       btn.addEventListener('click', () => {
         customInput.value = btn.dataset.phrase;
@@ -355,3 +631,4 @@
 
 </body>
 </html>
+
