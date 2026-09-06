@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Battle Mahjong Poster Script - Font Specimen</title>
+  <style>
+    @font-face {
+      font-family: 'Battle Mahjong Poster Script';
+      src: url('battle-mahjong-poster-script.woff2?v=optical22') format('woff2'),
+           url('battle-mahjong-poster-script.ttf?v=optical22') format('truetype');
+      font-weight: normal;
+      font-style: normal;
+    }
+
+    :root {
+      --bg-color: #171614;
+      --text-color: #f1ede4;
+      --accent-color: #e5dfd3;
+      --muted-color: #8c8880;
+      --slider-blue: #2f80ed;
+      --font-family: 'Battle Mahjong Poster Script', cursive, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      font-family: system-ui, -apple-system, sans-serif;
+      padding: 40px 60px;
+      line-height: 1.5;
+    }
+
+    .header-title {
+      font-size: 20px;
+      font-weight: 500;
+      color: #dfdbd2;
+      margin-bottom: 30px;
+    }
+
+    .main-display {
+      font-family: var(--font-family);
+      font-size: 87px;
+      line-height: 1.15;
+      color: #f6f2ea;
+      margin-bottom: 40px;
+      word-break: break-word;
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 20px 0;
+      border-top: 1px solid #2a2926;
+      border-bottom: 1px solid #2a2926;
+      margin-bottom: 40px;
+    }
+
+    .control-label {
+      font-size: 14px;
+      color: var(--muted-color);
+    }
+
+    .size-val {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-color);
+      min-width: 45px;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 200px;
+      height: 4px;
+      background: #3a3834;
+      border-radius: 2px;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--slider-blue);
+      cursor: pointer;
+    }
+
+    .nav-tabs {
+      display: flex;
+      gap: 24px;
+      font-size: 15px;
+      color: var(--muted-color);
+      margin-bottom: 40px;
+      list-style: none;
+    }
+
+    .nav-tabs li.active {
+      color: var(--text-color);
+      text-decoration: underline;
+      text-underline-offset: 6px;
+      font-weight: 500;
+    }
+
+    .specimen-section {
+      margin-bottom: 50px;
+    }
+
+    .sample-word {
+      font-family: var(--font-family);
+      font-size: 72px;
+      color: #f6f2ea;
+      margin-bottom: 24px;
+      line-height: 1.2;
+    }
+
+    .grid-section {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 40px;
+      margin-top: 50px;
+    }
+
+    .body-copy {
+      font-family: var(--font-family);
+      font-size: 20px;
+      color: #dcd7ce;
+      line-height: 1.6;
+    }
+
+    .char-inventory {
+      font-family: var(--font-family);
+      font-size: 22px;
+      color: #dcd7ce;
+      line-height: 2.2;
+      letter-spacing: 2px;
+    }
+
+    .editable-test {
+      margin-top: 50px;
+      padding: 30px;
+      background: #1f1e1a;
+      border-radius: 12px;
+      border: 1px solid #33312c;
+    }
+
+    .editable-test h3 {
+      font-size: 16px;
+      color: var(--muted-color);
+      margin-bottom: 15px;
+      font-family: system-ui, sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .editable-input {
+      font-family: var(--font-family);
+      font-size: 64px;
+      color: #fff;
+      background: transparent;
+      border: none;
+      outline: none;
+      width: 100%;
+      resize: vertical;
+      line-height: 1.3;
+    }
+    .chip-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 15px;
+    }
+
+    .phrase-chip {
+      background: #2a2824;
+      color: #dfdbd2;
+      border: 1px solid #3d3a34;
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: 13px;
+      cursor: pointer;
+      font-family: system-ui, sans-serif;
+      transition: all 0.15s ease;
+    }
+
+    .phrase-chip:hover {
+      background: #3a3731;
+      border-color: var(--slider-blue);
+      color: #fff;
+    }
+
+    .phrase-gallery {
+      margin-top: 40px;
+      display: flex;
+      flex-direction: column;
+      gap: 25px;
+    }
+
+    .gallery-item {
+      padding: 20px;
+      background: #1a1916;
+      border-radius: 8px;
+      border-left: 3px solid var(--slider-blue);
+    }
+
+    .gallery-label {
+      font-size: 12px;
+      color: var(--muted-color);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .gallery-text {
+      font-family: var(--font-family);
+      font-size: 48px;
+      line-height: 1.25;
+      color: #f6f2ea;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header-title">Battle Mahjong Poster Script</div>
+
+  <div class="main-display" id="mainDisplay">
+    Battle Mahjong Poster Script
+  </div>
+
+  <div class="controls">
+    <span class="control-label">Size</span>
+    <span class="size-val" id="sizeVal">87px</span>
+    <input type="range" id="sizeSlider" min="24" max="160" value="87">
+
+    <span class="control-label" style="margin-left: 30px;">Optical Kerning:</span>
+    <label style="font-size: 14px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+      <input type="checkbox" id="kernToggle" checked> Active (font-kerning: normal)
+    </label>
+  </div>
+
+  <ul class="nav-tabs">
+    <li class="active">Basic</li>
+    <li>Numbers</li>
+    <li>Latin</li>
+    <li>Punctuation</li>
+  </ul>
+
+  <div class="sample-word" id="sample1">Handgloves</div>
+  <div class="sample-word" id="sample2">Hamburgefontsiv</div>
+
+  <div class="grid-section">
+    <div class="body-copy" id="body1">
+      Lorem ipsum dolor sit amet, consectetur adipiscing elit. Handgloves ergonomia et proteccio manus praestant, texturae molles et flexibilitas singulares. Suspendisse potenti. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Praesent commodo hendrerit diam, non vehicula justo interdum vel.
+    </div>
+    <div class="body-copy" id="body2">
+      praecisione assuuntur. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Fusce id velit ut lectus varius faucibus.<br><br>
+      In thermoregulatione, handgloves microfibra innovans aut insulatione polaris utuntur. Curabitur pretium tincidunt lacus, non laoreet lorem tempor vitae.
+    </div>
+    <div class="char-inventory" id="charInv">
+      A B C D E F G H I J K L M N O P Q R S T U V W X Y Z<br>
+      a b c d e f g h i j k l m n o p q r s t u v w x y z<br>
+      # 0 1 2 3 4 5 6 7 8 9 % + - =<br>
+      &lt; &gt; ( ) [ ] { } $ @ / \<br>
+      . , ! ? : ; ' " ^ _ & ♥<br>
+      Il1 0oO dbqp
+    </div>
+  </div>
+
+  <div class="editable-test">
+    <h3>Live Testing Playground (Click any phrase or type below)</h3>
+    <div class="chip-bar" id="chipBar">
+      <button class="phrase-chip" data-phrase="72,590">Score: 72,590</button>
+      <button class="phrase-chip" data-phrase="1234567890">Numerals (1234567890)</button>
+      <button class="phrase-chip" data-phrase="14,820  350,195  1,048,576">Tiered Scores</button>
+      <button class="phrase-chip" data-phrase="2,500  89,410  63,745">Random Scores</button>
+      <button class="phrase-chip" data-phrase="910,234  12,345  999,999">High Scores</button>
+      <button class="phrase-chip" data-phrase="1,234,567,890.00">Currency (1,234,567,890.00)</button>
+      <button class="phrase-chip" data-phrase="Champion League (Grand Champion)">Champion League</button>
+      <button class="phrase-chip" data-phrase="The quick brown fox jumps over the lazy dog.">Pangram 1</button>
+    </div>
+    <textarea class="editable-input" rows="4" id="customInput">72,590
+1234567890
+14,820  350,195  1,048,576
+2,500   89,410   63,745   910,234</textarea>
+  </div>
+
+  <div class="phrase-gallery">
+    <div class="gallery-item">
+      <div class="gallery-label">Game Scores (User Focus: 72,590 & Random Milestones)</div>
+      <div class="gallery-text">72,590  14,820  350,195  1,048,576</div>
+    </div>
+    <div class="gallery-item">
+      <div class="gallery-label">Numerals Progression (Focus: 1-2, 2-3, 3-4, 4-5, 5-6, 6-7, 7-8, 8-9, 9-0)</div>
+      <div class="gallery-text">1234567890</div>
+    </div>
+    <div class="gallery-item">
+      <div class="gallery-label">High Scores & Milestones (Focus: 2-5, 8-9, 6-3, 9-1, 1-2, 9-9)</div>
+      <div class="gallery-text">2,500  89,410  63,745  910,234  999,999</div>
+    </div>
+    <div class="gallery-item">
+      <div class="gallery-label">Champion League (Focus: C-h, a-m, m-p, p-i, i-o, o-n, L-e, e-a, a-g, g-u, u-e)</div>
+      <div class="gallery-text">Champion League</div>
+    </div>
+    <div class="gallery-item">
+      <div class="gallery-label">Classic Pangram (Focus: T-h, w-n, m-p, p-s, l-a, o-x, d-o)</div>
+      <div class="gallery-text">The quick brown fox jumps over the lazy dog.</div>
+    </div>
+    <div class="gallery-item">
+      <div class="gallery-label">Liquor Jugs (Focus: P-a, c-k, b-o, x-w, v-e, d-o, z-e, q-u, j-u)</div>
+      <div class="gallery-text">Pack my box with five dozen liquor jugs.</div>
+    </div>
+    <div class="gallery-item">
+      <div class="gallery-label">Quartz Vow (Focus: S-p, q-u, z-j, v-o, w-!)</div>
+      <div class="gallery-text">Sphinx of black quartz, judge my vow!</div>
+    </div>
+    <div class="gallery-item">
+      <div class="gallery-label">Poster Script (Focus: B-a, t-t, l-e, M-a, h-j, P-o, S-c, r-i-p-t)</div>
+      <div class="gallery-text">Battle Mahjong Poster Script 100% ♥</div>
+    </div>
+    <div class="gallery-item">
+      <div class="gallery-label">Tavern Trophy (Focus: T-a, v-e, r-n, T-r, o-p, h-y, C-h)</div>
+      <div class="gallery-text">Tavern Trophy Champion League</div>
+    </div>
+  </div>
+
+  <script>
+    const slider = document.getElementById('sizeSlider');
+    const sizeVal = document.getElementById('sizeVal');
+    const mainDisplay = document.getElementById('mainDisplay');
+    const kernToggle = document.getElementById('kernToggle');
+    const customInput = document.getElementById('customInput');
+
+    slider.addEventListener('input', (e) => {
+      const sz = e.target.value + 'px';
+      sizeVal.textContent = sz;
+      mainDisplay.style.fontSize = sz;
+    });
+
+    kernToggle.addEventListener('change', (e) => {
+      const mode = e.target.checked ? 'normal' : 'none';
+      document.body.style.fontKerning = mode;
+    });
+
+    document.querySelectorAll('.phrase-chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        customInput.value = btn.dataset.phrase;
+      });
+    });
+  </script>
+
+</body>
+</html>
