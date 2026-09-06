@@ -18,6 +18,8 @@
       --board-grid-line: #18372f;
       --board-border: #235144;
       --chalk-ivory: #fff6e5;
+      --shadow-pink: #eb576f;
+      --shadow-dark: #040d0a;
       --shadow-coral: #d9485c;
       --shadow-coral-dark: #b83346;
       --chalk-mint: #459a82;
@@ -46,12 +48,27 @@
         radial-gradient(circle at 85% 85%, rgba(217, 72, 92, 0.08) 0%, transparent 50%);
     }
 
-    /* 3D Coral Shadow Layering (Matches Inspiration Art) */
+    /* Dual-Layered 3D Poster Shadow: Warm Ivory Face + Slight Pink Mid-Shadow + Crisp Dark Base Shadow for High Contrast */
     .has-poster-shadow {
       color: var(--chalk-ivory) !important;
       text-shadow: 
-        2.5px 3.5px 0px var(--shadow-coral),
-        0 0 16px rgba(45, 170, 120, 0.22);
+        1.5px 2px 0px var(--shadow-pink),
+        3.5px 4.5px 0px var(--shadow-dark),
+        0 0 14px rgba(45, 170, 120, 0.18);
+    }
+
+    .hero-score-font.has-poster-shadow {
+      text-shadow: 
+        2px 2.5px 0px var(--shadow-pink),
+        5px 6.5px 0px var(--shadow-dark),
+        0 0 20px rgba(45, 170, 120, 0.22);
+    }
+
+    .score-badge-value.has-poster-shadow {
+      text-shadow: 
+        1.8px 2.2px 0px var(--shadow-pink),
+        4px 5.5px 0px var(--shadow-dark),
+        0 0 16px rgba(45, 170, 120, 0.2);
     }
 
     /* Inspiration Hero Header Section */
@@ -490,7 +507,7 @@
 
     <label class="toggle-wrap">
       <input type="checkbox" id="shadowToggle" checked>
-      <span>3D Coral Shadow Layering</span>
+      <span>Dual-Layer 3D Shadow (Pink + Dark Base)</span>
     </label>
 
     <label class="toggle-wrap">
@@ -612,7 +629,13 @@
       const elements = document.querySelectorAll('.has-poster-shadow');
       elements.forEach(el => {
         if (e.target.checked) {
-          el.style.textShadow = '2.5px 3.5px 0px var(--shadow-coral), 0 0 16px rgba(45, 170, 120, 0.22)';
+          if (el.classList.contains('hero-score-font')) {
+            el.style.textShadow = '2px 2.5px 0px var(--shadow-pink), 5px 6.5px 0px var(--shadow-dark), 0 0 20px rgba(45, 170, 120, 0.22)';
+          } else if (el.classList.contains('score-badge-value')) {
+            el.style.textShadow = '1.8px 2.2px 0px var(--shadow-pink), 4px 5.5px 0px var(--shadow-dark), 0 0 16px rgba(45, 170, 120, 0.2)';
+          } else {
+            el.style.textShadow = '1.5px 2px 0px var(--shadow-pink), 3.5px 4.5px 0px var(--shadow-dark), 0 0 14px rgba(45, 170, 120, 0.18)';
+          }
           el.style.color = 'var(--chalk-ivory)';
         } else {
           el.style.textShadow = 'none';
