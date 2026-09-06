@@ -22,8 +22,12 @@ func _init() -> void:
 		quit(1)
 		return
 
+	presets.set_value("preset.0", "include_filter", "version.json")
 	presets.set_value("preset.0.options", "version/code", version_code)
 	presets.set_value("preset.0.options", "version/name", version_name)
+	presets.set_value("preset.0.options", "permissions/vibrate", true)
+	presets.set_value("preset.0.options", "permissions/internet", true)
+	presets.set_value("preset.0.options", "permissions/access_network_state", true)
 	if arguments.size() >= 5:
 		presets.set_value("preset.0.options", "keystore/release", str(arguments[2]).strip_edges())
 		presets.set_value("preset.0.options", "keystore/release_user", str(arguments[3]).strip_edges())
