@@ -122,10 +122,14 @@ Run Godot commands from the repository root using the Godot 4.6.3 console execut
 - Default face generation: `godot --headless --path . --script res://scripts/tools/generate_default_tile_faces.gd`
 - Tile-art export: `godot --headless --path . --script res://scripts/tools/export_tile_art.gd`
 
+- Custom font verification: `godot --headless --path . --script res://tests/test_custom_font.gd`
+- Custom font build runner: `.\scripts\tools\build_font.bat`
+
 For documentation-only changes, `git diff --check` is sufficient unless the documentation describes behavior that should be verified against the executable project.
 
 ## Documentation Map
 
+- `AGENT.md`: custom Battle Mahjong Poster Script font pipeline, build tooling, optical kerning engine, and iterative calibration workflow.
 - `docs/ROADMAP.md`: milestone order, status, and scope.
 - `docs/LAYOUT_AUTHORING.md`: authored and generated board-layout workflow.
 - `docs/TILE_ART_PIPELINE.md`: canonical tile geometry, identity, source/export, and skin-manifest contract.
