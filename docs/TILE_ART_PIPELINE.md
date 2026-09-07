@@ -20,7 +20,7 @@ The current 96-tile reference game still uses 24 abstract identities with four c
 
 ## Geometry
 
-The Default skin uses one canonical `16:21` ceramic base geometry in portrait and landscape. This is five percent taller than the earlier `4:5` prototype and better matches the upright inspiration silhouette. Both recipes preserve the same tile identity, stable authored slot, modifier attachment role, face-art layer, and physical silhouette. Orientation changes reflow peripheral UI without changing tile shape.
+The Default skin uses one canonical `16:23` ceramic base geometry in portrait and landscape. This is fifteen percent taller than the earlier `4:5` prototype and clearly matches the upright inspiration silhouette. Both recipes preserve the same tile identity, stable authored slot, modifier attachment role, face-art layer, and physical silhouette. Orientation changes reflow peripheral UI without changing tile shape.
 
 Legacy canonical face geometry:
 
@@ -110,7 +110,7 @@ These are production candidates with replaceable masters, not final approval of 
 
 Automated checks cover all 34 required IDs and runtime assets, uniqueness, canonical honor naming, all 24 temporary mappings, geometry values, independent face/modifier layers, board-to-tray motion targeting, blocked-tap isolation, transaction-gated pair feedback, shared Delete Pair removal feedback, responsive background coverage, and board containment in landscape, phone portrait, and `375 x 667` compact portrait.
 
-The compact-phone board validates the canonical tile at its declared `32 x 42` minimum. Portrait and landscape both retain the same `16:21` physical silhouette while the board scales to its available region. Continued visual review at the declared minimum remains required for Default refinements and every Neon face before M7 can be considered done.
+The compact-phone board validates the canonical tile at its declared `32 x 46` minimum. Portrait and landscape both retain the same `16:23` physical silhouette while the board scales to its available region. Continued visual review at the declared minimum remains required for Default refinements and every Neon face before M7 can be considered done.
 
 ## Gameplay Background
 
