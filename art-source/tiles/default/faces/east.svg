@@ -1,8 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="328" height="400" viewBox="0 0 328 400">
+<svg xmlns="http://www.w3.org/2000/svg" width="368" height="506" viewBox="0 0 368 506">
   <g stroke-linecap="round" stroke-linejoin="round">
-    <path d="M98 76 V310 M98 78 H238 M98 190 H214 M98 308 H238" fill="none" stroke="#1676a8" stroke-width="30"/>
-    <path d="M74 350 C128 334 212 334 258 346" fill="none" stroke="#dc3855" stroke-width="14"/>
 
-    <path d="M36 34 L72 26 M270 366 L298 354 M36 362 L58 350" stroke="#dc3855" stroke-width="9" opacity="0.7"/>
+    <!-- Wind 東 (East) -->
+    <g fill="none" stroke="#162f56" stroke-linecap="round" stroke-linejoin="round">
+      <!-- Top horizontal stroke -->
+      <path d="M75 125 H293" stroke-width="32"/>
+      <!-- Center box (sun) -->
+      <path d="M98 180 H270 V295 H98 Z" stroke-width="28"/>
+      <path d="M98 238 H270" stroke-width="24"/>
+      <!-- Main vertical spike cutting through -->
+      <path d="M184 68 V445" stroke-width="34"/>
+      <!-- Diagonal bottom legs -->
+      <path d="M140 345 C115 388 82 430 52 452" stroke-width="28"/>
+      <path d="M228 345 C253 388 286 430 316 452" stroke-width="28"/>
+    </g>
   </g>
 </svg>

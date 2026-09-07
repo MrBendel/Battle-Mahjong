@@ -103,7 +103,16 @@
     "north": {"label": "NORTH", "asset": "res://game-assets/tiles/default/faces/north.png"},
     "red_dragon": {"label": "RED", "asset": "res://game-assets/tiles/default/faces/red_dragon.png"},
     "green_dragon": {"label": "GREEN", "asset": "res://game-assets/tiles/default/faces/green_dragon.png"},
-    "white_dragon": {"label": "WHITE", "asset": "res://game-assets/tiles/default/faces/white_dragon.png"}
+    "white_dragon": {"label": "WHITE", "asset": "res://game-assets/tiles/default/faces/white_dragon.png"},
+    "mascot_cat": {"label": "CAT", "asset": "res://game-assets/tiles/default/faces/mascot_cat.png"},
+    "mascot_bunny": {"label": "BUNNY", "asset": "res://game-assets/tiles/default/faces/mascot_bunny.png"},
+    "mascot_panda": {"label": "PANDA", "asset": "res://game-assets/tiles/default/faces/mascot_panda.png"},
+    "mascot_oni": {"label": "ONI", "asset": "res://game-assets/tiles/default/faces/mascot_oni.png"},
+    "mascot_fuji": {"label": "FUJI", "asset": "res://game-assets/tiles/default/faces/mascot_fuji.png"},
+    "mascot_skull": {"label": "SKULL", "asset": "res://game-assets/tiles/default/faces/mascot_skull.png"},
+    "mascot_star": {"label": "STAR", "asset": "res://game-assets/tiles/default/faces/mascot_star.png"},
+    "mascot_flower": {"label": "FLOWER", "asset": "res://game-assets/tiles/default/faces/mascot_flower.png"},
+    "mascot_dragon": {"label": "DRAGON", "asset": "res://game-assets/tiles/default/faces/mascot_dragon.png"}
   },
   "reference_preview_mapping": {
     "reference_01": "bamboo_1", "reference_02": "bamboo_2", "reference_03": "bamboo_3", "reference_04": "bamboo_4", "reference_05": "bamboo_5", "reference_06": "bamboo_6",

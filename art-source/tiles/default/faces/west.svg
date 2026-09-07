@@ -1,8 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="328" height="400" viewBox="0 0 328 400">
+<svg xmlns="http://www.w3.org/2000/svg" width="368" height="506" viewBox="0 0 368 506">
   <g stroke-linecap="round" stroke-linejoin="round">
-    <path d="M70 84 L112 308 L164 158 L216 308 L258 84" fill="none" stroke="#1676a8" stroke-width="30"/>
-    <path d="M74 350 C128 334 212 334 258 346" fill="none" stroke="#ef5b77" stroke-width="14"/>
 
-    <path d="M36 34 L72 26 M270 366 L298 354 M36 362 L58 350" stroke="#ef5b77" stroke-width="9" opacity="0.7"/>
+    <!-- Wind 西 (West) -->
+    <g fill="none" stroke="#162f56" stroke-linecap="round" stroke-linejoin="round">
+      <!-- Top roof stroke -->
+      <path d="M68 118 H300" stroke-width="34"/>
+      <!-- Outer box with curved shoulders -->
+      <path d="M88 175 H280 V415 H88 Z" stroke-width="30"/>
+      <!-- Inner curving vertical strokes -->
+      <path d="M145 175 C142 260 132 340 115 415" stroke-width="26"/>
+      <path d="M223 175 C226 260 236 340 253 415" stroke-width="26"/>
+      <path d="M132 290 H236" stroke-width="24"/>
+    </g>
   </g>
 </svg>

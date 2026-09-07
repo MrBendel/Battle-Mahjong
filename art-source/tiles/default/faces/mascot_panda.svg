@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="368" height="506" viewBox="0 0 368 506">
+  <g stroke-linecap="round" stroke-linejoin="round">
+
+    <!-- Mascot Panda -->
+    <!-- Ears -->
+    <circle cx="106" cy="165" r="38" fill="#121b24" stroke="#121b24" stroke-width="10"/>
+    <circle cx="262" cy="165" r="38" fill="#121b24" stroke="#121b24" stroke-width="10"/>
+    <!-- Body -->
+    <ellipse cx="184" cy="365" rx="102" ry="92" fill="#ffffff" stroke="#121b24" stroke-width="11"/>
+    <!-- Arms / Pink Vest -->
+    <path d="M98 325 C82 375 98 435 128 448 C152 435 152 365 132 330 Z" fill="#121b24" stroke="#121b24" stroke-width="10"/>
+    <path d="M270 325 C286 375 270 435 240 448 C216 435 216 365 236 330 Z" fill="#121b24" stroke="#121b24" stroke-width="10"/>
+    <ellipse cx="184" cy="385" rx="55" ry="42" fill="#ee658d"/>
+    <!-- Head -->
+    <ellipse cx="184" cy="240" rx="108" ry="94" fill="#ffffff" stroke="#121b24" stroke-width="11"/>
+    <!-- Eye Patches -->
+    <ellipse cx="140" cy="235" rx="29" ry="25" fill="#121b24" transform="rotate(-15 140 235)"/>
+    <circle cx="144" cy="233" r="9" fill="#ffffff"/>
+    <ellipse cx="228" cy="235" rx="29" ry="25" fill="#121b24" transform="rotate(15 228 235)"/>
+    <circle cx="232" cy="233" r="9" fill="#ffffff"/>
+    <!-- Nose & Mouth -->
+    <ellipse cx="184" cy="272" rx="11" ry="8" fill="#121b24"/>
+    <path d="M174 286 Q184 295 184 286 Q184 295 194 286" fill="none" stroke="#121b24" stroke-width="5.5"/>
+  </g>
+</svg>

@@ -1,15 +1,24 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="328" height="400" viewBox="0 0 328 400">
+<svg xmlns="http://www.w3.org/2000/svg" width="368" height="506" viewBox="0 0 368 506">
   <g stroke-linecap="round" stroke-linejoin="round">
-    <path d="M68 342 C112 324 212 326 262 338" fill="none" stroke="#163f4a" stroke-width="12" opacity="0.75"/>
 
-    <path d="M104 64 L220 58" fill="none" stroke="#dc3855" stroke-width="24"/>
-    <path d="M226 72 L214 170" fill="none" stroke="#dc3855" stroke-width="24"/>
-    <path d="M210 192 L198 290" fill="none" stroke="#dc3855" stroke-width="24"/>
-    <g transform="translate(220 316) rotate(-5)">
-      <rect x="0" y="0" width="62" height="54" rx="8" fill="none" stroke="#1676a8" stroke-width="8"/>
-      <path d="M14 15 H48 M12 31 H50 M22 10 V43 M40 10 V43" stroke="#1676a8" stroke-width="7"/>
+    <!-- Kanji 7 七 -->
+    <path d="M68 132 C135 120 233 120 300 132" fill="none" stroke="#162f56" stroke-width="26"/>
+    <path d="M184 70 L184 148 C184 182 208 186 250 184 L264 160" fill="none" stroke="#162f56" stroke-width="28"/>
+    <!-- Kanji 萬 (Wan) in Cinnabar Red -->
+    <g fill="none" stroke="#c92424" stroke-linecap="round" stroke-linejoin="round">
+      <!-- Top grass radical 艹 -->
+      <path d="M68 230 C145 220 223 220 300 230" stroke-width="28"/>
+      <path d="M130 205 L130 252" stroke-width="22"/>
+      <path d="M238 205 L238 252" stroke-width="22"/>
+      <!-- Middle 日 (Sun) box with horizontal divider -->
+      <path d="M102 272 H266 V345 H102 Z" stroke-width="22"/>
+      <path d="M102 308 H266" stroke-width="18"/>
+      <!-- Horizontal crossbar under 日 -->
+      <path d="M80 370 H288" stroke-width="20"/>
+      <!-- Lower calligraphy legs: left sweep, center hook, right sweep -->
+      <path d="M125 372 C112 418 85 455 58 474" stroke-width="26"/>
+      <path d="M184 350 V472" stroke-width="24"/>
+      <path d="M243 372 C256 418 280 455 310 474" stroke-width="26"/>
     </g>
-
-    <path d="M36 34 L72 26 M270 366 L298 354 M36 362 L58 350" stroke="#ef5b77" stroke-width="9" opacity="0.7"/>
   </g>
 </svg>

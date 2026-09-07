@@ -1,26 +1,40 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="328" height="400" viewBox="0 0 328 400">
+<svg xmlns="http://www.w3.org/2000/svg" width="368" height="506" viewBox="0 0 368 506">
   <g stroke-linecap="round" stroke-linejoin="round">
 
-    <g transform="translate(96 88) rotate(-7)">
-      <rect x="-15" y="-31" width="30" height="62" rx="11" fill="#168a67" stroke="#163f4a" stroke-width="6"/>
-      <path d="M-12 -7 H12 M-12 14 H12" stroke="#8dd05c" stroke-width="7"/>
+    <!-- Stalk 100,150 -->
+    <g>
+      <rect x="79.0" y="85.0" width="42.0" height="130.0" rx="9.5" fill="#106f36" stroke="#121b24" stroke-width="9"/>
+      <line x1="100.0" y1="95.0" x2="100.0" y2="205.0" stroke="#38a169" stroke-width="11.8" opacity="0.5"/>
+      <path d="M75.0 150.0 H125.0" stroke="#121b24" stroke-width="10"/>
+      <ellipse cx="100.0" cy="150.0" rx="19.9" ry="6" fill="#38a169" stroke="#121b24" stroke-width="4"/>
     </g>
-    <g transform="translate(232 88) rotate(7)">
-      <rect x="-15" y="-31" width="30" height="62" rx="11" fill="#1676a8" stroke="#163f4a" stroke-width="6"/>
-      <path d="M-12 -7 H12 M-12 14 H12" stroke="#8dd05c" stroke-width="7"/>
+    <!-- Stalk 268,150 -->
+    <g>
+      <rect x="247.0" y="85.0" width="42.0" height="130.0" rx="9.5" fill="#106f36" stroke="#121b24" stroke-width="9"/>
+      <line x1="268.0" y1="95.0" x2="268.0" y2="205.0" stroke="#38a169" stroke-width="11.8" opacity="0.5"/>
+      <path d="M243.0 150.0 H293.0" stroke="#121b24" stroke-width="10"/>
+      <ellipse cx="268.0" cy="150.0" rx="19.9" ry="6" fill="#38a169" stroke="#121b24" stroke-width="4"/>
     </g>
-    <g transform="translate(164 200) rotate(-7)">
-      <rect x="-15" y="-31" width="30" height="62" rx="11" fill="#168a67" stroke="#163f4a" stroke-width="6"/>
-      <path d="M-12 -7 H12 M-12 14 H12" stroke="#8dd05c" stroke-width="7"/>
+    <!-- Stalk 184,253 -->
+    <g>
+      <rect x="163.0" y="188.0" width="42.0" height="130.0" rx="9.5" fill="#106f36" stroke="#121b24" stroke-width="9"/>
+      <line x1="184.0" y1="198.0" x2="184.0" y2="308.0" stroke="#38a169" stroke-width="11.8" opacity="0.5"/>
+      <path d="M159.0 253.0 H209.0" stroke="#121b24" stroke-width="10"/>
+      <ellipse cx="184.0" cy="253.0" rx="19.9" ry="6" fill="#38a169" stroke="#121b24" stroke-width="4"/>
     </g>
-    <g transform="translate(96 312) rotate(7)">
-      <rect x="-15" y="-31" width="30" height="62" rx="11" fill="#168a67" stroke="#163f4a" stroke-width="6"/>
-      <path d="M-12 -7 H12 M-12 14 H12" stroke="#8dd05c" stroke-width="7"/>
+    <!-- Stalk 100,356 -->
+    <g>
+      <rect x="79.0" y="291.0" width="42.0" height="130.0" rx="9.5" fill="#106f36" stroke="#121b24" stroke-width="9"/>
+      <line x1="100.0" y1="301.0" x2="100.0" y2="411.0" stroke="#38a169" stroke-width="11.8" opacity="0.5"/>
+      <path d="M75.0 356.0 H125.0" stroke="#121b24" stroke-width="10"/>
+      <ellipse cx="100.0" cy="356.0" rx="19.9" ry="6" fill="#38a169" stroke="#121b24" stroke-width="4"/>
     </g>
-    <g transform="translate(232 312) rotate(-7)">
-      <rect x="-15" y="-31" width="30" height="62" rx="11" fill="#1676a8" stroke="#163f4a" stroke-width="6"/>
-      <path d="M-12 -7 H12 M-12 14 H12" stroke="#8dd05c" stroke-width="7"/>
+    <!-- Stalk 268,356 -->
+    <g>
+      <rect x="247.0" y="291.0" width="42.0" height="130.0" rx="9.5" fill="#106f36" stroke="#121b24" stroke-width="9"/>
+      <line x1="268.0" y1="301.0" x2="268.0" y2="411.0" stroke="#38a169" stroke-width="11.8" opacity="0.5"/>
+      <path d="M243.0 356.0 H293.0" stroke="#121b24" stroke-width="10"/>
+      <ellipse cx="268.0" cy="356.0" rx="19.9" ry="6" fill="#38a169" stroke="#121b24" stroke-width="4"/>
     </g>
-    <path d="M36 34 L72 26 M270 366 L298 354 M36 362 L58 350" stroke="#168a67" stroke-width="9" opacity="0.7"/>
   </g>
 </svg>

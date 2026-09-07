@@ -1,9 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="328" height="400" viewBox="0 0 328 400">
+<svg xmlns="http://www.w3.org/2000/svg" width="368" height="506" viewBox="0 0 368 506">
   <g stroke-linecap="round" stroke-linejoin="round">
-    <path d="M76 76 H252 V136 H190 V264 H252 V324 H76 V264 H138 V136 H76 Z" fill="#dc3855" stroke="#7c1c35" stroke-width="12"/>
-    <path d="M96 178 H232" stroke="#fff7df" stroke-width="18"/>
-    <circle cx="164" cy="200" r="18" fill="#e9ae32"/>
 
-    <path d="M36 34 L72 26 M270 366 L298 354 M36 362 L58 350" stroke="#dc3855" stroke-width="9" opacity="0.7"/>
+    <!-- Red Dragon 中 (Chun) -->
+    <g fill="none" stroke="#c92424" stroke-linecap="round" stroke-linejoin="round">
+      <!-- Outer box -->
+      <path d="M75 180 H293 V335 H75 Z" stroke-width="36"/>
+      <!-- Center vertical spear -->
+      <path d="M184 70 V445" stroke-width="38"/>
+    </g>
   </g>
 </svg>

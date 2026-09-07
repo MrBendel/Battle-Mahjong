@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="368" height="506" viewBox="0 0 368 506">
+  <g stroke-linecap="round" stroke-linejoin="round">
+
+    <!-- Mascot Sakura Flower -->
+    <!-- Stem and Leaves -->
+    <path d="M184 310 V445" stroke="#106f36" stroke-width="15"/>
+    <path d="M184 380 C136 368 125 398 130 410 C148 410 172 398 184 386" fill="#106f36" stroke="#121b24" stroke-width="8"/>
+    <path d="M184 380 C232 368 243 398 238 410 C220 410 196 398 184 386" fill="#106f36" stroke="#121b24" stroke-width="8"/>
+    <!-- 5 Rounded Petals -->
+    <g fill="#ee658d" stroke="#121b24" stroke-width="11">
+      <!-- Top Petal -->
+      <ellipse cx="184" cy="165" rx="46" ry="55"/>
+      <!-- Top-Right -->
+      <ellipse cx="265" cy="216" rx="55" ry="46" transform="rotate(18 265 216)"/>
+      <!-- Bottom-Right -->
+      <ellipse cx="236" cy="305" rx="50" ry="48" transform="rotate(35 236 305)"/>
+      <!-- Bottom-Left -->
+      <ellipse cx="132" cy="305" rx="50" ry="48" transform="rotate(-35 132 305)"/>
+      <!-- Top-Left -->
+      <ellipse cx="103" cy="216" rx="55" ry="46" transform="rotate(-18 103 216)"/>
+    </g>
+    <!-- Center Pistil -->
+    <circle cx="184" cy="242" r="33" fill="#c92424" stroke="#121b24" stroke-width="9"/>
+    <circle cx="184" cy="242" r="12" fill="#f2a014"/>
+  </g>
+</svg>

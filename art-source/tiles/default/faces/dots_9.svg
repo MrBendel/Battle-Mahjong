@@ -1,42 +1,122 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="328" height="400" viewBox="0 0 328 400">
+<svg xmlns="http://www.w3.org/2000/svg" width="368" height="506" viewBox="0 0 368 506">
   <g stroke-linecap="round" stroke-linejoin="round">
 
-    <g transform="rotate(-5 76 72)">
-      <circle cx="76" cy="72" r="29" fill="#dc3855" stroke="#163f4a" stroke-width="8"/>
-      <circle cx="76" cy="72" r="12" fill="none" stroke="#fff7df" stroke-width="7" opacity="0.9"/>
+    <!-- Target Wheel 100,135 -->
+    <g>
+      <!-- Outer Navy Ring -->
+      <circle cx="100.0" cy="135.0" r="38.0" fill="#162f56" stroke="#121b24" stroke-width="4.5"/>
+      <!-- Concentric White Gap -->
+      <circle cx="100.0" cy="135.0" r="29.6" fill="#ffffff"/>
+      <!-- Inner Ring -->
+      <circle cx="100.0" cy="135.0" r="16.7" fill="#162f56"/>
+      <!-- Center Pip -->
+      <circle cx="100.0" cy="135.0" r="9.5" fill="#c92424" stroke="#121b24" stroke-width="2.5"/>
+      <!-- Pinpoint white sparkle -->
+      <circle cx="100.0" cy="135.0" r="3.0" fill="#ffffff"/>
     </g>
-    <g transform="rotate(5 164 72)">
-      <circle cx="164" cy="72" r="29" fill="#168a67" stroke="#163f4a" stroke-width="8"/>
-      <circle cx="164" cy="72" r="12" fill="none" stroke="#fff7df" stroke-width="7" opacity="0.9"/>
+    <!-- Target Wheel 184,135 -->
+    <g>
+      <!-- Outer Navy Ring -->
+      <circle cx="184.0" cy="135.0" r="38.0" fill="#162f56" stroke="#121b24" stroke-width="4.5"/>
+      <!-- Concentric White Gap -->
+      <circle cx="184.0" cy="135.0" r="29.6" fill="#ffffff"/>
+      <!-- Inner Ring -->
+      <circle cx="184.0" cy="135.0" r="16.7" fill="#162f56"/>
+      <!-- Center Pip -->
+      <circle cx="184.0" cy="135.0" r="9.5" fill="#c92424" stroke="#121b24" stroke-width="2.5"/>
+      <!-- Pinpoint white sparkle -->
+      <circle cx="184.0" cy="135.0" r="3.0" fill="#ffffff"/>
     </g>
-    <g transform="rotate(-5 252 72)">
-      <circle cx="252" cy="72" r="29" fill="#1676a8" stroke="#163f4a" stroke-width="8"/>
-      <circle cx="252" cy="72" r="12" fill="none" stroke="#fff7df" stroke-width="7" opacity="0.9"/>
+    <!-- Target Wheel 268,135 -->
+    <g>
+      <!-- Outer Navy Ring -->
+      <circle cx="268.0" cy="135.0" r="38.0" fill="#162f56" stroke="#121b24" stroke-width="4.5"/>
+      <!-- Concentric White Gap -->
+      <circle cx="268.0" cy="135.0" r="29.6" fill="#ffffff"/>
+      <!-- Inner Ring -->
+      <circle cx="268.0" cy="135.0" r="16.7" fill="#162f56"/>
+      <!-- Center Pip -->
+      <circle cx="268.0" cy="135.0" r="9.5" fill="#c92424" stroke="#121b24" stroke-width="2.5"/>
+      <!-- Pinpoint white sparkle -->
+      <circle cx="268.0" cy="135.0" r="3.0" fill="#ffffff"/>
     </g>
-    <g transform="rotate(5 76 200)">
-      <circle cx="76" cy="200" r="29" fill="#e9ae32" stroke="#163f4a" stroke-width="8"/>
-      <circle cx="76" cy="200" r="12" fill="none" stroke="#fff7df" stroke-width="7" opacity="0.9"/>
+    <!-- Target Wheel 100,253 -->
+    <g>
+      <!-- Outer Navy Ring -->
+      <circle cx="100.0" cy="253.0" r="38.0" fill="#162f56" stroke="#121b24" stroke-width="4.5"/>
+      <!-- Concentric White Gap -->
+      <circle cx="100.0" cy="253.0" r="29.6" fill="#ffffff"/>
+      <!-- Inner Ring -->
+      <circle cx="100.0" cy="253.0" r="16.7" fill="#162f56"/>
+      <!-- Center Pip -->
+      <circle cx="100.0" cy="253.0" r="9.5" fill="#c92424" stroke="#121b24" stroke-width="2.5"/>
+      <!-- Pinpoint white sparkle -->
+      <circle cx="100.0" cy="253.0" r="3.0" fill="#ffffff"/>
     </g>
-    <g transform="rotate(-5 164 200)">
-      <circle cx="164" cy="200" r="29" fill="#dc3855" stroke="#163f4a" stroke-width="8"/>
-      <circle cx="164" cy="200" r="12" fill="none" stroke="#fff7df" stroke-width="7" opacity="0.9"/>
+    <!-- Target Wheel 184,253 -->
+    <g>
+      <!-- Outer Navy Ring -->
+      <circle cx="184.0" cy="253.0" r="38.0" fill="#162f56" stroke="#121b24" stroke-width="4.5"/>
+      <!-- Concentric White Gap -->
+      <circle cx="184.0" cy="253.0" r="29.6" fill="#ffffff"/>
+      <!-- Inner Ring -->
+      <circle cx="184.0" cy="253.0" r="16.7" fill="#162f56"/>
+      <!-- Center Pip -->
+      <circle cx="184.0" cy="253.0" r="9.5" fill="#c92424" stroke="#121b24" stroke-width="2.5"/>
+      <!-- Pinpoint white sparkle -->
+      <circle cx="184.0" cy="253.0" r="3.0" fill="#ffffff"/>
     </g>
-    <g transform="rotate(5 252 200)">
-      <circle cx="252" cy="200" r="29" fill="#168a67" stroke="#163f4a" stroke-width="8"/>
-      <circle cx="252" cy="200" r="12" fill="none" stroke="#fff7df" stroke-width="7" opacity="0.9"/>
+    <!-- Target Wheel 268,253 -->
+    <g>
+      <!-- Outer Navy Ring -->
+      <circle cx="268.0" cy="253.0" r="38.0" fill="#162f56" stroke="#121b24" stroke-width="4.5"/>
+      <!-- Concentric White Gap -->
+      <circle cx="268.0" cy="253.0" r="29.6" fill="#ffffff"/>
+      <!-- Inner Ring -->
+      <circle cx="268.0" cy="253.0" r="16.7" fill="#162f56"/>
+      <!-- Center Pip -->
+      <circle cx="268.0" cy="253.0" r="9.5" fill="#c92424" stroke="#121b24" stroke-width="2.5"/>
+      <!-- Pinpoint white sparkle -->
+      <circle cx="268.0" cy="253.0" r="3.0" fill="#ffffff"/>
     </g>
-    <g transform="rotate(-5 76 328)">
-      <circle cx="76" cy="328" r="29" fill="#1676a8" stroke="#163f4a" stroke-width="8"/>
-      <circle cx="76" cy="328" r="12" fill="none" stroke="#fff7df" stroke-width="7" opacity="0.9"/>
+    <!-- Target Wheel 100,371 -->
+    <g>
+      <!-- Outer Navy Ring -->
+      <circle cx="100.0" cy="371.0" r="38.0" fill="#162f56" stroke="#121b24" stroke-width="4.5"/>
+      <!-- Concentric White Gap -->
+      <circle cx="100.0" cy="371.0" r="29.6" fill="#ffffff"/>
+      <!-- Inner Ring -->
+      <circle cx="100.0" cy="371.0" r="16.7" fill="#162f56"/>
+      <!-- Center Pip -->
+      <circle cx="100.0" cy="371.0" r="9.5" fill="#c92424" stroke="#121b24" stroke-width="2.5"/>
+      <!-- Pinpoint white sparkle -->
+      <circle cx="100.0" cy="371.0" r="3.0" fill="#ffffff"/>
     </g>
-    <g transform="rotate(5 164 328)">
-      <circle cx="164" cy="328" r="29" fill="#e9ae32" stroke="#163f4a" stroke-width="8"/>
-      <circle cx="164" cy="328" r="12" fill="none" stroke="#fff7df" stroke-width="7" opacity="0.9"/>
+    <!-- Target Wheel 184,371 -->
+    <g>
+      <!-- Outer Navy Ring -->
+      <circle cx="184.0" cy="371.0" r="38.0" fill="#162f56" stroke="#121b24" stroke-width="4.5"/>
+      <!-- Concentric White Gap -->
+      <circle cx="184.0" cy="371.0" r="29.6" fill="#ffffff"/>
+      <!-- Inner Ring -->
+      <circle cx="184.0" cy="371.0" r="16.7" fill="#162f56"/>
+      <!-- Center Pip -->
+      <circle cx="184.0" cy="371.0" r="9.5" fill="#c92424" stroke="#121b24" stroke-width="2.5"/>
+      <!-- Pinpoint white sparkle -->
+      <circle cx="184.0" cy="371.0" r="3.0" fill="#ffffff"/>
     </g>
-    <g transform="rotate(-5 252 328)">
-      <circle cx="252" cy="328" r="29" fill="#dc3855" stroke="#163f4a" stroke-width="8"/>
-      <circle cx="252" cy="328" r="12" fill="none" stroke="#fff7df" stroke-width="7" opacity="0.9"/>
+    <!-- Target Wheel 268,371 -->
+    <g>
+      <!-- Outer Navy Ring -->
+      <circle cx="268.0" cy="371.0" r="38.0" fill="#162f56" stroke="#121b24" stroke-width="4.5"/>
+      <!-- Concentric White Gap -->
+      <circle cx="268.0" cy="371.0" r="29.6" fill="#ffffff"/>
+      <!-- Inner Ring -->
+      <circle cx="268.0" cy="371.0" r="16.7" fill="#162f56"/>
+      <!-- Center Pip -->
+      <circle cx="268.0" cy="371.0" r="9.5" fill="#c92424" stroke="#121b24" stroke-width="2.5"/>
+      <!-- Pinpoint white sparkle -->
+      <circle cx="268.0" cy="371.0" r="3.0" fill="#ffffff"/>
     </g>
-    <path d="M36 34 L72 26 M270 366 L298 354 M36 362 L58 350" stroke="#dc3855" stroke-width="9" opacity="0.7"/>
   </g>
 </svg>
