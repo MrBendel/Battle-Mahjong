@@ -293,9 +293,27 @@ func _build_shell() -> void:
 	_update_checker = UpdateCheckerScript.new()
 	_update_checker.name = "UpdateChecker"
 	_update_checker.update_available.connect(_on_update_available)
+	_update_checker.check_status_reported.connect(_on_check_status_reported)
 	add_child(_update_checker)
 	if get_parent() == null or not get_parent().has_node("GlobalUpdateBanner"):
 		_update_checker.call("check_for_updates")
+
+
+func _on_check_status_reported(status: Dictionary) -> void:
+	if get_parent() != null and get_parent().has_node("GlobalUpdateBanner"):
+		return
+	if _update_banner == null:
+		return
+	if bool(status.get("is_update_available", false)):
+		var vname: String = str(status.get("remote_name", ""))
+		var url: String = str(status.get("store_url", ""))
+		var mandatory: bool = bool(status.get("mandatory", false))
+		var msg: String = str(status.get("status_message", ""))
+		_update_banner.call("show_update", vname, url, mandatory, msg)
+	else:
+		var msg: String = str(status.get("status_message", ""))
+		_update_banner.call("show_status_toast", msg, 4.5)
+	_apply_layout()
 
 
 func _on_update_available(version_name: String, store_url: String, mandatory: bool) -> void:

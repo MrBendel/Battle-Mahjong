@@ -35,22 +35,40 @@ func _test_app_root_update_flow() -> void:
 	_check(banner != null, "AppRoot creates GlobalUpdateBanner on startup")
 	_check(not banner.visible, "Update banner is initially hidden")
 
-	# Simulate update available signal
-	checker.call("mock_trigger_update_available", "0.9.5-test", "https://example.com/store", false)
+	# Simulate status toast (up to date)
+	checker.call("mock_trigger_check_status", checker.call("get_current_version_code"), "0.1.27", false)
+	await process_frame
+
+	_check(banner.visible, "Banner shows status toast on up-to-date check")
+	var msg_label: Label = banner.get("_message_label") as Label
+	_check(msg_label != null and "Up to date" in msg_label.text, "Toast includes up-to-date status message")
+	var update_btn: Button = banner.get("_update_button") as Button
+	_check(update_btn != null and not update_btn.visible, "Update button hidden for status toast")
+
+	# Dismiss toast
+	var dismiss_btn: Button = banner.get("_dismiss_button") as Button
+	if dismiss_btn != null:
+		dismiss_btn.emit_signal("pressed")
+		await process_frame
+		_check(not banner.visible, "Dismiss button hides status toast")
+
+	# Simulate update available via check_status_reported
+	checker.call("mock_trigger_check_status", checker.call("get_current_version_code") + 100, "0.9.5-test", true)
 	await process_frame
 
 	_check(banner.visible, "Update banner becomes visible on update_available signal")
+	_check(update_btn != null and update_btn.visible, "Update button is visible for update available banner")
 	_check(banner.size.x > 100.0, "Update banner has valid width")
 	_check(banner.position.y >= 0.0, "Update banner sits at top safe area")
 
 	# Dismiss banner
-	var dismiss_button: Button = banner.get("_dismiss_button") as Button
-	if dismiss_button != null:
-		dismiss_button.emit_signal("pressed")
+	if dismiss_btn != null:
+		dismiss_btn.emit_signal("pressed")
 		await process_frame
 		_check(not banner.visible, "Dismiss button hides update banner")
 
 	app.queue_free()
+
 
 
 func _check(condition: bool, message: String) -> void:
