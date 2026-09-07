@@ -8,8 +8,14 @@ const POSTER_SCRIPT_PINK_SHADOW_COLOR := Color("eb576f")
 const POSTER_SCRIPT_DARK_SHADOW_COLOR := Color("040d0a")
 const POSTER_SCRIPT_SHADOW_COLOR := POSTER_SCRIPT_PINK_SHADOW_COLOR
 
-const PORTRAIT_REFERENCE_SIZE := Vector2(322.0, 81.0)
-const PORTRAIT_FRAME_RECT := Rect2(118.0, 30.0, 173.3, 25.3)
+const PORTRAIT_REFERENCE_SIZE := Vector2(613.0, 155.0)
+const PORTRAIT_HEARTS_RECT := Rect2(20.0, 16.0, 198.0, 61.0)
+const PORTRAIT_SCORE_RECT := Rect2(225.0, 16.0, 230.0, 61.0)
+const PORTRAIT_STREAK_RECT := Rect2(462.0, 16.0, 138.0, 61.0)
+const PORTRAIT_MOMENTUM_RECT := Rect2(20.0, 84.0, 435.0, 61.0)
+const PORTRAIT_MULTIPLIER_RECT := Rect2(462.0, 84.0, 138.0, 61.0)
+const PORTRAIT_FRAME_RECT := Rect2(134.0, 88.0, 312.0, 46.0)
+const PORTRAIT_FILL_RECT := Rect2(142.5, 93.3, 293.3, 33.8)
 
 var _game: Variant
 var _gameplay_theme: Resource
@@ -289,33 +295,34 @@ func _layout() -> void:
 		_layout_legacy()
 		return
 	var scale := PresentationScaleScript.limiting_scale(size, PORTRAIT_REFERENCE_SIZE)
-	var score_origin := Vector2(0.0, (size.y - PORTRAIT_REFERENCE_SIZE.y * scale) * 0.5)
-	var frame_center_x := PORTRAIT_FRAME_RECT.get_center().x * scale
-	var momentum_origin := score_origin + Vector2(size.x * 0.5 - frame_center_x, 0.0)
-	_place_scaled(_status_backing, Rect2(2.0, 5.0, 316.0, 72.0), score_origin, scale)
+	var origin := Vector2(
+		(size.x - PORTRAIT_REFERENCE_SIZE.x * scale) * 0.5,
+		(size.y - PORTRAIT_REFERENCE_SIZE.y * scale) * 0.5
+	)
+	_place_scaled(_status_backing, Rect2(Vector2.ZERO, PORTRAIT_REFERENCE_SIZE), origin, scale)
 
-	_place_poster_pair(_score_title, _score_title_shadow, Rect2(14.0, 13.0, 90.0, 12.0), score_origin, scale, 10)
-	_place_poster_pair(_score, _score_shadow, Rect2(14.0, 23.0, 90.0, 22.0), score_origin, scale, 16)
-	_place_poster_pair(_timer, _timer_shadow, Rect2(36.0, 50.5, 72.0, 19.0), score_origin, scale, 11)
+	_place_scaled(_extra_life_icon, Rect2(PORTRAIT_HEARTS_RECT.position + Vector2(14.0, 5.0), Vector2(50.0, 50.0)), origin, scale)
+	_place_scaled(_extra_life_count, Rect2(PORTRAIT_HEARTS_RECT.position + Vector2(71.0, 8.0), Vector2(105.0, 44.0)), origin, scale, 18)
+	_place_poster_pair(_score_title, _score_title_shadow, Rect2(PORTRAIT_SCORE_RECT.position + Vector2(0.0, 1.0), Vector2(230.0, 17.0)), origin, scale, 10)
+	_place_poster_pair(_score, _score_shadow, Rect2(PORTRAIT_SCORE_RECT.position + Vector2(0.0, 13.0), Vector2(230.0, 43.0)), origin, scale, 26)
+	_place_poster_pair(_combo, _combo_shadow, PORTRAIT_STREAK_RECT, origin, scale, 16)
 
-	_place_scaled(_momentum_frame, PORTRAIT_FRAME_RECT, momentum_origin, scale)
-	_fill_clip.size = Vector2(162.9, 18.6) * scale
-	_place_scaled(_fill_clip, Rect2(122.7, 32.9, 162.9, 18.6), momentum_origin, scale)
+	_place_poster_pair(_timer, _timer_shadow, Rect2(PORTRAIT_MOMENTUM_RECT.position + Vector2(7.0, 7.0), Vector2(101.0, 35.0)), origin, scale, 12)
+	_place_scaled(_momentum_frame, PORTRAIT_FRAME_RECT, origin, scale)
+	_fill_clip.size = PORTRAIT_FILL_RECT.size * scale
+	_place_scaled(_fill_clip, PORTRAIT_FILL_RECT, origin, scale)
 	_momentum_fill.position = Vector2.ZERO
-	_momentum_fill.size = Vector2(162.9, 18.6) * scale
-	_place_scaled(_momentum_badge, Rect2(275.9, 25.8, 34.2, 34.2), momentum_origin, scale)
-	_place_scaled(_extra_life_icon, Rect2(99.0, 7.0, 22.0, 22.0), score_origin, scale)
-	_place_scaled(_extra_life_count, Rect2(108.0, 8.0, 16.0, 16.0), score_origin, scale, 10)
+	_momentum_fill.size = PORTRAIT_FILL_RECT.size * scale
+	_place_scaled(_momentum_badge, Rect2(PORTRAIT_MULTIPLIER_RECT.position + Vector2(42.0, 4.0), Vector2(54.0, 54.0)), origin, scale)
+	_place_poster_pair(_multiplier, _multiplier_shadow, PORTRAIT_MULTIPLIER_RECT, origin, scale, 22)
 
-	_place_poster_pair(_multiplier, _multiplier_shadow, Rect2(275.0, 24.5, 34.2, 34.2), momentum_origin, scale, 16)
-	_place_poster_pair(_combo, _combo_shadow, Rect2(135.0, 6.0, 140.0, 20.0), momentum_origin, scale, 12)
-
-	_place_scaled(_effect_status, Rect2(125.0, 34.0, 147.0, 15.0), momentum_origin, scale, 8)
+	_place_scaled(_effect_status, Rect2(142.0, 95.0, 294.0, 26.0), origin, scale, 9)
 	for control in [_momentum_frame, _momentum_badge, _extra_life_icon, _multiplier, _multiplier_shadow]:
 		control.pivot_offset = control.size * 0.5
 	for index in range(_ticks.size()):
-		var tick_center_x := 122.7 + 162.9 * float(index + 1) / 8.0
-		_place_scaled(_ticks[index], Rect2(tick_center_x - 10.0, 55.0, 20.0, 14.0), momentum_origin, scale, 8)
+		var tick_center_x := PORTRAIT_FILL_RECT.position.x \
+			+ PORTRAIT_FILL_RECT.size.x * float(index + 1) / 8.0
+		_place_scaled(_ticks[index], Rect2(tick_center_x - 14.0, 128.0, 28.0, 16.0), origin, scale, 8)
 	refresh(_game.elapsed_time_ms)
 
 

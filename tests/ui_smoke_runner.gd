@@ -1196,10 +1196,21 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 				expected_status_rect,
 			]
 		)
-		_check(
-			is_equal_approx(momentum.get("_momentum_frame").get_global_rect().get_center().x, expected_status_rect.get_center().x),
-			"portrait Momentum frame stays centered in its approved HUD region"
+		var scorebox_scale := minf(momentum.size.x / 613.0, momentum.size.y / 155.0)
+		var scorebox_origin := momentum.position + Vector2(
+			(momentum.size.x - 613.0 * scorebox_scale) * 0.5,
+			(momentum.size.y - 155.0 * scorebox_scale) * 0.5
 		)
+		var expected_hearts := Rect2(scorebox_origin + Vector2(20.0, 16.0) * scorebox_scale, Vector2(198.0, 61.0) * scorebox_scale)
+		var expected_score := Rect2(scorebox_origin + Vector2(225.0, 16.0) * scorebox_scale, Vector2(230.0, 61.0) * scorebox_scale)
+		var expected_streak := Rect2(scorebox_origin + Vector2(462.0, 16.0) * scorebox_scale, Vector2(138.0, 61.0) * scorebox_scale)
+		var expected_momentum := Rect2(scorebox_origin + Vector2(20.0, 84.0) * scorebox_scale, Vector2(435.0, 61.0) * scorebox_scale)
+		var expected_multiplier := Rect2(scorebox_origin + Vector2(462.0, 84.0) * scorebox_scale, Vector2(138.0, 61.0) * scorebox_scale)
+		_check(expected_hearts.encloses(momentum.get("_extra_life_icon").get_global_rect()), "portrait hearts stay in the upper-left scorebox cell")
+		_check(expected_score.encloses(momentum.get("_score").get_global_rect()), "portrait score stays in the upper-center scorebox cell")
+		_check(expected_streak.encloses(momentum.get("_combo").get_global_rect()), "portrait streak stays in the upper-right scorebox cell")
+		_check(expected_momentum.encloses(momentum.get("_momentum_frame").get_global_rect()), "portrait Momentum stays in the broad lower scorebox cell")
+		_check(expected_multiplier.encloses(momentum.get("_multiplier").get_global_rect()), "portrait multiplier stays in the lower-right scorebox cell")
 		_check(is_equal_approx(pause_button.size.x, pause_button.size.y), "portrait pause artwork preserves a square control")
 		var expected_pause_region: Rect2 = shell.call(
 			"_portrait_proportion_rect",
