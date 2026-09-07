@@ -16,6 +16,10 @@ const PORTRAIT_MOMENTUM_RECT := Rect2(20.0, 84.0, 435.0, 61.0)
 const PORTRAIT_MULTIPLIER_RECT := Rect2(462.0, 84.0, 138.0, 61.0)
 const PORTRAIT_FRAME_RECT := Rect2(31.0, 91.0, 414.0, 46.0)
 const PORTRAIT_FILL_RECT := Rect2(42.0, 99.0, 392.0, 26.0)
+const PORTRAIT_SCORE_OPTICAL_OFFSET := Vector2(4.0, -1.0)
+const PORTRAIT_STREAK_TITLE_OPTICAL_OFFSET := Vector2(7.0, 1.0)
+const PORTRAIT_STREAK_VALUE_OPTICAL_OFFSET := Vector2(2.0, -1.0)
+const PORTRAIT_MULTIPLIER_OPTICAL_OFFSET := Vector2(2.0, -1.0)
 
 var _game: Variant
 var _gameplay_theme: Resource
@@ -328,12 +332,18 @@ func _layout() -> void:
 			scale
 		)
 	_place_scaled(_extra_life_count, Rect2(PORTRAIT_HEARTS_RECT.position + Vector2(154.0, 17.0), Vector2(38.0, 28.0)), origin, scale, 34)
-	_place_poster_pair(_score, _score_shadow, PORTRAIT_SCORE_RECT, origin, scale, 100)
-	_place_scaled(_streak_title, Rect2(PORTRAIT_STREAK_RECT.position, Vector2(138.0, 24.0)), origin, scale, 48)
+	_place_poster_pair(_score, _score_shadow, Rect2(PORTRAIT_SCORE_RECT.position + PORTRAIT_SCORE_OPTICAL_OFFSET, PORTRAIT_SCORE_RECT.size), origin, scale, 100)
+	_place_scaled(
+		_streak_title,
+		Rect2(PORTRAIT_STREAK_RECT.position + PORTRAIT_STREAK_TITLE_OPTICAL_OFFSET, Vector2(124.0, 24.0)),
+		origin,
+		scale,
+		48
+	)
 	_place_plain_pair(
 		_combo,
 		_combo_shadow,
-		Rect2(PORTRAIT_STREAK_RECT.position + Vector2(0.0, 21.0), Vector2(138.0, 40.0)),
+		Rect2(PORTRAIT_STREAK_RECT.position + Vector2(0.0, 21.0) + PORTRAIT_STREAK_VALUE_OPTICAL_OFFSET, Vector2(134.0, 40.0)),
 		origin,
 		scale,
 		78
@@ -348,7 +358,7 @@ func _layout() -> void:
 	_place_plain_pair(
 		_multiplier,
 		_multiplier_shadow,
-		Rect2(PORTRAIT_MULTIPLIER_RECT.position + Vector2(49.0, 0.0), Vector2(89.0, 61.0)),
+		Rect2(PORTRAIT_MULTIPLIER_RECT.position + Vector2(49.0, 0.0) + PORTRAIT_MULTIPLIER_OPTICAL_OFFSET, Vector2(85.0, 61.0)),
 		origin,
 		scale,
 		90

@@ -1,11 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="392" height="26" viewBox="0 0 392 26">
-  <path d="M5 1h42l-4 24H5c-3 0-4-3-4-6V7c0-3 1-6 4-6Z" fill="#22c77c"/>
-  <path d="M51 1h44l-4 24H47Z" fill="#8edb4d"/>
-  <path d="M99 1h44l-4 24H95Z" fill="#e5df45"/>
-  <path d="M147 1h44l-4 24H143Z" fill="#ffc64b"/>
-  <path d="M195 1h44l-4 24H191Z" fill="#ff9146"/>
-  <path d="M243 1h44l-4 24H239Z" fill="#f45d4d"/>
-  <path d="M291 1h44l-4 24H287Z" fill="#ed3564"/>
-  <path d="M339 1h43c5 0 8 4 8 9v6c0 5-3 9-8 9h-47Z" fill="#b82d70"/>
-  <path d="M8 3h369" stroke="#fff8d5" stroke-width="2" opacity=".22"/>
+  <defs><clipPath id="fill-clip"><rect x="1" y="1" width="390" height="24" rx="5"/></clipPath></defs>
+  <g clip-path="url(#fill-clip)">
+    <path d="M1 1h46l-4 24H1Z" fill="#22c77c"/>
+    <path d="M51 1h44l-4 24H47Z" fill="#8edb4d"/>
+    <path d="M99 1h44l-4 24H95Z" fill="#e5df45"/>
+    <path d="M147 1h44l-4 24H143Z" fill="#ffc64b"/>
+    <path d="M195 1h44l-4 24H191Z" fill="#ff9146"/>
+    <path d="M243 1h44l-4 24H239Z" fill="#f45d4d"/>
+    <path d="M291 1h44l-4 24H287Z" fill="#ed3564"/>
+    <path d="M339 1h52v24h-56Z" fill="#b82d70"/>
+    <path d="M8 3h369" stroke="#fff8d5" stroke-width="2" opacity=".22"/>
+  </g>
 </svg>
