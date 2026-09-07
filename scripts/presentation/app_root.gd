@@ -11,6 +11,8 @@ const UpdateCheckerScript := preload("res://scripts/presentation/update_checker.
 const UpdateBannerViewScript := preload("res://scripts/presentation/update_banner_view.gd")
 const SafeAreaScript := preload("res://scripts/presentation/safe_area.gd")
 
+const PresentationScaleScript := preload("res://scripts/presentation/presentation_scale.gd")
+
 @export var town_theme: Resource
 
 var _active_screen: Control
@@ -51,12 +53,22 @@ func _setup_update_banner() -> void:
 func _layout_update_banner() -> void:
 	if _update_banner == null or not _update_banner.visible:
 		return
-	var edge_insets := SafeAreaScript.insets(size, DisplayServer.get_display_safe_area(), DisplayServer.screen_get_size())
-	var margin := 12.0
-	var banner_height := 44.0
-	var available_width := maxf(100.0, size.x - edge_insets.position.x - edge_insets.size.x - margin * 2.0)
-	_update_banner.position = Vector2(edge_insets.position.x + margin, edge_insets.position.y + 6.0)
-	_update_banner.size = Vector2(available_width, banner_height)
+	var insets := SafeAreaScript.insets(size, DisplayServer.get_display_safe_area(), DisplayServer.screen_get_size())
+	var safe_rect := SafeAreaScript.content_rect(size, insets)
+	var ui_scale := PresentationScaleScript.limiting_scale(size, Vector2(390.0, 844.0), 0.85, 1.6)
+
+	var margin := roundf(12.0 * ui_scale)
+	var banner_height := roundf(clampf(46.0 * ui_scale, 42.0, 60.0))
+	var max_banner_width := roundf(clampf(520.0 * ui_scale, 280.0, 640.0))
+	var available_width := maxf(120.0, safe_rect.size.x - margin * 2.0)
+	var banner_width := minf(available_width, max_banner_width)
+	var banner_x := safe_rect.position.x + (safe_rect.size.x - banner_width) * 0.5
+	var banner_y := safe_rect.position.y + roundf(6.0 * ui_scale)
+
+	_update_banner.position = Vector2(banner_x, banner_y)
+	_update_banner.size = Vector2(banner_width, banner_height)
+	if _update_banner.has_method("apply_scale"):
+		_update_banner.call("apply_scale", ui_scale)
 
 
 func _on_check_status_reported(status: Dictionary) -> void:
@@ -66,12 +78,8 @@ func _on_check_status_reported(status: Dictionary) -> void:
 		var vname: String = str(status.get("remote_name", ""))
 		var url: String = str(status.get("store_url", ""))
 		var mandatory: bool = bool(status.get("mandatory", false))
-		var msg: String = str(status.get("status_message", ""))
-		_update_banner.call("show_update", vname, url, mandatory, msg)
-	else:
-		var msg: String = str(status.get("status_message", ""))
-		_update_banner.call("show_status_toast", msg, 4.5)
-	_layout_update_banner()
+		_update_banner.call("show_update", vname, url, mandatory)
+		_layout_update_banner()
 
 
 func _on_update_available(version_name: String, store_url: String, mandatory: bool) -> void:
@@ -79,6 +87,7 @@ func _on_update_available(version_name: String, store_url: String, mandatory: bo
 		return
 	_update_banner.call("show_update", version_name, store_url, mandatory)
 	_layout_update_banner()
+
 
 
 

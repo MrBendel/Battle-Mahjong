@@ -311,12 +311,8 @@ func _on_check_status_reported(status: Dictionary) -> void:
 		var vname: String = str(status.get("remote_name", ""))
 		var url: String = str(status.get("store_url", ""))
 		var mandatory: bool = bool(status.get("mandatory", false))
-		var msg: String = str(status.get("status_message", ""))
-		_update_banner.call("show_update", vname, url, mandatory, msg)
-	else:
-		var msg: String = str(status.get("status_message", ""))
-		_update_banner.call("show_status_toast", msg, 4.5)
-	_apply_layout()
+		_update_banner.call("show_update", vname, url, mandatory)
+		_apply_layout()
 
 
 func _on_update_available(version_name: String, store_url: String, mandatory: bool) -> void:
@@ -324,6 +320,27 @@ func _on_update_available(version_name: String, store_url: String, mandatory: bo
 		return
 	_update_banner.call("show_update", version_name, store_url, mandatory)
 	_apply_layout()
+
+
+func _layout_update_banner(viewport_size: Vector2) -> void:
+	if _update_banner == null or not _update_banner.visible:
+		return
+	var insets := _get_safe_area_insets()
+	var safe_rect := SafeAreaScript.content_rect(viewport_size, insets)
+	var ui_scale := PresentationScaleScript.limiting_scale(viewport_size, Vector2(390.0, 844.0), 0.85, 1.6)
+	var margin := roundf(12.0 * ui_scale)
+	var banner_height := roundf(clampf(46.0 * ui_scale, 42.0, 60.0))
+	var max_banner_width := roundf(clampf(520.0 * ui_scale, 280.0, 640.0))
+	var available_width := maxf(120.0, safe_rect.size.x - margin * 2.0)
+	var banner_width := minf(available_width, max_banner_width)
+	var banner_x := safe_rect.position.x + (safe_rect.size.x - banner_width) * 0.5
+	var banner_y := safe_rect.position.y + roundf(6.0 * ui_scale)
+
+	_update_banner.position = Vector2(banner_x, banner_y)
+	_update_banner.size = Vector2(banner_width, banner_height)
+	if _update_banner.has_method("apply_scale"):
+		_update_banner.call("apply_scale", ui_scale)
+
 
 
 func _on_update_requested() -> void:
@@ -1851,6 +1868,9 @@ func _apply_layout() -> void:
 		str(_game.definition.configuration.get("layout_id", "unknown"))
 	)
 	_write_android_layout_probe(orientation, viewport_size)
+	if _update_banner != null and _update_banner.visible:
+		_layout_update_banner(viewport_size)
+
 
 
 func _reflow_for_tray_clearance(

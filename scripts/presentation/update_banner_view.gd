@@ -74,6 +74,35 @@ func _build_ui() -> void:
 	hbox.add_child(_dismiss_button)
 
 
+func apply_scale(ui_scale: float) -> void:
+	var font_size := roundi(clampf(14.0 * ui_scale, 12.0, 18.0))
+	var btn_font_size := roundi(clampf(13.0 * ui_scale, 11.0, 16.0))
+	_message_label.add_theme_font_size_override("font_size", font_size)
+	_update_button.add_theme_font_size_override("font_size", btn_font_size)
+	_dismiss_button.add_theme_font_size_override("font_size", btn_font_size)
+
+	var pad_h := roundi(clampf(14.0 * ui_scale, 10.0, 24.0))
+	var pad_v := roundi(clampf(8.0 * ui_scale, 6.0, 14.0))
+	var corner := roundi(clampf(8.0 * ui_scale, 6.0, 14.0))
+
+	var style: StyleBoxFlat = get_theme_stylebox("panel") as StyleBoxFlat
+	if style != null:
+		style.set_corner_radius_all(corner)
+		style.content_margin_left = pad_h
+		style.content_margin_right = pad_h
+		style.content_margin_top = pad_v
+		style.content_margin_bottom = pad_v
+
+	var btn_pad_h := roundi(clampf(12.0 * ui_scale, 8.0, 20.0))
+	var btn_pad_v := roundi(clampf(4.0 * ui_scale, 3.0, 10.0))
+	var btn_style: StyleBoxFlat = _update_button.get_theme_stylebox("normal") as StyleBoxFlat
+	if btn_style != null:
+		btn_style.content_margin_left = btn_pad_h
+		btn_style.content_margin_right = btn_pad_h
+		btn_style.content_margin_top = btn_pad_v
+		btn_style.content_margin_bottom = btn_pad_v
+
+
 func show_update(version_name: String, store_url: String, mandatory: bool = false, custom_message: String = "") -> void:
 	_kill_fade_tween()
 	modulate.a = 1.0
@@ -84,7 +113,10 @@ func show_update(version_name: String, store_url: String, mandatory: bool = fals
 	elif version_name.is_empty():
 		_message_label.text = "🚀 New version available!"
 	else:
-		_message_label.text = "🚀 Update available: %s" % version_name
+		var display_vname := version_name
+		if display_vname.contains("-internal."):
+			display_vname = display_vname.split("-internal.")[0]
+		_message_label.text = "🚀 Update available: v%s" % display_vname
 
 	_update_button.visible = true
 	if mandatory:
@@ -92,6 +124,7 @@ func show_update(version_name: String, store_url: String, mandatory: bool = fals
 	else:
 		_dismiss_button.visible = true
 	visible = true
+
 
 
 func show_status_toast(message: String, duration_sec: float = 4.5) -> void:
