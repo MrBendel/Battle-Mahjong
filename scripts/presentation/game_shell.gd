@@ -59,14 +59,17 @@ const PAIR_MATCH_FX_POOL_SIZE := 6
 ## Temporary prototype grant. Future modes snapshot the player's earned hearts here.
 @export_range(0, 99, 1) var starting_hearts := 3
 ## Uniform tray-tile scale relative to the current rendered Board tile footprint.
-@export_range(0.60, 1.00, 0.01) var tray_tile_scale := 0.80
+@export_range(0.50, 1.00, 0.01) var tray_tile_scale := 0.70
+## Keeps the Board as the hero without allowing it to consume the entire felt surface.
+@export_range(0.55, 1.00, 0.01) var portrait_board_content_scale := 0.80
+@export_range(0.55, 1.00, 0.01) var landscape_board_content_scale := 0.80
 ## Travel time for Board-to-Tray, flipped staging, and Undo return presentation.
 @export_range(0.12, 0.40, 0.01) var tile_transfer_seconds := 0.24
 ## Full back-to-front or front-to-back Board flip duration.
 @export_range(0.20, 0.80, 0.01) var tile_flip_seconds := 0.25
 ## Face-up hold before an auto-matching flipped tile starts moving to the tray.
 @export_range(0.08, 0.50, 0.01) var flipped_auto_match_hold_seconds := 0.14
-## Leftward queue-compaction travel after a held pair resolves.
+## Queue-compaction travel toward the next horizontal or vertical slot.
 @export_range(0.08, 0.30, 0.01) var tray_compaction_seconds := 0.16
 ## Travel time for tiles to settle into their shuffled positions.
 @export_range(0.08, 0.30, 0.01) var shuffle_move_seconds := 0.24
@@ -1785,10 +1788,14 @@ func _apply_layout() -> void:
 	var portrait := orientation == "Portrait"
 	_gameplay_background_wash.visible = false
 	_portrait_hud_scrim.visible = portrait
-	_regions.momentum.call("set_portrait_style", portrait)
-	_regions.tray.call("set_portrait_style", portrait)
-	_regions.consumables.call("set_horizontal_dock", portrait)
-	_regions.board.call("set_compact_mode", portrait)
+	_regions.momentum.call("set_portrait_style", true)
+	_regions.tray.call("set_layout_mode", true, not portrait)
+	_regions.consumables.call("set_dock_layout", not portrait)
+	_regions.board.call("set_compact_mode", true)
+	_regions.board.call(
+		"set_content_scale",
+		portrait_board_content_scale if portrait else landscape_board_content_scale
+	)
 
 	for region in _regions.values():
 		region.visible = true
@@ -1835,6 +1842,8 @@ func _reflow_for_tray_clearance(
 ) -> void:
 	var tray: Control = _regions.tray
 	var board: Control = _regions.board
+	if orientation == "Landscape":
+		return
 	if required_width > tray.size.x:
 		var expanded_width := minf(required_width, board.size.x)
 		tray.position.x = board.position.x + (board.size.x - expanded_width) * 0.5
@@ -1933,26 +1942,31 @@ func _apply_landscape_layout(size: Vector2) -> void:
 	var top_start := safe_rect.position.y + banner_offset
 	var bottom_limit := safe_rect.end.y
 	var usable_height := bottom_limit - top_start
-	var rail_width := clampf(safe_rect.size.x * 0.18, 120.0, 240.0)
-	var top_height := clampf(usable_height * 0.15, 76.0, 104.0)
-	var board_left := safe_rect.position.x + rail_width + gap
-	var board_width := safe_rect.size.x - (rail_width + gap) * 2.0
-	var board_top := top_start + top_height + gap
-	var tray_width := minf(board_width, 430.0)
+	var left_width := clampf(safe_rect.size.x * 0.27, 260.0, 520.0)
+	var tray_width := clampf(safe_rect.size.x * 0.12, 120.0, 190.0)
+	var status_height := clampf(usable_height * 0.24, 118.0, 176.0)
+	var controls_width := clampf(safe_rect.size.x * 0.065, 86.0, 118.0)
+	var controls_height := minf(usable_height * 0.56, 390.0)
+	var board_left := safe_rect.position.x + left_width + gap
+	var board_right := safe_rect.end.x - tray_width - gap
+	var board_rect := Rect2(
+		Vector2(board_left, top_start),
+		Vector2(maxf(1.0, board_right - board_left), usable_height)
+	)
 
-	_place(_regions.momentum, Rect2(safe_rect.position.x, top_start, rail_width, top_height))
-	_place(_regions.tray, Rect2(board_left + (board_width - tray_width) * 0.5, top_start, tray_width, top_height))
-	_place(_regions.board, Rect2(board_left, board_top, board_width, bottom_limit - board_top))
-	_place(_regions.consumables, safe_rect)
-	var action_gap := 8.0
-	var action_height := clampf((usable_height - top_height - gap - action_gap) * 0.18, 54.0, 72.0)
-	var action_bottom := safe_rect.size.y
-	_regions.consumables.call("set_action_rects", {
-		"hint": Rect2(0.0, action_bottom - action_height * 2.0 - action_gap, rail_width, action_height),
-		"delete_pair": Rect2(0.0, action_bottom - action_height, rail_width, action_height),
-		"shuffle": Rect2(safe_rect.size.x - rail_width, action_bottom - action_height * 2.0 - action_gap, rail_width, action_height),
-		"undo": Rect2(safe_rect.size.x - rail_width, action_bottom - action_height, rail_width, action_height),
-	})
+	_place(_regions.momentum, Rect2(safe_rect.position.x, top_start, left_width, status_height))
+	_place(_regions.consumables, Rect2(
+		safe_rect.position.x,
+		bottom_limit - controls_height,
+		controls_width,
+		controls_height
+	))
+	_place(_regions.board, board_rect)
+	_place(_regions.tray, Rect2(
+		Vector2(board_right + gap, top_start + gap * 2.0),
+		Vector2(tray_width, maxf(1.0, usable_height - gap * 4.0))
+	))
+	_regions.consumables.call("clear_action_rects")
 	_regions.character.visible = false
 
 
@@ -1979,11 +1993,11 @@ func _apply_figma_portrait_layout(size: Vector2, compact: bool) -> void:
 	var top_start := content.position.y + banner_offset
 	var momentum_height := 81.0 * scale
 	var tray_height := 118.564 * scale
-	var consumables_height := 149.2696 * scale
+	var consumables_height := 100.0 * scale
 	var tray_top := top_start + momentum_height
 	var board_top := tray_top + tray_height
 	var consumables_top := content.end.y - consumables_height
-	var board_bottom := consumables_top + (PORTRAIT_BOTTOM_DOCK_OFFSET + PORTRAIT_BOARD_INTO_DOCK_PADDING) * scale
+	var board_bottom := consumables_top - 2.0 * scale
 	var board_height := maxf(1.0, board_bottom - board_top)
 	_place(_regions.momentum, Rect2(content.position.x, top_start, content.size.x, momentum_height))
 	_place(_regions.tray, Rect2(content.position.x + margin, tray_top, usable_width, tray_height))

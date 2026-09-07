@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="25" height="115" viewBox="0 0 25 115">
+  <defs>
+    <linearGradient id="ceramic" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff0cf"/>
+      <stop offset="0.72" stop-color="#e8c99a"/>
+      <stop offset="1" stop-color="#b98a58"/>
+    </linearGradient>
+  </defs>
+  <path d="M25 5H17C8 5 3 12 3 22v68c0 13 7 20 22 20z" fill="#33251b" opacity=".38"/>
+  <path d="M25 1H17C7 1 1 9 1 21v67c0 14 8 22 24 22z" fill="url(#ceramic)" stroke="#2b211b" stroke-width="2"/>
+  <path d="M25 8h-7C11 8 8 13 8 22v62c0 11 5 17 17 17" fill="none" stroke="#fff8df" stroke-width="3" opacity=".75"/>
+</svg>

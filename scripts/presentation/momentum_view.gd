@@ -23,6 +23,7 @@ var _score_shadow: Label
 var _combo: Label
 var _combo_shadow: Label
 var _meter: ProgressBar
+var _status_backing: TextureRect
 var _score_art: TextureRect
 var _score_title: Label
 var _score_title_shadow: Label
@@ -153,6 +154,8 @@ func _build() -> void:
 	_legacy_background.add_theme_stylebox_override("panel", style)
 	add_child(_legacy_background)
 
+	_status_backing = _art(_load_texture(str(_gameplay_theme.status_panel_path)))
+	add_child(_status_backing)
 	_score_art = _art(_load_texture(str(_gameplay_theme.score_box_path)))
 	add_child(_score_art)
 	_momentum_frame = _art(_load_texture(str(_gameplay_theme.momentum_frame_path)))
@@ -260,7 +263,8 @@ func _update_style_visibility() -> void:
 	_legacy_background.visible = not _portrait_style
 	_title.visible = not _portrait_style
 	_meter.visible = not _portrait_style
-	_score_art.visible = _portrait_style
+	_status_backing.visible = _portrait_style
+	_score_art.visible = false
 	_score_title.visible = _portrait_style
 	_score_title_shadow.visible = _portrait_style
 	_timer.visible = _portrait_style
@@ -288,7 +292,7 @@ func _layout() -> void:
 	var score_origin := Vector2(0.0, (size.y - PORTRAIT_REFERENCE_SIZE.y * scale) * 0.5)
 	var frame_center_x := PORTRAIT_FRAME_RECT.get_center().x * scale
 	var momentum_origin := score_origin + Vector2(size.x * 0.5 - frame_center_x, 0.0)
-	_place_scaled(_score_art, Rect2(2.0, 5.0, 115.5, 77.0), score_origin, scale)
+	_place_scaled(_status_backing, Rect2(2.0, 5.0, 316.0, 72.0), score_origin, scale)
 
 	_place_poster_pair(_score_title, _score_title_shadow, Rect2(14.0, 13.0, 90.0, 12.0), score_origin, scale, 10)
 	_place_poster_pair(_score, _score_shadow, Rect2(14.0, 23.0, 90.0, 22.0), score_origin, scale, 16)
