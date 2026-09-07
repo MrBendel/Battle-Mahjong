@@ -149,7 +149,7 @@ Later milestones are recorded here to preserve ordering. Detailed implementation
 - M8 Art Expansion + Cosmetics - additional skins, characters, backgrounds, and visual breadth built on the M7 contracts
 - [M9 Local Profile + Game Library](milestones/M09_LOCAL_PROFILE_GAME_LIBRARY.md) - local profile persistence, durable deterministic game records, resume, history, and idempotent result application. The responsive [Town Hub](TOWN_HUB.md) presentation foundation now provides the application-level entry point; profile repositories remain the next M9 increment.
 - M10 Replays + Ghosts - playback and ghost presentation built on the durable M9 game library
-- M11 Game Modes - begin with endless Tower play, consuming deterministic finite segments from the M4 authoring pipeline
+- M11 Game Modes - in progress: Quick Play launches seeded generated boards, and the first session-only endless Tower loop advances deterministic floors with JSON-tuned vocabulary and shuffle difficulty. Saves, rewards, checkpoints, and broader mode progression remain deferred.
 - M12 Backend + Async Battle
 - M13 Progression + Collection
 

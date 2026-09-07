@@ -2,17 +2,8 @@ extends Control
 class_name ConsumablesView
 
 const PresentationScaleScript := preload("res://scripts/presentation/presentation_scale.gd")
+const GameplayThemeScript := preload("res://scripts/presentation/gameplay_theme.gd")
 const ConsumableButtonScript := preload("res://scripts/presentation/consumable_button.gd")
-const PORTRAIT_BACKGROUND := preload("res://assets/UI/bottom-bar/bottom-tray-background-export.png")
-const PORTRAIT_TILE_CAP := preload("res://assets/UI/bottom-bar/tile-cap.png")
-const PORTRAIT_NUMBER_BACKGROUND := preload("res://assets/UI/bottom-bar/count-bg.png")
-const PORTRAIT_FONT := preload("res://assets/fonts/mila-script-sans-bold-tight.tres")
-const PORTRAIT_ICONS := {
-	"hint": preload("res://assets/UI/bottom-bar/icon-hint.png"),
-	"shuffle": preload("res://assets/UI/bottom-bar/icon-shuffle.png"),
-	"delete_pair": preload("res://assets/UI/bottom-bar/icon-delete.png"),
-	"undo": preload("res://assets/UI/bottom-bar/icon-undo.png"),
-}
 const HORIZONTAL_PATCH_RATIO := 0.30
 const VERTICAL_PATCH_RATIO := 0.50
 const PORTRAIT_REFERENCE_SIZE := Vector2(366.0, 149.2696)
@@ -34,6 +25,7 @@ signal shuffle_requested
 signal undo_requested
 
 var _game: Variant
+var _gameplay_theme: Resource
 var _buttons: Dictionary = {}
 var _portrait_art: Dictionary = {}
 var _notice: Label
@@ -44,8 +36,9 @@ var _action_rects: Dictionary = {}
 var _horizontal_dock := false
 
 
-func _init(game_state: Variant) -> void:
+func _init(game_state: Variant, gameplay_theme: Resource = null) -> void:
 	_game = game_state
+	_gameplay_theme = GameplayThemeScript.new() if gameplay_theme == null else gameplay_theme
 
 
 func _ready() -> void:
@@ -62,11 +55,12 @@ func _ready() -> void:
 	add_child(_background)
 	_portrait_background = NinePatchRect.new()
 	_portrait_background.name = "PortraitBackground"
-	_portrait_background.texture = PORTRAIT_BACKGROUND
-	_portrait_background.set_patch_margin(SIDE_LEFT, roundi(PORTRAIT_BACKGROUND.get_width() * HORIZONTAL_PATCH_RATIO))
-	_portrait_background.set_patch_margin(SIDE_RIGHT, roundi(PORTRAIT_BACKGROUND.get_width() * HORIZONTAL_PATCH_RATIO))
-	_portrait_background.set_patch_margin(SIDE_TOP, roundi(PORTRAIT_BACKGROUND.get_height() * VERTICAL_PATCH_RATIO))
-	_portrait_background.set_patch_margin(SIDE_BOTTOM, roundi(PORTRAIT_BACKGROUND.get_height() * VERTICAL_PATCH_RATIO))
+	_portrait_background.texture = _load_texture(str(_gameplay_theme.consumables_background_path))
+	var background_size := _portrait_background.texture.get_size()
+	_portrait_background.set_patch_margin(SIDE_LEFT, roundi(background_size.x * HORIZONTAL_PATCH_RATIO))
+	_portrait_background.set_patch_margin(SIDE_RIGHT, roundi(background_size.x * HORIZONTAL_PATCH_RATIO))
+	_portrait_background.set_patch_margin(SIDE_TOP, roundi(background_size.y * VERTICAL_PATCH_RATIO))
+	_portrait_background.set_patch_margin(SIDE_BOTTOM, roundi(background_size.y * VERTICAL_PATCH_RATIO))
 	_portrait_background.axis_stretch_horizontal = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
 	_portrait_background.axis_stretch_vertical = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
 	_portrait_background.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -173,21 +167,21 @@ func _create_portrait_art(button: Button, consumable_type: String) -> Dictionary
 	button.add_child(root)
 	var cap := TextureRect.new()
 	cap.name = "TileCap"
-	cap.texture = PORTRAIT_TILE_CAP
+	cap.texture = _load_texture(str(_gameplay_theme.consumable_tile_path))
 	cap.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	cap.stretch_mode = TextureRect.STRETCH_SCALE
 	cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(cap)
 	var icon := TextureRect.new()
 	icon.name = "Icon"
-	icon.texture = PORTRAIT_ICONS[consumable_type]
+	icon.texture = _load_texture(_gameplay_theme.call("consumable_icon_path", consumable_type))
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(icon)
 	var number_background := TextureRect.new()
 	number_background.name = "NumberBackground"
-	number_background.texture = PORTRAIT_NUMBER_BACKGROUND
+	number_background.texture = _load_texture(str(_gameplay_theme.consumable_count_path))
 	number_background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	number_background.stretch_mode = TextureRect.STRETCH_SCALE
 	number_background.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -197,7 +191,7 @@ func _create_portrait_art(button: Button, consumable_type: String) -> Dictionary
 	title.text = PORTRAIT_LABELS[PORTRAIT_ACTION_TYPES.find(consumable_type)]
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title.add_theme_font_override("font", PORTRAIT_FONT)
+	title.add_theme_font_override("font", _load_font(str(_gameplay_theme.bold_font_path)))
 	title.add_theme_font_size_override("font_size", 12)
 	title.add_theme_color_override("font_color", Color("f2dab2"))
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -206,7 +200,7 @@ func _create_portrait_art(button: Button, consumable_type: String) -> Dictionary
 	quantity.name = "Quantity"
 	quantity.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	quantity.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	quantity.add_theme_font_override("font", PORTRAIT_FONT)
+	quantity.add_theme_font_override("font", _load_font(str(_gameplay_theme.bold_font_path)))
 	quantity.add_theme_font_size_override("font_size", 16)
 	quantity.add_theme_color_override("font_color", Color("f2dab2"))
 	quantity.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -275,7 +269,7 @@ func _layout_portrait_background() -> void:
 	var origin := (size - PORTRAIT_REFERENCE_SIZE * component_scale) * 0.5 \
 		+ Vector2(0.0, PORTRAIT_COMPONENT_Y_OFFSET * component_scale)
 	var target_rect := Rect2(origin + PORTRAIT_BACKGROUND_RECT.position * component_scale, PORTRAIT_BACKGROUND_RECT.size * component_scale)
-	var source_size := PORTRAIT_BACKGROUND.get_size()
+	var source_size := _portrait_background.texture.get_size()
 	var art_scale := target_rect.size.y / source_size.y
 	_portrait_background.position = target_rect.position
 	_portrait_background.size = Vector2(target_rect.size.x / art_scale, source_size.y)
@@ -336,3 +330,19 @@ func _set_portrait_art_visible(consumable_type: String, visible: bool) -> void:
 		var button: Button = _buttons[consumable_type]
 		for style_name in ["normal", "hover", "pressed", "disabled", "focus"]:
 			button.remove_theme_stylebox_override(style_name)
+
+
+static func _load_texture(asset_path: String) -> Texture2D:
+	if ResourceLoader.exists(asset_path):
+		return load(asset_path) as Texture2D
+	elif FileAccess.file_exists(asset_path):
+		var image := Image.load_from_file(asset_path)
+		if image != null:
+			return ImageTexture.create_from_image(image)
+	return null
+
+
+static func _load_font(asset_path: String) -> Font:
+	if ResourceLoader.exists(asset_path):
+		return load(asset_path) as Font
+	return null

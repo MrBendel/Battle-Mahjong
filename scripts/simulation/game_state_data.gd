@@ -45,6 +45,8 @@ func _init(definition: Variant = null) -> void:
 
 	rng_state = definition.seed
 	rules_version = definition.rules_version
+	if rules_version >= 19:
+		extra_life_charges = maxi(0, int(definition.configuration.get("starting_extra_life_charges", 0)))
 	for tile in definition.tiles:
 		tile_zones[tile.id] = ZONE_BOARD
 		tile_slot_ids[tile.id] = tile.id

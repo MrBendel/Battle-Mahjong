@@ -20,6 +20,8 @@ Status: Open Question
 - When two matching tiles enter the tray, they form a pair and are removed.
 - Players may temporarily hold unmatched tiles while searching for their mates.
 - If the tray fills with 4 unresolved tiles and the player cannot resolve a pair, the run is lost unless an active effect such as Extra Life prevents failure.
+- A heart is a pre-run Extra Life recovery charge. Filling the tray consumes one heart, returns every unresolved tray tile to its stable board slot, leaves the attempted tile on the board, and keeps the run active.
+- The current playable prototype snapshots three starting hearts into each new game so the recovery loop can be playtested. The simulation default remains zero: the production profile will start with no hearts and add earned hearts to a new game's immutable definition.
 
 The tray is intentionally more permissive than traditional mahjong solitaire and should support temporary unmatched holdings.
 
@@ -38,6 +40,7 @@ Analysis of the reference game established this starting profile:
 - 24 logical tile identities.
 - 4 copies of each identity.
 - 4 tray slots.
+- 3 starting hearts in the playable prototype (temporary playtest tuning).
 - Matching tray tiles resolve immediately.
 - Reaching 4 unresolved tray tiles ends the run.
 

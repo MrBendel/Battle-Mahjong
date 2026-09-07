@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/presentation/game_shell.gd" id="1_game_shell"]
 [ext_resource type="Resource" path="res://configuration/default_momentum_tuning.tres" id="2_momentum"]
 [ext_resource type="Resource" path="res://configuration/default_modifier_tuning.tres" id="3_modifiers"]
 [ext_resource type="Resource" path="res://configuration/default_arcade_callout_tuning.tres" id="4_callouts"]
+[ext_resource type="Resource" path="res://configuration/default_gameplay_theme.tres" id="5_theme"]
 
 [node name="GameShell" type="Control"]
 layout_mode = 3
@@ -16,3 +17,4 @@ script = ExtResource("1_game_shell")
 momentum_tuning = ExtResource("2_momentum")
 modifier_tuning = ExtResource("3_modifiers")
 arcade_callout_tuning = ExtResource("4_callouts")
+gameplay_theme = ExtResource("5_theme")

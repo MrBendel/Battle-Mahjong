@@ -20,7 +20,7 @@ The current 96-tile reference game still uses 24 abstract identities with four c
 
 ## Geometry
 
-The Default skin now provides two orientation-specific ceramic base geometries. Both preserve the same tile identity, stable authored slot, modifier attachment role, and face-art layer; only presentation dimensions and normalized face placement change when the responsive shell changes orientation.
+The Default skin uses one canonical `4:5` ceramic base geometry in portrait and landscape. Both recipes preserve the same tile identity, stable authored slot, modifier attachment role, face-art layer, and physical silhouette. Orientation changes reflow peripheral UI without changing tile shape.
 
 Legacy canonical face geometry:
 
@@ -33,12 +33,12 @@ Legacy canonical face geometry:
 | Runtime atlas padding | `8` |
 | Minimum validated runtime footprint | `32 x 40` |
 
-Orientation base geometry:
+Active base geometry:
 
 | Variant | Source | Runtime | Face safe area | Minimum footprint |
 | --- | --- | --- | --- | --- |
-| Portrait | `1024 x 1536` | `512 x 768` | `x=152, y=190, w=720, h=1050` | `32 x 48` |
-| Landscape | `1536 x 1024` | `768 x 512` | `x=250, y=100, w=1036, h=740` | `48 x 32` |
+| Portrait | `512 x 640` | `256 x 320` | `x=72, y=68, w=368, h=440` | `32 x 40` |
+| Landscape | `512 x 640` | `256 x 320` | `x=72, y=68, w=368, h=440` | `32 x 40` |
 
 Coordinates are recorded in each source tile's pixel space and scaled proportionally at runtime. Changing orientation does not rotate, reorder, transpose, or replace layout slot identifiers and does not affect simulation coverage or matching.
 
@@ -54,15 +54,15 @@ Tile Base
 + FX
 ```
 
-The current Godot proof renders the responsive ceramic base as a texture, places imported face art inside the safe area, and places skin-declared modifier artwork in independent orientation-specific modifier bounds.
+The current Godot proof renders the shared ceramic base as a texture, places imported face art inside the safe area, and places skin-declared modifier artwork in normalized shared bounds.
 
 ### Authored Depth Presentation
 
 The Default skin's `depth_presentation` manifest section controls board-stack lighting and lift. The renderer maps the lowest authored `z` layer to `lowest_layer_brightness`, anchors the layer directly below the top to `near_top_layer_brightness`, and keeps the highest layer at full brightness. Intermediate layers interpolate between those anchors. Every authored layer is offset by `layer_offset_ratio`; the offset is an `[x, y]` fraction of the current rendered tile size per layer, so negative `y` moves higher layers upward and remains responsive across tile geometry and viewport sizes. The renderer also projects an offset copy of the active tile-base silhouette beneath every tile. Tile surfaces and shadow passes occupy alternating presentation bands, so a cast shadow sits below every tile on its own authored layer and above the next layer down. These controls keep physical stack depth readable in both orientations without changing layout geometry or simulation state.
 
-Blocked state is a separate cool translucent silhouette veil applied after the warm depth lighting. Covered tiles retain authored-layer shading and cast shadows, but a tile becomes canonical full brightness as soon as it is selectable or otherwise visually active. This prevents depth from being mistaken for availability. Tray tiles and moving previews remain fully lit because they are no longer being read as part of the board stack. Face-down tiles render the blank ceramic base without a question mark or rectangular placeholder.
+Blocked state is a separate low-opacity warm-neutral silhouette veil applied after the depth lighting. Covered tiles retain authored-layer shading and cast shadows without becoming gray or muddy, but a tile becomes canonical full brightness as soon as it is selectable or otherwise visually active. This prevents depth from being mistaken for availability. Tray tiles and moving previews remain fully lit because they are no longer being read as part of the board stack. Face-down tiles render the blank ceramic base without a question mark or rectangular placeholder.
 
-The skin's `layout_presentation.adjacent_gap_ratio` controls spacing between immediately adjacent authored slots as a fraction of the active tile footprint. Zero makes control bounds touch; a small negative value compensates for transparent padding in base artwork. The Default skin uses `-0.06` so the visible ceramic edges meet in portrait and landscape. This setting is cosmetic and does not change authored positions, overlap rules, selectability, or replay data.
+The skin's `layout_presentation.adjacent_gap_ratio` controls spacing between immediately adjacent authored slots as a fraction of the active tile footprint. Zero makes control bounds touch; a small negative value compensates for transparent padding in base artwork. The Default skin uses `-0.025` so the visible ceramic edges meet in portrait and landscape. This setting is cosmetic and does not change authored positions, overlap rules, selectability, or replay data.
 
 The same section defines a dark warm manga-ink silhouette using `ink_outline_color`, `ink_outline_expansion_ratio`, and `ink_outline_offset_ratio`. Presentation derives the silhouette from the active ceramic base, expands it slightly and asymmetrically, then renders it behind board, tray, and moving-preview tiles. It is not a rectangular control border and follows each orientation's alpha contour.
 
@@ -72,8 +72,8 @@ Editable tile masters live under `art-source/tiles/<skin>/`. Godot runtime tile 
 
 Rules:
 
-- SVG remains the canonical source format for flat face artwork. The first orientation-specific ceramic bases are transparent raster masters derived from the supplied artwork and live under `art-source/tiles/default/bases/`.
-- Runtime tile assets are transparent sRGB PNG files at 50% source scale. The supplied Default tile-back raster master is retained separately and exported into orientation-specific transparent runtime backs.
+- SVG remains the canonical source format for flat face artwork and the shared Default ceramic base. Earlier orientation-specific raster masters remain under `art-source/tiles/default/bases/` as source history but are not selected by the active skin.
+- Runtime tile assets are transparent sRGB PNG files at 50% source scale. Face-down presentation reuses the canonical blank base and composites the selected independent back design.
 - Alpha is straight, not premultiplied.
 - File names are stable logical face IDs such as `bamboo_1.svg` and `red_dragon.svg`.
 - Runtime PNG files are generated outputs and must not be edited directly. The tile exporter downsamples raster base masters alongside SVG face masters.
@@ -102,7 +102,7 @@ Missing face art intentionally falls back to live text during production. A skin
 
 The Default candidate set contains all 34 Bamboo, Dots, Characters, Winds, and Dragons as editable SVG masters and runtime PNG exports. The treatment preserves familiar family and count structure while using heavy rounded strokes, loose registration, bright arcade color, and brush accents.
 
-The board and tray consume the same skin manifest and active orientation variant. Portrait viewports use the tall ceramic base; landscape viewports use the wide ceramic base. Face-down board tiles compose the corresponding blank ceramic back plus the selected cosmetic back design inside an orientation-specific safe area. The Default skin currently selects `arcade_spark` from its `back_designs` catalog. A skin can add or replace catalog entries without duplicating ceramic geometry or changing gameplay identity. Revealed tiles return to the normal base plus face composition. Animation previews capture the same active artwork, and orientation changes remain presentation-only. Blocked tiles are darkened without changing their face asset. A blocked tap produces a short horizontal rejection motion and generated negative tone without submitting a gameplay command. Successful ordinary selections commit immediately, then animate a presentation-only duplicate into the next tray slot. A committed pair converges on the matching tray slot and composes the reusable `PairMatchFx` burst; Delete Pair composes the same removal primitive over its resolved board tiles.
+The board and tray consume the same skin manifest and canonical ceramic master in both orientations. Face-down board tiles compose the same blank ceramic base plus the selected cosmetic back design inside the shared safe area. The Default skin currently selects `arcade_spark` from its `back_designs` catalog. A skin can add or replace catalog entries without duplicating ceramic geometry or changing gameplay identity. Revealed tiles return to the normal base plus face composition. Animation previews capture the same active artwork, and orientation changes remain presentation-only. Covered tiles receive warm depth treatment without changing their face asset. A blocked tap produces a short horizontal rejection motion and generated negative tone without submitting a gameplay command. Successful ordinary selections commit immediately, then animate a presentation-only duplicate into the next tray slot. A committed pair converges on the matching tray slot and composes the reusable `PairMatchFx` burst; Delete Pair composes the same removal primitive over its resolved board tiles.
 
 These are production candidates with replaceable masters, not final approval of every glyph. Gameplay still uses the existing 24 abstract identities through the presentation-only map.
 
@@ -110,7 +110,7 @@ These are production candidates with replaceable masters, not final approval of 
 
 Automated checks cover all 34 required IDs and runtime assets, uniqueness, canonical honor naming, all 24 temporary mappings, geometry values, independent face/modifier layers, board-to-tray motion targeting, blocked-tap isolation, transaction-gated pair feedback, shared Delete Pair removal feedback, responsive background coverage, and board containment in landscape, phone portrait, and `375 x 667` compact portrait.
 
-The compact-phone board currently holds the portrait variant at approximately `32 x 50` after yielding its nonessential Board header. The reference landscape viewport renders the wide variant at approximately `103 x 67`. Continued visual review at each variant's declared minimum remains required for Default refinements and every Neon face before M7 can be considered done.
+The compact-phone board validates the canonical tile at its declared `32 x 40` minimum. Portrait and landscape both retain the same `4:5` physical silhouette while the board scales to its available region. Continued visual review at the declared minimum remains required for Default refinements and every Neon face before M7 can be considered done.
 
 ## Gameplay Background
 

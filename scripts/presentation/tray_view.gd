@@ -2,10 +2,7 @@ extends Control
 class_name TrayView
 
 const TileSkinScript := preload("res://scripts/presentation/tile_skin.gd")
-const QUEUE_REPEAT_PATH := "res://assets/UI/tile-queue/queue-repeat.png"
-const QUEUE_CAP_PATH := "res://assets/UI/tile-queue/queue-cap.png"
-const TRAY_PLUS_ONE_ICON_PATH := "res://game-assets/modifiers/tile-overlays/tray_plus_one.png"
-const MILA_BOLD_PATH := "res://assets/fonts/mila-script-sans-bold-tight.tres"
+const GameplayThemeScript := preload("res://scripts/presentation/gameplay_theme.gd")
 
 const MIN_SLOT_COUNT := 2
 const MAX_SLOT_COUNT := 6
@@ -28,6 +25,7 @@ var _slot_labels: Array[Label] = []
 var _slot_art: Array[TextureRect] = []
 var _slot_modifiers: Array[TextureRect] = []
 var _tile_skin: Variant
+var _gameplay_theme: Resource
 var _tile_visual_size := Vector2(32.0, 40.0)
 var _suppressed_tile_ids := {}
 var _portrait_style := false
@@ -41,9 +39,10 @@ var _bonus_tween: Tween
 var capacity_feedback_count := 0
 
 
-func _init(game_state: Variant, tile_skin: Variant = null) -> void:
+func _init(game_state: Variant, tile_skin: Variant = null, gameplay_theme: Resource = null) -> void:
 	_game = game_state
 	_tile_skin = TileSkinScript.new() if tile_skin == null else tile_skin
+	_gameplay_theme = GameplayThemeScript.new() if gameplay_theme == null else gameplay_theme
 
 
 func _ready() -> void:
@@ -186,20 +185,20 @@ func _build() -> void:
 	_status_label.add_theme_color_override("font_color", Color("bdc9c6"))
 	add_child(_status_label)
 
-	_queue_left_cap = _queue_art(_load_texture(QUEUE_CAP_PATH))
+	_queue_left_cap = _queue_art(_load_texture(str(_gameplay_theme.tray_cap_path)))
 	add_child(_queue_left_cap)
 	for index in range(MAX_SLOT_COUNT):
-		var repeat := _queue_art(_load_texture(QUEUE_REPEAT_PATH))
+		var repeat := _queue_art(_load_texture(str(_gameplay_theme.tray_repeat_path)))
 		add_child(repeat)
 		_queue_repeats.append(repeat)
-	_queue_right_cap = _queue_art(_load_texture(QUEUE_CAP_PATH))
+	_queue_right_cap = _queue_art(_load_texture(str(_gameplay_theme.tray_cap_path)))
 	_queue_right_cap.flip_h = true
 	add_child(_queue_right_cap)
-	_bonus_icon = _queue_art(_load_texture(TRAY_PLUS_ONE_ICON_PATH))
+	_bonus_icon = _queue_art(_load_texture(str(_gameplay_theme.tray_bonus_icon_path)))
 	_bonus_icon.visible = false
 	add_child(_bonus_icon)
 	_bonus_label = Label.new()
-	var font := _load_font(MILA_BOLD_PATH)
+	var font := _load_font(str(_gameplay_theme.bold_font_path))
 	if font != null:
 		_bonus_label.add_theme_font_override("font", font)
 	_bonus_label.add_theme_font_size_override("font_size", 9)

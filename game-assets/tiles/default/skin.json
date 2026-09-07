@@ -12,27 +12,27 @@
   },
   "base_variants": {
     "portrait": {
-      "asset": "res://game-assets/tiles/default/bases/tile_base_portrait.png",
-      "source_size": [1024, 1536],
-      "runtime_size": [512, 768],
-      "face_safe_area": [152, 190, 720, 1050],
-      "modifier_bounds": [48, 48, 384, 384],
-      "back_design_safe_area": [208, 430, 608, 608],
-      "minimum_runtime_size": [32, 48]
+      "asset": "res://game-assets/tiles/default/tile_base.png",
+      "source_size": [512, 640],
+      "runtime_size": [256, 320],
+      "face_safe_area": [72, 68, 368, 440],
+      "modifier_bounds": [18, 18, 140, 140],
+      "back_design_safe_area": [106, 160, 300, 300],
+      "minimum_runtime_size": [32, 40]
     },
     "landscape": {
-      "asset": "res://game-assets/tiles/default/bases/tile_base_landscape.png",
-      "source_size": [1536, 1024],
-      "runtime_size": [768, 512],
-      "face_safe_area": [250, 100, 1036, 740],
-      "modifier_bounds": [48, 32, 384, 384],
-      "back_design_safe_area": [464, 208, 608, 608],
-      "minimum_runtime_size": [48, 32]
+      "asset": "res://game-assets/tiles/default/tile_base.png",
+      "source_size": [512, 640],
+      "runtime_size": [256, 320],
+      "face_safe_area": [72, 68, 368, 440],
+      "modifier_bounds": [18, 18, 140, 140],
+      "back_design_safe_area": [106, 160, 300, 300],
+      "minimum_runtime_size": [32, 40]
     }
   },
   "back_variants": {
-    "portrait": "res://game-assets/tiles/default/backs/tile_back_portrait.png",
-    "landscape": "res://game-assets/tiles/default/backs/tile_back_landscape.png"
+    "portrait": "res://game-assets/tiles/default/tile_base.png",
+    "landscape": "res://game-assets/tiles/default/tile_base.png"
   },
   "default_back_id": "arcade_spark",
   "back_designs": {
@@ -50,18 +50,18 @@
     "bomb": {"display_name": "Bomb", "asset": "res://game-assets/modifiers/tile-overlays/bomb.png"}
   },
   "depth_presentation": {
-    "lowest_layer_brightness": 0.62,
-    "near_top_layer_brightness": 0.94,
-    "blocked_overlay_color": [0.06, 0.16, 0.18, 0.46],
-    "shadow_opacity": 0.46,
-    "shadow_offset_ratio": [0.05, 0.07],
-    "layer_offset_ratio": [0.05, -0.11]
+    "lowest_layer_brightness": 0.84,
+    "near_top_layer_brightness": 0.96,
+    "blocked_overlay_color": [0.16, 0.12, 0.08, 0.1],
+    "shadow_opacity": 0.42,
+    "shadow_offset_ratio": [0.045, 0.065],
+    "layer_offset_ratio": [0.035, -0.065]
   },
   "layout_presentation": {
-    "adjacent_gap_ratio": -0.06,
-    "ink_outline_color": [0.07, 0.035, 0.02, 0.92],
-    "ink_outline_expansion_ratio": [0.055, 0.04],
-    "ink_outline_offset_ratio": [-0.004, 0.006]
+    "adjacent_gap_ratio": -0.025,
+    "ink_outline_color": [0.12, 0.075, 0.045, 0.76],
+    "ink_outline_expansion_ratio": [0.018, 0.014],
+    "ink_outline_offset_ratio": [-0.002, 0.003]
   },
   "canonical_face_ids": [
     "bamboo_1", "bamboo_2", "bamboo_3", "bamboo_4", "bamboo_5", "bamboo_6", "bamboo_7", "bamboo_8", "bamboo_9",

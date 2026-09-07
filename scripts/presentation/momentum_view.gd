@@ -2,15 +2,7 @@ extends Control
 class_name MomentumView
 
 const PresentationScaleScript := preload("res://scripts/presentation/presentation_scale.gd")
-
-const SCORE_BOX_PATH := "res://game-assets/ui/portrait/score_box.png"
-const MOMENTUM_FRAME_PATH := "res://game-assets/ui/portrait/momentum_frame.png"
-const MOMENTUM_FILL_PATH := "res://game-assets/ui/portrait/momentum_fill.png"
-const MOMENTUM_BADGE_PATH := "res://game-assets/ui/portrait/momentum_badge.png"
-const EXTRA_LIFE_ICON_PATH := "res://game-assets/modifiers/tile-overlays/extra_life.png"
-const MILA_REGULAR_PATH := "res://assets/fonts/mila-script-sans-regular-tight.tres"
-const MILA_BOLD_PATH := "res://assets/fonts/mila-script-sans-bold-tight.tres"
-const POSTER_SCRIPT_PATH := "res://assets/fonts/battle-mahjong-poster-script.tres"
+const GameplayThemeScript := preload("res://scripts/presentation/gameplay_theme.gd")
 const POSTER_SCRIPT_FACE_COLOR := Color("fff6e5")
 const POSTER_SCRIPT_PINK_SHADOW_COLOR := Color("eb576f")
 const POSTER_SCRIPT_DARK_SHADOW_COLOR := Color("040d0a")
@@ -20,6 +12,7 @@ const PORTRAIT_REFERENCE_SIZE := Vector2(322.0, 81.0)
 const PORTRAIT_FRAME_RECT := Rect2(118.0, 30.0, 173.3, 25.3)
 
 var _game: Variant
+var _gameplay_theme: Resource
 var _portrait_style := false
 var _legacy_background: Panel
 var _title: Label
@@ -48,10 +41,12 @@ var _audio_playback: Variant
 var _modifier_tween: Tween
 var modifier_feedback_count := 0
 var last_modifier_feedback := ""
+var _run_label := ""
 
 
-func _init(game_state: Variant) -> void:
+func _init(game_state: Variant, gameplay_theme: Resource = null) -> void:
 	_game = game_state
+	_gameplay_theme = GameplayThemeScript.new() if gameplay_theme == null else gameplay_theme
 
 
 func _ready() -> void:
@@ -73,6 +68,11 @@ func set_portrait_style(enabled: bool) -> void:
 	_layout()
 
 
+func set_run_label(value: String) -> void:
+	_run_label = value
+	refresh(_game.elapsed_time_ms)
+
+
 func refresh(playback_time_ms: int) -> void:
 	if _meter == null:
 		return
@@ -88,6 +88,8 @@ func refresh(playback_time_ms: int) -> void:
 	var combo_text := "STREAK %dX" % combo if _portrait_style and combo > 0 \
 		else "STREAK READY" if _portrait_style \
 		else "Combo x%d" % combo if combo > 0 else "Combo ready"
+	if not _run_label.is_empty():
+		combo_text = "%s  |  %s" % [_run_label, combo_text]
 	_set_poster_text(_combo, _combo_shadow, combo_text)
 	var ratio := clampf(float(momentum) / float(maximum), 0.0, 1.0) if maximum > 0 else 0.0
 	_fill_clip.size.x = _momentum_fill.size.x * ratio
@@ -151,24 +153,24 @@ func _build() -> void:
 	_legacy_background.add_theme_stylebox_override("panel", style)
 	add_child(_legacy_background)
 
-	_score_art = _art(_load_texture(SCORE_BOX_PATH))
+	_score_art = _art(_load_texture(str(_gameplay_theme.score_box_path)))
 	add_child(_score_art)
-	_momentum_frame = _art(_load_texture(MOMENTUM_FRAME_PATH))
+	_momentum_frame = _art(_load_texture(str(_gameplay_theme.momentum_frame_path)))
 	add_child(_momentum_frame)
 	_fill_clip = Control.new()
 	_fill_clip.clip_contents = true
 	_fill_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_fill_clip)
-	_momentum_fill = _art(_load_texture(MOMENTUM_FILL_PATH))
+	_momentum_fill = _art(_load_texture(str(_gameplay_theme.momentum_fill_path)))
 	_fill_clip.add_child(_momentum_fill)
-	_momentum_badge = _art(_load_texture(MOMENTUM_BADGE_PATH))
+	_momentum_badge = _art(_load_texture(str(_gameplay_theme.momentum_badge_path)))
 	add_child(_momentum_badge)
-	_extra_life_icon = _art(_load_texture(EXTRA_LIFE_ICON_PATH))
+	_extra_life_icon = _art(_load_texture(str(_gameplay_theme.heart_icon_path)))
 	add_child(_extra_life_icon)
 
-	var regular_font := _load_font(MILA_REGULAR_PATH)
-	var bold_font := _load_font(MILA_BOLD_PATH)
-	var score_font := _load_font(POSTER_SCRIPT_PATH)
+	var regular_font := _load_font(str(_gameplay_theme.regular_font_path))
+	var bold_font := _load_font(str(_gameplay_theme.bold_font_path))
+	var score_font := _load_font(str(_gameplay_theme.poster_font_path))
 	if score_font == null:
 		score_font = regular_font
 	_title = _label("Momentum", regular_font, 14, Color("cbbbd3"))

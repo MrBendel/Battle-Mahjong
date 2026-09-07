@@ -29,6 +29,8 @@ For a stacked PR, compare against its immediate base branch. If rebasing or reta
 
 Google Play update eligibility is determined by Android `versionCode`, not the semantic version name. CI and `scripts/publish_internal.ps1` generate a monotonic code from whole UTC seconds since January 1, 2020.
 
+For PR builds, adding `#deploy-playstore` or `#build-and-deploy` to the PR description or a PR comment runs `.github/workflows/deploy_playstore_hashtag.yml`. The workflow changes the checked-out export metadata only for that build; it does not commit the generated code/name or remove the Pull Request Rule above. After a successful Play upload, it syncs the generated release identity to the Cloud Run startup endpoint so older clients can display the update banner.
+
 Release version names combine the tracked semantic version and generated code:
 
 ```text

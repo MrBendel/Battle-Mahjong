@@ -21,6 +21,7 @@ const GameStateScript := preload("res://scripts/simulation/game_state.gd")
 const ReferenceGameFactoryScript := preload("res://scripts/simulation/reference_game_factory.gd")
 const TowerGenerationProfileScript := preload("res://scripts/simulation/tower_generation_profile.gd")
 const TowerSegmentGeneratorScript := preload("res://scripts/simulation/tower_segment_generator.gd")
+const TowerRunScript := preload("res://scripts/simulation/tower_run.gd")
 const GameSimulatorScript := preload("res://scripts/simulation/game_simulator.gd")
 const MomentumRulesScript := preload("res://scripts/simulation/momentum_rules.gd")
 const MomentumTuningScript := preload("res://scripts/configuration/momentum_tuning.gd")
@@ -34,6 +35,7 @@ const ModifierLoadoutScript := preload("res://scripts/simulation/modifier_loadou
 const ModifierRulesScript := preload("res://scripts/simulation/modifier_rules.gd")
 const ModifierTuningScript := preload("res://scripts/configuration/modifier_tuning.gd")
 const TileSkinScript := preload("res://scripts/presentation/tile_skin.gd")
+const GameplayThemeScript := preload("res://scripts/presentation/gameplay_theme.gd")
 const ArcadeCalloutTuningScript := preload("res://scripts/configuration/arcade_callout_tuning.gd")
 const ArcadeCalloutPolicyScript := preload("res://scripts/presentation/arcade_callout_policy.gd")
 const UpdateCheckerScript := preload("res://scripts/presentation/update_checker.gd")
@@ -48,6 +50,7 @@ func _init() -> void:
 	_log("Running Battle Mahjong simulation tests")
 	_run_tile_matcher_tests()
 	_run_application_version_tests()
+	_run_gameplay_theme_contract_tests()
 	_run_tile_skin_contract_tests()
 	_run_board_selectability_tests()
 	_run_board_projection_tests()
@@ -105,6 +108,39 @@ func _run_application_version_tests() -> void:
 	)
 	_check(bool(presets.get_value("preset.0.options", "permissions/vibrate", false)), "release export permits handheld vibration")
 	_check(bool(presets.get_value("preset.1.options", "permissions/vibrate", false)), "screenshot export permits handheld vibration")
+	_check_equal(
+		"com.platypus.battlemahjong",
+		str(presets.get_value("preset.0.options", "package/unique_name", "")),
+		"release export keeps the Play package identity"
+	)
+	_check_equal(
+		"com.platypus.battlemahjong.screenshots",
+		str(presets.get_value("preset.1.options", "package/unique_name", "")),
+		"screenshot export has an isolated package identity"
+	)
+	_check(
+		str(presets.get_value("preset.1", "custom_features", "")).contains("android_screenshots"),
+		"screenshot export activates its instrumentation launch path"
+	)
+	_check(bool(presets.get_value("preset.1.options", "architectures/arm64-v8a", false)), "screenshot export supports physical Android devices")
+	_check(bool(presets.get_value("preset.1.options", "architectures/x86_64", false)), "screenshot export supports the API 36 emulator")
+
+
+func _run_gameplay_theme_contract_tests() -> void:
+	_log(" - gameplay presentation theme contract")
+	var theme: Resource = load("res://configuration/default_gameplay_theme.tres")
+	_check(theme != null, "default GameplayTheme resource loads")
+	_check(theme.call("validation_errors").is_empty(), "default GameplayTheme resolves every component asset")
+	_check_equal("default", theme.theme_id, "default GameplayTheme has a stable identity")
+	_check_equal("res://game-assets/tiles/default/skin.json", theme.tile_skin_manifest_path, "gameplay theme selects its tile-skin manifest")
+	for consumable_type in ["hint", "shuffle", "delete_pair", "undo"]:
+		var icon_path: String = theme.call("consumable_icon_path", consumable_type)
+		_check(not icon_path.is_empty() and ResourceLoader.exists(icon_path), "%s icon resolves through GameplayTheme" % consumable_type)
+	var partial_theme := GameplayThemeScript.new()
+	partial_theme.theme_id = "seasonal_test"
+	partial_theme.background_path = "res://game-assets/backgrounds/gameplay_brush_arcade.png"
+	_check(partial_theme.call("validation_errors").is_empty(), "partial seasonal theme inherits valid default component paths")
+	_check_equal(theme.pause_button_path, partial_theme.pause_button_path, "partial theme inherits the default Pause artwork")
 
 
 func _run_tile_skin_contract_tests() -> void:
@@ -131,31 +167,33 @@ func _run_tile_skin_contract_tests() -> void:
 	_check(ResourceLoader.exists(str(skin.base_variants.landscape.asset)) or FileAccess.file_exists(str(skin.base_variants.landscape.asset)), "landscape ceramic base runtime asset exists")
 	var portrait_modifier_bounds: Array = skin.active_geometry().modifier_bounds
 	_check_equal(4, portrait_modifier_bounds.size(), "portrait modifier has explicit attachment bounds")
-	_check(float(portrait_modifier_bounds[0]) < 102.4, "portrait modifier is anchored in the upper-left")
-	_check(float(portrait_modifier_bounds[2]) >= 384.0, "portrait modifier is large enough to read on phone tiles")
-	_check(skin.call("tile_aspect") > 1.0, "portrait ceramic base uses a tall footprint")
+	_check(float(portrait_modifier_bounds[0]) < 52.0, "portrait modifier is anchored in the upper-left")
+	_check(float(portrait_modifier_bounds[2]) >= 128.0, "portrait modifier is large enough to read on phone tiles")
+	var portrait_aspect: float = skin.call("tile_aspect")
+	_check(is_equal_approx(portrait_aspect, 1.25), "portrait ceramic base uses the canonical 4:5 footprint")
 	skin.call("set_orientation", "landscape")
-	_check(skin.call("tile_aspect") < 1.0, "landscape ceramic base uses a wide footprint")
+	_check(is_equal_approx(float(skin.call("tile_aspect")), portrait_aspect), "landscape reuses the canonical tile geometry")
+	_check_equal(str(skin.base_variants.portrait.asset), str(skin.base_variants.landscape.asset), "both orientations share one ceramic master")
 	_check(skin.call("tile_base_texture") != null, "active landscape ceramic base loads")
 	var landscape_modifier_bounds: Array = skin.active_geometry().modifier_bounds
 	_check_equal(4, landscape_modifier_bounds.size(), "landscape modifier has explicit attachment bounds")
-	_check(float(landscape_modifier_bounds[0]) < 153.6, "landscape modifier is anchored in the upper-left")
-	_check(float(landscape_modifier_bounds[2]) >= 384.0, "landscape modifier is large enough to read on wide tiles")
+	_check(float(landscape_modifier_bounds[0]) < 52.0, "landscape modifier is anchored in the upper-left")
+	_check(float(landscape_modifier_bounds[2]) >= 128.0, "landscape modifier is large enough to read on canonical tiles")
 	_check_equal(4, skin.active_geometry().back_design_safe_area.size(), "landscape back design has an explicit compositing safe area")
 	_check(
 		float(skin.depth_presentation.lowest_layer_brightness) >= 0.55 \
 			and float(skin.depth_presentation.lowest_layer_brightness) < 1.0,
 		"Default skin keeps covered lower layers distinct without making them excessively dark"
 	)
-	_check_equal(0.94, float(skin.depth_presentation.near_top_layer_brightness), "Default skin keeps the layer below the top substantially lighter")
+	_check_equal(0.96, float(skin.depth_presentation.near_top_layer_brightness), "Default skin keeps the layer below the top substantially lighter")
 	var layer_offset: Array = skin.depth_presentation.layer_offset_ratio
 	_check_equal(2, layer_offset.size(), "Default skin exposes a two-axis authored-layer offset")
-	_check(float(layer_offset[1]) <= -0.1, "Default skin gives each higher layer a visible upward lift")
+	_check(float(layer_offset[1]) <= -0.05, "Default skin gives each higher layer a visible upward lift")
 	var blocked_overlay: Array = skin.depth_presentation.blocked_overlay_color
 	_check(
-		float(blocked_overlay[1]) > float(blocked_overlay[0]) \
-			and float(blocked_overlay[2]) > float(blocked_overlay[0]),
-		"blocked-state veil is cool rather than another neutral depth step"
+		float(blocked_overlay[0]) > float(blocked_overlay[2]) \
+			and float(blocked_overlay[3]) < 0.3,
+		"blocked-state veil keeps covered tiles warm and readable"
 	)
 	_check(
 		float(skin.depth_presentation.shadow_opacity) > 0.0,
@@ -709,7 +747,7 @@ func _run_momentum_tests() -> void:
 		TileInstanceScript.new("fourth", second_face, BoardPositionScript.new(12, 0, 0)),
 	])
 	var configuration: Dictionary = definition.configuration
-	_check_equal(18, definition.rules_version, "current games snapshot rules version 18")
+	_check_equal(19, definition.rules_version, "current games snapshot rules version 19")
 	_check_equal(1, MomentumRulesScript.multiplier_for(12499, configuration), "momentum below first threshold stays x1")
 	_check_equal(2, MomentumRulesScript.multiplier_for(12500, configuration), "first visible threshold enters x2")
 	_check_equal(8, MomentumRulesScript.multiplier_for(87500, configuration), "seventh visible threshold enters x8")
@@ -1219,6 +1257,21 @@ func _run_modifier_tests() -> void:
 	_check_equal(GameStateScript.PLAYING, life_game.status, "Extra Life preserves the run")
 	_check_equal(0, life_game.tray.tiles.size(), "Extra Life returns unresolved tray tiles to the board")
 	_check_equal(0, life_game.call("current_snapshot").extra_life_charges, "Extra Life consumes one charge")
+
+	var heart_configuration := GameConfigurationScript.create()
+	heart_configuration["starting_extra_life_charges"] = 3
+	var heart_definition := GameDefinitionScript.new(1, life_tiles, heart_configuration)
+	var heart_game := GameStateScript.new(heart_definition)
+	_check_equal(3, heart_game.call("current_snapshot").extra_life_charges, "current runs snapshot three configured starting hearts")
+	for index in range(3):
+		heart_game.call("select_tile", "risk_%d" % index)
+	_check_equal(GameStateScript.EXTRA_LIFE_USED, heart_game.call("select_tile", "risk_3"), "starting heart intercepts tray failure")
+	_check_equal(2, heart_game.call("current_snapshot").extra_life_charges, "tray recovery consumes exactly one starting heart")
+	_check_equal(0, heart_game.tray.tiles.size(), "starting heart returns every unresolved tray tile")
+	var legacy_heart_definition := GameDefinitionScript.new(1, life_tiles, heart_configuration, 18)
+	var legacy_heart_game := GameStateScript.new(legacy_heart_definition)
+	_check(not legacy_heart_definition.configuration.has("starting_extra_life_charges"), "rules version 18 excludes starting hearts from definition identity")
+	_check_equal(0, legacy_heart_game.call("current_snapshot").extra_life_charges, "rules version 18 preserves zero starting hearts")
 
 	var clear_modifier := {
 		"modifier_id": "three_clear",
@@ -1942,6 +1995,28 @@ func _run_generator_solver_tests() -> void:
 		int(tower_segment.floors[0].difficulty.difficulty_score)
 			<= int(tower_segment.floors[1].difficulty.difficulty_score),
 		"Tower floors are ordered by provisional difficulty"
+	)
+
+	var tower_runtime_configuration := TowerRunScript.load_configuration(
+		"res://configuration/tower/tower_runtime.json"
+	)
+	var tower_run := TowerRunScript.new(4242, tower_runtime_configuration)
+	var repeated_tower_run := TowerRunScript.new(4242, tower_runtime_configuration)
+	_check(tower_run.call("validation_errors").is_empty(), "Tower runtime configuration validates")
+	var first_floor: Dictionary = tower_run.call("floor_spec")
+	_check_equal(first_floor, repeated_tower_run.call("floor_spec"), "Tower runtime floor is deterministic")
+	tower_run.call("advance")
+	var second_floor: Dictionary = tower_run.call("floor_spec")
+	_check_equal(2, second_floor.floor_number, "Tower runtime advances one floor at a time")
+	_check(first_floor.layout_seed != second_floor.layout_seed, "Tower floors derive distinct layout seeds")
+	_check(first_floor.deal_seed != second_floor.deal_seed, "Tower floors derive distinct deal seeds")
+	_check(
+		int(first_floor.deal_options.unique_tile_count) <= int(second_floor.deal_options.unique_tile_count),
+		"Tower tile vocabulary does not decrease"
+	)
+	_check(
+		int(first_floor.deal_options.shuffle_basis_points) <= int(second_floor.deal_options.shuffle_basis_points),
+		"Tower deal shuffle does not decrease"
 	)
 
 
