@@ -65,6 +65,8 @@ The portrait bottom action bar uses the `2172 x 724` supplied master as a horizo
 
 The portrait HUD, margins, queue allocation, and bottom actions scale from the `390 x 844` reference composition. Scale uses the smaller ratio of safe display width to reference width and safe display height to reference height, so the complete HUD grows on high-resolution displays without overflowing shorter or wider portrait devices. The status panel follows the approved `613 x 155` internal scorebox grid: hearts, score, and streak across the upper row, with Momentum and multiplier below. Pause remains independently anchored at the upper right. Portrait hides the prototype Board title/status header and uses compact internal margins. It does not rotate or rearrange the portrait-authored board. Landscape shares the compact status panel, ceramic action tiles, and background, while reorienting the tray vertically and stacking actions at lower left.
 
+The scorebox is assembled from reusable themed layers rather than baked runtime values: a dark framed panel, three live heart positions, Battle Mahjong Poster Script for every scorebox label and value, an eight-stage clipped Momentum fill, and a separate flame icon. The eight stages represent the default state plus the seven multiplier thresholds; the displayed score, heart count, streak, multiplier, and fill remain live UI state.
+
 ## First-Pass Gaps
 
 - Board tile artwork remains the current gameplay placeholder by design.

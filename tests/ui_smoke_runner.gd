@@ -101,9 +101,11 @@ func _run() -> void:
 		"main scene snapshots its Inspector starting-heart count"
 	)
 	_check_equal(3, live_game.call("current_snapshot").extra_life_charges, "playable prototype starts with three hearts")
-	var heart_count_label: Label = shell.get("_regions").momentum.get("_extra_life_count")
-	_check(heart_count_label.visible, "starting hearts are visible in the HUD")
-	_check_equal("3", heart_count_label.text, "HUD reflects the authoritative starting-heart count")
+	var heart_icons: Array = shell.get("_regions").momentum.get("_heart_icons")
+	_check_equal(3, heart_icons.size(), "HUD provides three individual heart positions")
+	for heart_icon in heart_icons:
+		_check(heart_icon.visible, "starting hearts are visible individually in the HUD")
+	_check(not shell.get("_regions").momentum.get("_extra_life_count").visible, "three hearts need no redundant numeric label")
 	_check_equal(
 		int(shell.get("flipped_tile_count")),
 		live_game.definition.flipped_tile_ids.size(),
@@ -897,6 +899,18 @@ func _run() -> void:
 	if OS.get_cmdline_user_args().has("--pause-menu"):
 		shell.call("_on_pause_requested")
 		await process_frame
+	if OS.get_cmdline_user_args().has("--hud-reference-capture"):
+		var hud: Control = shell.get("_regions").momentum
+		hud.get("_score").text = "12,430"
+		hud.get("_score_shadow").text = "12,430"
+		hud.get("_combo").text = "x4"
+		hud.get("_combo_shadow").text = "x4"
+		hud.get("_multiplier").text = "x6"
+		hud.get("_multiplier_shadow").text = "x6"
+		for heart_icon in hud.get("_heart_icons"):
+			heart_icon.visible = true
+		hud.get("_extra_life_count").visible = false
+		hud.get("_fill_clip").size.x = hud.get("_momentum_fill").size.x * 0.88
 	await process_frame
 	if DisplayServer.get_name() == "headless":
 		printerr("capture skipped: active renderer does not expose a framebuffer")
@@ -906,6 +920,7 @@ func _run() -> void:
 		var capture_name := "end-game" if OS.get_cmdline_user_args().has("--end-game-capture") \
 			else "difficulty-callout" if OS.get_cmdline_user_args().has("--callout-capture") \
 			else "modifier-callout" if OS.get_cmdline_user_args().has("--modifier-callout-capture") \
+			else "hud-reference" if OS.get_cmdline_user_args().has("--hud-reference-capture") \
 			else "hint" if OS.get_cmdline_user_args().has("--hint-capture") \
 			else "pause-menu" if OS.get_cmdline_user_args().has("--pause-menu") \
 			else "modifier-playtest" if modifier_playtest \
@@ -1164,9 +1179,13 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 		_check(not momentum.get("_score_art").visible, "portrait retires the ornate score-box artwork")
 		_check(momentum.get("_momentum_frame").visible, "portrait shows the exported Momentum frame")
 		_check(momentum.get("_momentum_badge").visible, "portrait shows the exported multiplier badge")
-		_check_equal(7, momentum.get("_ticks").size(), "portrait Momentum exposes seven visible multiplier upgrades")
+		_check_equal(load("res://game-assets/ui/shared/status-heart.svg"), momentum.get("_extra_life_icon").texture, "portrait uses the dedicated heart artwork")
+		_check_equal(load("res://game-assets/ui/shared/status-flame.svg"), momentum.get("_momentum_badge").texture, "portrait uses the dedicated flame artwork")
+		_check_equal(load("res://game-assets/ui/shared/status-momentum-fill.svg"), momentum.get("_momentum_fill").texture, "portrait meter uses eight broad multiplier stages")
+		_check_equal(7, momentum.get("_ticks").size(), "portrait Momentum retains seven multiplier thresholds")
 		for tick_index in range(momentum.get("_ticks").size()):
 			_check_equal("%dX" % (tick_index + 2), momentum.get("_ticks")[tick_index].text, "portrait Momentum tick %d skips the default x1 tier" % (tick_index + 1))
+			_check(not momentum.get("_ticks")[tick_index].visible, "portrait segmented meter does not duplicate multiplier labels")
 		var score_font: Variant = momentum.get("_score").get_theme_font("font")
 		var score_title_font: Variant = momentum.get("_score_title").get_theme_font("font")
 		_check(score_font != null, "portrait score uses Poster Script font")
@@ -1175,6 +1194,9 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 			_check_equal(load("res://assets/fonts/battle-mahjong-poster-script.ttf"), score_font.base_font, "portrait score uses Poster Script base font")
 		if score_title_font is FontVariation and score_title_font.base_font != null:
 			_check_equal(load("res://assets/fonts/battle-mahjong-poster-script.ttf"), score_title_font.base_font, "portrait score heading uses Poster Script base font")
+		for scorebox_label in [momentum.get("_streak_title"), momentum.get("_combo"), momentum.get("_multiplier"), momentum.get("_extra_life_count"), momentum.get("_effect_status")]:
+			var scorebox_font: Variant = scorebox_label.get_theme_font("font")
+			_check(scorebox_font is FontVariation and scorebox_font.base_font == load("res://assets/fonts/battle-mahjong-poster-script.ttf"), "portrait scorebox uses Poster Script consistently")
 		_check_equal("123,456,789", momentum.call("_format_score", 123456789), "portrait score formatting groups thousands")
 		_check_equal("01:02.34", momentum.call("_format_time", 62340), "portrait timer formats runtime playback")
 		var proportion_content := safe_viewport
@@ -1207,10 +1229,10 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 		var expected_momentum := Rect2(scorebox_origin + Vector2(20.0, 84.0) * scorebox_scale, Vector2(435.0, 61.0) * scorebox_scale)
 		var expected_multiplier := Rect2(scorebox_origin + Vector2(462.0, 84.0) * scorebox_scale, Vector2(138.0, 61.0) * scorebox_scale)
 		_check(expected_hearts.encloses(momentum.get("_extra_life_icon").get_global_rect()), "portrait hearts stay in the upper-left scorebox cell")
-		_check(expected_score.encloses(momentum.get("_score").get_global_rect()), "portrait score stays in the upper-center scorebox cell")
-		_check(expected_streak.encloses(momentum.get("_combo").get_global_rect()), "portrait streak stays in the upper-right scorebox cell")
+		_check(expected_score.has_point(momentum.get("_score").get_global_rect().get_center()), "portrait score remains anchored in the upper-center scorebox cell")
+		_check(expected_streak.has_point(momentum.get("_combo").get_global_rect().get_center()), "portrait streak remains anchored in the upper-right scorebox cell")
 		_check(expected_momentum.encloses(momentum.get("_momentum_frame").get_global_rect()), "portrait Momentum stays in the broad lower scorebox cell")
-		_check(expected_multiplier.encloses(momentum.get("_multiplier").get_global_rect()), "portrait multiplier stays in the lower-right scorebox cell")
+		_check(expected_multiplier.has_point(momentum.get("_multiplier").get_global_rect().get_center()), "portrait multiplier remains anchored in the lower-right scorebox cell")
 		_check(is_equal_approx(pause_button.size.x, pause_button.size.y), "portrait pause artwork preserves a square control")
 		var expected_pause_region: Rect2 = shell.call(
 			"_portrait_proportion_rect",
@@ -1615,7 +1637,8 @@ func _verify_modifier_activation_feedback(shell: Control) -> void:
 			"extra_life":
 				_check(int(snapshot.extra_life_charges) > 0, "Extra Life persists as an available charge")
 				_check(momentum.get("_extra_life_icon").visible, "Extra Life status appears beside Score")
-				_check_equal(str(snapshot.extra_life_charges), momentum.get("_extra_life_count").text, "Extra Life HUD shows its live charge count")
+				var overflow_hearts := maxi(0, int(snapshot.extra_life_charges) - momentum.get("_heart_icons").size())
+				_check_equal("+%d" % overflow_hearts if overflow_hearts > 0 else "", momentum.get("_extra_life_count").text, "Extra Life HUD summarizes hearts beyond the three visible slots")
 			"cold_snap":
 				_check(int(snapshot.cold_snap_until_ms) > shell.call("_playback_time_ms"), "Cold Snap persists with a live expiry")
 				_check("FROZEN" in momentum.get("_effect_status").text, "Cold Snap status appears on Momentum")
