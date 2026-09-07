@@ -11,6 +11,9 @@ const GAP := 8.0
 const FIGMA_CAP_SIZE := Vector2(24.968, 115.0)
 const FIGMA_SLOT_SIZE := Vector2(62.42, 115.0)
 const FIGMA_TILE_RECT := Rect2(7.11, 17.7, 46.685, 60.121)
+const VERTICAL_CAP_SIZE := Vector2(115.0, 25.0)
+const VERTICAL_SLOT_SIZE := Vector2(115.0, 101.0)
+const VERTICAL_TILE_RECT := Rect2(22.5, 6.5, 70.0, 87.5)
 const QUEUE_ART_SEAM_OVERLAP := 1.0
 const PORTRAIT_TILE_X_NUDGE := -1.5
 
@@ -29,6 +32,7 @@ var _gameplay_theme: Resource
 var _tile_visual_size := Vector2(32.0, 40.0)
 var _suppressed_tile_ids := {}
 var _portrait_style := false
+var _vertical_style := false
 var _queue_left_cap: TextureRect
 var _queue_right_cap: TextureRect
 var _queue_repeats: Array[TextureRect] = []
@@ -60,6 +64,16 @@ func set_game_state(game_state: Variant) -> void:
 
 func set_portrait_style(enabled: bool) -> void:
 	_portrait_style = enabled
+	_vertical_style = false
+	_update_queue_art()
+	_update_style_visibility()
+	_layout()
+
+
+func set_layout_mode(themed: bool, vertical: bool) -> void:
+	_portrait_style = themed
+	_vertical_style = themed and vertical
+	_update_queue_art()
 	_update_style_visibility()
 	_layout()
 
@@ -73,6 +87,8 @@ func set_tile_visual_size(tile_size: Vector2) -> void:
 
 func minimum_height_for_tile(tile_size: Vector2) -> float:
 	if _portrait_style:
+		if _vertical_style:
+			return ceilf((VERTICAL_CAP_SIZE.y * 2.0 + VERTICAL_SLOT_SIZE.y * _slot_count()) * _vertical_scale(tile_size))
 		return ceilf(FIGMA_CAP_SIZE.y * _portrait_scale(tile_size))
 	var expansion: Array = _tile_skin.layout_presentation.get("ink_outline_expansion_ratio", [0.055, 0.04])
 	var offset: Array = _tile_skin.layout_presentation.get("ink_outline_offset_ratio", [-0.004, 0.006])
@@ -82,6 +98,8 @@ func minimum_height_for_tile(tile_size: Vector2) -> float:
 
 func minimum_width_for_tile(tile_size: Vector2) -> float:
 	if _portrait_style:
+		if _vertical_style:
+			return ceilf(VERTICAL_CAP_SIZE.x * _vertical_scale(tile_size))
 		return ceilf((FIGMA_CAP_SIZE.x * 2.0 + FIGMA_SLOT_SIZE.x * _slot_count()) * _portrait_scale(tile_size))
 	var expansion: Array = _tile_skin.layout_presentation.get("ink_outline_expansion_ratio", [0.055, 0.04])
 	return ceilf(tile_size.x * (float(_slot_count()) + float(expansion[0])) + GAP * float(_slot_count() - 1))
@@ -255,6 +273,9 @@ func _layout() -> void:
 	for slot in _slots:
 		slot.size = _tile_visual_size
 	if _portrait_style:
+		if _vertical_style:
+			_layout_vertical()
+			return
 		_layout_portrait()
 		return
 
@@ -328,6 +349,56 @@ func _layout_portrait() -> void:
 		_slot_labels[index].size = slot_rect.size
 		_tile_skin.configure_modifier_art(_slot_modifiers[index])
 	_layout_bonus_portrait(origin, scale)
+
+
+func _layout_vertical() -> void:
+	var scale := minf(
+		_vertical_scale(_tile_visual_size),
+		minf(
+			size.x / VERTICAL_CAP_SIZE.x,
+			size.y / (VERTICAL_CAP_SIZE.y * 2.0 + VERTICAL_SLOT_SIZE.y * _slot_count())
+		)
+	)
+	var queue_size := Vector2(
+		VERTICAL_CAP_SIZE.x,
+		VERTICAL_CAP_SIZE.y * 2.0 + VERTICAL_SLOT_SIZE.y * _slot_count()
+	) * scale
+	var origin := (size - queue_size) * 0.5
+	_queue_left_cap.position = origin
+	_queue_left_cap.size = VERTICAL_CAP_SIZE * scale
+	for index in range(MAX_SLOT_COUNT):
+		_queue_repeats[index].position = origin + Vector2(0.0, (VERTICAL_CAP_SIZE.y + VERTICAL_SLOT_SIZE.y * index) * scale)
+		_queue_repeats[index].size = VERTICAL_SLOT_SIZE * scale
+	_queue_right_cap.position = origin + Vector2(
+		0.0,
+		(VERTICAL_CAP_SIZE.y + VERTICAL_SLOT_SIZE.y * _slot_count()) * scale
+	)
+	_queue_right_cap.size = VERTICAL_CAP_SIZE * scale
+
+	var active_geometry: Dictionary = _tile_skin.active_geometry()
+	var safe_area: Array = active_geometry.get("face_safe_area", [72, 68, 368, 440])
+	var source_size: Array = active_geometry.get("source_size", [512, 640])
+	for index in range(_slot_count()):
+		var repeat_origin := origin + Vector2(0.0, (VERTICAL_CAP_SIZE.y + VERTICAL_SLOT_SIZE.y * index) * scale)
+		var tile_center := repeat_origin + VERTICAL_TILE_RECT.get_center() * scale
+		var slot_rect := Rect2(tile_center - _tile_visual_size * 0.5, _tile_visual_size)
+		_slots[index].position = slot_rect.position
+		_slots[index].size = slot_rect.size
+		_slots[index].add_theme_stylebox_override("panel", _tile_style())
+		_slot_bases[index].position = Vector2.ZERO
+		_slot_bases[index].size = slot_rect.size
+		_slot_art[index].position = Vector2(
+			float(safe_area[0]) / float(source_size[0]) * slot_rect.size.x,
+			float(safe_area[1]) / float(source_size[1]) * slot_rect.size.y
+		)
+		_slot_art[index].size = Vector2(
+			float(safe_area[2]) / float(source_size[0]) * slot_rect.size.x,
+			float(safe_area[3]) / float(source_size[1]) * slot_rect.size.y
+		)
+		_slot_labels[index].position = Vector2.ZERO
+		_slot_labels[index].size = slot_rect.size
+		_tile_skin.configure_modifier_art(_slot_modifiers[index])
+	_layout_bonus_vertical(origin, scale)
 
 
 func play_capacity_feedback() -> void:
@@ -431,8 +502,44 @@ func _layout_bonus_legacy(group_x: float, body_y: float) -> void:
 	_bonus_label.size = Vector2(maxf(38.0, _tile_visual_size.x - 17.0), 18.0)
 
 
+func _layout_bonus_vertical(origin: Vector2, scale: float) -> void:
+	var bonus_index := clampi(int(_game.definition.tray_capacity()), 0, MAX_SLOT_COUNT - 1)
+	var repeat_origin := origin + Vector2(
+		0.0,
+		(VERTICAL_CAP_SIZE.y + VERTICAL_SLOT_SIZE.y * bonus_index) * scale
+	)
+	_bonus_icon.position = repeat_origin + Vector2(82.0, 8.0) * scale
+	_bonus_icon.size = Vector2(18.0, 18.0) * scale
+	_bonus_label.position = repeat_origin + Vector2(69.0, 25.0) * scale
+	_bonus_label.size = Vector2(40.0, 17.0) * scale
+	_bonus_label.add_theme_font_size_override("font_size", maxi(7, roundi(8.0 * scale)))
+
+
 func _portrait_scale(tile_size: Vector2) -> float:
 	return maxf(tile_size.x / FIGMA_TILE_RECT.size.x, tile_size.y / FIGMA_TILE_RECT.size.y)
+
+
+func _vertical_scale(tile_size: Vector2) -> float:
+	return maxf(tile_size.x / VERTICAL_TILE_RECT.size.x, tile_size.y / VERTICAL_TILE_RECT.size.y)
+
+
+func _update_queue_art() -> void:
+	if _queue_left_cap == null:
+		return
+	var cap_path := str(_gameplay_theme.tray_vertical_cap_path) if _vertical_style \
+		else str(_gameplay_theme.tray_cap_path)
+	var repeat_path := str(_gameplay_theme.tray_vertical_repeat_path) if _vertical_style \
+		else str(_gameplay_theme.tray_repeat_path)
+	var cap_texture := _load_texture(cap_path)
+	var repeat_texture := _load_texture(repeat_path)
+	_queue_left_cap.texture = cap_texture
+	_queue_right_cap.texture = cap_texture
+	_queue_left_cap.flip_h = false
+	_queue_left_cap.flip_v = false
+	_queue_right_cap.flip_h = not _vertical_style
+	_queue_right_cap.flip_v = _vertical_style
+	for repeat in _queue_repeats:
+		repeat.texture = repeat_texture
 
 
 func _update_style_visibility() -> void:

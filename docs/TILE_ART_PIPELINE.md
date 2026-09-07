@@ -20,7 +20,7 @@ The current 96-tile reference game still uses 24 abstract identities with four c
 
 ## Geometry
 
-The Default skin uses one canonical `4:5` ceramic base geometry in portrait and landscape. Both recipes preserve the same tile identity, stable authored slot, modifier attachment role, face-art layer, and physical silhouette. Orientation changes reflow peripheral UI without changing tile shape.
+The Default skin uses one canonical `16:23` ceramic base geometry in portrait and landscape. This is fifteen percent taller than the earlier `4:5` prototype and clearly matches the upright inspiration silhouette. Both recipes preserve the same tile identity, stable authored slot, modifier attachment role, face-art layer, and physical silhouette. Orientation changes reflow peripheral UI without changing tile shape.
 
 Legacy canonical face geometry:
 
@@ -90,7 +90,7 @@ Each skin owns a versioned `skin.json` containing skin identity, geometry, guara
 
 The loader requires the initial 34 IDs but does not reject additional face definitions. This allows the vocabulary to grow without changing the renderer contract.
 
-Tile-back designs use the same separation principle. `default_back_id` chooses an entry from `back_designs`; each entry supplies transparent ornament artwork only. `base_variants.<orientation>.back_design_safe_area` defines where that ornament is composited over the blank ceramic back. Back-design selection is cosmetic and must never enter matching, board, transaction, or replay logic. Durable player ownership and selection remain deferred to the profile milestone.
+Tile backs have two cosmetic layers. `back_variants` supplies a full-surface base that must read distinctly from the ivory front even before ornament is visible. `default_back_id` then chooses an entry from `back_designs`; each entry supplies transparent ornament artwork only. `base_variants.<orientation>.back_design_safe_area` defines where that ornament is composited over the back base. Back selection is cosmetic and must never enter matching, board, transaction, or replay logic. Durable player ownership and selection remain deferred to the profile milestone.
 
 Tile-attached modifiers use the manifest's `modifiers` catalog and each orientation variant's `modifier_bounds`. The attachment area is a large upper-left badge so modifiers remain legible at phone gameplay size without obscuring the central face identity. The first shared overlay set uses an enamel arcade badge language: a pink heart for Extra Life, cyan snowflake for Cold Snap, amber impact `X` for Score Multiplier, and green expanding tray for Tray +1. Board tiles, tray tiles, and moving previews all resolve the same texture by modifier type. The artwork never enters simulation identity, attachment placement, transaction data, or replay state.
 
@@ -102,7 +102,7 @@ Missing face art intentionally falls back to live text during production. A skin
 
 The Default candidate set contains all 34 Bamboo, Dots, Characters, Winds, and Dragons as editable SVG masters and runtime PNG exports. The treatment preserves familiar family and count structure while using heavy rounded strokes, loose registration, bright arcade color, and brush accents.
 
-The board and tray consume the same skin manifest and canonical ceramic master in both orientations. Face-down board tiles compose the same blank ceramic base plus the selected cosmetic back design inside the shared safe area. The Default skin currently selects `arcade_spark` from its `back_designs` catalog. A skin can add or replace catalog entries without duplicating ceramic geometry or changing gameplay identity. Revealed tiles return to the normal base plus face composition. Animation previews capture the same active artwork, and orientation changes remain presentation-only. Covered tiles receive warm depth treatment without changing their face asset. A blocked tap produces a short horizontal rejection motion and generated negative tone without submitting a gameplay command. Successful ordinary selections commit immediately, then animate a presentation-only duplicate into the next tray slot. A committed pair converges on the matching tray slot and composes the reusable `PairMatchFx` burst; Delete Pair composes the same removal primitive over its resolved board tiles.
+The board and tray consume the same skin manifest and canonical ceramic geometry in both orientations. Face-down board tiles compose a dark green patterned ceramic back plus the selected cosmetic design inside the shared safe area, making them recognizable without placeholder text. The Default skin currently selects `arcade_spark` from its `back_designs` catalog. A skin can replace either layer without duplicating gameplay geometry or changing tile identity. Revealed tiles return to the normal ivory base plus face composition. Animation previews capture the same active artwork, and orientation changes remain presentation-only. Covered tiles receive warm depth treatment without changing their face asset. A blocked tap produces a short horizontal rejection motion and generated negative tone without submitting a gameplay command. Successful ordinary selections commit immediately, then animate a presentation-only duplicate into the next tray slot. A committed pair converges on the matching tray slot and composes the reusable `PairMatchFx` burst; Delete Pair composes the same removal primitive over its resolved board tiles.
 
 These are production candidates with replaceable masters, not final approval of every glyph. Gameplay still uses the existing 24 abstract identities through the presentation-only map.
 
@@ -110,7 +110,7 @@ These are production candidates with replaceable masters, not final approval of 
 
 Automated checks cover all 34 required IDs and runtime assets, uniqueness, canonical honor naming, all 24 temporary mappings, geometry values, independent face/modifier layers, board-to-tray motion targeting, blocked-tap isolation, transaction-gated pair feedback, shared Delete Pair removal feedback, responsive background coverage, and board containment in landscape, phone portrait, and `375 x 667` compact portrait.
 
-The compact-phone board validates the canonical tile at its declared `32 x 40` minimum. Portrait and landscape both retain the same `4:5` physical silhouette while the board scales to its available region. Continued visual review at the declared minimum remains required for Default refinements and every Neon face before M7 can be considered done.
+The compact-phone board validates the canonical tile at its declared `32 x 46` minimum. Portrait and landscape both retain the same `16:23` physical silhouette while the board scales to its available region. Continued visual review at the declared minimum remains required for Default refinements and every Neon face before M7 can be considered done.
 
 ## Gameplay Background
 

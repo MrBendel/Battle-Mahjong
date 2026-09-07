@@ -564,12 +564,16 @@ func _run() -> void:
 			var first_preview: Control = shell.get("_tray_compaction_previews").get(survivor_ids[0])
 			var second_preview: Control = shell.get("_tray_compaction_previews").get(survivor_ids[1])
 			_check(first_preview != null and second_preview != null, "survivors retain visual previews at their old slots")
-			var first_start_x := first_preview.position.x
-			var second_start_x := second_preview.position.x
+			var first_start := first_preview.position
+			var second_start := second_preview.position
 			var suppressed: Dictionary = shell.get("_regions").tray.get("_suppressed_tile_ids")
 			_check(suppressed.has(survivor_ids[0]) and suppressed.has(survivor_ids[1]), "destination tiles stay hidden behind compaction previews")
 			await create_timer(0.52).timeout
-			_check(first_preview.position.x < first_start_x and second_preview.position.x < second_start_x, "survivor previews visibly travel left after the pair collision")
+			_check(
+				first_preview.position.distance_to(compaction_targets[0].position) < first_start.distance_to(compaction_targets[0].position)
+					and second_preview.position.distance_to(compaction_targets[1].position) < second_start.distance_to(compaction_targets[1].position),
+				"survivor previews visibly travel toward their compacted slots"
+			)
 			await create_timer(0.18).timeout
 			_check(not shell.get("_tray_compaction_previews").has(survivor_ids[0]), "first survivor hands rendering back to its tray slot")
 			_check(not shell.get("_tray_compaction_previews").has(survivor_ids[1]), "second survivor hands rendering back to its tray slot")
@@ -1120,16 +1124,13 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 		_check(board.get("_tile_layer").position.y <= 6.01, "portrait tile layout begins near the top of the Board region")
 		var consumables: Control = regions.consumables
 		var bottom_background: NinePatchRect = consumables.get("_portrait_background")
-		_check(bottom_background.visible and not consumables.get("_background").visible, "portrait replaces the provisional consumables panel with supplied artwork")
+		_check(not bottom_background.visible and not consumables.get("_background").visible, "portrait removes the full-width ornamental consumables panel")
 		_check_equal(load("res://assets/UI/bottom-bar/bottom-tray-background-export.png"), bottom_background.texture, "portrait uses the supplied bottom bar background")
 		_check_equal(Vector2(2172.0, 724.0), bottom_background.texture.get_size(), "portrait bottom bar retains its authored source dimensions")
 		_check_equal(652, bottom_background.get_patch_margin(SIDE_LEFT), "portrait bottom bar preserves its 30 percent left patch")
 		_check_equal(652, bottom_background.get_patch_margin(SIDE_RIGHT), "portrait bottom bar preserves its 30 percent right patch")
 		_check_equal(362, bottom_background.get_patch_margin(SIDE_TOP), "portrait bottom bar preserves its 50 percent top patch")
 		_check_equal(362, bottom_background.get_patch_margin(SIDE_BOTTOM), "portrait bottom bar preserves its 50 percent bottom patch")
-		var bottom_component_scale := minf(consumables.size.x / 366.0, consumables.size.y / 149.2696)
-		_check(is_equal_approx(bottom_background.size.x * bottom_background.scale.x, 366.0 * bottom_component_scale), "portrait bottom bar stretches to the Figma component width")
-		_check(is_equal_approx(bottom_background.size.y * bottom_background.scale.y, 136.0 * bottom_component_scale), "portrait bottom bar preserves the Figma background height")
 		var portrait_art: Dictionary = consumables.get("_portrait_art")
 		var expected_icons := {
 			"hint": load("res://assets/UI/bottom-bar/icon-hint.png"),
@@ -1159,7 +1160,8 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 		_check(is_equal_approx(hud_scrim.size.x, viewport_rect.size.x), "portrait HUD top scrim spans the full viewport width")
 		_check(is_equal_approx(hud_scrim.size.y, viewport_rect.size.x * 167.0 / 390.0), "portrait HUD top scrim preserves its Figma fade depth")
 		_check(momentum.get("_portrait_style"), "portrait enables the Figma Momentum presentation")
-		_check(momentum.get("_score_art").visible, "portrait shows the exported score-box artwork")
+		_check(momentum.get("_status_backing").visible, "portrait shows the shared compact status-panel artwork")
+		_check(not momentum.get("_score_art").visible, "portrait retires the ornate score-box artwork")
 		_check(momentum.get("_momentum_frame").visible, "portrait shows the exported Momentum frame")
 		_check(momentum.get("_momentum_badge").visible, "portrait shows the exported multiplier badge")
 		_check_equal(7, momentum.get("_ticks").size(), "portrait Momentum exposes seven visible multiplier upgrades")
@@ -1188,7 +1190,7 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 			is_equal_approx(pause_button.size.x, 48.0 * expected_portrait_scale),
 			"portrait pause control scales with the display resolution"
 		)
-		var expected_pause_icon := _load_test_texture("res://game-assets/ui/portrait/pause_button.png")
+		var expected_pause_icon := _load_test_texture("res://game-assets/ui/shared/pause-button.svg")
 		_check_equal(
 			expected_pause_icon.get_size() if expected_pause_icon != null else Vector2.ZERO,
 			pause_button.icon.get_size() if pause_button.icon != null else Vector2.ONE,
@@ -1198,8 +1200,8 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 		_check(not shell.get("_portrait_hud_scrim").visible, "landscape hides the portrait-only HUD top scrim")
 		_check(not regions.consumables.get("_portrait_background").visible, "landscape hides the portrait bottom bar artwork")
 		for art in regions.consumables.get("_portrait_art").values():
-			_check(not art.root.visible, "landscape hides portrait action artwork")
-		_check(not momentum.get("_portrait_style"), "landscape retains the existing compact HUD presentation")
+			_check(art.root.visible, "landscape reuses the shared compact ceramic action artwork")
+		_check(momentum.get("_portrait_style"), "landscape reuses the shared compact status presentation")
 	_check(viewport_rect.encloses(Rect2(pause_button.position, pause_button.size)), "%s pause button stays inside viewport" % orientation)
 	_check(safe_viewport.encloses(Rect2(pause_button.position, pause_button.size)), "%s pause button stays inside safe area" % orientation)
 	if debug_panel.visible:
@@ -1224,7 +1226,10 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 	var tray: Control = regions.tray
 	var board_tile_size: Vector2 = board.call("tile_visual_size")
 	var tray_tile_scale: float = shell.get("tray_tile_scale")
-	_check(is_equal_approx(tray_tile_scale, 0.80), "%s uses the tuned 80 percent tray tile scale" % orientation)
+	_check(is_equal_approx(tray_tile_scale, 0.70), "%s uses the tuned 70 percent tray tile scale" % orientation)
+	var expected_board_scale := float(shell.get("portrait_board_content_scale")) if orientation == "portrait" \
+		else float(shell.get("landscape_board_content_scale"))
+	_check(is_equal_approx(float(board.get("_content_scale")), expected_board_scale), "%s applies its responsive Board content scale" % orientation)
 	_check(is_equal_approx(float(shell.get("tile_transfer_seconds")), 0.24), "%s uses the slower tray transfer beat" % orientation)
 	_check(is_equal_approx(float(shell.get("tile_flip_seconds")), 0.25), "%s uses the tuned quarter-second tile flip" % orientation)
 	_check(is_equal_approx(float(shell.get("flipped_auto_match_hold_seconds")), 0.14), "%s uses the shortened auto-match readability hold" % orientation)
@@ -1232,13 +1237,13 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 	if orientation == "portrait":
 		_check(tray.get("_portrait_style"), "portrait enables the Figma queue presentation")
 		_check(tray.get("_queue_left_cap").visible and tray.get("_queue_right_cap").visible, "portrait queue renders both exported end caps")
-		var expected_cap := _load_test_texture("res://assets/UI/tile-queue/queue-cap.png")
+		var expected_cap := _load_test_texture("res://game-assets/ui/shared/tray-cap-horizontal.svg")
 		_check_equal(
 			expected_cap.get_size() if expected_cap != null else Vector2.ZERO,
 			tray.get("_queue_left_cap").texture.get_size() if tray.get("_queue_left_cap").texture != null else Vector2.ONE,
 			"portrait queue uses the supplied cap artwork"
 		)
-		var expected_repeat := _load_test_texture("res://assets/UI/tile-queue/queue-repeat.png")
+		var expected_repeat := _load_test_texture("res://game-assets/ui/shared/tray-repeat-horizontal.svg")
 		_check_equal(
 			expected_repeat.get_size() if expected_repeat != null else Vector2.ZERO,
 			tray.get("_queue_repeats")[0].texture.get_size() if tray.get("_queue_repeats")[0].texture != null else Vector2.ONE,
@@ -1246,12 +1251,6 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 		)
 		_check_equal(Vector2(25.0, 115.0), tray.get("_queue_left_cap").texture.get_size(), "portrait queue cap keeps its supplied source dimensions")
 		_check_equal(Vector2(63.0, 115.0), tray.get("_queue_repeats")[0].texture.get_size(), "portrait queue repeat keeps its supplied source dimensions")
-		var queue_repeat_image: Image = tray.get("_queue_repeats")[0].texture.get_image()
-		var repeat_right_stroke := queue_repeat_image.get_pixel(57, 58)
-		_check(repeat_right_stroke.a > 0.9 and repeat_right_stroke.r > 0.5, "portrait queue repeat retains its closing right-side gold stroke")
-		var queue_cap_image: Image = tray.get("_queue_left_cap").texture.get_image()
-		var cap_inner_stroke := queue_cap_image.get_pixel(7, 58)
-		_check(cap_inner_stroke.a > 0.9 and cap_inner_stroke.r > 0.5, "portrait queue cap retains the latest matching inner gold stroke")
 		_check(tray.get("_queue_right_cap").flip_h, "portrait queue mirrors the supplied cap on the right")
 		var left_cap_rect: Rect2 = tray.get("_queue_left_cap").get_rect()
 		var right_cap_rect: Rect2 = tray.get("_queue_right_cap").get_rect()
@@ -1286,7 +1285,9 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 			var empty_slot_style: StyleBoxFlat = tray.get("_slots")[slot_index].get_theme_stylebox("panel")
 			_check_equal(Color.TRANSPARENT, empty_slot_style.bg_color, "portrait empty slot %d is supplied only by Figma artwork" % (slot_index + 1))
 	else:
-		_check(not tray.get("_portrait_style"), "landscape retains the existing tray presentation")
+		_check(tray.get("_portrait_style") and tray.get("_vertical_style"), "landscape uses the shared vertical ceramic tray")
+		_check_equal(Vector2(115.0, 25.0), tray.get("_queue_left_cap").texture.get_size(), "landscape tray cap keeps its vertical source dimensions")
+		_check_equal(Vector2(115.0, 101.0), tray.get("_queue_repeats")[0].texture.get_size(), "landscape tray repeat keeps its vertical source dimensions")
 	for slot in tray.get("_slots"):
 		_check(slot.size.is_equal_approx(board_tile_size * tray_tile_scale), "%s tray slot scales down from the board tile footprint" % orientation)
 	var callout: Control = shell.get("_performance_callout")
@@ -1324,27 +1325,23 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 	if orientation == "portrait":
 		_check(board.position.y < tray.position.y + tray.size.y, "portrait Board reclaims the queue artwork's transparent lower padding")
 	else:
-		_check(tray.position.y + tray.size.y <= board.position.y, "landscape tray stays above the game board")
+		_check(board.position.x + board.size.x <= tray.position.x, "landscape tray stays to the right of the game board")
 	var board_global_rect := board.get_global_rect()
 	for slot_index in range(4):
 		var tray_tile_rect: Rect2 = tray.call("slot_visual_global_rect", slot_index)
 		_check(not tray_tile_rect.intersects(board_global_rect), "%s rendered tray tile %d does not overlap the Board" % [orientation, slot_index + 1])
 		_check(tray.get_global_rect().encloses(tray_tile_rect), "%s rendered tray tile %d stays inside the Tray" % [orientation, slot_index + 1])
 	if orientation == "portrait":
-		_check(board.position.y + board.size.y > regions.consumables.position.y, "portrait Board reclaims the action dock's transparent upper padding")
+		_check(board.position.y + board.size.y <= regions.consumables.position.y, "portrait Board ends above the compact action dock")
 		for button in regions.consumables.get("_buttons").values():
 			_check(not button.get_global_rect().intersects(board_global_rect), "portrait consumable touch targets stay below the Board")
 		_check(not regions.character.visible, "portrait decorative region yields to the gameplay stack")
 	else:
 		_check(regions.momentum.position.x + regions.momentum.size.x <= board.position.x, "landscape Momentum stays in the upper-left rail")
-		_check(is_equal_approx(tray.get_rect().get_center().x, board.get_rect().get_center().x), "landscape tray is centered over the Board")
+		_check(is_equal_approx(tray.get_rect().get_center().y, board.get_rect().get_center().y), "landscape tray is vertically centered beside the Board")
 		_check(not regions.character.visible, "landscape decorative region yields to the central Board and side actions")
 	var pause_rect := Rect2(pause_button.position, pause_button.size)
 	if orientation == "portrait":
-		_check(
-			regions.consumables.get("_portrait_background").position.y > 7.2696 * minf(regions.consumables.size.x / 366.0, regions.consumables.size.y / 149.2696),
-			"portrait action dock shifts its component through transparent lower padding"
-		)
 		_check(not pause_rect.intersects(momentum.get("_momentum_badge").get_global_rect()), "portrait pause button does not cover the centered Momentum presentation")
 	else:
 		_check(not pause_rect.intersects(Rect2(regions.momentum.position, regions.momentum.size)), "landscape pause button does not cover Momentum")
@@ -1482,8 +1479,10 @@ func _validate_consumables(shell: Control, orientation: String) -> void:
 		controls.append(notice)
 	for control in controls:
 		_check(panel_rect.encloses(Rect2(control.position, control.size)), "%s consumable control stays inside its panel" % orientation)
+	if orientation == "portrait" or orientation == "landscape":
+		_check(consumables.get("_horizontal_dock"), "%s uses themed consumable artwork" % orientation)
 	if orientation == "portrait":
-		_check(consumables.get("_horizontal_dock"), "portrait keeps consumables in bottom-dock mode")
+		_check(not consumables.get("_vertical_dock"), "portrait keeps consumables in one bottom row")
 		_check(buttons.hint.position.x < buttons.shuffle.position.x, "portrait places Shuffle after Hint")
 		_check(buttons.shuffle.position.x < buttons.delete_pair.position.x, "portrait places Delete after Shuffle")
 		_check(buttons.delete_pair.position.x < buttons.undo.position.x, "portrait keeps Undo rightmost")
@@ -1507,16 +1506,16 @@ func _validate_consumables(shell: Control, orientation: String) -> void:
 			)
 	_check(buttons.has("undo"), "%s consumables own Undo" % orientation)
 	if orientation == "landscape":
+		_check(consumables.get("_vertical_dock"), "landscape stacks the shared ceramic consumables vertically")
 		var board_rect := Rect2(board.position, board.size)
 		for consumable_type in buttons:
 			var button: Button = buttons[consumable_type]
 			var button_rect := Rect2(consumables.position + button.position, button.size)
 			_check(not button_rect.intersects(board_rect), "landscape %s stays in a side rail outside the Board" % consumable_type)
-			_check(button.size.x >= 120.0 and button.size.y >= 54.0, "landscape %s preserves a large touch target" % consumable_type)
-		_check(buttons.hint.position.x == buttons.delete_pair.position.x, "landscape left rail groups Hint and Delete Pair")
-		_check(buttons.shuffle.position.x == buttons.undo.position.x, "landscape right rail groups Shuffle and Undo")
-		_check(buttons.hint.position.y < buttons.delete_pair.position.y, "landscape Hint sits above Delete Pair")
-		_check(buttons.shuffle.position.y < buttons.undo.position.y, "landscape Shuffle sits above Undo")
+			_check(button.size.x >= 54.0 and button.size.y >= 54.0, "landscape %s preserves a large touch target" % consumable_type)
+		_check(buttons.hint.position.y < buttons.shuffle.position.y, "landscape places Shuffle below Hint")
+		_check(buttons.shuffle.position.y < buttons.delete_pair.position.y, "landscape places Delete below Shuffle")
+		_check(buttons.delete_pair.position.y < buttons.undo.position.y, "landscape keeps Undo at the bottom of the action stack")
 	else:
 		for consumable_type in buttons:
 			if consumable_type != "undo":

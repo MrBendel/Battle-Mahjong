@@ -43,6 +43,7 @@ var _audio_playback: Variant
 var _negative_feedback_count := 0
 var _suppressed_tile_ids := {}
 var _compact_mode := false
+var _content_scale := 1.0
 var _hinted_tile_ids := {}
 var _tile_layout_positions := {}
 var _hint_elapsed := 0.0
@@ -173,6 +174,14 @@ func set_compact_mode(compact: bool) -> void:
 	_compact_mode = compact
 	_title_label.visible = not compact
 	_status_label.visible = not compact
+	_layout_tiles()
+
+
+func set_content_scale(content_scale: float) -> void:
+	var clamped_scale := clampf(content_scale, 0.55, 1.0)
+	if is_equal_approx(_content_scale, clamped_scale):
+		return
+	_content_scale = clamped_scale
 	_layout_tiles()
 
 
@@ -800,7 +809,7 @@ func _layout_tiles() -> void:
 		(area.size.x - control_allowance.x) / (grid_width + depth_width_units),
 		(area.size.y - control_allowance.y) \
 			/ ((grid_height + depth_height_units) * _tile_skin.tile_aspect())
-	)
+	) * _content_scale
 	var tile_size := Vector2(maxf(16.0, tile_width), maxf(16.0, tile_width * _tile_skin.tile_aspect()))
 	var adjacent_gap_ratio := float(_tile_skin.layout_presentation.get("adjacent_gap_ratio", 0.0))
 	var tile_gap := tile_size * adjacent_gap_ratio
