@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="368" height="506" viewBox="0 0 368 506">
+  <g stroke-linecap="round" stroke-linejoin="round">
+
+    <!-- Mascot Pink Bunny -->
+    <!-- Tall Ears -->
+    <path d="M120 230 C105 110 110 45 136 40 C162 35 170 110 155 230 Z" fill="#ee658d" stroke="#121b24" stroke-width="11"/>
+    <path d="M126 205 C118 120 124 65 136 60 C148 55 154 120 145 205 Z" fill="#d94875"/>
+    <path d="M248 230 C263 110 258 45 232 40 C206 35 198 110 213 230 Z" fill="#ee658d" stroke="#121b24" stroke-width="11"/>
+    <path d="M242 205 C250 120 244 65 232 60 C220 55 214 120 223 205 Z" fill="#d94875"/>
+    <!-- Head -->
+    <ellipse cx="184" cy="305" rx="125" ry="115" fill="#ee658d" stroke="#121b24" stroke-width="11"/>
+    <!-- Eyes -->
+    <ellipse cx="140" cy="300" rx="17" ry="21" fill="#121b24"/>
+    <circle cx="146" cy="293" r="6.5" fill="#ffffff"/>
+    <ellipse cx="228" cy="300" rx="17" ry="21" fill="#121b24"/>
+    <circle cx="234" cy="293" r="6.5" fill="#ffffff"/>
+    <!-- Cheeks -->
+    <circle cx="112" cy="332" r="17" fill="#fc9bb8" opacity="0.85"/>
+    <circle cx="256" cy="332" r="17" fill="#fc9bb8" opacity="0.85"/>
+    <!-- Nose & Mouth -->
+    <ellipse cx="184" cy="322" rx="8" ry="6" fill="#121b24"/>
+    <path d="M174 332 Q184 342 184 332 Q184 342 194 332" fill="none" stroke="#121b24" stroke-width="6"/>
+  </g>
+</svg>

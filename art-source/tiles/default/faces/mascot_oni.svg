@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="368" height="506" viewBox="0 0 368 506">
+  <g stroke-linecap="round" stroke-linejoin="round">
+
+    <!-- Mascot Red Oni Mask -->
+    <!-- Gold Horns -->
+    <path d="M120 165 C100 115 95 60 108 40 C122 70 144 115 154 160 Z" fill="#f2a014" stroke="#121b24" stroke-width="10"/>
+    <path d="M248 165 C268 115 273 60 260 40 C246 70 224 115 214 160 Z" fill="#f2a014" stroke="#121b24" stroke-width="10"/>
+    <!-- Red Face -->
+    <ellipse cx="184" cy="285" rx="118" ry="132" fill="#c92424" stroke="#121b24" stroke-width="12"/>
+    <!-- Wild Eyebrows -->
+    <path d="M98 205 C122 188 152 198 162 216" fill="none" stroke="#121b24" stroke-width="13"/>
+    <path d="M270 205 C246 188 216 198 206 216" fill="none" stroke="#121b24" stroke-width="13"/>
+    <!-- Fierce Eyes -->
+    <circle cx="135" cy="242" r="23" fill="#ffffff" stroke="#121b24" stroke-width="7"/>
+    <circle cx="135" cy="242" r="11" fill="#121b24"/>
+    <circle cx="233" cy="242" r="23" fill="#ffffff" stroke="#121b24" stroke-width="7"/>
+    <circle cx="233" cy="242" r="11" fill="#121b24"/>
+    <!-- Broad Grinning Mouth with Teeth -->
+    <path d="M115 328 C138 378 230 378 253 328 Z" fill="#121b24" stroke="#121b24" stroke-width="10"/>
+    <path d="M128 340 H240 M148 328 V358 M184 328 V364 M220 328 V358" stroke="#ffffff" stroke-width="5.5"/>
+  </g>
+</svg>

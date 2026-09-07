@@ -1,8 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="328" height="400" viewBox="0 0 328 400">
+<svg xmlns="http://www.w3.org/2000/svg" width="368" height="506" viewBox="0 0 368 506">
   <g stroke-linecap="round" stroke-linejoin="round">
-    <path d="M230 92 C202 58 106 64 92 126 C76 196 226 164 224 246 C222 318 104 330 78 278" fill="none" stroke="#1676a8" stroke-width="30"/>
-    <path d="M74 350 C128 334 212 334 258 346" fill="none" stroke="#e9ae32" stroke-width="14"/>
 
-    <path d="M36 34 L72 26 M270 366 L298 354 M36 362 L58 350" stroke="#e9ae32" stroke-width="9" opacity="0.7"/>
+    <!-- Wind 南 (South) -->
+    <g fill="none" stroke="#162f56" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M105 85 H263" stroke-width="28"/>
+      <path d="M184 65 V125" stroke-width="28"/>
+      <!-- Outer enclosure -->
+      <path d="M80 135 H288 V435" stroke-width="26"/>
+      <path d="M80 135 V435" stroke-width="26"/>
+      <!-- Inner cross and box -->
+      <path d="M125 195 H243" stroke-width="22"/>
+      <path d="M184 145 V345" stroke-width="24"/>
+      <path d="M125 250 H243" stroke-width="22"/>
+      <path d="M135 300 L115 380 M233 300 L253 380" stroke-width="22"/>
+    </g>
   </g>
 </svg>

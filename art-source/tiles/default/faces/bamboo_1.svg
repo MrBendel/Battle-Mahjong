@@ -1,10 +1,27 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="328" height="400" viewBox="0 0 328 400">
+<svg xmlns="http://www.w3.org/2000/svg" width="368" height="506" viewBox="0 0 368 506">
   <g stroke-linecap="round" stroke-linejoin="round">
-    <g transform="rotate(7 164 200)">
-      <rect x="138" y="48" width="52" height="304" rx="22" fill="#168a67" stroke="#163f4a" stroke-width="10"/>
-      <path d="M143 126 H185 M143 210 H185 M143 292 H185" stroke="#8dd05c" stroke-width="13"/>
-      <path d="M145 112 C92 104 71 74 78 44 C124 49 151 73 156 107" fill="#8dd05c" stroke="#163f4a" stroke-width="8"/>
-      <path d="M185 225 C235 218 258 242 254 274 C211 274 184 255 175 232" fill="#8dd05c" stroke="#163f4a" stroke-width="8"/>
-    </g>
+    <!-- Perch branch -->
+    <path d="M40 395 C110 380 230 380 328 402" fill="none" stroke="#84532b" stroke-width="18"/>
+    <path d="M68 395 C88 424 112 436 136 430" fill="none" stroke="#84532b" stroke-width="11"/>
+    <!-- Tiny green sprout on twig -->
+    <path d="M80 390 C68 375 60 380 65 390 C70 392 76 392 80 390 Z" fill="#38a169"/>
+    <!-- Feet -->
+    <path d="M165 372 L158 390 M178 372 L176 390 M216 372 L214 390 M228 372 L230 390" stroke="#121b24" stroke-width="8"/>
+    <!-- Tail feathers -->
+    <path d="M120 305 L60 365 C52 372 64 378 74 370 L132 325 Z" fill="#154d85" stroke="#121b24" stroke-width="8"/>
+    <path d="M130 318 L76 390 C70 396 82 400 90 392 L144 332 Z" fill="#2272c3" stroke="#121b24" stroke-width="8"/>
+    <!-- Chubby Bird Body -->
+    <path d="M142 195 C136 125 186 86 244 94 C290 100 316 142 312 190 C308 262 276 360 200 362 C146 362 136 272 142 195 Z" fill="#2272c3" stroke="#121b24" stroke-width="10"/>
+    <!-- White / Cream Breast -->
+    <path d="M225 152 C206 174 200 220 206 284 C212 344 252 356 272 320 C296 280 306 224 292 168 C280 144 246 138 225 152 Z" fill="#ffffff" stroke="#121b24" stroke-width="7"/>
+    <!-- Wing -->
+    <path d="M154 205 C166 184 216 188 230 240 C242 292 216 338 174 330 C148 325 142 268 154 205 Z" fill="#144f88" stroke="#121b24" stroke-width="9"/>
+    <path d="M174 240 C194 248 212 268 204 306" fill="none" stroke="#2272c3" stroke-width="6"/>
+    <path d="M190 218 C210 230 222 255 220 286" fill="none" stroke="#2272c3" stroke-width="6"/>
+    <!-- Beak -->
+    <path d="M308 145 L354 160 L306 176 Z" fill="#f2a014" stroke="#121b24" stroke-width="8"/>
+    <!-- Eye -->
+    <circle cx="272" cy="148" r="14" fill="#121b24"/>
+    <circle cx="277" cy="143" r="5" fill="#ffffff"/>
   </g>
 </svg>

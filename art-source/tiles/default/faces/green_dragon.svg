@@ -1,9 +1,22 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="328" height="400" viewBox="0 0 328 400">
+<svg xmlns="http://www.w3.org/2000/svg" width="368" height="506" viewBox="0 0 368 506">
   <g stroke-linecap="round" stroke-linejoin="round">
-    <path d="M164 50 L226 112 L204 166 L254 216 L214 320 L164 292 L112 320 L74 216 L124 166 L102 112 Z" fill="none" stroke="#168a67" stroke-width="22"/>
-    <path d="M112 136 H218 M104 222 H226 M164 84 V286" stroke="#168a67" stroke-width="18"/>
-    <circle cx="164" cy="202" r="22" fill="#e9ae32"/>
 
-    <path d="M36 34 L72 26 M270 366 L298 354 M36 362 L58 350" stroke="#168a67" stroke-width="9" opacity="0.7"/>
+    <!-- Green Dragon 發 (Fa) -->
+    <g fill="none" stroke="#106f36" stroke-linecap="round" stroke-linejoin="round">
+      <!-- Top stepping radical (Bo) -->
+      <path d="M155 85 C130 115 100 148 68 170" stroke-width="28"/>
+      <path d="M98 135 L175 115" stroke-width="24"/>
+      <path d="M215 80 L292 125" stroke-width="28"/>
+      <path d="M218 115 C238 135 265 160 300 175" stroke-width="24"/>
+      <!-- Bottom Left Bow (Gong) -->
+      <path d="M105 215 H165 L135 265 H172 C172 330 155 360 90 385" stroke-width="24"/>
+      <path d="M125 385 L180 440" stroke-width="24"/>
+      <!-- Bottom Right Weapon (Shu) -->
+      <path d="M215 210 H275" stroke-width="24"/>
+      <path d="M245 210 V275" stroke-width="24"/>
+      <path d="M205 275 H285 L235 345 H290" stroke-width="24"/>
+      <path d="M260 345 C242 400 210 435 178 455" stroke-width="28"/>
+      <path d="M230 395 C258 415 288 440 320 455" stroke-width="28"/>
+    </g>
   </g>
 </svg>

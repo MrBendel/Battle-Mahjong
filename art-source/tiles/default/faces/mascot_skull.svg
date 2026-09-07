@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="368" height="506" viewBox="0 0 368 506">
+  <g stroke-linecap="round" stroke-linejoin="round">
+
+    <!-- Mascot Pink Skull -->
+    <!-- Skull Cranium -->
+    <path d="M82 230 C72 135 122 85 184 85 C246 85 296 135 286 230 C282 272 258 298 240 310 L240 390 H128 L128 310 C110 298 86 272 82 230 Z" fill="#ee658d" stroke="#121b24" stroke-width="12"/>
+    <!-- Big Eye Sockets -->
+    <circle cx="138" cy="215" r="32" fill="#121b24"/>
+    <circle cx="230" cy="215" r="32" fill="#121b24"/>
+    <!-- Heart Nose -->
+    <path d="M184 282 C174 264 162 270 172 286 L184 300 L196 286 C206 270 194 264 184 282 Z" fill="#121b24"/>
+    <!-- Teeth -->
+    <path d="M148 350 V390 M184 350 V390 M220 350 V390" stroke="#121b24" stroke-width="9"/>
+  </g>
+</svg>

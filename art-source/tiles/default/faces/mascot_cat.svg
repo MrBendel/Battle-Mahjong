@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="368" height="506" viewBox="0 0 368 506">
+  <g stroke-linecap="round" stroke-linejoin="round">
+
+    <!-- Mascot Tuxedo Cat -->
+    <!-- Ears -->
+    <path d="M85 205 L55 65 L155 130 Z" fill="#121b24" stroke="#121b24" stroke-width="12"/>
+    <path d="M90 175 L72 95 L138 135 Z" fill="#ee658d"/>
+    <path d="M283 205 L313 65 L213 130 Z" fill="#121b24" stroke="#121b24" stroke-width="12"/>
+    <path d="M278 175 L296 95 L230 135 Z" fill="#ee658d"/>
+    <!-- Head Outline -->
+    <ellipse cx="184" cy="255" rx="145" ry="135" fill="#121b24" stroke="#121b24" stroke-width="12"/>
+    <!-- White Face / Muzzle -->
+    <path d="M184 195 C132 195 90 235 84 290 C78 345 118 385 184 385 C250 385 290 345 284 290 C278 235 236 195 184 195 Z" fill="#ffffff" stroke="#121b24" stroke-width="8"/>
+    <!-- Eyes -->
+    <ellipse cx="132" cy="242" rx="27" ry="32" fill="#121b24"/>
+    <circle cx="141" cy="230" r="10" fill="#ffffff"/>
+    <circle cx="124" cy="254" r="5" fill="#ffffff"/>
+    <ellipse cx="236" cy="242" rx="27" ry="32" fill="#121b24"/>
+    <circle cx="245" cy="230" r="10" fill="#ffffff"/>
+    <circle cx="228" cy="254" r="5" fill="#ffffff"/>
+    <!-- Pink Nose -->
+    <polygon points="184,290 172,276 196,276" fill="#ee658d"/>
+    <!-- Mouth -->
+    <path d="M170 298 Q184 310 184 298 Q184 310 198 298" fill="none" stroke="#121b24" stroke-width="6"/>
+    <!-- Whiskers -->
+    <path d="M95 292 L25 280 M95 310 L28 316 M273 292 L343 280 M273 310 L340 316" stroke="#121b24" stroke-width="7"/>
+  </g>
+</svg>

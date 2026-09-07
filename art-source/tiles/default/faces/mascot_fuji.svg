@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="368" height="506" viewBox="0 0 368 506">
+  <g stroke-linecap="round" stroke-linejoin="round">
+
+    <!-- Mascot Mount Fuji with Red Sun -->
+    <!-- Radiant Red Sun -->
+    <circle cx="184" cy="195" r="110" fill="#c92424" stroke="#121b24" stroke-width="10"/>
+    <!-- Indigo Mountain Base -->
+    <path d="M40 415 C75 405 138 275 152 215 H216 C230 275 293 405 328 415 Z" fill="#162f56" stroke="#121b24" stroke-width="12"/>
+    <!-- White Snow Cap with Jagged Ridges -->
+    <path d="M152 215 H216 L228 272 L210 260 L198 284 L184 262 L170 284 L158 260 L140 272 Z" fill="#ffffff" stroke="#121b24" stroke-width="8"/>
+  </g>
+</svg>
