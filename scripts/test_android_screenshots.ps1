@@ -2,7 +2,8 @@
 param(
     [switch]$SkipBuild,
     [switch]$KeepEmulator,
-    [string]$AvdName = "BattleMahjongApi36"
+    [string]$AvdName = "BattleMahjongApi36",
+    [string]$DeviceSerial = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -16,7 +17,7 @@ $AvdManager = Join-Path $AndroidHome "cmdline-tools\latest\bin\avdmanager.bat"
 $ApkAnalyzer = Join-Path $AndroidHome "cmdline-tools\latest\bin\apkanalyzer.bat"
 $Apk = Join-Path $RepoRoot "build\android\screenshots\battle-mahjong-debug.apk"
 $OutputDirectory = Join-Path $RepoRoot "build\android\screenshots"
-$PackageName = "com.platypus.battlemahjong"
+$PackageName = "com.platypus.battlemahjong.screenshots"
 $SystemImage = "system-images;android-36;google_apis;x86_64"
 $StartedEmulator = $null
 $EnabledCutout = ""
@@ -331,7 +332,16 @@ try {
         throw "Android manifest must request Godot's sensor orientation."
     }
 
-    $script:Serial = Get-EmulatorSerial
+    if (-not [string]::IsNullOrWhiteSpace($DeviceSerial)) {
+        $connectedDevices = (& $Adb devices) -join "`n"
+        if ($connectedDevices -notmatch "(?m)^$([regex]::Escape($DeviceSerial))\s+device$") {
+            throw "Requested Android device is not connected and authorized: $DeviceSerial"
+        }
+        $script:Serial = $DeviceSerial
+    }
+    else {
+        $script:Serial = Get-EmulatorSerial
+    }
     if ([string]::IsNullOrWhiteSpace($script:Serial)) {
         $acceleration = (& $Emulator -accel-check 2>&1) -join "`n"
         if ($LASTEXITCODE -ne 0) {
@@ -352,7 +362,9 @@ try {
         Wait-ForEmulator
     }
 
-    Enable-Test-Cutout
+    if ($script:Serial -match '^emulator-') {
+        Enable-Test-Cutout
+    }
     Invoke-Adb -Arguments @("shell", "settings", "put", "secure", "immersive_mode_confirmations", "confirmed") | Out-Null
     Invoke-Adb -Arguments @("install", "-r", $Apk) | Out-Null
     Invoke-Adb -Arguments @("logcat", "-c") | Out-Null

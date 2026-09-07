@@ -1,6 +1,17 @@
 # Tower Generation And Difficulty Tooling
 
-The Tower is the intended endless-play direction. The current implementation is authoring tooling, not a shipped game mode: it creates deterministic, finite Tower segments that can be inspected, playtested, and chained later.
+The Tower is the endless-play direction. The first playable runtime loop and the heavier authoring tools share deterministic layout/deal contracts but serve different jobs.
+
+## Runtime Loop
+
+Selecting **The Tower** in town creates a run seed and starts floor 1 immediately after the existing modifier-loadout step. Each floor is an ordinary, independently replayable `GameDefinition`; the Tower run owns only the run seed and current floor number. Clearing a floor offers **Next Floor**, while losing can replay that same floor. Returning to town ends the in-memory run.
+
+`configuration/tower/tower_runtime.json` controls the initial runtime curve. A floor deterministically derives separate layout and deal seeds from `(run seed, floor number)`. The current curve keeps the portrait-first 96-tile board envelope stable while increasing:
+
+- unique tile identities, from 12 toward 24;
+- deterministic deal shuffle, from 40% toward 100%.
+
+The floor sequence is unbounded and reproducible. Persistence, rewards, checkpoints, and profile progression remain deferred; this is the playable mode foundation rather than the finished Tower metagame.
 
 ## Segment Contract
 
@@ -25,7 +36,7 @@ The primary authored difficulty axes are kept separate from the measured score:
 
 All axes are copied into the generated manifest. A later Tower curve can move between multiple profiles or requirements assets without changing the generator contract.
 
-Selected floors receive stable IDs such as `tower_foundation_floor_001`. They are sampled from evenly distributed difficulty buckets rather than taking only the easiest or hardest candidates. Segments can later be chained by a durable game-mode system without changing board layout identity or replay data.
+Selected authoring floors receive stable IDs such as `tower_foundation_floor_001`. They are sampled from evenly distributed difficulty buckets rather than taking only the easiest or hardest candidates. This candidate-ranking path remains useful for tuning and curated segments; it is deliberately not run synchronously when entering Tower on a phone.
 
 ## Difficulty Report
 
@@ -55,12 +66,13 @@ godot --headless --path . --script res://scripts/tools/generate_tower_segment.gd
 
 Omit the output path to print the manifest. Generation fails rather than emitting a segment when a candidate layout, deal, or certified transaction route is invalid.
 
-The gameplay shell also exposes the motif generator before modifier selection in internal builds. This on-device path previews an in-memory layout and records the chosen seed in the resulting game definition; it does not write generated assets into the packaged project.
+Quick Play exposes the motif generator before modifier selection. This on-device path previews an in-memory layout and records the chosen seed in the resulting game definition; it does not write generated assets into the packaged project. Tower uses the same generator without showing the seed picker.
 
 ## Current Limits
 
-- This does not implement Tower navigation, saves, rewards, profiles, or an endless runtime loop.
+- Tower runs are session-only and do not yet implement saves, rewards, profiles, checkpoints, or a run summary.
 - One requirements profile produces a deliberately narrow difficulty range.
+- Runtime board dimensions and layer counts are currently fixed; later profile tiers can change those axes without changing the run contract.
 - The score measures a certified pair-only route, not tray-aware human play or dead-end probability.
 - Segment generation is an offline authoring operation and is not optimized for a frame-time budget.
 - Difficulty weights are provisional and must not become player-facing labels until validated against playtest outcomes.

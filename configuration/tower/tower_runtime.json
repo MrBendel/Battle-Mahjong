@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "requirements_path": "res://configuration/layout_requirements/portrait_arcade_96.json",
+  "tray_capacity": 4,
+  "unique_tile_count_start": 12,
+  "unique_tile_count_per_floor": 1,
+  "unique_tile_count_max": 24,
+  "shuffle_basis_points_start": 4000,
+  "shuffle_basis_points_per_floor": 500,
+  "shuffle_basis_points_max": 10000
+}

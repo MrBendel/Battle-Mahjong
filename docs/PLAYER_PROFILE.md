@@ -68,6 +68,8 @@ Only fields required by implemented features should be added. The lists above id
 
 Profile time fields may use wall-clock time because they are metadata outside deterministic simulation. They must never drive gameplay outcomes inside a run.
 
+The production profile begins with zero earned hearts. Hearts are durable rewards owned by the profile, but a run reads only the starting-heart count copied into its immutable `GameDefinition`; consuming a heart mutates the game timeline, not the live profile. Result application will reconcile earned and consumed inventory atomically when profile persistence is implemented. The current gameplay shell supplies three hearts only as temporary playtest tuning.
+
 Device preferences such as volume, window mode, input mapping, and accessibility settings should live in a separate `PlayerPreferences` record. A later product decision may choose which preferences synchronize between devices.
 
 ## Starting A Game

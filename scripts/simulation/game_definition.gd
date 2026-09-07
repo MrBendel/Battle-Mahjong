@@ -4,7 +4,7 @@ const GameConfigurationScript := preload("res://scripts/simulation/game_configur
 const ConsumableInventoryScript := preload("res://scripts/simulation/consumable_inventory.gd")
 
 const SCHEMA_VERSION := 4
-const CURRENT_RULES_VERSION := 18
+const CURRENT_RULES_VERSION := 19
 const LEGACY_COMBO_WINDOW_MS := 7000
 
 var seed: int
@@ -34,6 +34,8 @@ func _init(
 	tiles = tile_definitions.duplicate()
 	configuration = GameConfigurationScript.create()
 	configuration.merge(game_configuration, true)
+	if rules_version < 19:
+		configuration.erase("starting_extra_life_charges")
 	if rules_version < 17:
 		configuration.erase("modifier_bomb_max_pairs")
 	if rules_version < 7:
@@ -104,6 +106,7 @@ func _normalize_modifier(modifier: Dictionary) -> Dictionary:
 func _normalize_configuration_numbers() -> void:
 	var integer_keys := [
 		"tray_capacity",
+		"starting_extra_life_charges",
 		"momentum_max",
 		"momentum_pair_gain",
 		"momentum_selection_gain",

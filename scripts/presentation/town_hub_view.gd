@@ -15,7 +15,7 @@ const DESTINATIONS := [
 		"landscape": Rect2(0.36, 0.03, 0.28, 0.40),
 	},
 	{
-		"id": "home", "label": "YOUR HOME", "available": false, "sign_tilt": 0.8,
+		"id": "home", "label": "YOUR HOME", "available": true, "sign_tilt": 0.8,
 		"portrait": Rect2(0.01, 0.29, 0.43, 0.23),
 		"landscape": Rect2(0.03, 0.09, 0.27, 0.39),
 	},

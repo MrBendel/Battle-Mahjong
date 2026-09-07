@@ -2,6 +2,8 @@
 
 The mobile/console-oriented shell follows two presentation compositions around the same portrait-authored board. Orientation may reposition HUD and action regions and select an orientation-specific cosmetic tile geometry, but it never rotates, transposes, or rearranges stable board slots.
 
+`configuration/default_gameplay_theme.tres` is the shared presentation asset contract for both compositions. It selects the background layers, HUD artwork and fonts, tray pieces, consumable pieces and icons, Pause artwork, and tile-skin manifest. Views receive that same resource when the shell constructs them; orientation changes placement, not theme ownership or runtime state. New themes may override individual exported paths while inheriting defaults for the remaining pieces, allowing seasonal releases without duplicating a complete portrait or landscape screen.
+
 ## Portrait
 
 Portrait uses the M7 Figma HUD documented in [Figma Portrait Gameplay UI](FIGMA_PORTRAIT_UI.md) and a strict vertical priority stack:

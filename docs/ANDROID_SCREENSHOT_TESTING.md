@@ -50,6 +50,25 @@ Full Android export, rotation, safe-area, and screenshot run:
 powershell -ExecutionPolicy Bypass -File scripts/test_android_screenshots.ps1
 ```
 
+To run the same capture and lifecycle checks on an attached authorized phone, pass the serial reported by `adb devices -l`:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/test_android_screenshots.ps1 -DeviceSerial <serial>
+```
+
+The `AndroidScreenshots` preset includes both `arm64-v8a` and `x86_64` so the same
+debug APK can run on a physical Android device or the standard API 36 emulator.
+The production Android preset remains `arm64-v8a` only.
+
+The screenshot APK uses the separate package ID
+`com.platypus.battlemahjong.screenshots`. It can coexist with a Play-installed
+build and cannot overwrite or erase that build's app data.
+
+The preset also defines the `android_screenshots` feature. Instrumentation
+builds use it to open deterministic Quick Play directly, bypassing the town hub
+and pregame pickers so the harness can probe and capture the responsive gameplay
+shell.
+
 Use `-SkipBuild` to reuse the existing APK or `-KeepEmulator` to leave an emulator started by the script running. The script reuses an already-running emulator when one is connected.
 
 Captures are written to the ignored `build/android/screenshots/` directory:

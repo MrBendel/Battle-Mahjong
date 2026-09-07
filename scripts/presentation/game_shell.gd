@@ -1,6 +1,7 @@
 extends Control
 
 signal return_to_town_requested
+signal next_tower_floor_requested
 
 const DebugPanelScript := preload("res://scripts/ui/debug_panel.gd")
 const DeterministicRngScript := preload("res://scripts/simulation/deterministic_rng.gd")
@@ -33,10 +34,7 @@ const UpdateBannerViewScript := preload("res://scripts/presentation/update_banne
 const UpdateCheckerScript := preload("res://scripts/presentation/update_checker.gd")
 const SafeAreaScript := preload("res://scripts/presentation/safe_area.gd")
 const PresentationScaleScript := preload("res://scripts/presentation/presentation_scale.gd")
-const PORTRAIT_BACKGROUND_PATH := "res://game-assets/ui/portrait/background.png"
-const BACKGROUND_PATCH_MARGIN := 48
-const PORTRAIT_PAUSE_BUTTON_PATH := "res://game-assets/ui/portrait/pause_button.png"
-const PORTRAIT_HUD_TOP_SCRIM_PATH := "res://game-assets/ui/portrait/hud_top_scrim.svg"
+const GameplayThemeScript := preload("res://scripts/presentation/gameplay_theme.gd")
 const PORTRAIT_REFERENCE_SIZE := Vector2(390.0, 844.0)
 const PORTRAIT_HUD_SCRIM_SIZE := Vector2(390.0, 167.0)
 const PORTRAIT_QUEUE_SOURCE_HEIGHT := 115.0
@@ -55,8 +53,11 @@ const PAIR_MATCH_FX_POOL_SIZE := 6
 @export var momentum_tuning: Resource
 @export var modifier_tuning: Resource
 @export var arcade_callout_tuning: Resource
+@export var gameplay_theme: Resource
 @export var layout_id: String = BoardLayoutCatalogScript.DEFAULT_LAYOUT_ID
 @export_range(0, 48, 1) var flipped_tile_count := 12
+## Temporary prototype grant. Future modes snapshot the player's earned hearts here.
+@export_range(0, 99, 1) var starting_hearts := 3
 ## Uniform tray-tile scale relative to the current rendered Board tile footprint.
 @export_range(0.60, 1.00, 0.01) var tray_tile_scale := 0.80
 ## Travel time for Board-to-Tray, flipped staging, and Undo return presentation.
@@ -182,8 +183,30 @@ var _layout_generator_picker: Control
 var _runtime_layout: Variant
 var _runtime_layout_seed := START_SEED
 var _selected_modifier_loadout: Variant = null
+var _launch_mode := "quick_play"
+var _launch_floor_number := 0
+var _runtime_deal_options: Dictionary = {}
+var _runtime_tray_capacity := GameStateScript.BASE_TRAY_CAPACITY
+
+
+func configure_launch(options: Dictionary) -> void:
+	_launch_mode = str(options.get("mode", "quick_play"))
+	_launch_floor_number = int(options.get("floor_number", 0))
+	_runtime_layout = options.get("layout")
+	_runtime_deal_options = options.get("deal_options", {}).duplicate(true)
+	_runtime_tray_capacity = int(options.get("tray_capacity", GameStateScript.BASE_TRAY_CAPACITY))
+	_runtime_layout_seed = int(options.get("seed", START_SEED))
+	_rng.set_seed(_runtime_layout_seed)
+	show_layout_generator_on_start = bool(options.get("show_layout_generator", true))
+	show_modifier_picker_on_start = bool(options.get("show_modifier_picker", true))
 
 func _ready() -> void:
+	if gameplay_theme == null or gameplay_theme.get_script() != GameplayThemeScript:
+		push_warning("No valid GameplayTheme assigned; using the default presentation theme.")
+		gameplay_theme = GameplayThemeScript.new()
+	var theme_errors: Array[String] = gameplay_theme.call("validation_errors")
+	if not theme_errors.is_empty():
+		push_error("Invalid GameplayTheme: %s" % " ".join(theme_errors))
 	_sound_enabled = sound_enabled_on_start
 	_haptics_enabled = haptics_enabled_on_start
 	_apply_sound_preference()
@@ -221,13 +244,15 @@ func _input(event: InputEvent) -> void:
 
 func _build_shell() -> void:
 	_game = _create_game()
-	_tile_skin = TileSkinScript.new()
+	_tile_skin = TileSkinScript.new(str(gameplay_theme.tile_skin_manifest_path))
 	_game_started_at_ms = Time.get_ticks_msec()
 	_regions.board = BoardViewScript.new(_game, _tile_skin)
 	_regions.board.call("set_flip_duration", tile_flip_seconds)
-	_regions.momentum = MomentumViewScript.new(_game)
-	_regions.tray = TrayViewScript.new(_game, _tile_skin)
-	_regions.consumables = ConsumablesViewScript.new(_game)
+	_regions.momentum = MomentumViewScript.new(_game, gameplay_theme)
+	if _launch_floor_number > 0:
+		_regions.momentum.call("set_run_label", "FLOOR %d" % _launch_floor_number)
+	_regions.tray = TrayViewScript.new(_game, _tile_skin, gameplay_theme)
+	_regions.consumables = ConsumablesViewScript.new(_game, gameplay_theme)
 	_regions.character = _make_region("Character / FX", "decorative reaction space", Color(0.17, 0.11, 0.13, 1.0))
 
 	for region in _regions.values():
@@ -287,7 +312,7 @@ func _build_pause_menu() -> void:
 	_pause_button = Button.new()
 	_pause_button.name = "PauseButton"
 	_pause_button.text = ""
-	_pause_button.icon = _load_texture(PORTRAIT_PAUSE_BUTTON_PATH)
+	_pause_button.icon = _load_texture(str(gameplay_theme.pause_button_path))
 	_pause_button.expand_icon = true
 	_pause_button.tooltip_text = "Pause"
 	_pause_button.focus_mode = Control.FOCUS_NONE
@@ -314,6 +339,7 @@ func _build_end_game_menu() -> void:
 	_end_game_menu.restart_requested.connect(_on_restart_requested)
 	_end_game_menu.undo_requested.connect(_on_end_game_undo_requested)
 	_end_game_menu.town_requested.connect(_on_return_to_town_requested)
+	_end_game_menu.call("set_tower_floor", _launch_floor_number)
 	add_child(_end_game_menu)
 
 
@@ -331,11 +357,12 @@ func _build_gameplay_background() -> void:
 	_gameplay_background = NinePatchRect.new()
 	_gameplay_background.name = "GameplayBackground"
 	_gameplay_background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_gameplay_background.texture = _load_texture(PORTRAIT_BACKGROUND_PATH)
-	_gameplay_background.set_patch_margin(SIDE_LEFT, BACKGROUND_PATCH_MARGIN)
-	_gameplay_background.set_patch_margin(SIDE_TOP, BACKGROUND_PATCH_MARGIN)
-	_gameplay_background.set_patch_margin(SIDE_RIGHT, BACKGROUND_PATCH_MARGIN)
-	_gameplay_background.set_patch_margin(SIDE_BOTTOM, BACKGROUND_PATCH_MARGIN)
+	_gameplay_background.texture = _load_texture(str(gameplay_theme.background_path))
+	var patch_margin := int(gameplay_theme.background_patch_margin)
+	_gameplay_background.set_patch_margin(SIDE_LEFT, patch_margin)
+	_gameplay_background.set_patch_margin(SIDE_TOP, patch_margin)
+	_gameplay_background.set_patch_margin(SIDE_RIGHT, patch_margin)
+	_gameplay_background.set_patch_margin(SIDE_BOTTOM, patch_margin)
 	_gameplay_background.axis_stretch_horizontal = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
 	_gameplay_background.axis_stretch_vertical = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
 	_gameplay_background.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -350,7 +377,7 @@ func _build_gameplay_background() -> void:
 
 	_portrait_hud_scrim = TextureRect.new()
 	_portrait_hud_scrim.name = "PortraitHudScrim"
-	_portrait_hud_scrim.texture = _load_texture(PORTRAIT_HUD_TOP_SCRIM_PATH)
+	_portrait_hud_scrim.texture = _load_texture(str(gameplay_theme.hud_scrim_path))
 	_portrait_hud_scrim.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_portrait_hud_scrim.stretch_mode = TextureRect.STRETCH_SCALE
 	_portrait_hud_scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -358,7 +385,10 @@ func _build_gameplay_background() -> void:
 
 
 func _create_game() -> Variant:
-	var tuning_overrides := {"flipped_tile_count": flipped_tile_count}
+	var tuning_overrides := {
+		"flipped_tile_count": flipped_tile_count,
+		"starting_extra_life_charges": starting_hearts,
+	}
 	if momentum_tuning == null:
 		push_warning("No MomentumTuning resource assigned; using simulation defaults.")
 	elif momentum_tuning.get_script() != MomentumTuningScript:
@@ -392,10 +422,11 @@ func _create_game() -> Variant:
 			"create_generated_for_layout",
 			_rng.call("get_seed"),
 			_runtime_layout,
-			GameStateScript.BASE_TRAY_CAPACITY,
+			_runtime_tray_capacity,
 			tuning_overrides,
 			runtime_loadout,
-			true
+			true,
+			_runtime_deal_options
 		)
 		definition = generated.get("definition")
 	elif playtest_all_modifiers:
@@ -866,6 +897,9 @@ func _on_shuffle_requested() -> void:
 
 
 func _on_restart_requested() -> void:
+	if _launch_mode == "tower" and _game != null and _game.status == GameStateScript.WON:
+		next_tower_floor_requested.emit()
+		return
 	_clear_tray_compaction_previews()
 	_cancel_auto_clear_animation()
 	_opening_countdown_active = false

@@ -38,7 +38,7 @@ func _verify_orientation(viewport_size: Vector2i, label: String) -> void:
 	var tower: TextureButton = hub.call("destination_button", "tower")
 	var home: TextureButton = hub.call("destination_button", "home")
 	_check(tower != null and not tower.disabled, "%s Tower destination is interactive" % label)
-	_check(home != null and home.disabled, "%s unfinished destinations are disabled" % label)
+	_check(home != null and not home.disabled, "%s Quick Play destination is interactive" % label)
 	_check(tower.texture_click_mask != null, "%s Tower uses its sprite alpha as the hit target" % label)
 	_check(tower.has_node("BuildingVisual") and tower.has_node("DestinationSign"), "%s destination separates smooth visual art and sign presentation" % label)
 	var tower_hit_position := tower.position
@@ -77,9 +77,29 @@ func _verify_orientation(viewport_size: Vector2i, label: String) -> void:
 		if image != null:
 			image.save_png("res://build/screenshots/town-hub-%s.png" % label)
 
+	app.call("open_destination_for_testing", "home")
+	await process_frame
+	var quick_play: Control = app.get("_game_shell")
+	_check(quick_play != null, "%s Quick Play opens gameplay" % label)
+	_check(quick_play.get("_layout_generator_picker") != null, "%s Quick Play opens the random layout picker" % label)
+	_check(int(quick_play.get("_runtime_layout_seed")) > 0, "%s Quick Play receives a valid generated seed" % label)
+	app.call("_show_hub")
+	await process_frame
 	app.call("open_destination_for_testing", "tower")
 	await process_frame
-	_check(app.get("_game_shell") != null, "%s Tower opens the existing gameplay setup" % label)
+	var tower_game: Control = app.get("_game_shell")
+	_check(tower_game != null, "%s Tower opens gameplay" % label)
+	_check(tower_game.get("_layout_generator_picker") == null, "%s Tower starts its generated floor directly" % label)
+	_check_equal(1, tower_game.get("_launch_floor_number"), "%s Tower starts on floor one" % label)
+	var tower_momentum: Control = tower_game.get("_regions").momentum
+	_check("FLOOR 1" in str(tower_momentum.get("_combo").text), "%s Tower HUD identifies the current floor" % label)
+	var floor_one_seed: int = tower_game.get("_runtime_layout_seed")
+	app.call("_on_next_tower_floor_requested")
+	await process_frame
+	await process_frame
+	tower_game = app.get("_game_shell")
+	_check_equal(2, tower_game.get("_launch_floor_number"), "%s Tower advances to floor two" % label)
+	_check(floor_one_seed != int(tower_game.get("_runtime_layout_seed")), "%s next Tower floor uses a new deal seed" % label)
 	app.call("_show_hub")
 	await process_frame
 	_check(app.get("_hub") != null, "%s gameplay can return to town" % label)
@@ -95,3 +115,7 @@ func _check(condition: bool, message: String) -> void:
 	else:
 		_failures += 1
 		push_error("FAIL: %s" % message)
+
+
+func _check_equal(expected: Variant, actual: Variant, message: String) -> void:
+	_check(expected == actual, "%s (expected %s, got %s)" % [message, expected, actual])

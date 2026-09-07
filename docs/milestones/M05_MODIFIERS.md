@@ -48,6 +48,8 @@ All values below are provisional and authored in `configuration/default_modifier
 ### Extra Life
 
 - Level 0 grants one recovery charge; each level adds one charge.
+- Hearts and Extra Life use the same run-scoped recovery-charge counter. Starting hearts are snapshotted into the immutable game definition, while collecting an Extra Life modifier adds charges during the run.
+- The production profile starts with zero hearts and will earn them through later reward/progression work. The current `GameShell` temporarily supplies three configurable starting hearts for gameplay simulation; this is not a persistent inventory grant.
 - When an unmatched selection would fill the effective tray capacity, one charge is consumed automatically.
 - Existing unresolved tray tiles return to their stable board slots, the attempted tile remains on the board, and the run stays active.
 - Recovery is one atomic transaction with `extra_life_consumed` telemetry.
@@ -106,7 +108,8 @@ The pregame debug picker exposes Bomb 1 through Bomb 6 and Match 1 through Match
 
 ## Determinism And Replay
 
-- Current gameplay rules version is `18` and game-definition schema version is `4`.
+- Current gameplay rules version is `19` and game-definition schema version is `4`.
+- Rules version 19 initializes run-scoped recovery charges from `starting_extra_life_charges`. Earlier rules versions omit that configuration field and preserve zero starting charges.
 - Loadouts, attachments, tuning, and active effects participate in definition or state hashes as appropriate.
 - Effect mutations use typed counter changes and replay through the production reducer.
 - Time-based effects use command `playback_time_ms`; simulation never reads wall-clock time.

@@ -6,7 +6,12 @@ The Town Hub is Battle Mahjong's application-level home and the future presentat
 
 ## First Slice
 
-The initial implementation launches into a responsive town map. The Mall is the only active destination and enters the existing generated-Board and modifier-loadout flow. Other destinations remain visible but non-interactive until their owning milestones define real behavior.
+The initial implementation launches into a responsive town map. Two destinations are active:
+
+- **Quick Play / Home** opens the on-device seeded layout generator, then the existing modifier-loadout and gameplay flow.
+- **The Tower** begins an in-memory endless run whose deterministic generated floors advance one at a time.
+
+Other destinations remain visible but non-interactive until their owning milestones define real behavior.
 
 The supplied `Colorful Mahjong Town Hub Map.png` is retained only as concept artwork under `art-source/town/default/`. Runtime presentation uses a constructed asset kit: a vegetation-free ground map, six destination-building atlas regions, and a separate vegetation atlas. The same pieces are recomposed for portrait and landscape.
 
@@ -71,8 +76,8 @@ Theme selection is presentation/profile state and never participates in game-def
 
 ## Destination Ownership
 
-- **The Mall / Tower:** endless Tower mode; current first playable entrance.
-- **Your Home:** profile, equipped cosmetics, collection, and loadout presentation.
+- **The Tower:** endless generated floors; current session-only playable foundation.
+- **Quick Play / Home:** random generated-board entry for now. Profile, cosmetics, and collection presentation remain its later M9 responsibility.
 - **The Dojo:** practice, tutorials, and development difficulty tools.
 - **Game Hall:** battle and tournaments.
 - **Daily Shrine:** daily deterministic play.

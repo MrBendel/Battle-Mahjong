@@ -17,6 +17,11 @@ var _restart_button: Button
 var _undo_button: Button
 var _town_button: Button
 var _stat_labels: Array[Label] = []
+var _tower_floor := 0
+
+
+func set_tower_floor(floor_number: int) -> void:
+	_tower_floor = maxi(0, floor_number)
 
 
 func show_result(game: Variant, elapsed_ms: int) -> void:
@@ -26,14 +31,17 @@ func show_result(game: Variant, elapsed_ms: int) -> void:
 	var can_undo := bool(game.call("can_undo"))
 
 	if is_win:
-		_title_label.text = "VICTORY!"
+		_title_label.text = "FLOOR CLEAR!" if _tower_floor > 0 else "VICTORY!"
 		_title_label.add_theme_color_override("font_color", Color("f5d56d"))
-		_subtitle_label.text = "All tiles successfully cleared!"
+		_subtitle_label.text = "Floor %d complete. The Tower continues upward." % _tower_floor if _tower_floor > 0 \
+			else "All tiles successfully cleared!"
+		_restart_button.text = "NEXT FLOOR" if _tower_floor > 0 else "PLAY AGAIN"
 		_undo_button.visible = false
 	else:
 		_title_label.text = "GAME OVER"
 		_title_label.add_theme_color_override("font_color", Color("ef7582"))
 		_subtitle_label.text = "Tray is full with no matching pairs."
+		_restart_button.text = "TRY FLOOR AGAIN" if _tower_floor > 0 else "PLAY AGAIN"
 		_undo_button.visible = can_undo
 
 	_populate_stats(game, elapsed_ms)

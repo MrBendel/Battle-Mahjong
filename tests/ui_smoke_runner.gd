@@ -81,13 +81,29 @@ func _run() -> void:
 	var tuning: Resource = shell.get("momentum_tuning")
 	var modifier_tuning: Resource = shell.get("modifier_tuning")
 	var callout_tuning: Resource = shell.get("arcade_callout_tuning")
+	var gameplay_theme: Resource = shell.get("gameplay_theme")
 	_check(tuning != null, "main scene exposes a MomentumTuning resource")
 	_check(tuning.call("validation_errors").is_empty(), "main scene MomentumTuning resource validates")
 	_check(modifier_tuning != null, "main scene exposes a ModifierTuning resource")
 	_check(modifier_tuning.call("validation_errors").is_empty(), "main scene ModifierTuning resource validates")
 	_check(callout_tuning != null and callout_tuning.call("validation_errors").is_empty(), "main scene ArcadeCalloutTuning resource validates")
+	_check(gameplay_theme != null and gameplay_theme.call("validation_errors").is_empty(), "main scene exposes a valid layered GameplayTheme")
+	_check_equal(
+		load(str(gameplay_theme.pause_button_path)),
+		shell.get("_pause_button").icon,
+		"Pause artwork resolves through the shared GameplayTheme"
+	)
 	var live_game: Variant = shell.get("_game")
 	_check_equal(shell.get("layout_id"), live_game.definition.configuration.layout_id, "main scene selects its exported layout id")
+	_check_equal(
+		int(shell.get("starting_hearts")),
+		int(live_game.definition.configuration.starting_extra_life_charges),
+		"main scene snapshots its Inspector starting-heart count"
+	)
+	_check_equal(3, live_game.call("current_snapshot").extra_life_charges, "playable prototype starts with three hearts")
+	var heart_count_label: Label = shell.get("_regions").momentum.get("_extra_life_count")
+	_check(heart_count_label.visible, "starting hearts are visible in the HUD")
+	_check_equal("3", heart_count_label.text, "HUD reflects the authoritative starting-heart count")
 	_check_equal(
 		int(shell.get("flipped_tile_count")),
 		live_game.definition.flipped_tile_ids.size(),
@@ -784,6 +800,8 @@ func _run() -> void:
 		_check(not banner.visible, "%s update banner hides on dismiss" % orientation)
 		await process_frame
 
+	# Exercise the terminal-loss presentation independently from the prototype heart grant.
+	shell.set("starting_hearts", 0)
 	shell.call("_on_restart_requested")
 	live_game = shell.get("_game")
 	var end_game_menu: Control = shell.get("_end_game_menu")
@@ -1447,10 +1465,10 @@ func _validate_board_tiles(shell: Control, orientation: String) -> void:
 				),
 				"%s layer directly below the top uses the lighter skin-defined brightness" % orientation
 			)
-	if orientation == "portrait":
-		_check(minimum_tile_size.y > minimum_tile_size.x, "portrait uses tall tile artwork (%s)" % minimum_tile_size)
-	else:
-		_check(minimum_tile_size.x > minimum_tile_size.y, "landscape uses wide tile artwork (%s)" % minimum_tile_size)
+	_check(
+		minimum_tile_size.y > minimum_tile_size.x,
+		"%s uses the shared upright tile artwork (%s)" % [orientation, minimum_tile_size]
+	)
 
 
 func _validate_consumables(shell: Control, orientation: String) -> void:

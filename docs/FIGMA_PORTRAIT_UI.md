@@ -4,6 +4,8 @@ Status: M7 first implementation pass
 
 The portrait gameplay HUD follows the Figma frame `gameplay-portrait-components-v1` (`68:2`) in file `smmQPlegRvV6ZVGzD5Ea6y`. Figma remains the visual source of truth for this slice; Godot owns responsive layout, runtime values, clipping, interaction, and gameplay presentation.
 
+The exported pieces are resolved through `configuration/default_gameplay_theme.tres`, which is shared by portrait and landscape. Components must not load alternate full-screen composites for orientation changes. A future seasonal theme can replace the background, HUD shell, tray, controls, fonts, or tile-skin manifest independently and inherit unchanged pieces from the default theme contract.
+
 ## Asset Boundary
 
 Full-resolution component exports and the reference-frame capture live under:
