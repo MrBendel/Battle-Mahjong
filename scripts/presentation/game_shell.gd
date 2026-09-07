@@ -59,10 +59,10 @@ const PAIR_MATCH_FX_POOL_SIZE := 6
 ## Temporary prototype grant. Future modes snapshot the player's earned hearts here.
 @export_range(0, 99, 1) var starting_hearts := 3
 ## Uniform tray-tile scale relative to the current rendered Board tile footprint.
-@export_range(0.50, 1.00, 0.01) var tray_tile_scale := 0.80
+@export_range(0.50, 1.00, 0.01) var tray_tile_scale := 0.70
 ## Keeps the Board as the hero without allowing it to consume the entire felt surface.
-@export_range(0.55, 1.00, 0.01) var portrait_board_content_scale := 1.00
-@export_range(0.55, 1.00, 0.01) var landscape_board_content_scale := 1.00
+@export_range(0.55, 1.00, 0.01) var portrait_board_content_scale := 0.80
+@export_range(0.55, 1.00, 0.01) var landscape_board_content_scale := 0.80
 ## Travel time for Board-to-Tray, flipped staging, and Undo return presentation.
 @export_range(0.12, 0.40, 0.01) var tile_transfer_seconds := 0.24
 ## Full back-to-front or front-to-back Board flip duration.
@@ -1808,7 +1808,7 @@ func _apply_layout() -> void:
 	_portrait_hud_scrim.visible = portrait
 	_regions.momentum.call("set_portrait_style", true)
 	_regions.tray.call("set_layout_mode", true, not portrait)
-	_regions.consumables.call("set_dock_layout", false)
+	_regions.consumables.call("set_dock_layout", not portrait)
 	_regions.board.call("set_compact_mode", true)
 	_regions.board.call(
 		"set_content_scale",
@@ -1963,8 +1963,8 @@ func _apply_landscape_layout(size: Vector2) -> void:
 	var left_width := clampf(safe_rect.size.x * 0.27, 260.0, 520.0)
 	var tray_width := clampf(safe_rect.size.x * 0.12, 120.0, 190.0)
 	var status_height := clampf(usable_height * 0.24, 118.0, 176.0)
-	var controls_width := minf(left_width, 340.0)
-	var controls_height := minf(112.0, usable_height * 0.26)
+	var controls_width := clampf(safe_rect.size.x * 0.065, 86.0, 118.0)
+	var controls_height := minf(usable_height * 0.56, 390.0)
 	var board_left := safe_rect.position.x + left_width + gap
 	var board_right := safe_rect.end.x - tray_width - gap
 	var board_rect := Rect2(

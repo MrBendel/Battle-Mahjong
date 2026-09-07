@@ -160,7 +160,7 @@ Their visual importance should roughly be:
 The playfield should receive as much usable screen area as possible.
 
 Usable area does not mean edge-to-edge tile coverage. The current visual slice
-fits the authored Board at an Inspector-tunable `1.00` of its maximum region
+fits the authored Board at an Inspector-tunable `0.80` of its maximum region
 fit so the puzzle reads as one centered physical object with visible felt around
 it. Portrait and landscape own separate presentation scale values; neither
 changes layout slots or gameplay adjacency.
@@ -280,7 +280,7 @@ It also creates a natural animation direction:
 The tile visually exits the active interaction area.
 
 The current runtime tray uses a warm-ivory cap/repeat/cap construction. Its
-tiles render at `0.80` of the Board tile footprint. Portrait lays the slots out
+tiles render at `0.70` of the Board tile footprint. Portrait lays the slots out
 horizontally; landscape lays the same ordered slots out vertically on the
 right side of the Board.
 

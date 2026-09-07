@@ -1,13 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="63" height="115" viewBox="0 0 63 115">
   <defs>
     <linearGradient id="ceramic" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#fff9e8"/>
-      <stop offset="0.78" stop-color="#eadfc7"/>
-      <stop offset="1" stop-color="#cdb791"/>
+      <stop offset="0" stop-color="#fff0cf"/>
+      <stop offset="0.72" stop-color="#e8c99a"/>
+      <stop offset="1" stop-color="#b98a58"/>
     </linearGradient>
   </defs>
-  <rect x="0" y="2" width="63" height="105" fill="url(#ceramic)" stroke="#5e5548" stroke-width="1.5"/>
-  <rect x="6" y="13" width="51" height="73" rx="9" fill="#d8ccb6" stroke="#8b7a61" stroke-width="1.5"/>
-  <path d="M10 18c9-4 35-4 43 0" fill="none" stroke="#fffdf4" stroke-width="2.5" opacity=".72"/>
-  <path d="M7 94h49" fill="none" stroke="#aa9677" stroke-width="1.5" opacity=".65"/>
+  <rect x="0" y="1" width="63" height="109" fill="url(#ceramic)" stroke="#2b211b" stroke-width="2"/>
+  <rect x="5" y="10" width="53" height="79" rx="9" fill="#c9aa7d" stroke="#6f5135" stroke-width="2"/>
+  <path d="M9 16c8-4 37-4 45 0" fill="none" stroke="#fff7dc" stroke-width="3" opacity=".55"/>
+  <path d="M6 96h51" fill="none" stroke="#8f653e" stroke-width="2" opacity=".8"/>
 </svg>
