@@ -14,12 +14,12 @@ const PORTRAIT_SCORE_RECT := Rect2(225.0, 16.0, 230.0, 61.0)
 const PORTRAIT_STREAK_RECT := Rect2(462.0, 16.0, 138.0, 61.0)
 const PORTRAIT_MOMENTUM_RECT := Rect2(20.0, 84.0, 435.0, 61.0)
 const PORTRAIT_MULTIPLIER_RECT := Rect2(462.0, 84.0, 138.0, 61.0)
-const PORTRAIT_FRAME_RECT := Rect2(31.0, 91.0, 414.0, 46.0)
-const PORTRAIT_FILL_RECT := Rect2(42.0, 99.0, 392.0, 26.0)
-const PORTRAIT_SCORE_OPTICAL_OFFSET := Vector2(4.0, -1.0)
-const PORTRAIT_STREAK_TITLE_OPTICAL_OFFSET := Vector2(7.0, 1.0)
-const PORTRAIT_STREAK_VALUE_OPTICAL_OFFSET := Vector2(2.0, -1.0)
-const PORTRAIT_MULTIPLIER_OPTICAL_OFFSET := Vector2(2.0, -1.0)
+const PORTRAIT_FRAME_RECT := Rect2(20.0, 84.0, 435.0, 61.0)
+const PORTRAIT_FILL_RECT := Rect2(31.0, 94.0, 414.0, 40.0)
+const PORTRAIT_SCORE_OPTICAL_OFFSET := Vector2(4.0, -7.0)
+const PORTRAIT_STREAK_TITLE_OPTICAL_OFFSET := Vector2(7.0, -4.0)
+const PORTRAIT_STREAK_VALUE_OPTICAL_OFFSET := Vector2(2.0, -9.0)
+const PORTRAIT_MULTIPLIER_OPTICAL_OFFSET := Vector2(-7.0, -10.0)
 
 var _game: Variant
 var _gameplay_theme: Resource
@@ -174,6 +174,7 @@ func _build() -> void:
 	_score_art = _art(_load_texture(str(_gameplay_theme.score_box_path)))
 	add_child(_score_art)
 	_momentum_frame = _art(_load_texture(str(_gameplay_theme.momentum_frame_path)))
+	_momentum_frame.stretch_mode = TextureRect.STRETCH_SCALE
 	add_child(_momentum_frame)
 	_fill_clip = Control.new()
 	_fill_clip.clip_contents = true
@@ -327,26 +328,26 @@ func _layout() -> void:
 	for index in range(_heart_icons.size()):
 		_place_scaled(
 			_heart_icons[index],
-			Rect2(PORTRAIT_HEARTS_RECT.position + Vector2(15.0 + 57.0 * index, 7.0), Vector2(52.0, 48.0)),
+			Rect2(PORTRAIT_HEARTS_RECT.position + Vector2(8.0 + 62.0 * index, 3.0), Vector2(62.0, 58.0)),
 			origin,
 			scale
 		)
 	_place_scaled(_extra_life_count, Rect2(PORTRAIT_HEARTS_RECT.position + Vector2(154.0, 17.0), Vector2(38.0, 28.0)), origin, scale, 34)
-	_place_poster_pair(_score, _score_shadow, Rect2(PORTRAIT_SCORE_RECT.position + PORTRAIT_SCORE_OPTICAL_OFFSET, PORTRAIT_SCORE_RECT.size), origin, scale, 100)
+	_place_poster_pair(_score, _score_shadow, Rect2(PORTRAIT_SCORE_RECT.position + PORTRAIT_SCORE_OPTICAL_OFFSET, PORTRAIT_SCORE_RECT.size), origin, scale, 78)
 	_place_scaled(
 		_streak_title,
 		Rect2(PORTRAIT_STREAK_RECT.position + PORTRAIT_STREAK_TITLE_OPTICAL_OFFSET, Vector2(124.0, 24.0)),
 		origin,
 		scale,
-		48
+		24
 	)
 	_place_plain_pair(
 		_combo,
 		_combo_shadow,
-		Rect2(PORTRAIT_STREAK_RECT.position + Vector2(0.0, 21.0) + PORTRAIT_STREAK_VALUE_OPTICAL_OFFSET, Vector2(134.0, 40.0)),
+		Rect2(PORTRAIT_STREAK_RECT.position + Vector2(0.0, 3.0) + PORTRAIT_STREAK_VALUE_OPTICAL_OFFSET, Vector2(134.0, 40.0)),
 		origin,
 		scale,
-		78
+		88
 	)
 
 	_place_scaled(_momentum_frame, PORTRAIT_FRAME_RECT, origin, scale)
@@ -361,7 +362,7 @@ func _layout() -> void:
 		Rect2(PORTRAIT_MULTIPLIER_RECT.position + Vector2(49.0, 0.0) + PORTRAIT_MULTIPLIER_OPTICAL_OFFSET, Vector2(85.0, 61.0)),
 		origin,
 		scale,
-		90
+		50
 	)
 
 	_place_scaled(_effect_status, Rect2(142.0, 95.0, 294.0, 26.0), origin, scale, 9)

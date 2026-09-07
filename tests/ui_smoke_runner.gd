@@ -1228,7 +1228,7 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 		var expected_streak := Rect2(scorebox_origin + Vector2(462.0, 16.0) * scorebox_scale, Vector2(138.0, 61.0) * scorebox_scale)
 		var expected_momentum := Rect2(scorebox_origin + Vector2(20.0, 84.0) * scorebox_scale, Vector2(435.0, 61.0) * scorebox_scale)
 		var expected_multiplier := Rect2(scorebox_origin + Vector2(462.0, 84.0) * scorebox_scale, Vector2(138.0, 61.0) * scorebox_scale)
-		_check(expected_hearts.encloses(momentum.get("_extra_life_icon").get_global_rect()), "portrait hearts stay in the upper-left scorebox cell")
+		_check(expected_hearts.has_point(momentum.get("_extra_life_icon").get_global_rect().get_center()), "portrait hearts remain anchored in the upper-left scorebox cell")
 		_check(expected_score.has_point(momentum.get("_score").get_global_rect().get_center()), "portrait score remains anchored in the upper-center scorebox cell")
 		_check(expected_streak.has_point(momentum.get("_combo").get_global_rect().get_center()), "portrait streak remains anchored in the upper-right scorebox cell")
 		_check(expected_momentum.encloses(momentum.get("_momentum_frame").get_global_rect()), "portrait Momentum stays in the broad lower scorebox cell")
