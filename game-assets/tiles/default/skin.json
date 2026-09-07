@@ -3,36 +3,36 @@
   "id": "default",
   "display_name": "Default Ceramic",
   "geometry": {
-    "source_size": [512, 640],
-    "runtime_size": [256, 320],
-    "face_safe_area": [92, 104, 328, 400],
-    "modifier_bounds": [24, 24, 192, 192],
+    "source_size": [512, 672],
+    "runtime_size": [256, 336],
+    "face_safe_area": [92, 109, 328, 420],
+    "modifier_bounds": [24, 25, 192, 202],
     "atlas_padding": 8,
-    "minimum_runtime_size": [32, 40]
+    "minimum_runtime_size": [32, 42]
   },
   "base_variants": {
     "portrait": {
       "asset": "res://game-assets/tiles/default/tile_base.png",
-      "source_size": [512, 640],
-      "runtime_size": [256, 320],
-      "face_safe_area": [72, 68, 368, 440],
-      "modifier_bounds": [18, 18, 140, 140],
-      "back_design_safe_area": [106, 160, 300, 300],
-      "minimum_runtime_size": [32, 40]
+      "source_size": [512, 672],
+      "runtime_size": [256, 336],
+      "face_safe_area": [72, 71, 368, 462],
+      "modifier_bounds": [18, 19, 140, 147],
+      "back_design_safe_area": [106, 168, 300, 315],
+      "minimum_runtime_size": [32, 42]
     },
     "landscape": {
       "asset": "res://game-assets/tiles/default/tile_base.png",
-      "source_size": [512, 640],
-      "runtime_size": [256, 320],
-      "face_safe_area": [72, 68, 368, 440],
-      "modifier_bounds": [18, 18, 140, 140],
-      "back_design_safe_area": [106, 160, 300, 300],
-      "minimum_runtime_size": [32, 40]
+      "source_size": [512, 672],
+      "runtime_size": [256, 336],
+      "face_safe_area": [72, 71, 368, 462],
+      "modifier_bounds": [18, 19, 140, 147],
+      "back_design_safe_area": [106, 168, 300, 315],
+      "minimum_runtime_size": [32, 42]
     }
   },
   "back_variants": {
-    "portrait": "res://game-assets/tiles/default/tile_base.png",
-    "landscape": "res://game-assets/tiles/default/tile_base.png"
+    "portrait": "res://game-assets/tiles/default/tile_back.png",
+    "landscape": "res://game-assets/tiles/default/tile_back.png"
   },
   "default_back_id": "arcade_spark",
   "back_designs": {
