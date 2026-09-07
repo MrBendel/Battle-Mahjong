@@ -9,7 +9,6 @@ const POSTER_SCRIPT_DARK_SHADOW_COLOR := Color("040d0a")
 const POSTER_SCRIPT_SHADOW_COLOR := POSTER_SCRIPT_PINK_SHADOW_COLOR
 
 const PORTRAIT_REFERENCE_SIZE := Vector2(322.0, 81.0)
-const PORTRAIT_FRAME_RECT := Rect2(118.0, 30.0, 173.3, 25.3)
 
 var _game: Variant
 var _gameplay_theme: Resource
@@ -34,6 +33,7 @@ var _fill_clip: Control
 var _momentum_fill: TextureRect
 var _momentum_badge: TextureRect
 var _extra_life_icon: TextureRect
+var _heart_icons: Array[TextureRect] = []
 var _extra_life_count: Label
 var _effect_status: Label
 var _ticks: Array[Label] = []
@@ -107,9 +107,11 @@ func refresh(playback_time_ms: int) -> void:
 		])
 	_effect_status.text = "  |  ".join(status_parts)
 	_effect_status.visible = not status_parts.is_empty()
-	_extra_life_icon.visible = int(snapshot.extra_life_charges) > 0
-	_extra_life_count.visible = _extra_life_icon.visible
-	_extra_life_count.text = str(snapshot.extra_life_charges)
+	var heart_count := maxi(0, int(snapshot.extra_life_charges))
+	for index in range(_heart_icons.size()):
+		_heart_icons[index].visible = _portrait_style and index < mini(heart_count, _heart_icons.size())
+	_extra_life_count.visible = _portrait_style and heart_count > _heart_icons.size()
+	_extra_life_count.text = "+%d" % (heart_count - _heart_icons.size()) if heart_count > _heart_icons.size() else str(heart_count)
 	var freeze_wave := 0.5 + 0.5 * sin(float(playback_time_ms) * 0.008)
 	_momentum_fill.modulate = Color(0.68, 0.95, 1.0, 0.88 + freeze_wave * 0.12) \
 		if cold_remaining > 0 else Color.WHITE
@@ -170,6 +172,11 @@ func _build() -> void:
 	add_child(_momentum_badge)
 	_extra_life_icon = _art(_load_texture(str(_gameplay_theme.heart_icon_path)))
 	add_child(_extra_life_icon)
+	_heart_icons.append(_extra_life_icon)
+	for index in range(2):
+		var heart := _art(_extra_life_icon.texture)
+		add_child(heart)
+		_heart_icons.append(heart)
 
 	var regular_font := _load_font(str(_gameplay_theme.regular_font_path))
 	var bold_font := _load_font(str(_gameplay_theme.bold_font_path))
@@ -275,7 +282,8 @@ func _update_style_visibility() -> void:
 	_momentum_frame.visible = _portrait_style
 	_fill_clip.visible = _portrait_style
 	_momentum_badge.visible = _portrait_style
-	_extra_life_icon.visible = false
+	for heart in _heart_icons:
+		heart.visible = false
 	_extra_life_count.visible = false
 	_effect_status.visible = false
 	for tick in _ticks:
@@ -289,33 +297,41 @@ func _layout() -> void:
 		_layout_legacy()
 		return
 	var scale := PresentationScaleScript.limiting_scale(size, PORTRAIT_REFERENCE_SIZE)
-	var score_origin := Vector2(0.0, (size.y - PORTRAIT_REFERENCE_SIZE.y * scale) * 0.5)
-	var frame_center_x := PORTRAIT_FRAME_RECT.get_center().x * scale
-	var momentum_origin := score_origin + Vector2(size.x * 0.5 - frame_center_x, 0.0)
+	var score_origin := Vector2(
+		(size.x - PORTRAIT_REFERENCE_SIZE.x * scale) * 0.5,
+		(size.y - PORTRAIT_REFERENCE_SIZE.y * scale) * 0.5
+	)
+	var momentum_origin := Vector2(
+		size.x * 0.5 - (96.0 + 174.0 * 0.5) * scale,
+		score_origin.y
+	)
 	_place_scaled(_status_backing, Rect2(2.0, 5.0, 316.0, 72.0), score_origin, scale)
 
-	_place_poster_pair(_score_title, _score_title_shadow, Rect2(14.0, 13.0, 90.0, 12.0), score_origin, scale, 10)
-	_place_poster_pair(_score, _score_shadow, Rect2(14.0, 23.0, 90.0, 22.0), score_origin, scale, 16)
-	_place_poster_pair(_timer, _timer_shadow, Rect2(36.0, 50.5, 72.0, 19.0), score_origin, scale, 11)
+	_place_poster_pair(_score_title, _score_title_shadow, Rect2(103.0, 7.0, 116.0, 12.0), score_origin, scale, 9)
+	_place_poster_pair(_score, _score_shadow, Rect2(99.0, 17.0, 124.0, 30.0), score_origin, scale, 25)
+	_place_poster_pair(_timer, _timer_shadow, Rect2(10.0, 47.0, 78.0, 18.0), score_origin, scale, 10)
 
-	_place_scaled(_momentum_frame, PORTRAIT_FRAME_RECT, momentum_origin, scale)
-	_fill_clip.size = Vector2(162.9, 18.6) * scale
-	_place_scaled(_fill_clip, Rect2(122.7, 32.9, 162.9, 18.6), momentum_origin, scale)
+	_place_scaled(_momentum_frame, Rect2(96.0, 48.0, 174.0, 22.0), momentum_origin, scale)
+	_fill_clip.size = Vector2(168.0, 11.0) * scale
+	_place_scaled(_fill_clip, Rect2(99.0, 51.0, 168.0, 11.0), momentum_origin, scale)
 	_momentum_fill.position = Vector2.ZERO
-	_momentum_fill.size = Vector2(162.9, 18.6) * scale
-	_place_scaled(_momentum_badge, Rect2(275.9, 25.8, 34.2, 34.2), momentum_origin, scale)
-	_place_scaled(_extra_life_icon, Rect2(99.0, 7.0, 22.0, 22.0), score_origin, scale)
-	_place_scaled(_extra_life_count, Rect2(108.0, 8.0, 16.0, 16.0), score_origin, scale, 10)
+	_momentum_fill.size = Vector2(168.0, 11.0) * scale
+	_place_scaled(_momentum_badge, Rect2(274.0, 39.0, 31.0, 31.0), momentum_origin, scale)
+	for index in range(_heart_icons.size()):
+		_place_scaled(_heart_icons[index], Rect2(10.0 + index * 25.0, 12.0, 24.0, 21.0), score_origin, scale)
+	_place_scaled(_extra_life_count, Rect2(68.0, 25.0, 20.0, 15.0), score_origin, scale, 8)
 
-	_place_poster_pair(_multiplier, _multiplier_shadow, Rect2(275.0, 24.5, 34.2, 34.2), momentum_origin, scale, 16)
-	_place_poster_pair(_combo, _combo_shadow, Rect2(135.0, 6.0, 140.0, 20.0), momentum_origin, scale, 12)
+	_place_poster_pair(_multiplier, _multiplier_shadow, Rect2(274.0, 38.0, 31.0, 31.0), momentum_origin, scale, 15)
+	_place_poster_pair(_combo, _combo_shadow, Rect2(229.0, 8.0, 80.0, 28.0), score_origin, scale, 10)
 
-	_place_scaled(_effect_status, Rect2(125.0, 34.0, 147.0, 15.0), momentum_origin, scale, 8)
-	for control in [_momentum_frame, _momentum_badge, _extra_life_icon, _multiplier, _multiplier_shadow]:
+	_place_scaled(_effect_status, Rect2(98.0, 34.0, 170.0, 13.0), momentum_origin, scale, 7)
+	for control in [_momentum_frame, _momentum_badge, _multiplier, _multiplier_shadow]:
 		control.pivot_offset = control.size * 0.5
+	for heart in _heart_icons:
+		heart.pivot_offset = heart.size * 0.5
 	for index in range(_ticks.size()):
-		var tick_center_x := 122.7 + 162.9 * float(index + 1) / 8.0
-		_place_scaled(_ticks[index], Rect2(tick_center_x - 10.0, 55.0, 20.0, 14.0), momentum_origin, scale, 8)
+		var tick_center_x := 99.0 + 168.0 * float(index + 1) / 8.0
+		_place_scaled(_ticks[index], Rect2(tick_center_x - 9.0, 63.0, 18.0, 11.0), momentum_origin, scale, 7)
 	refresh(_game.elapsed_time_ms)
 
 

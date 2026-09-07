@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="941" height="1672" viewBox="0 0 941 1672">
+  <defs>
+    <linearGradient id="felt" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#092d25"/>
+      <stop offset="0.5" stop-color="#064238"/>
+      <stop offset="1" stop-color="#031f1c"/>
+    </linearGradient>
+    <pattern id="motif" width="330" height="330" patternUnits="userSpaceOnUse" patternTransform="rotate(-8)">
+      <path d="M38 112c18-40 76-46 101-9 31-20 78 5 72 42 38 10 43 62 8 80H47c-48-9-49-83-9-96z" fill="none" stroke="#5b9b7c" stroke-width="9" opacity=".08"/>
+      <path d="M78 241l14-26 14 26 29 5-21 21 5 30-27-14-27 14 5-30-21-21z" fill="none" stroke="#79ae8f" stroke-width="7" opacity=".065"/>
+    </pattern>
+  </defs>
+  <rect width="941" height="1672" fill="url(#felt)"/>
+  <rect width="941" height="1672" fill="url(#motif)"/>
+  <path d="M48 420c180-31 348 30 512-10s249-12 333 34M52 1080c169 29 315-31 473 2s260 34 370-8" fill="none" stroke="#8ab49a" stroke-width="2" opacity=".035"/>
+  <rect x="24" y="24" width="893" height="1624" rx="54" fill="none" stroke="#d8c28b" stroke-width="7" opacity=".52"/>
+  <rect x="35" y="35" width="871" height="1602" rx="46" fill="none" stroke="#061a17" stroke-width="3" opacity=".85"/>
+</svg>

@@ -71,7 +71,7 @@ func _run() -> void:
 		await process_frame
 	var gameplay_background: NinePatchRect = shell.get("_gameplay_background")
 	_check(gameplay_background != null and gameplay_background.texture != null, "gameplay shell renders the M7 background asset")
-	var expected_bg_texture: Texture2D = load("res://game-assets/ui/portrait/background.png") if ResourceLoader.exists("res://game-assets/ui/portrait/background.png") else ImageTexture.create_from_image(Image.load_from_file("res://game-assets/ui/portrait/background.png"))
+	var expected_bg_texture: Texture2D = load("res://game-assets/ui/shared/gameplay-felt.svg")
 	_check_equal(expected_bg_texture.get_size(), gameplay_background.texture.get_size(), "gameplay shell reuses the Figma background in every orientation")
 	_check_equal(Vector2(941.0, 1672.0), gameplay_background.texture.get_size(), "gameplay background retains the Figma master dimensions required by its scale-9 contract")
 	for side in [SIDE_LEFT, SIDE_TOP, SIDE_RIGHT, SIDE_BOTTOM]:
@@ -101,8 +101,13 @@ func _run() -> void:
 		"main scene snapshots its Inspector starting-heart count"
 	)
 	_check_equal(3, live_game.call("current_snapshot").extra_life_charges, "playable prototype starts with three hearts")
-	var heart_count_label: Label = shell.get("_regions").momentum.get("_extra_life_count")
-	_check(heart_count_label.visible, "starting hearts are visible in the HUD")
+	var momentum_view: Control = shell.get("_regions").momentum
+	var heart_count_label: Label = momentum_view.get("_extra_life_count")
+	var visible_hearts := 0
+	for heart in momentum_view.get("_heart_icons"):
+		if heart.visible:
+			visible_hearts += 1
+	_check_equal(3, visible_hearts, "starting hearts are visible in the HUD")
 	_check_equal("3", heart_count_label.text, "HUD reflects the authoritative starting-heart count")
 	_check_equal(
 		int(shell.get("flipped_tile_count")),
@@ -1112,7 +1117,7 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 	var combo_label: Label = momentum.get("_combo")
 	var momentum_meter: ProgressBar = momentum.get("_meter")
 	_check(not Rect2(combo_label.position, combo_label.size).intersects(Rect2(momentum_meter.position, momentum_meter.size)), "%s Combo readout does not cover Momentum meter" % orientation)
-	var expected_bg := _load_test_texture("res://game-assets/ui/portrait/background.png")
+	var expected_bg := _load_test_texture("res://game-assets/ui/shared/gameplay-felt.svg")
 	_check_equal(
 		expected_bg.get_size() if expected_bg != null else Vector2.ZERO,
 		shell.get("_gameplay_background").texture.get_size() if shell.get("_gameplay_background").texture != null else Vector2.ONE,
@@ -1124,13 +1129,8 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 		_check(board.get("_tile_layer").position.y <= 6.01, "portrait tile layout begins near the top of the Board region")
 		var consumables: Control = regions.consumables
 		var bottom_background: NinePatchRect = consumables.get("_portrait_background")
-		_check(not bottom_background.visible and not consumables.get("_background").visible, "portrait removes the full-width ornamental consumables panel")
-		_check_equal(load("res://assets/UI/bottom-bar/bottom-tray-background-export.png"), bottom_background.texture, "portrait uses the supplied bottom bar background")
-		_check_equal(Vector2(2172.0, 724.0), bottom_background.texture.get_size(), "portrait bottom bar retains its authored source dimensions")
-		_check_equal(652, bottom_background.get_patch_margin(SIDE_LEFT), "portrait bottom bar preserves its 30 percent left patch")
-		_check_equal(652, bottom_background.get_patch_margin(SIDE_RIGHT), "portrait bottom bar preserves its 30 percent right patch")
-		_check_equal(362, bottom_background.get_patch_margin(SIDE_TOP), "portrait bottom bar preserves its 50 percent top patch")
-		_check_equal(362, bottom_background.get_patch_margin(SIDE_BOTTOM), "portrait bottom bar preserves its 50 percent bottom patch")
+		_check(bottom_background.visible and not consumables.get("_background").visible, "portrait groups the actions on the compact themed dock")
+		_check_equal(load("res://game-assets/ui/shared/action-dock.svg"), bottom_background.texture, "portrait uses the simplified action dock")
 		var portrait_art: Dictionary = consumables.get("_portrait_art")
 		var expected_icons := {
 			"hint": load("res://assets/UI/bottom-bar/icon-hint.png"),
@@ -1198,7 +1198,7 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 		)
 	else:
 		_check(not shell.get("_portrait_hud_scrim").visible, "landscape hides the portrait-only HUD top scrim")
-		_check(not regions.consumables.get("_portrait_background").visible, "landscape hides the portrait bottom bar artwork")
+		_check(regions.consumables.get("_portrait_background").visible, "landscape reuses the compact horizontal action dock")
 		for art in regions.consumables.get("_portrait_art").values():
 			_check(art.root.visible, "landscape reuses the shared compact ceramic action artwork")
 		_check(momentum.get("_portrait_style"), "landscape reuses the shared compact status presentation")
@@ -1226,7 +1226,7 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 	var tray: Control = regions.tray
 	var board_tile_size: Vector2 = board.call("tile_visual_size")
 	var tray_tile_scale: float = shell.get("tray_tile_scale")
-	_check(is_equal_approx(tray_tile_scale, 0.70), "%s uses the tuned 70 percent tray tile scale" % orientation)
+	_check(is_equal_approx(tray_tile_scale, 0.80), "%s uses the tuned 80 percent tray tile scale" % orientation)
 	var expected_board_scale := float(shell.get("portrait_board_content_scale")) if orientation == "portrait" \
 		else float(shell.get("landscape_board_content_scale"))
 	_check(is_equal_approx(float(board.get("_content_scale")), expected_board_scale), "%s applies its responsive Board content scale" % orientation)
@@ -1506,16 +1506,16 @@ func _validate_consumables(shell: Control, orientation: String) -> void:
 			)
 	_check(buttons.has("undo"), "%s consumables own Undo" % orientation)
 	if orientation == "landscape":
-		_check(consumables.get("_vertical_dock"), "landscape stacks the shared ceramic consumables vertically")
+		_check(not consumables.get("_vertical_dock"), "landscape uses the reference's compact horizontal action cluster")
 		var board_rect := Rect2(board.position, board.size)
 		for consumable_type in buttons:
 			var button: Button = buttons[consumable_type]
 			var button_rect := Rect2(consumables.position + button.position, button.size)
 			_check(not button_rect.intersects(board_rect), "landscape %s stays in a side rail outside the Board" % consumable_type)
 			_check(button.size.x >= 54.0 and button.size.y >= 54.0, "landscape %s preserves a large touch target" % consumable_type)
-		_check(buttons.hint.position.y < buttons.shuffle.position.y, "landscape places Shuffle below Hint")
-		_check(buttons.shuffle.position.y < buttons.delete_pair.position.y, "landscape places Delete below Shuffle")
-		_check(buttons.delete_pair.position.y < buttons.undo.position.y, "landscape keeps Undo at the bottom of the action stack")
+		_check(buttons.hint.position.x < buttons.shuffle.position.x, "landscape places Shuffle after Hint")
+		_check(buttons.shuffle.position.x < buttons.delete_pair.position.x, "landscape places Delete after Shuffle")
+		_check(buttons.delete_pair.position.x < buttons.undo.position.x, "landscape keeps Undo rightmost")
 	else:
 		for consumable_type in buttons:
 			if consumable_type != "undo":

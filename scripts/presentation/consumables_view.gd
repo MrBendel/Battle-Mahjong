@@ -6,12 +6,12 @@ const GameplayThemeScript := preload("res://scripts/presentation/gameplay_theme.
 const ConsumableButtonScript := preload("res://scripts/presentation/consumable_button.gd")
 const HORIZONTAL_PATCH_RATIO := 0.30
 const VERTICAL_PATCH_RATIO := 0.50
-const PORTRAIT_REFERENCE_SIZE := Vector2(320.0, 100.0)
+const PORTRAIT_REFERENCE_SIZE := Vector2(292.0, 96.0)
 const VERTICAL_REFERENCE_SIZE := Vector2(78.0, 320.0)
-const PORTRAIT_BACKGROUND_RECT := Rect2(0.0, 8.0, 320.0, 84.0)
+const PORTRAIT_BACKGROUND_RECT := Rect2(0.0, 6.0, 292.0, 88.0)
 const PORTRAIT_COMPONENT_Y_OFFSET := 0.0
 const PORTRAIT_ACTION_TYPES := ["hint", "shuffle", "delete_pair", "undo"]
-const PORTRAIT_ACTION_X := [8.0, 86.0, 164.0, 242.0]
+const PORTRAIT_ACTION_X := [6.0, 77.0, 148.0, 219.0]
 const PORTRAIT_LABELS := ["HINT", "Shuffle", "Delete", "Undo"]
 const PORTRAIT_LABEL_RECTS := [
 	Rect2(41.7854, 19.1307, 34.7373, 19.1307),
@@ -243,7 +243,7 @@ func _layout() -> void:
 		refresh()
 		return
 	_background.visible = not _horizontal_dock
-	_portrait_background.visible = false
+	_portrait_background.visible = _horizontal_dock and not _vertical_dock
 	if _horizontal_dock:
 		if _vertical_dock:
 			_layout_vertical_actions()
@@ -298,8 +298,8 @@ func _layout_portrait_actions() -> void:
 		var consumable_type: String = PORTRAIT_ACTION_TYPES[index]
 		var button: Button = _buttons[consumable_type]
 		var action_x: float = PORTRAIT_ACTION_X[index]
-		button.position = origin + Vector2(action_x, 8.0) * component_scale
-		button.size = Vector2(70.0, 84.0) * component_scale
+		button.position = origin + Vector2(action_x, 7.0) * component_scale
+		button.size = Vector2(67.0, 82.0) * component_scale
 		if button.has_method("set_scale_factor"):
 			button.call("set_scale_factor", component_scale)
 		button.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
@@ -309,16 +309,16 @@ func _layout_portrait_actions() -> void:
 		button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 		var art: Dictionary = _portrait_art[consumable_type]
 		art.root.visible = true
-		art.root.position = -Vector2(action_x, 8.0) * component_scale
+		art.root.position = -Vector2(action_x, 7.0) * component_scale
 		art.root.size = PORTRAIT_REFERENCE_SIZE * component_scale
-		art.cap.position = Vector2(action_x, 8.0) * component_scale
-		art.cap.size = Vector2(70.0, 78.0) * component_scale
+		art.cap.position = Vector2(action_x, 7.0) * component_scale
+		art.cap.size = Vector2(67.0, 76.0) * component_scale
 		var icon_rect := _portrait_icon_rect(index)
 		art.icon.position = icon_rect.position * component_scale
 		art.icon.size = icon_rect.size * component_scale
 		art.number_background.visible = false
 		art.title.visible = false
-		art.quantity.position = Vector2(action_x + 45.0, 58.0) * component_scale
+		art.quantity.position = Vector2(action_x + 43.0, 57.0) * component_scale
 		art.quantity.size = Vector2(19.0, 20.0) * component_scale
 		art.quantity.add_theme_font_size_override("font_size", maxi(11, roundi(15.0 * component_scale)))
 
@@ -352,7 +352,7 @@ func _layout_vertical_actions() -> void:
 
 
 func _portrait_icon_rect(index: int) -> Rect2:
-	return Rect2(PORTRAIT_ACTION_X[index] + 18.0, 24.0, 34.0, 34.0)
+	return Rect2(PORTRAIT_ACTION_X[index] + 16.5, 23.0, 34.0, 34.0)
 
 
 func _set_portrait_art_visible(consumable_type: String, visible: bool) -> void:
