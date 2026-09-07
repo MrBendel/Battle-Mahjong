@@ -17,6 +17,7 @@ class_name GameplayTheme
 @export_file("*.png", "*.svg", "*.webp") var heart_icon_path := "res://game-assets/modifiers/tile-overlays/extra_life.png"
 @export_file("*.ttf", "*.otf", "*.tres") var regular_font_path := "res://assets/fonts/mila-script-sans-regular-tight.tres"
 @export_file("*.ttf", "*.otf", "*.tres") var bold_font_path := "res://assets/fonts/mila-script-sans-bold-tight.tres"
+@export_file("*.ttf", "*.otf", "*.tres") var poster_font_path := "res://assets/fonts/battle-mahjong-poster-script.tres"
 
 @export_group("Tray")
 @export_file("*.png", "*.svg", "*.webp") var tray_cap_path := "res://assets/UI/tile-queue/queue-cap.png"
@@ -66,6 +67,7 @@ func validation_errors() -> Array[String]:
 		"heart icon": heart_icon_path,
 		"regular font": regular_font_path,
 		"bold font": bold_font_path,
+		"poster font": poster_font_path,
 		"tray cap": tray_cap_path,
 		"tray repeat": tray_repeat_path,
 		"tray bonus icon": tray_bonus_icon_path,

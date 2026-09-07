@@ -120,6 +120,10 @@ The game uses `UpdateChecker` (`res://scripts/presentation/update_checker.gd`) t
 - **Native Play Core Integration**: At runtime on Android, `UpdateChecker` inspects engine singletons (`GodotPlayCore`, `GodotGooglePlayInAppUpdate`, `InAppUpdate`). If a native plugin is registered, update checks and immediate/flexible in-app updates are handled via Play Core APIs with variadic signal parameter safety.
 - **Local Fallback**: If offline, in airplane mode, or if HTTP fails, `UpdateChecker` evaluates local `res://version.json` and `res://export_presets.cfg` without blocking gameplay.
 - **Automatic Cloud Run Sync**: When publishing via `#deploy-playstore` in GitHub Actions, the workflow automatically authenticates with Google Cloud and updates the Cloud Run service environment variables (`LATEST_VERSION_CODE` and `LATEST_VERSION_NAME`) upon successful upload to Google Play.
+  > **Note on Service Account Roles**: The Google Cloud service account used for publishing (`battle-mahjong-play-upload@battle-mahjong.iam.gserviceaccount.com`) must have the following IAM roles in project `battle-mahjong` to update Cloud Run revisions:
+  > - `roles/run.admin` or `roles/run.developer`
+  > - `roles/artifactregistry.reader` (to access container image metadata in `cloud-run-source-deploy`)
+  > - `roles/iam.serviceAccountUser` (to deploy revisions acting as the runtime service account)
 - **Manual Sync Fallback**: If updating manually outside CI:
   ```bash
   gcloud run services update battle-mahjong-backend \
