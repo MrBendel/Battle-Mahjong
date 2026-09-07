@@ -1177,18 +1177,38 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 			_check_equal(load("res://assets/fonts/battle-mahjong-poster-script.ttf"), score_title_font.base_font, "portrait score heading uses Poster Script base font")
 		_check_equal("123,456,789", momentum.call("_format_score", 123456789), "portrait score formatting groups thousands")
 		_check_equal("01:02.34", momentum.call("_format_time", 62340), "portrait timer formats runtime playback")
-		_check(
-			is_equal_approx(momentum.size.y, 81.0 * expected_portrait_scale),
-			"portrait HUD scales from both safe display dimensions"
+		var proportion_content := safe_viewport
+		if shell.get("_update_banner").visible:
+			var status_banner_offset := 46.0 * expected_portrait_scale
+			proportion_content = Rect2(
+				safe_viewport.position + Vector2(0.0, status_banner_offset),
+				safe_viewport.size - Vector2(0.0, status_banner_offset)
+			)
+		var expected_status_rect: Rect2 = shell.call(
+			"_portrait_proportion_rect",
+			proportion_content,
+			Rect2(31.0, 23.0, 611.0, 156.0)
 		)
 		_check(
-			is_equal_approx(momentum.get("_momentum_frame").get_global_rect().get_center().x, safe_viewport.get_center().x),
-			"portrait Momentum frame stays centered in the safe display width"
+			Rect2(momentum.position, momentum.size).is_equal_approx(expected_status_rect),
+			"portrait HUD follows the approved proportion guide (%s in %s)" % [
+				Rect2(momentum.position, momentum.size),
+				expected_status_rect,
+			]
+		)
+		_check(
+			is_equal_approx(momentum.get("_momentum_frame").get_global_rect().get_center().x, expected_status_rect.get_center().x),
+			"portrait Momentum frame stays centered in its approved HUD region"
 		)
 		_check(is_equal_approx(pause_button.size.x, pause_button.size.y), "portrait pause artwork preserves a square control")
+		var expected_pause_region: Rect2 = shell.call(
+			"_portrait_proportion_rect",
+			safe_viewport,
+			Rect2(836.0, 23.0, 81.0, 87.0)
+		)
 		_check(
-			is_equal_approx(pause_button.size.x, 48.0 * expected_portrait_scale),
-			"portrait pause control scales with the display resolution"
+			is_equal_approx(pause_button.size.x, minf(expected_pause_region.size.x, expected_pause_region.size.y)),
+			"portrait pause control follows the approved proportion guide"
 		)
 		var expected_pause_icon := _load_test_texture("res://game-assets/ui/shared/pause-button.svg")
 		_check_equal(
@@ -1225,11 +1245,15 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 
 	var tray: Control = regions.tray
 	var board_tile_size: Vector2 = board.call("tile_visual_size")
-	var tray_tile_scale: float = shell.get("tray_tile_scale")
-	_check(is_equal_approx(tray_tile_scale, 0.70), "%s uses the tuned 70 percent tray tile scale" % orientation)
+	var tray_tile_scale: float = float(shell.get("portrait_tray_tile_scale")) if orientation == "portrait" \
+		else float(shell.get("landscape_tray_tile_scale"))
+	var expected_tray_scale := 0.52 if orientation == "portrait" else 0.70
+	_check(is_equal_approx(tray_tile_scale, expected_tray_scale), "%s uses its tuned tray tile scale" % orientation)
 	var expected_board_scale := float(shell.get("portrait_board_content_scale")) if orientation == "portrait" \
 		else float(shell.get("landscape_board_content_scale"))
 	_check(is_equal_approx(float(board.get("_content_scale")), expected_board_scale), "%s applies its responsive Board content scale" % orientation)
+	var expected_vertical_stride := 0.85 if orientation == "portrait" else 1.00
+	_check(is_equal_approx(float(board.get("_vertical_stride_scale")), expected_vertical_stride), "%s uses its tuned visual Board row stride" % orientation)
 	_check(is_equal_approx(float(shell.get("tile_transfer_seconds")), 0.24), "%s uses the slower tray transfer beat" % orientation)
 	_check(is_equal_approx(float(shell.get("tile_flip_seconds")), 0.25), "%s uses the tuned quarter-second tile flip" % orientation)
 	_check(is_equal_approx(float(shell.get("flipped_auto_match_hold_seconds")), 0.14), "%s uses the shortened auto-match readability hold" % orientation)
@@ -1274,9 +1298,9 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 		var tray_capacity: int = shell.get("_game").tray.capacity
 		_check_equal(tray_capacity, visible_queue_sections, "portrait queue renders one repeated section per active slot")
 		_check_equal(tray_capacity, tray.call("_slot_count"), "portrait queue follows the live tray capacity")
+		var queue_scale_x: float = tray.size.x / (24.968 * 2.0 + 62.42 * tray_capacity)
 		for slot_index in range(tray_capacity):
-			var queue_scale: float = tray.get("_queue_repeats")[slot_index].size.y / 115.0
-			var expected_slot_center_x: float = tray.get("_queue_repeats")[slot_index].position.x + (62.42 * 0.5 - 1.5) * queue_scale
+			var expected_slot_center_x: float = tray.get("_queue_repeats")[slot_index].position.x + (62.42 * 0.5 - 1.5) * queue_scale_x
 			_check(
 				is_equal_approx(tray.get("_slots")[slot_index].get_rect().get_center().x, expected_slot_center_x),
 				"portrait tray tile %d keeps its approved slight left bias in the visual queue slot" % (slot_index + 1)
@@ -1323,7 +1347,7 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 	)
 	_check(rendered_callout_width <= callout_label.size.x * 0.95, "%s long callout copy fits its responsive lane" % orientation)
 	if orientation == "portrait":
-		_check(board.position.y < tray.position.y + tray.size.y, "portrait Board reclaims the queue artwork's transparent lower padding")
+		_check(board.position.y > tray.position.y + tray.size.y, "portrait preserves the approved breathing room below the tray")
 	else:
 		_check(board.position.x + board.size.x <= tray.position.x, "landscape tray stays to the right of the game board")
 	var board_global_rect := board.get_global_rect()

@@ -307,26 +307,37 @@ func _layout() -> void:
 
 
 func _layout_portrait() -> void:
-	var scale := minf(_portrait_scale(_tile_visual_size), size.y / FIGMA_CAP_SIZE.y)
-	var queue_width := (FIGMA_CAP_SIZE.x * 2.0 + FIGMA_SLOT_SIZE.x * _slot_count()) * scale
-	var queue_height := FIGMA_CAP_SIZE.y * scale
+	var base_queue_width := FIGMA_CAP_SIZE.x * 2.0 + FIGMA_SLOT_SIZE.x * _slot_count()
+	var scale_y := minf(_portrait_scale(_tile_visual_size), size.y / FIGMA_CAP_SIZE.y)
+	var scale_x := size.x / base_queue_width
+	var queue_width := base_queue_width * scale_x
+	var queue_height := FIGMA_CAP_SIZE.y * scale_y
 	var origin := Vector2((size.x - queue_width) * 0.5, (size.y - queue_height) * 0.5)
 	_queue_left_cap.position = origin
-	_queue_left_cap.size = Vector2(FIGMA_CAP_SIZE.x + QUEUE_ART_SEAM_OVERLAP, FIGMA_CAP_SIZE.y) * scale
+	_queue_left_cap.size = Vector2(
+		(FIGMA_CAP_SIZE.x + QUEUE_ART_SEAM_OVERLAP) * scale_x,
+		FIGMA_CAP_SIZE.y * scale_y
+	)
 	for index in range(MAX_SLOT_COUNT):
-		_queue_repeats[index].position = origin + Vector2((FIGMA_CAP_SIZE.x + FIGMA_SLOT_SIZE.x * index) * scale, 0.0)
-		_queue_repeats[index].size = Vector2(FIGMA_SLOT_SIZE.x + QUEUE_ART_SEAM_OVERLAP, FIGMA_SLOT_SIZE.y) * scale
-	_queue_right_cap.position = origin + Vector2((FIGMA_CAP_SIZE.x + FIGMA_SLOT_SIZE.x * _slot_count() - QUEUE_ART_SEAM_OVERLAP) * scale, 0.0)
-	_queue_right_cap.size = Vector2(FIGMA_CAP_SIZE.x + QUEUE_ART_SEAM_OVERLAP, FIGMA_CAP_SIZE.y) * scale
+		_queue_repeats[index].position = origin + Vector2((FIGMA_CAP_SIZE.x + FIGMA_SLOT_SIZE.x * index) * scale_x, 0.0)
+		_queue_repeats[index].size = Vector2(
+			(FIGMA_SLOT_SIZE.x + QUEUE_ART_SEAM_OVERLAP) * scale_x,
+			FIGMA_SLOT_SIZE.y * scale_y
+		)
+	_queue_right_cap.position = origin + Vector2((FIGMA_CAP_SIZE.x + FIGMA_SLOT_SIZE.x * _slot_count() - QUEUE_ART_SEAM_OVERLAP) * scale_x, 0.0)
+	_queue_right_cap.size = Vector2(
+		(FIGMA_CAP_SIZE.x + QUEUE_ART_SEAM_OVERLAP) * scale_x,
+		FIGMA_CAP_SIZE.y * scale_y
+	)
 
 	var active_geometry: Dictionary = _tile_skin.active_geometry()
 	var safe_area: Array = active_geometry.get("face_safe_area", [92, 104, 328, 400])
 	var source_size: Array = active_geometry.get("source_size", [512, 640])
 	for index in range(_slot_count()):
-		var repeat_origin := origin + Vector2((FIGMA_CAP_SIZE.x + FIGMA_SLOT_SIZE.x * index) * scale, 0.0)
+		var repeat_origin := origin + Vector2((FIGMA_CAP_SIZE.x + FIGMA_SLOT_SIZE.x * index) * scale_x, 0.0)
 		var tile_center := repeat_origin + Vector2(
-			(FIGMA_SLOT_SIZE.x * 0.5 + PORTRAIT_TILE_X_NUDGE) * scale,
-			FIGMA_TILE_RECT.get_center().y * scale
+			(FIGMA_SLOT_SIZE.x * 0.5 + PORTRAIT_TILE_X_NUDGE) * scale_x,
+			FIGMA_TILE_RECT.get_center().y * scale_y
 		)
 		var slot_rect := Rect2(
 			tile_center - _tile_visual_size * 0.5,
@@ -348,7 +359,7 @@ func _layout_portrait() -> void:
 		_slot_labels[index].position = Vector2.ZERO
 		_slot_labels[index].size = slot_rect.size
 		_tile_skin.configure_modifier_art(_slot_modifiers[index])
-	_layout_bonus_portrait(origin, scale)
+	_layout_bonus_portrait(origin, scale_x, scale_y)
 
 
 func _layout_vertical() -> void:
@@ -476,19 +487,19 @@ func _is_bonus_slot(index: int) -> bool:
 		and index == int(_game.definition.tray_capacity())
 
 
-func _layout_bonus_portrait(origin: Vector2, scale: float) -> void:
+func _layout_bonus_portrait(origin: Vector2, scale_x: float, scale_y: float) -> void:
 	if not _bonus_icon.visible and int(_game.call("current_snapshot").tray_bonus_capacity) <= 0:
 		return
 	var bonus_index := clampi(int(_game.definition.tray_capacity()), 0, MAX_SLOT_COUNT - 1)
 	var repeat_origin := origin + Vector2(
-		(FIGMA_CAP_SIZE.x + FIGMA_SLOT_SIZE.x * bonus_index) * scale,
+		(FIGMA_CAP_SIZE.x + FIGMA_SLOT_SIZE.x * bonus_index) * scale_x,
 		0.0
 	)
-	_bonus_icon.position = repeat_origin + Vector2(5.0, 86.0) * scale
-	_bonus_icon.size = Vector2(17.0, 17.0) * scale
-	_bonus_label.position = repeat_origin + Vector2(20.0, 86.0) * scale
-	_bonus_label.size = Vector2(39.0, 17.0) * scale
-	_bonus_label.add_theme_font_size_override("font_size", maxi(7, roundi(8.0 * scale)))
+	_bonus_icon.position = repeat_origin + Vector2(5.0 * scale_x, 86.0 * scale_y)
+	_bonus_icon.size = Vector2(17.0 * scale_x, 17.0 * scale_y)
+	_bonus_label.position = repeat_origin + Vector2(20.0 * scale_x, 86.0 * scale_y)
+	_bonus_label.size = Vector2(39.0 * scale_x, 17.0 * scale_y)
+	_bonus_label.add_theme_font_size_override("font_size", maxi(7, roundi(8.0 * minf(scale_x, scale_y))))
 
 
 func _layout_bonus_legacy(group_x: float, body_y: float) -> void:

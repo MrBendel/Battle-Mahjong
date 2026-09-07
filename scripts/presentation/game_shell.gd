@@ -36,6 +36,12 @@ const SafeAreaScript := preload("res://scripts/presentation/safe_area.gd")
 const PresentationScaleScript := preload("res://scripts/presentation/presentation_scale.gd")
 const GameplayThemeScript := preload("res://scripts/presentation/gameplay_theme.gd")
 const PORTRAIT_REFERENCE_SIZE := Vector2(390.0, 844.0)
+const PORTRAIT_PROPORTION_REFERENCE_SIZE := Vector2(942.0, 1672.0)
+const PORTRAIT_STATUS_RECT := Rect2(31.0, 23.0, 611.0, 156.0)
+const PORTRAIT_PAUSE_RECT := Rect2(836.0, 23.0, 81.0, 87.0)
+const PORTRAIT_TRAY_RECT := Rect2(165.0, 207.0, 611.0, 155.0)
+const PORTRAIT_BOARD_RECT := Rect2(76.0, 418.0, 791.0, 964.0)
+const PORTRAIT_ACTIONS_RECT := Rect2(236.0, 1445.0, 471.0, 185.0)
 const PORTRAIT_HUD_SCRIM_SIZE := Vector2(390.0, 167.0)
 const PORTRAIT_QUEUE_SOURCE_HEIGHT := 115.0
 const PORTRAIT_QUEUE_BOTTOM_TRANSPARENT := 15.0
@@ -59,10 +65,14 @@ const PAIR_MATCH_FX_POOL_SIZE := 6
 ## Temporary prototype grant. Future modes snapshot the player's earned hearts here.
 @export_range(0, 99, 1) var starting_hearts := 3
 ## Uniform tray-tile scale relative to the current rendered Board tile footprint.
-@export_range(0.50, 1.00, 0.01) var tray_tile_scale := 0.70
+@export_range(0.45, 1.00, 0.01) var portrait_tray_tile_scale := 0.52
+@export_range(0.45, 1.00, 0.01) var landscape_tray_tile_scale := 0.70
 ## Keeps the Board as the hero without allowing it to consume the entire felt surface.
-@export_range(0.55, 1.00, 0.01) var portrait_board_content_scale := 0.80
+@export_range(0.55, 1.00, 0.01) var portrait_board_content_scale := 1.00
 @export_range(0.55, 1.00, 0.01) var landscape_board_content_scale := 0.80
+## Compresses only visual row spacing so the portrait-authored stack fits the target Board silhouette.
+@export_range(0.50, 1.00, 0.01) var portrait_board_vertical_stride_scale := 0.85
+@export_range(0.50, 1.00, 0.01) var landscape_board_vertical_stride_scale := 1.00
 ## Travel time for Board-to-Tray, flipped staging, and Undo return presentation.
 @export_range(0.12, 0.40, 0.01) var tile_transfer_seconds := 0.24
 ## Full back-to-front or front-to-back Board flip duration.
@@ -1814,6 +1824,10 @@ func _apply_layout() -> void:
 		"set_content_scale",
 		portrait_board_content_scale if portrait else landscape_board_content_scale
 	)
+	_regions.board.call(
+		"set_vertical_stride_scale",
+		portrait_board_vertical_stride_scale if portrait else landscape_board_vertical_stride_scale
+	)
 
 	for region in _regions.values():
 		region.visible = true
@@ -1827,7 +1841,8 @@ func _apply_layout() -> void:
 		_apply_portrait_layout(viewport_size)
 	_regions.board.call("refresh_layout")
 	var tile_visual_size: Vector2 = _regions.board.call("tile_visual_size")
-	var tray_visual_size := tile_visual_size * tray_tile_scale
+	var active_tray_scale := portrait_tray_tile_scale if portrait else landscape_tray_tile_scale
+	var tray_visual_size := tile_visual_size * active_tray_scale
 	var required_tray_height := float(_regions.tray.call("minimum_height_for_tile", tray_visual_size))
 	var required_tray_width := float(_regions.tray.call("minimum_width_for_tile", tray_visual_size))
 	_reflow_for_tray_clearance(orientation, required_tray_height, required_tray_width)
@@ -1838,7 +1853,7 @@ func _apply_layout() -> void:
 	_pause_menu.call("set_safe_area_insets", _get_safe_area_insets())
 	_end_game_menu.call("set_safe_area_insets", _get_safe_area_insets())
 	_regions.board.call("refresh_layout", false)
-	_regions.tray.call("set_tile_visual_size", _regions.board.call("tile_visual_size") * tray_tile_scale)
+	_regions.tray.call("set_tile_visual_size", _regions.board.call("tile_visual_size") * active_tray_scale)
 	_regions.tray.call("refresh")
 	_performance_callout.call("place_over", Rect2(_regions.board.position, _regions.board.size))
 	_opening_countdown.call("place_over", Rect2(_regions.board.position, _regions.board.size))
@@ -1866,6 +1881,8 @@ func _reflow_for_tray_clearance(
 		var expanded_width := minf(required_width, board.size.x)
 		tray.position.x = board.position.x + (board.size.x - expanded_width) * 0.5
 		tray.size.x = expanded_width
+	if required_height <= tray.size.y:
+		return
 	var board_bottom := board.position.y + board.size.y
 	if orientation == "Portrait":
 		var queue_scale := required_height / PORTRAIT_QUEUE_SOURCE_HEIGHT
@@ -2000,31 +2017,31 @@ func _apply_compact_portrait_layout(size: Vector2) -> void:
 func _apply_figma_portrait_layout(size: Vector2, compact: bool) -> void:
 	var insets := _get_safe_area_insets()
 	var content := SafeAreaScript.content_rect(size, insets)
-	var scale := _portrait_reference_scale(content)
-	var margin := (8.0 if compact else 12.0) * scale
-	var usable_width := maxf(1.0, content.size.x - margin * 2.0)
 	var banner_offset := 0.0
 	if _update_banner != null and _update_banner.visible:
+		var scale := _portrait_reference_scale(content)
+		var margin := (8.0 if compact else 12.0) * scale
+		var usable_width := maxf(1.0, content.size.x - margin * 2.0)
 		var banner_height := 40.0 * scale
 		_place(_update_banner, Rect2(content.position.x + margin, content.position.y, usable_width, banner_height))
 		banner_offset = banner_height + 6.0 * scale
-	var top_start := content.position.y + banner_offset
-	var momentum_height := 81.0 * scale
-	var tray_height := 118.564 * scale
-	var consumables_height := 100.0 * scale
-	var tray_top := top_start + momentum_height
-	var board_top := tray_top + tray_height
-	var consumables_top := content.end.y - consumables_height
-	var board_bottom := consumables_top - 2.0 * scale
-	var board_height := maxf(1.0, board_bottom - board_top)
-	_place(_regions.momentum, Rect2(content.position.x, top_start, content.size.x, momentum_height))
-	_place(_regions.tray, Rect2(content.position.x + margin, tray_top, usable_width, tray_height))
-	_place(_regions.board, Rect2(content.position.x + margin, board_top, usable_width, board_height))
-	_place(_regions.consumables, Rect2(content.position.x + margin, consumables_top, usable_width, consumables_height))
+	var layout_content := Rect2(
+		content.position + Vector2(0.0, banner_offset),
+		content.size - Vector2(0.0, banner_offset)
+	)
+	_place(_regions.momentum, _portrait_proportion_rect(layout_content, PORTRAIT_STATUS_RECT))
+	_place(_regions.tray, _portrait_proportion_rect(layout_content, PORTRAIT_TRAY_RECT))
+	_place(_regions.board, _portrait_proportion_rect(layout_content, PORTRAIT_BOARD_RECT))
+	_place(_regions.consumables, _portrait_proportion_rect(layout_content, PORTRAIT_ACTIONS_RECT))
 	var scrim_height := size.x * PORTRAIT_HUD_SCRIM_SIZE.y / PORTRAIT_HUD_SCRIM_SIZE.x
 	_place(_portrait_hud_scrim, Rect2(0.0, 0.0, size.x, scrim_height))
 	_regions.consumables.call("clear_action_rects")
 	_regions.character.visible = false
+
+
+func _portrait_proportion_rect(content: Rect2, reference_rect: Rect2) -> Rect2:
+	var scale := content.size / PORTRAIT_PROPORTION_REFERENCE_SIZE
+	return Rect2(content.position + reference_rect.position * scale, reference_rect.size * scale)
 
 
 func _place(control: Control, rect: Rect2) -> void:
@@ -2064,9 +2081,9 @@ func _place_pause_button(size: Vector2) -> void:
 	_pause_button.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	if size.x < size.y:
 		var content := SafeAreaScript.content_rect(size, insets)
-		var scale := _portrait_reference_scale(content)
-		var button_size := 48.0 * scale
-		_pause_button.position = Vector2(content.end.x - button_size - 6.0 * scale, content.position.y + 12.0 * scale + banner_y_offset)
+		var pause_rect := _portrait_proportion_rect(content, PORTRAIT_PAUSE_RECT)
+		var button_size := minf(pause_rect.size.x, pause_rect.size.y)
+		_pause_button.position = Vector2(pause_rect.end.x - button_size, pause_rect.position.y + banner_y_offset)
 		_pause_button.size = Vector2(button_size, button_size)
 	else:
 		_pause_button.position = Vector2(size.x - 54.0 - insets.size.x, 14.0 + insets.position.y + banner_y_offset)
