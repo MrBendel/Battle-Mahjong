@@ -36,6 +36,7 @@ func _setup_update_banner() -> void:
 	_update_checker = UpdateCheckerScript.new()
 	_update_checker.name = "UpdateChecker"
 	_update_checker.update_available.connect(_on_update_available)
+	_update_checker.check_status_reported.connect(_on_check_status_reported)
 	add_child(_update_checker)
 
 	_update_banner = UpdateBannerViewScript.new()
@@ -58,9 +59,27 @@ func _layout_update_banner() -> void:
 	_update_banner.size = Vector2(available_width, banner_height)
 
 
+func _on_check_status_reported(status: Dictionary) -> void:
+	if _update_banner == null:
+		return
+	if bool(status.get("is_update_available", false)):
+		var vname: String = str(status.get("remote_name", ""))
+		var url: String = str(status.get("store_url", ""))
+		var mandatory: bool = bool(status.get("mandatory", false))
+		var msg: String = str(status.get("status_message", ""))
+		_update_banner.call("show_update", vname, url, mandatory, msg)
+	else:
+		var msg: String = str(status.get("status_message", ""))
+		_update_banner.call("show_status_toast", msg, 4.5)
+	_layout_update_banner()
+
+
 func _on_update_available(version_name: String, store_url: String, mandatory: bool) -> void:
+	if _update_banner == null:
+		return
 	_update_banner.call("show_update", version_name, store_url, mandatory)
 	_layout_update_banner()
+
 
 
 func _on_update_requested() -> void:

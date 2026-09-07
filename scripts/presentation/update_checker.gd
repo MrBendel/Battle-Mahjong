@@ -4,6 +4,7 @@ signal update_available(latest_version_name: String, store_url: String, is_manda
 signal check_completed(up_to_date: bool)
 signal startup_received(startup_data: Dictionary)
 signal maintenance_active(message: String)
+signal check_status_reported(status_info: Dictionary)
 
 const DEFAULT_STORE_URL: String = "https://play.google.com/apps/internaltest/4701554282456194202"
 const DEFAULT_CHECK_VERSION_URL: String = "https://battle-mahjong-backend-yz6hgthnca-uc.a.run.app/v1/startup"
@@ -116,14 +117,37 @@ func check_for_updates() -> void:
 	_check_local_version_file()
 
 
-func _check_local_version_file() -> void:
+static func short_version_name(vname: String) -> String:
+	if vname.contains("-internal."):
+		return vname.split("-internal.")[0]
+	return vname
+
+
+func _check_local_version_file(emit_status: bool = true) -> void:
 	if FileAccess.file_exists("res://version.json"):
 		var file := FileAccess.open("res://version.json", FileAccess.READ)
 		if file != null:
 			var json := JSON.new()
 			if json.parse(file.get_as_text()) == OK and json.data is Dictionary:
-				_evaluate_version_dict(json.data)
+				_evaluate_version_dict(json.data, emit_status)
 				return
+	if emit_status:
+		var current_code := get_current_version_code()
+		var current_name := get_current_version_name()
+		var short_current := short_version_name(current_name)
+		var status_dict := {
+			"success": true,
+			"up_to_date": true,
+			"current_code": current_code,
+			"current_name": current_name,
+			"remote_code": current_code,
+			"remote_name": current_name,
+			"status_message": "✓ Game: v%s (%d) • Up to date" % [short_current, current_code],
+			"is_update_available": false,
+			"store_url": DEFAULT_STORE_URL,
+			"mandatory": false
+		}
+		check_status_reported.emit(status_dict)
 	check_completed.emit(true)
 
 
@@ -131,13 +155,30 @@ func _on_http_request_completed(result: int, response_code: int, _headers: Packe
 	if result == HTTPRequest.RESULT_SUCCESS and response_code == 200:
 		var json := JSON.new()
 		if json.parse(body.get_string_from_utf8()) == OK and json.data is Dictionary:
-			_evaluate_version_dict(json.data)
+			_evaluate_version_dict(json.data, true)
 			return
 
-	_check_local_version_file()
+	var current_code := get_current_version_code()
+	var current_name := get_current_version_name()
+	var short_current := short_version_name(current_name)
+	var err_msg := "⚠ API Check Failed (res %d, HTTP %d) | Game: v%s (%d)" % [result, response_code, short_current, current_code]
+	var status_dict := {
+		"success": false,
+		"up_to_date": true,
+		"current_code": current_code,
+		"current_name": current_name,
+		"remote_code": 0,
+		"remote_name": "",
+		"status_message": err_msg,
+		"is_update_available": false,
+		"store_url": DEFAULT_STORE_URL,
+		"mandatory": false
+	}
+	check_status_reported.emit(status_dict)
+	_check_local_version_file(false)
 
 
-func _evaluate_version_dict(dict: Dictionary) -> void:
+func _evaluate_version_dict(dict: Dictionary, emit_status: bool = true) -> void:
 	startup_config = dict
 	startup_received.emit(dict)
 
@@ -159,7 +200,33 @@ func _evaluate_version_dict(dict: Dictionary) -> void:
 		remote_url = DEFAULT_STORE_URL
 
 	var current_code := get_current_version_code()
-	if remote_code > current_code:
+	var current_name := get_current_version_name()
+	var short_current := short_version_name(current_name)
+	var short_remote := short_version_name(remote_name)
+	var is_update := remote_code > current_code
+
+	if emit_status:
+		var status_msg := ""
+		if is_update:
+			status_msg = "🚀 Update! Game: v%s (%d) | Server: v%s (%d)" % [short_current, current_code, short_remote, remote_code]
+		else:
+			status_msg = "✓ Game: v%s (%d) | Server: v%s (%d) • Up to date" % [short_current, current_code, short_remote, remote_code]
+
+		var status_dict := {
+			"success": true,
+			"up_to_date": not is_update,
+			"current_code": current_code,
+			"current_name": current_name,
+			"remote_code": remote_code,
+			"remote_name": remote_name,
+			"status_message": status_msg,
+			"is_update_available": is_update,
+			"store_url": remote_url,
+			"mandatory": force_update or (current_code < min_code)
+		}
+		check_status_reported.emit(status_dict)
+
+	if is_update:
 		var mandatory := force_update or (current_code < min_code)
 		update_available.emit(remote_name, remote_url, mandatory)
 		check_completed.emit(false)
@@ -183,6 +250,36 @@ func start_in_app_update(is_mandatory: bool = false) -> void:
 func mock_trigger_update_available(version_name: String = "0.2.0", url: String = DEFAULT_STORE_URL, mandatory: bool = false) -> void:
 	update_available.emit(version_name, url, mandatory)
 	check_completed.emit(false)
+
+
+func mock_trigger_check_status(remote_code: int, remote_name: String = "0.2.0", is_update: bool = false) -> void:
+	var current_code := get_current_version_code()
+	var current_name := get_current_version_name()
+	var short_current := short_version_name(current_name)
+	var short_remote := short_version_name(remote_name)
+	var status_msg := ""
+	if is_update:
+		status_msg = "🚀 Update! Game: v%s (%d) | Server: v%s (%d)" % [short_current, current_code, short_remote, remote_code]
+	else:
+		status_msg = "✓ Game: v%s (%d) | Server: v%s (%d) • Up to date" % [short_current, current_code, short_remote, remote_code]
+	var status_dict := {
+		"success": true,
+		"up_to_date": not is_update,
+		"current_code": current_code,
+		"current_name": current_name,
+		"remote_code": remote_code,
+		"remote_name": remote_name,
+		"status_message": status_msg,
+		"is_update_available": is_update,
+		"store_url": DEFAULT_STORE_URL,
+		"mandatory": false
+	}
+	check_status_reported.emit(status_dict)
+	if is_update:
+		update_available.emit(remote_name, DEFAULT_STORE_URL, false)
+		check_completed.emit(false)
+	else:
+		check_completed.emit(true)
 
 
 func _on_native_update_available(arg1: Variant = null, arg2: Variant = null, _arg3: Variant = null) -> void:

@@ -9,6 +9,9 @@ var _dismiss_button: Button
 var _store_url: String = "https://play.google.com/apps/internaltest/4701554282456194202"
 var _is_mandatory := false
 
+var _fade_tween: Tween = null
+
+
 func _init() -> void:
 	name = "UpdateBannerView"
 	z_index = 1200
@@ -38,7 +41,7 @@ func _build_ui() -> void:
 	_message_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_message_label.clip_text = true
 	_message_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	_message_label.add_theme_font_size_override("font_size", 15)
+	_message_label.add_theme_font_size_override("font_size", 13)
 	_message_label.add_theme_color_override("font_color", Color(0.9, 0.95, 1.0))
 	hbox.add_child(_message_label)
 
@@ -46,7 +49,7 @@ func _build_ui() -> void:
 	_update_button.name = "UpdateButton"
 	_update_button.text = "Update"
 	_update_button.focus_mode = Control.FOCUS_NONE
-	_update_button.add_theme_font_size_override("font_size", 14)
+	_update_button.add_theme_font_size_override("font_size", 13)
 
 	var btn_style := StyleBoxFlat.new()
 	btn_style.bg_color = Color(0.1, 0.55, 0.45, 1.0)
@@ -65,20 +68,25 @@ func _build_ui() -> void:
 	_dismiss_button.name = "DismissButton"
 	_dismiss_button.text = "✕"
 	_dismiss_button.focus_mode = Control.FOCUS_NONE
-	_dismiss_button.add_theme_font_size_override("font_size", 14)
+	_dismiss_button.add_theme_font_size_override("font_size", 13)
 	_dismiss_button.add_theme_color_override("font_color", Color(0.7, 0.75, 0.8))
 	_dismiss_button.pressed.connect(_on_dismiss_pressed)
 	hbox.add_child(_dismiss_button)
 
 
-func show_update(version_name: String, store_url: String, mandatory: bool = false) -> void:
+func show_update(version_name: String, store_url: String, mandatory: bool = false, custom_message: String = "") -> void:
+	_kill_fade_tween()
+	modulate.a = 1.0
 	_store_url = store_url
 	_is_mandatory = mandatory
-	if version_name.is_empty():
+	if not custom_message.is_empty():
+		_message_label.text = custom_message
+	elif version_name.is_empty():
 		_message_label.text = "🚀 New version available!"
 	else:
 		_message_label.text = "🚀 Update available: %s" % version_name
 
+	_update_button.visible = true
 	if mandatory:
 		_dismiss_button.visible = false
 	else:
@@ -86,11 +94,40 @@ func show_update(version_name: String, store_url: String, mandatory: bool = fals
 	visible = true
 
 
+func show_status_toast(message: String, duration_sec: float = 4.5) -> void:
+	_kill_fade_tween()
+	modulate.a = 1.0
+	_message_label.text = message
+	_update_button.visible = false
+	_dismiss_button.visible = true
+	visible = true
+
+	if duration_sec > 0.0:
+		_fade_tween = create_tween()
+		_fade_tween.tween_interval(duration_sec)
+		_fade_tween.tween_property(self, "modulate:a", 0.0, 0.4)
+		_fade_tween.tween_callback(func():
+			visible = false
+			modulate.a = 1.0
+			dismissed.emit()
+		)
+
+
+func _kill_fade_tween() -> void:
+	if _fade_tween != null and _fade_tween.is_valid():
+		_fade_tween.kill()
+		_fade_tween = null
+
+
 func _on_update_pressed() -> void:
+	_kill_fade_tween()
+	modulate.a = 1.0
 	update_requested.emit()
 
 
-
 func _on_dismiss_pressed() -> void:
+	_kill_fade_tween()
+	modulate.a = 1.0
 	visible = false
 	dismissed.emit()
+
