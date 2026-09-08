@@ -40,3 +40,12 @@ M7 Batch A currently includes the complete 34-face Default candidate set, respon
 | Compact Phone | Phone Portrait | Landscape |
 | --- | --- | --- |
 | ![M7 gameplay shell at 375 by 667](docs/images/m7-gameplay-small-phone.png) | ![M7 gameplay shell in phone portrait](docs/images/m7-gameplay-portrait.png) | ![M7 gameplay shell in landscape](docs/images/m7-gameplay-landscape.png) |
+
+### Recreated Porcelain Tileset Specimen
+
+Authentic Japanese arcade calligraphy, segmented green bamboo bones, multi-layered concentric dots with specular glints, and custom mascot tiles:
+
+| Tileset Specimen Showcase | Dots Inlay Reference Comparison |
+| --- | --- |
+| ![Tileset Specimen](docs/images/tileset-specimen.png) | ![Dots Comparison](docs/images/dots-comparison.png) |
+
