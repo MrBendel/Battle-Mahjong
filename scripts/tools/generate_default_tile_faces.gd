@@ -726,17 +726,103 @@ func _mascot_oni() -> String:
 
 
 func _mascot_fuji() -> String:
-	# Mount Fuji with Rising Sun (large scale)
+	# Mount Fuji with Radiant Rising Sun matching reference artwork
 	return """
-    <!-- Mascot Mount Fuji with Red Sun -->
-    <!-- Radiant Red Sun -->
-    <circle cx="184" cy="195" r="110" fill="%s" stroke="%s" stroke-width="10"/>
-    <!-- Indigo Mountain Base -->
-    <path d="M40 415 C75 405 138 275 152 215 H216 C230 275 293 405 328 415 Z" fill="%s" stroke="%s" stroke-width="12"/>
-    <!-- White Snow Cap with Jagged Ridges -->
-    <path d="M152 215 H216 L228 272 L210 260 L198 284 L184 262 L170 284 L158 260 L140 272 Z" fill="%s" stroke="%s" stroke-width="8"/>""" % [
-		RED, INK, NAVY, INK, WHITE, INK
-	]
+    <!-- Mascot Mount Fuji with Rising Sun -->
+    <defs>
+      <!-- Radiant Red-to-Orange Rising Sun Gradient -->
+      <linearGradient id="sun_gradient" x1="0.5" y1="0" x2="0.5" y2="1">
+        <stop offset="0%" stop-color="#df2424"/>
+        <stop offset="55%" stop-color="#ee4e23"/>
+        <stop offset="100%" stop-color="#f88832"/>
+      </linearGradient>
+
+      <!-- Deep Prussian / Cobalt Indigo Mountain Gradient -->
+      <linearGradient id="mountain_body" x1="0.5" y1="0.3" x2="0.5" y2="1">
+        <stop offset="0%" stop-color="#125096"/>
+        <stop offset="60%" stop-color="#093874"/>
+        <stop offset="100%" stop-color="#041f48"/>
+      </linearGradient>
+
+      <!-- Crisp Snow Porcelain Glaze -->
+      <linearGradient id="snow_glaze" x1="0.3" y1="0" x2="0.7" y2="1">
+        <stop offset="0%" stop-color="#ffffff"/>
+        <stop offset="70%" stop-color="#faf8f5"/>
+        <stop offset="100%" stop-color="#ebe4da"/>
+      </linearGradient>
+    </defs>
+
+    <!-- Radiant Red Rising Sun (Behind Mountain) -->
+    <circle cx="184" cy="180" r="70"
+            fill="url(#sun_gradient)"
+            stroke="#0a0c10"
+            stroke-width="12"/>
+
+    <!-- Mountain Full Body Silhouette (Indigo Base + Sweeping Shape) -->
+    <path d="M144 196
+             C154 190 162 196 172 198
+             C178 199 184 196 190 196
+             C196 196 202 199 208 198
+             C218 196 226 190 236 196
+             C242 228 266 288 322 332
+             C236 342 132 342 46 332
+             C102 288 126 228 144 196 Z"
+          fill="url(#mountain_body)"
+          stroke="#0a0c10"
+          stroke-width="13"
+          stroke-linejoin="round"
+          stroke-linecap="round"/>
+
+    <!-- Iconic Snow Cap with 5 Glacial Teeth -->
+    <path d="M144 196
+             C154 190 162 196 172 198
+             C178 199 184 196 190 196
+             C196 196 202 199 208 198
+             C218 196 226 190 236 196
+             C240 216 244 234 250 252
+             L240 254
+             L232 268
+             L222 250
+             L210 256
+             L198 274
+             L184 254
+             L170 274
+             L158 256
+             L146 250
+             L136 268
+             L128 254
+             L118 252
+             C124 234 128 216 144 196 Z"
+          fill="url(#snow_glaze)"
+          stroke="#0a0c10"
+          stroke-width="9"
+          stroke-linejoin="round"/>
+
+    <!-- Foothill Ravine Creases -->
+    <path d="M94 332 C106 318 118 304 130 286"
+          fill="none"
+          stroke="#0a0c10"
+          stroke-width="8"
+          stroke-linecap="round"/>
+
+    <path d="M136 336 C144 322 152 308 160 292"
+          fill="none"
+          stroke="#0a0c10"
+          stroke-width="8"
+          stroke-linecap="round"/>
+
+    <path d="M232 336 C224 322 216 308 208 292"
+          fill="none"
+          stroke="#0a0c10"
+          stroke-width="8"
+          stroke-linecap="round"/>
+
+    <path d="M274 332 C262 318 250 304 238 286"
+          fill="none"
+          stroke="#0a0c10"
+          stroke-width="8"
+          stroke-linecap="round"/>"""
+
 
 
 func _mascot_skull() -> String:
