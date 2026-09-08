@@ -1,40 +1,80 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="368" height="506" viewBox="0 0 368 506">
   <g stroke-linecap="round" stroke-linejoin="round">
 
-    <!-- Stalk 100,150 -->
+    <!-- Bone Stalk at 95.0,145.0 -->
     <g>
-      <rect x="79.0" y="85.0" width="42.0" height="130.0" rx="9.5" fill="#106f36" stroke="#121b24" stroke-width="9"/>
-      <line x1="100.0" y1="95.0" x2="100.0" y2="205.0" stroke="#38a169" stroke-width="11.8" opacity="0.5"/>
-      <path d="M75.0 150.0 H125.0" stroke="#121b24" stroke-width="10"/>
-      <ellipse cx="100.0" cy="150.0" rx="19.9" ry="6" fill="#38a169" stroke="#121b24" stroke-width="4"/>
+      <!-- Base Outline & Fill -->
+      <path d="M 68.0 90.5 A 27.0 22.9 0 0 1 122.0 90.5 C 122.0 93.9, 117.1 93.5, 116.1 98.5 L 116.1 191.5 C 117.1 196.5, 122.0 196.1, 122.0 199.6 A 27.0 22.9 0 0 1 68.0 199.6 C 68.0 196.1, 72.9 196.5, 73.9 191.5 L 73.9 98.5 C 72.9 93.5, 68.0 93.9, 68.0 90.5 Z" fill="#0e6c26" stroke="#08140c" stroke-width="11"/>
+      <!-- Soft Broad Cylindrical Highlight -->
+      <line x1="95.0" y1="84.7" x2="95.0" y2="205.3" stroke="#48bc54" stroke-width="14.6" stroke-linecap="round" opacity="0.95"/>
+      <!-- Core Glossy Glint Line -->
+      <line x1="95.0" y1="91.6" x2="95.0" y2="198.4" stroke="#d6ffd2" stroke-width="4.3" stroke-linecap="round" opacity="0.95"/>
+      <!-- Top Bulb Highlight Pip -->
+      <ellipse cx="95.0" cy="83.6" rx="11.3" ry="7.3" fill="#48bc54"/>
+      <ellipse cx="95.0" cy="83.6" rx="5.4" ry="3.7" fill="#ffffff" opacity="0.85"/>
+      <!-- Bottom Bulb Highlight Pip -->
+      <ellipse cx="95.0" cy="206.4" rx="11.3" ry="7.3" fill="#48bc54"/>
+      <ellipse cx="95.0" cy="206.4" rx="5.4" ry="3.7" fill="#ffffff" opacity="0.85"/>
     </g>
-    <!-- Stalk 268,150 -->
+    <!-- Bone Stalk at 273.0,145.0 -->
     <g>
-      <rect x="247.0" y="85.0" width="42.0" height="130.0" rx="9.5" fill="#106f36" stroke="#121b24" stroke-width="9"/>
-      <line x1="268.0" y1="95.0" x2="268.0" y2="205.0" stroke="#38a169" stroke-width="11.8" opacity="0.5"/>
-      <path d="M243.0 150.0 H293.0" stroke="#121b24" stroke-width="10"/>
-      <ellipse cx="268.0" cy="150.0" rx="19.9" ry="6" fill="#38a169" stroke="#121b24" stroke-width="4"/>
+      <!-- Base Outline & Fill -->
+      <path d="M 246.0 90.5 A 27.0 22.9 0 0 1 300.0 90.5 C 300.0 93.9, 295.1 93.5, 294.1 98.5 L 294.1 191.5 C 295.1 196.5, 300.0 196.1, 300.0 199.6 A 27.0 22.9 0 0 1 246.0 199.6 C 246.0 196.1, 250.9 196.5, 251.9 191.5 L 251.9 98.5 C 250.9 93.5, 246.0 93.9, 246.0 90.5 Z" fill="#0e6c26" stroke="#08140c" stroke-width="11"/>
+      <!-- Soft Broad Cylindrical Highlight -->
+      <line x1="273.0" y1="84.7" x2="273.0" y2="205.3" stroke="#48bc54" stroke-width="14.6" stroke-linecap="round" opacity="0.95"/>
+      <!-- Core Glossy Glint Line -->
+      <line x1="273.0" y1="91.6" x2="273.0" y2="198.4" stroke="#d6ffd2" stroke-width="4.3" stroke-linecap="round" opacity="0.95"/>
+      <!-- Top Bulb Highlight Pip -->
+      <ellipse cx="273.0" cy="83.6" rx="11.3" ry="7.3" fill="#48bc54"/>
+      <ellipse cx="273.0" cy="83.6" rx="5.4" ry="3.7" fill="#ffffff" opacity="0.85"/>
+      <!-- Bottom Bulb Highlight Pip -->
+      <ellipse cx="273.0" cy="206.4" rx="11.3" ry="7.3" fill="#48bc54"/>
+      <ellipse cx="273.0" cy="206.4" rx="5.4" ry="3.7" fill="#ffffff" opacity="0.85"/>
     </g>
-    <!-- Stalk 184,253 -->
+    <!-- Bone Stalk at 184.0,253.0 -->
     <g>
-      <rect x="163.0" y="188.0" width="42.0" height="130.0" rx="9.5" fill="#106f36" stroke="#121b24" stroke-width="9"/>
-      <line x1="184.0" y1="198.0" x2="184.0" y2="308.0" stroke="#38a169" stroke-width="11.8" opacity="0.5"/>
-      <path d="M159.0 253.0 H209.0" stroke="#121b24" stroke-width="10"/>
-      <ellipse cx="184.0" cy="253.0" rx="19.9" ry="6" fill="#38a169" stroke="#121b24" stroke-width="4"/>
+      <!-- Base Outline & Fill -->
+      <path d="M 157.0 198.4 A 27.0 22.9 0 0 1 211.0 198.4 C 211.0 201.9, 206.1 201.5, 205.1 206.5 L 205.1 299.5 C 206.1 304.5, 211.0 304.1, 211.0 307.6 A 27.0 22.9 0 0 1 157.0 307.6 C 157.0 304.1, 161.9 304.5, 162.9 299.5 L 162.9 206.5 C 161.9 201.5, 157.0 201.9, 157.0 198.4 Z" fill="#c92424" stroke="#08140c" stroke-width="11"/>
+      <!-- Soft Broad Cylindrical Highlight -->
+      <line x1="184.0" y1="192.7" x2="184.0" y2="313.3" stroke="#ff6677" stroke-width="14.6" stroke-linecap="round" opacity="0.95"/>
+      <!-- Core Glossy Glint Line -->
+      <line x1="184.0" y1="199.6" x2="184.0" y2="306.4" stroke="#ffe4e8" stroke-width="4.3" stroke-linecap="round" opacity="0.95"/>
+      <!-- Top Bulb Highlight Pip -->
+      <ellipse cx="184.0" cy="191.6" rx="11.3" ry="7.3" fill="#ff6677"/>
+      <ellipse cx="184.0" cy="191.6" rx="5.4" ry="3.7" fill="#ffffff" opacity="0.85"/>
+      <!-- Bottom Bulb Highlight Pip -->
+      <ellipse cx="184.0" cy="314.4" rx="11.3" ry="7.3" fill="#ff6677"/>
+      <ellipse cx="184.0" cy="314.4" rx="5.4" ry="3.7" fill="#ffffff" opacity="0.85"/>
     </g>
-    <!-- Stalk 100,356 -->
+    <!-- Bone Stalk at 95.0,361.0 -->
     <g>
-      <rect x="79.0" y="291.0" width="42.0" height="130.0" rx="9.5" fill="#106f36" stroke="#121b24" stroke-width="9"/>
-      <line x1="100.0" y1="301.0" x2="100.0" y2="411.0" stroke="#38a169" stroke-width="11.8" opacity="0.5"/>
-      <path d="M75.0 356.0 H125.0" stroke="#121b24" stroke-width="10"/>
-      <ellipse cx="100.0" cy="356.0" rx="19.9" ry="6" fill="#38a169" stroke="#121b24" stroke-width="4"/>
+      <!-- Base Outline & Fill -->
+      <path d="M 68.0 306.4 A 27.0 22.9 0 0 1 122.0 306.4 C 122.0 309.9, 117.1 309.5, 116.1 314.5 L 116.1 407.5 C 117.1 412.5, 122.0 412.1, 122.0 415.6 A 27.0 22.9 0 0 1 68.0 415.6 C 68.0 412.1, 72.9 412.5, 73.9 407.5 L 73.9 314.5 C 72.9 309.5, 68.0 309.9, 68.0 306.4 Z" fill="#0e6c26" stroke="#08140c" stroke-width="11"/>
+      <!-- Soft Broad Cylindrical Highlight -->
+      <line x1="95.0" y1="300.7" x2="95.0" y2="421.3" stroke="#48bc54" stroke-width="14.6" stroke-linecap="round" opacity="0.95"/>
+      <!-- Core Glossy Glint Line -->
+      <line x1="95.0" y1="307.6" x2="95.0" y2="414.4" stroke="#d6ffd2" stroke-width="4.3" stroke-linecap="round" opacity="0.95"/>
+      <!-- Top Bulb Highlight Pip -->
+      <ellipse cx="95.0" cy="299.6" rx="11.3" ry="7.3" fill="#48bc54"/>
+      <ellipse cx="95.0" cy="299.6" rx="5.4" ry="3.7" fill="#ffffff" opacity="0.85"/>
+      <!-- Bottom Bulb Highlight Pip -->
+      <ellipse cx="95.0" cy="422.4" rx="11.3" ry="7.3" fill="#48bc54"/>
+      <ellipse cx="95.0" cy="422.4" rx="5.4" ry="3.7" fill="#ffffff" opacity="0.85"/>
     </g>
-    <!-- Stalk 268,356 -->
+    <!-- Bone Stalk at 273.0,361.0 -->
     <g>
-      <rect x="247.0" y="291.0" width="42.0" height="130.0" rx="9.5" fill="#106f36" stroke="#121b24" stroke-width="9"/>
-      <line x1="268.0" y1="301.0" x2="268.0" y2="411.0" stroke="#38a169" stroke-width="11.8" opacity="0.5"/>
-      <path d="M243.0 356.0 H293.0" stroke="#121b24" stroke-width="10"/>
-      <ellipse cx="268.0" cy="356.0" rx="19.9" ry="6" fill="#38a169" stroke="#121b24" stroke-width="4"/>
+      <!-- Base Outline & Fill -->
+      <path d="M 246.0 306.4 A 27.0 22.9 0 0 1 300.0 306.4 C 300.0 309.9, 295.1 309.5, 294.1 314.5 L 294.1 407.5 C 295.1 412.5, 300.0 412.1, 300.0 415.6 A 27.0 22.9 0 0 1 246.0 415.6 C 246.0 412.1, 250.9 412.5, 251.9 407.5 L 251.9 314.5 C 250.9 309.5, 246.0 309.9, 246.0 306.4 Z" fill="#0e6c26" stroke="#08140c" stroke-width="11"/>
+      <!-- Soft Broad Cylindrical Highlight -->
+      <line x1="273.0" y1="300.7" x2="273.0" y2="421.3" stroke="#48bc54" stroke-width="14.6" stroke-linecap="round" opacity="0.95"/>
+      <!-- Core Glossy Glint Line -->
+      <line x1="273.0" y1="307.6" x2="273.0" y2="414.4" stroke="#d6ffd2" stroke-width="4.3" stroke-linecap="round" opacity="0.95"/>
+      <!-- Top Bulb Highlight Pip -->
+      <ellipse cx="273.0" cy="299.6" rx="11.3" ry="7.3" fill="#48bc54"/>
+      <ellipse cx="273.0" cy="299.6" rx="5.4" ry="3.7" fill="#ffffff" opacity="0.85"/>
+      <!-- Bottom Bulb Highlight Pip -->
+      <ellipse cx="273.0" cy="422.4" rx="11.3" ry="7.3" fill="#48bc54"/>
+      <ellipse cx="273.0" cy="422.4" rx="5.4" ry="3.7" fill="#ffffff" opacity="0.85"/>
     </g>
   </g>
 </svg>
