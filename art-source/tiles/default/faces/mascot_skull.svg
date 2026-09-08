@@ -1,15 +1,71 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="368" height="506" viewBox="0 0 368 506">
   <g stroke-linecap="round" stroke-linejoin="round">
 
-    <!-- Mascot Pink Skull -->
-    <!-- Skull Cranium -->
-    <path d="M82 230 C72 135 122 85 184 85 C246 85 296 135 286 230 C282 272 258 298 240 310 L240 390 H128 L128 310 C110 298 86 272 82 230 Z" fill="#ee658d" stroke="#121b24" stroke-width="12"/>
-    <!-- Big Eye Sockets -->
-    <circle cx="138" cy="215" r="32" fill="#121b24"/>
-    <circle cx="230" cy="215" r="32" fill="#121b24"/>
-    <!-- Heart Nose -->
-    <path d="M184 282 C174 264 162 270 172 286 L184 300 L196 286 C206 270 194 264 184 282 Z" fill="#121b24"/>
-    <!-- Teeth -->
-    <path d="M148 350 V390 M184 350 V390 M220 350 V390" stroke="#121b24" stroke-width="9"/>
+    <!-- Mascot Devil Eared Skull -->
+    <defs>
+      <linearGradient id="skull_body" x1="0.25" y1="0.1" x2="0.75" y2="0.9">
+        <stop offset="0%" stop-color="#f85488"/>
+        <stop offset="50%" stop-color="#ee3570"/>
+        <stop offset="100%" stop-color="#dc1e59"/>
+      </linearGradient>
+    </defs>
+
+    <!-- Left Devil Horn / Ear -->
+    <path d="M78 178 L68 120 L106 132 Z"
+          fill="url(#skull_body)"
+          stroke="#0a0c10"
+          stroke-width="12"
+          stroke-linejoin="round"/>
+
+    <!-- Right Devil Horn / Ear -->
+    <path d="M290 178 L300 120 L262 132 Z"
+          fill="url(#skull_body)"
+          stroke="#0a0c10"
+          stroke-width="12"
+          stroke-linejoin="round"/>
+
+    <!-- Skull Head & Jaw Silhouette -->
+    <path d="M184 102
+             C248 102 294 142 294 208
+             C294 250 286 270 290 284
+             C292 296 276 302 258 302
+             L258 368
+             C258 392 232 400 184 400
+             C136 400 110 392 110 368
+             L110 302
+             C92 302 76 296 78 284
+             C82 270 74 250 74 208
+             C74 142 120 102 184 102 Z"
+          fill="url(#skull_body)"
+          stroke="#0a0c10"
+          stroke-width="13"
+          stroke-linejoin="round"
+          stroke-linecap="round"/>
+
+    <!-- Soft porcelain specular highlight along top-left cranium -->
+    <path d="M112 128 C132 110 156 106 184 106"
+          fill="none"
+          stroke="#ffffff"
+          stroke-width="5"
+          stroke-linecap="round"
+          opacity="0.38"/>
+
+    <!-- Eye Sockets (Large tall ovals) -->
+    <ellipse cx="130" cy="214" rx="31" ry="36" fill="#0a0c10"/>
+    <ellipse cx="238" cy="214" rx="31" ry="36" fill="#0a0c10"/>
+
+    <!-- Nose Cavity (Upward triangle positioned between bottom of eyes) -->
+    <polygon points="184,232 172,268 196,268" fill="#0a0c10"/>
+
+    <!-- Mouth & Teeth -->
+    <!-- Horizontal bite divider line across jaw -->
+    <line x1="120" y1="348" x2="248" y2="348" stroke="#0a0c10" stroke-width="8" stroke-linecap="round"/>
+
+    <!-- 5 Vertical tooth divider lines forming 6 teeth columns -->
+    <line x1="141" y1="330" x2="141" y2="366" stroke="#0a0c10" stroke-width="7" stroke-linecap="round"/>
+    <line x1="162" y1="330" x2="162" y2="366" stroke="#0a0c10" stroke-width="7" stroke-linecap="round"/>
+    <line x1="184" y1="330" x2="184" y2="366" stroke="#0a0c10" stroke-width="7" stroke-linecap="round"/>
+    <line x1="206" y1="330" x2="206" y2="366" stroke="#0a0c10" stroke-width="7" stroke-linecap="round"/>
+    <line x1="227" y1="330" x2="227" y2="366" stroke="#0a0c10" stroke-width="7" stroke-linecap="round"/>
   </g>
 </svg>
