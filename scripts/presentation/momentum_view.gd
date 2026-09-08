@@ -19,7 +19,7 @@ const PORTRAIT_FILL_RECT := Rect2(31.0, 94.0, 414.0, 40.0)
 const PORTRAIT_SCORE_OPTICAL_OFFSET := Vector2(4.0, -7.0)
 const PORTRAIT_STREAK_TITLE_OPTICAL_OFFSET := Vector2(7.0, -4.0)
 const PORTRAIT_STREAK_VALUE_OPTICAL_OFFSET := Vector2(2.0, -9.0)
-const PORTRAIT_MULTIPLIER_OPTICAL_OFFSET := Vector2(-7.0, 1.0)
+const PORTRAIT_MULTIPLIER_OPTICAL_OFFSET := Vector2(-7.0, 10.0)
 
 var _game: Variant
 var _gameplay_theme: Resource
@@ -99,7 +99,7 @@ func refresh(playback_time_ms: int) -> void:
 	_set_poster_text(_timer, _timer_shadow, _format_time(playback_time_ms))
 	var combo: int = _game.call("combo_at", playback_time_ms)
 	var combo_text := "x%d" % combo if _portrait_style and combo > 0 \
-		else "READY" if _portrait_style \
+		else "-" if _portrait_style \
 		else "Combo x%d" % combo if combo > 0 else "Combo ready"
 	if not _run_label.is_empty():
 		combo_text = "%s  %s" % [_run_label, combo_text]
@@ -362,7 +362,7 @@ func _layout() -> void:
 		Rect2(PORTRAIT_MULTIPLIER_RECT.position + Vector2(49.0, 0.0) + PORTRAIT_MULTIPLIER_OPTICAL_OFFSET, Vector2(85.0, 61.0)),
 		origin,
 		scale,
-		50
+		58
 	)
 
 	_place_scaled(_effect_status, Rect2(142.0, 95.0, 294.0, 26.0), origin, scale, 9)

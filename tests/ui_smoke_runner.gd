@@ -1199,6 +1199,7 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 			_check(scorebox_font is FontVariation and scorebox_font.base_font == load("res://assets/fonts/battle-mahjong-poster-script.ttf"), "portrait scorebox uses Poster Script consistently")
 		_check_equal("123,456,789", momentum.call("_format_score", 123456789), "portrait score formatting groups thousands")
 		_check_equal("01:02.34", momentum.call("_format_time", 62340), "portrait timer formats runtime playback")
+		_check_equal("-", momentum.get("_combo").text, "portrait zero-streak state uses a compact hyphen")
 		var proportion_content := safe_viewport
 		if shell.get("_update_banner").visible:
 			var status_banner_offset := 46.0 * expected_portrait_scale
