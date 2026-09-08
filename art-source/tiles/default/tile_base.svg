@@ -1,71 +1,110 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="736" viewBox="0 0 512 736">
   <defs>
-    <!-- Soft contact shadow -->
-    <linearGradient id="shadow_grad" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#0a1a14" stop-opacity="0.55"/>
-      <stop offset="1" stop-color="#05100c" stop-opacity="0.15"/>
+    <!-- Soft Contact Drop Shadow -->
+    <radialGradient id="base_shadow" cx="50%" cy="50%" r="50%">
+      <stop offset="60%" stop-color="#04120a" stop-opacity="0.45"/>
+      <stop offset="85%" stop-color="#071a10" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#091e14" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- 2.5D Bottom Edge Ceramic Extrusion (matches original artwork) -->
+    <linearGradient id="ceramic_extrusion" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#cfb48e"/>
+      <stop offset="25%" stop-color="#b89a72"/>
+      <stop offset="65%" stop-color="#9d7f57"/>
+      <stop offset="100%" stop-color="#7e623d"/>
     </linearGradient>
 
-    <!-- Warm Bamboo / Wood lower base -->
-    <linearGradient id="bamboo_body" x1="0.1" y1="0" x2="0.3" y2="1">
-      <stop offset="0" stop-color="#d4a366"/>
-      <stop offset="0.35" stop-color="#b68249"/>
-      <stop offset="0.75" stop-color="#8f5d2d"/>
-      <stop offset="1" stop-color="#6a411b"/>
+    <!-- Bottom Lip Rounded Bevel Highlight -->
+    <linearGradient id="ceramic_lip_highlight" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#b0926b"/>
+      <stop offset="25%" stop-color="#e2cbb0"/>
+      <stop offset="50%" stop-color="#fff5e6"/>
+      <stop offset="75%" stop-color="#e2cbb0"/>
+      <stop offset="100%" stop-color="#a88a64"/>
     </linearGradient>
 
-    <!-- Bamboo bottom bevel highlight -->
-    <linearGradient id="bamboo_lip" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#b8844b"/>
-      <stop offset="0.5" stop-color="#dfb279"/>
-      <stop offset="1" stop-color="#a06e39"/>
+    <!-- Outer Porcelain Bevel Rim -->
+    <linearGradient id="porcelain_outer_rim" x1="0.1" y1="0" x2="0.9" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="20%" stop-color="#fdf7ec"/>
+      <stop offset="55%" stop-color="#f3e0c4"/>
+      <stop offset="85%" stop-color="#e4c7a2"/>
+      <stop offset="100%" stop-color="#caa77d"/>
     </linearGradient>
 
-    <!-- Porcelain outer rim / bevel -->
-    <linearGradient id="porcelain_rim" x1="0.1" y1="0" x2="0.9" y2="1">
-      <stop offset="0" stop-color="#ffffff"/>
-      <stop offset="0.3" stop-color="#faf3e3"/>
-      <stop offset="0.75" stop-color="#ebdcc0"/>
-      <stop offset="1" stop-color="#c9b18c"/>
+    <!-- Volumetric Convex Porcelain Face Surface -->
+    <radialGradient id="porcelain_face_shading" cx="44%" cy="36%" r="68%">
+      <stop offset="0%" stop-color="#fffefa"/>
+      <stop offset="30%" stop-color="#fdf6e7"/>
+      <stop offset="65%" stop-color="#f8ecd5"/>
+      <stop offset="88%" stop-color="#eed8ba"/>
+      <stop offset="100%" stop-color="#e2c59e"/>
+    </radialGradient>
+
+    <!-- Soft Perimeter Ambient Occlusion Gradients -->
+    <linearGradient id="face_ao_vertical" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.65"/>
+      <stop offset="6%" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="92%" stop-color="#9a7140" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#805626" stop-opacity="0.28"/>
     </linearGradient>
 
-    <!-- Porcelain main face surface -->
-    <linearGradient id="porcelain_face" x1="0.12" y1="0" x2="0.88" y2="1">
-      <stop offset="0" stop-color="#fffefb"/>
-      <stop offset="0.35" stop-color="#fdf7e9"/>
-      <stop offset="0.7" stop-color="#f7edd8"/>
-      <stop offset="1" stop-color="#ede0c4"/>
+    <linearGradient id="face_ao_horizontal" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.4"/>
+      <stop offset="5%" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="94%" stop-color="#92693a" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#7c5122" stop-opacity="0.22"/>
     </linearGradient>
   </defs>
 
-  <!-- 1. Ambient Drop Shadow -->
-  <rect x="18" y="24" width="476" height="696" rx="56" fill="url(#shadow_grad)" opacity="0.75"/>
+  <!-- ===================================================================== -->
+  <!-- 1. AMBIENT CONTACT SHADOW                                             -->
+  <!-- ===================================================================== -->
+  <rect x="16" y="24" width="480" height="696" rx="58" fill="#04120a" opacity="0.4"/>
+  <rect x="20" y="30" width="472" height="690" rx="56" fill="#020a06" opacity="0.25"/>
 
-  <!-- 2. Lower Bamboo/Wood Body -->
-  <rect x="14" y="16" width="484" height="696" rx="54" fill="url(#bamboo_body)" stroke="#452a14" stroke-width="4.5"/>
+  <!-- ===================================================================== -->
+  <!-- 2. SOLID CERAMIC TILE BLOCK (2.5D Physical Extrusion)                 -->
+  <!-- ===================================================================== -->
+  <rect x="14" y="14" width="484" height="698" rx="54" fill="url(#ceramic_extrusion)" stroke="#684f2f" stroke-width="2.5"/>
 
-  <!-- 3. Bamboo Side & Bottom Lip Highlights -->
-  <path d="M22 620 Q20 702 70 708 H442 Q492 702 490 620 V660 Q490 710 436 712 H76 Q22 710 22 660 Z" fill="url(#bamboo_lip)" opacity="0.65"/>
-  <path d="M72 708 H440" stroke="#f0caa1" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
+  <!-- Bottom Block Extrusion Bevel Lip & Highlight -->
+  <path d="M22 640 Q20 706 72 710 H440 Q492 706 490 640 V670 Q490 710 436 712 H76 Q22 710 22 670 Z" fill="url(#ceramic_lip_highlight)" opacity="0.75"/>
+  <path d="M72 710 H440" stroke="#fff8ee" stroke-width="2.5" stroke-linecap="round" opacity="0.65"/>
 
-  <!-- 4. Upper Porcelain Layer (Bevel Rim) -->
-  <rect x="16" y="14" width="480" height="644" rx="52" fill="url(#porcelain_rim)" stroke="#b89e78" stroke-width="2"/>
+  <!-- ===================================================================== -->
+  <!-- 3. VOLUMETRIC PORCELAIN FACE PLATE                                    -->
+  <!-- ===================================================================== -->
+  <!-- Outer Bevel Rim (Seamless solid porcelain) -->
+  <rect x="16" y="16" width="480" height="636" rx="50" fill="url(#porcelain_outer_rim)" stroke="#a8875e" stroke-width="1.5"/>
 
-  <!-- 5. Main Porcelain Face Plate -->
-  <rect x="24" y="22" width="464" height="628" rx="44" fill="url(#porcelain_face)" stroke="#ffffff" stroke-width="3"/>
+  <!-- Main Porcelain Convex Face Plate -->
+  <rect x="22" y="22" width="468" height="624" rx="44" fill="url(#porcelain_face_shading)"/>
 
-  <!-- 6. Hairline Inner Accent -->
-  <rect x="28" y="26" width="456" height="620" rx="40" fill="none" stroke="#684f35" stroke-width="1.2" opacity="0.16"/>
+  <!-- Ambient Occlusion Gradients -->
+  <rect x="22" y="22" width="468" height="624" rx="44" fill="url(#face_ao_vertical)"/>
+  <rect x="22" y="22" width="468" height="624" rx="44" fill="url(#face_ao_horizontal)"/>
 
-  <!-- 7. Specular Glaze Highlights -->
-  <!-- Top specular gleam -->
-  <path d="M64 32 Q256 18 448 32" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" opacity="0.82"/>
-  <path d="M80 34 Q256 22 432 34" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" opacity="0.95"/>
+  <!-- Four Classic Corner Notches (from the inspiration artwork) -->
+  <path d="M38 52 C38 42 46 36 56 36" fill="none" stroke="#caa576" stroke-width="4.5" stroke-linecap="round" opacity="0.55"/>
+  <path d="M474 52 C474 42 466 36 456 36" fill="none" stroke="#caa576" stroke-width="4.5" stroke-linecap="round" opacity="0.55"/>
+  <path d="M38 616 C38 626 46 632 56 632" fill="none" stroke="#b08a5c" stroke-width="4.5" stroke-linecap="round" opacity="0.55"/>
+  <path d="M474 616 C474 626 466 632 456 632" fill="none" stroke="#b08a5c" stroke-width="4.5" stroke-linecap="round" opacity="0.55"/>
 
-  <!-- Left specular rim -->
-  <path d="M30 68 Q22 320 30 580" fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round" opacity="0.55"/>
+  <!-- Delicate Inner Bevel Accent Hairline -->
+  <rect x="25" y="25" width="462" height="618" rx="42" fill="none" stroke="#7a5d38" stroke-width="1.0" opacity="0.16"/>
 
-  <!-- Soft Bottom Bevel Transition Shadow on the porcelain -->
-  <path d="M48 644 Q256 652 464 644" fill="none" stroke="#b09673" stroke-width="4" stroke-linecap="round" opacity="0.45"/>
+  <!-- ===================================================================== -->
+  <!-- 4. SPECULAR GLAZE HIGHLIGHTS                                          -->
+  <!-- ===================================================================== -->
+  <!-- Top Specular Gleam Arc -->
+  <path d="M64 28 Q256 14 448 28" fill="none" stroke="#ffffff" stroke-width="6.5" stroke-linecap="round" opacity="0.85"/>
+  <path d="M82 30 Q256 18 430 30" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" opacity="0.95"/>
+
+  <!-- Left Specular Edge Sheen -->
+  <path d="M26 62 Q18 310 26 590" fill="none" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round" opacity="0.5"/>
+
+  <!-- Bottom Bevel Transition Creep -->
+  <path d="M42 648 Q256 656 470 648" fill="none" stroke="#94744b" stroke-width="2.5" stroke-linecap="round" opacity="0.45"/>
 </svg>
-
