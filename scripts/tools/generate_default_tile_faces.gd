@@ -534,32 +534,51 @@ func _dragon(color_name: String) -> String:
 # MASCOT BONUS TILES (Cat, Bunny, Panda, Oni, Fuji, Skull, Star, Flower, Dragon)
 # -----------------------------------------------------------------------------
 func _mascot_cat() -> String:
-	# Tuxedo Cat head (Black & White with big sparkling eyes, filling the tile face)
+	# Tuxedo Cat head (Black & White with wide circular staring eyes and pink triangular inner ears)
 	return """
     <!-- Mascot Tuxedo Cat -->
-    <!-- Ears -->
-    <path d="M85 205 L55 65 L155 130 Z" fill="%s" stroke="%s" stroke-width="12"/>
-    <path d="M90 175 L72 95 L138 135 Z" fill="%s"/>
-    <path d="M283 205 L313 65 L213 130 Z" fill="%s" stroke="%s" stroke-width="12"/>
-    <path d="M278 175 L296 95 L230 135 Z" fill="%s"/>
-    <!-- Head Outline -->
-    <ellipse cx="184" cy="255" rx="145" ry="135" fill="%s" stroke="%s" stroke-width="12"/>
-    <!-- White Face / Muzzle -->
-    <path d="M184 195 C132 195 90 235 84 290 C78 345 118 385 184 385 C250 385 290 345 284 290 C278 235 236 195 184 195 Z" fill="%s" stroke="%s" stroke-width="8"/>
-    <!-- Eyes -->
-    <ellipse cx="132" cy="242" rx="27" ry="32" fill="%s"/>
-    <circle cx="141" cy="230" r="10" fill="%s"/>
-    <circle cx="124" cy="254" r="5" fill="%s"/>
-    <ellipse cx="236" cy="242" rx="27" ry="32" fill="%s"/>
-    <circle cx="245" cy="230" r="10" fill="%s"/>
-    <circle cx="228" cy="254" r="5" fill="%s"/>
-    <!-- Pink Nose -->
-    <polygon points="184,290 172,276 196,276" fill="%s"/>
-    <!-- Mouth -->
-    <path d="M170 298 Q184 310 184 298 Q184 310 198 298" fill="none" stroke="%s" stroke-width="6"/>
-    <!-- Whiskers -->
-    <path d="M95 292 L25 280 M95 310 L28 316 M273 292 L343 280 M273 310 L340 316" stroke="%s" stroke-width="7"/>""" % [
-		INK, INK, PINK, INK, INK, PINK, INK, INK, WHITE, INK, INK, WHITE, WHITE, INK, WHITE, WHITE, PINK, INK, INK
+    <!-- Ears (Triangular, compact & rounded tips matching reference) -->
+    <!-- Left Ear outer -->
+    <path d="M84 195 L96 86 L154 145 Z" fill="%s" stroke="%s" stroke-width="12"/>
+    <!-- Left Ear inner pink -->
+    <path d="M98 172 L104 106 L140 146 Z" fill="%s"/>
+    <!-- Right Ear outer -->
+    <path d="M284 195 L272 86 L214 145 Z" fill="%s" stroke="%s" stroke-width="12"/>
+    <!-- Right Ear inner pink -->
+    <path d="M270 172 L264 106 L228 146 Z" fill="%s"/>
+
+    <!-- Head Silhouette / Chubby round head -->
+    <ellipse cx="184" cy="256" rx="136" ry="122" fill="%s" stroke="%s" stroke-width="10"/>
+
+    <!-- Crisp rim highlight contour along left ear & left cheek -->
+    <path d="M96 90 C86 130 74 185 74 245" fill="none" stroke="%s" stroke-width="4.5" opacity="0.6"/>
+
+    <!-- White Mask / Bib / Muzzle -->
+    <path d="M184 194 C166 194 154 236 132 245 C108 255 96 282 98 320 C102 364 136 378 184 378 C232 378 266 364 270 320 C272 282 260 255 236 245 C214 236 202 194 184 194 Z" fill="%s" stroke="%s" stroke-width="6"/>
+
+    <!-- Wide open circular staring eyes -->
+    <!-- Left Eye -->
+    <circle cx="128" cy="226" r="30" fill="%s" stroke="%s" stroke-width="10"/>
+    <circle cx="128" cy="226" r="15" fill="%s"/>
+    <!-- Right Eye -->
+    <circle cx="240" cy="226" r="30" fill="%s" stroke="%s" stroke-width="10"/>
+    <circle cx="240" cy="226" r="15" fill="%s"/>
+
+    <!-- Small Red/Coral Nose -->
+    <polygon points="184,302 174,290 194,290" fill="%s"/>
+
+    <!-- Tiny Mouth (inverted-w / 人 shape) -->
+    <path d="M184 302 L184 308 M174 316 C179 311 184 308 184 308 C184 308 189 311 194 316" fill="none" stroke="%s" stroke-width="6"/>
+
+    <!-- 3 Whiskers on each side matching reference angles -->
+    <line x1="98" y1="274" x2="22" y2="268" stroke="%s" stroke-width="7"/>
+    <line x1="94" y1="298" x2="16" y2="298" stroke="%s" stroke-width="7"/>
+    <line x1="98" y1="322" x2="26" y2="334" stroke="%s" stroke-width="7"/>
+
+    <line x1="270" y1="274" x2="346" y2="268" stroke="%s" stroke-width="7"/>
+    <line x1="274" y1="298" x2="352" y2="298" stroke="%s" stroke-width="7"/>
+    <line x1="270" y1="322" x2="342" y2="334" stroke="%s" stroke-width="7"/>""" % [
+		INK, INK, PINK, INK, INK, PINK, INK, INK, WHITE, WHITE, INK, WHITE, INK, INK, WHITE, INK, INK, RED, INK, INK, INK, INK, INK, INK, INK
 	]
 
 
