@@ -43,8 +43,8 @@ const PORTRAIT_TRAY_RECT := Rect2(165.0, 207.0, 611.0, 155.0)
 const PORTRAIT_BOARD_RECT := Rect2(76.0, 418.0, 791.0, 964.0)
 const PORTRAIT_ACTIONS_RECT := Rect2(236.0, 1445.0, 471.0, 185.0)
 const PORTRAIT_HUD_SCRIM_SIZE := Vector2(390.0, 167.0)
-const PORTRAIT_QUEUE_SOURCE_HEIGHT := 115.0
-const PORTRAIT_QUEUE_BOTTOM_TRANSPARENT := 15.0
+const PORTRAIT_QUEUE_SOURCE_HEIGHT := 100.0
+const PORTRAIT_QUEUE_BOTTOM_TRANSPARENT := 8.0
 const PORTRAIT_QUEUE_TO_BOARD_GAP := -6.0
 const PORTRAIT_BOTTOM_DOCK_OFFSET := 17.0
 const PORTRAIT_BOARD_INTO_DOCK_PADDING := 8.0
@@ -65,7 +65,7 @@ const PAIR_MATCH_FX_POOL_SIZE := 6
 ## Temporary prototype grant. Future modes snapshot the player's earned hearts here.
 @export_range(0, 99, 1) var starting_hearts := 3
 ## Uniform tray-tile scale relative to the current rendered Board tile footprint.
-@export_range(0.45, 1.00, 0.01) var portrait_tray_tile_scale := 0.52
+@export_range(0.45, 1.00, 0.01) var portrait_tray_tile_scale := 0.72
 @export_range(0.45, 1.00, 0.01) var landscape_tray_tile_scale := 0.70
 ## Keeps the Board as the hero without allowing it to consume the entire felt surface.
 @export_range(0.55, 1.00, 0.01) var portrait_board_content_scale := 1.00

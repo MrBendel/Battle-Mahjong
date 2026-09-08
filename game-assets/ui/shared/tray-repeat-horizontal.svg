@@ -1,13 +1,34 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="63" height="115" viewBox="0 0 63 115">
+<svg xmlns="http://www.w3.org/2000/svg" width="72" height="100" viewBox="0 0 72 100">
   <defs>
-    <linearGradient id="ceramic" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#fff0cf"/>
-      <stop offset="0.72" stop-color="#e8c99a"/>
-      <stop offset="1" stop-color="#b98a58"/>
+    <linearGradient id="porcelain" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff7e5"/>
+      <stop offset="0.18" stop-color="#f5e3c6"/>
+      <stop offset="0.78" stop-color="#e6cba4"/>
+      <stop offset="0.91" stop-color="#d4b083"/>
+      <stop offset="1" stop-color="#b88b60"/>
+    </linearGradient>
+    <linearGradient id="well" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#c3a17a"/>
+      <stop offset="0.14" stop-color="#d2b38d"/>
+      <stop offset="0.42" stop-color="#dec39d"/>
+      <stop offset="1" stop-color="#e8cfaa"/>
+    </linearGradient>
+    <linearGradient id="wellShade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#866647" stop-opacity=".34"/>
+      <stop offset="1" stop-color="#866647" stop-opacity="0"/>
     </linearGradient>
   </defs>
-  <rect x="0" y="1" width="63" height="109" fill="url(#ceramic)" stroke="#2b211b" stroke-width="2"/>
-  <rect x="5" y="10" width="53" height="79" rx="9" fill="#c9aa7d" stroke="#6f5135" stroke-width="2"/>
-  <path d="M9 16c8-4 37-4 45 0" fill="none" stroke="#fff7dc" stroke-width="3" opacity=".55"/>
-  <path d="M6 96h51" fill="none" stroke="#8f653e" stroke-width="2" opacity=".8"/>
+  <rect x="0" y="3" width="72" height="92" fill="url(#porcelain)"/>
+  <path d="M0 5h72" fill="none" stroke="#fffaf0" stroke-width="2" opacity=".82"/>
+  <rect x="5" y="8" width="62" height="77" rx="11" fill="#b7936c" opacity=".58"/>
+  <rect x="7" y="11" width="58" height="72" rx="9" fill="url(#well)"/>
+  <rect x="8" y="12" width="56" height="22" rx="8" fill="url(#wellShade)"/>
+  <path d="M10 19v48" fill="none" stroke="#967454" stroke-width="2.5" opacity=".2"/>
+  <path d="M11 77c12 4 38 4 50 0" fill="none" stroke="#fff7e7" stroke-width="1.7" opacity=".62"/>
+  <path d="M63 20v49" fill="none" stroke="#fff5df" stroke-width="1.3" opacity=".48"/>
+  <path d="M1 93h70" fill="none" stroke="#a87950" stroke-width="1.4" opacity=".48"/>
+  <g fill="#9c7653" opacity=".18">
+    <circle cx="16" cy="48" r=".6"/><circle cx="31" cy="21" r=".45"/>
+    <circle cx="48" cy="63" r=".55"/><circle cx="58" cy="36" r=".4"/>
+  </g>
 </svg>

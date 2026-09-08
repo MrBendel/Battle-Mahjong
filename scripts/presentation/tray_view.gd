@@ -8,14 +8,13 @@ const MIN_SLOT_COUNT := 2
 const MAX_SLOT_COUNT := 6
 const MARGIN := 10.0
 const GAP := 8.0
-const FIGMA_CAP_SIZE := Vector2(24.968, 115.0)
-const FIGMA_SLOT_SIZE := Vector2(62.42, 115.0)
-const FIGMA_TILE_RECT := Rect2(7.11, 17.7, 46.685, 60.121)
+const PORCELAIN_CAP_SIZE := Vector2(22.0, 100.0)
+const PORCELAIN_SLOT_SIZE := Vector2(72.0, 100.0)
+const PORCELAIN_TILE_RECT := Rect2(11.0, 10.0, 50.0, 72.0)
 const VERTICAL_CAP_SIZE := Vector2(115.0, 25.0)
 const VERTICAL_SLOT_SIZE := Vector2(115.0, 101.0)
 const VERTICAL_TILE_RECT := Rect2(22.5, 6.5, 70.0, 87.5)
 const QUEUE_ART_SEAM_OVERLAP := 1.0
-const PORTRAIT_TILE_X_NUDGE := -1.5
 
 var _game: Variant
 var _status_label: Label
@@ -89,7 +88,7 @@ func minimum_height_for_tile(tile_size: Vector2) -> float:
 	if _portrait_style:
 		if _vertical_style:
 			return ceilf((VERTICAL_CAP_SIZE.y * 2.0 + VERTICAL_SLOT_SIZE.y * _slot_count()) * _vertical_scale(tile_size))
-		return ceilf(FIGMA_CAP_SIZE.y * _portrait_scale(tile_size))
+		return ceilf(PORCELAIN_CAP_SIZE.y * _portrait_scale(tile_size))
 	var expansion: Array = _tile_skin.layout_presentation.get("ink_outline_expansion_ratio", [0.055, 0.04])
 	var offset: Array = _tile_skin.layout_presentation.get("ink_outline_offset_ratio", [-0.004, 0.006])
 	var outline_bottom_ratio := float(expansion[1]) * 0.5 + maxf(0.0, float(offset[1]))
@@ -100,7 +99,7 @@ func minimum_width_for_tile(tile_size: Vector2) -> float:
 	if _portrait_style:
 		if _vertical_style:
 			return ceilf(VERTICAL_CAP_SIZE.x * _vertical_scale(tile_size))
-		return ceilf((FIGMA_CAP_SIZE.x * 2.0 + FIGMA_SLOT_SIZE.x * _slot_count()) * _portrait_scale(tile_size))
+		return ceilf((PORCELAIN_CAP_SIZE.x * 2.0 + PORCELAIN_SLOT_SIZE.x * _slot_count()) * _portrait_scale(tile_size))
 	var expansion: Array = _tile_skin.layout_presentation.get("ink_outline_expansion_ratio", [0.055, 0.04])
 	return ceilf(tile_size.x * (float(_slot_count()) + float(expansion[0])) + GAP * float(_slot_count() - 1))
 
@@ -307,38 +306,37 @@ func _layout() -> void:
 
 
 func _layout_portrait() -> void:
-	var base_queue_width := FIGMA_CAP_SIZE.x * 2.0 + FIGMA_SLOT_SIZE.x * _slot_count()
-	var scale_y := minf(_portrait_scale(_tile_visual_size), size.y / FIGMA_CAP_SIZE.y)
-	var scale_x := size.x / base_queue_width
-	var queue_width := base_queue_width * scale_x
-	var queue_height := FIGMA_CAP_SIZE.y * scale_y
+	var base_queue_width := PORCELAIN_CAP_SIZE.x * 2.0 + PORCELAIN_SLOT_SIZE.x * _slot_count()
+	var scale := minf(
+		_portrait_scale(_tile_visual_size),
+		minf(size.x / base_queue_width, size.y / PORCELAIN_CAP_SIZE.y)
+	)
+	var queue_width := base_queue_width * scale
+	var queue_height := PORCELAIN_CAP_SIZE.y * scale
 	var origin := Vector2((size.x - queue_width) * 0.5, (size.y - queue_height) * 0.5)
 	_queue_left_cap.position = origin
 	_queue_left_cap.size = Vector2(
-		(FIGMA_CAP_SIZE.x + QUEUE_ART_SEAM_OVERLAP) * scale_x,
-		FIGMA_CAP_SIZE.y * scale_y
+		(PORCELAIN_CAP_SIZE.x + QUEUE_ART_SEAM_OVERLAP) * scale,
+		PORCELAIN_CAP_SIZE.y * scale
 	)
 	for index in range(MAX_SLOT_COUNT):
-		_queue_repeats[index].position = origin + Vector2((FIGMA_CAP_SIZE.x + FIGMA_SLOT_SIZE.x * index) * scale_x, 0.0)
+		_queue_repeats[index].position = origin + Vector2((PORCELAIN_CAP_SIZE.x + PORCELAIN_SLOT_SIZE.x * index) * scale, 0.0)
 		_queue_repeats[index].size = Vector2(
-			(FIGMA_SLOT_SIZE.x + QUEUE_ART_SEAM_OVERLAP) * scale_x,
-			FIGMA_SLOT_SIZE.y * scale_y
+			(PORCELAIN_SLOT_SIZE.x + QUEUE_ART_SEAM_OVERLAP) * scale,
+			PORCELAIN_SLOT_SIZE.y * scale
 		)
-	_queue_right_cap.position = origin + Vector2((FIGMA_CAP_SIZE.x + FIGMA_SLOT_SIZE.x * _slot_count() - QUEUE_ART_SEAM_OVERLAP) * scale_x, 0.0)
+	_queue_right_cap.position = origin + Vector2((PORCELAIN_CAP_SIZE.x + PORCELAIN_SLOT_SIZE.x * _slot_count() - QUEUE_ART_SEAM_OVERLAP) * scale, 0.0)
 	_queue_right_cap.size = Vector2(
-		(FIGMA_CAP_SIZE.x + QUEUE_ART_SEAM_OVERLAP) * scale_x,
-		FIGMA_CAP_SIZE.y * scale_y
+		(PORCELAIN_CAP_SIZE.x + QUEUE_ART_SEAM_OVERLAP) * scale,
+		PORCELAIN_CAP_SIZE.y * scale
 	)
 
 	var active_geometry: Dictionary = _tile_skin.active_geometry()
 	var safe_area: Array = active_geometry.get("face_safe_area", [92, 104, 328, 400])
 	var source_size: Array = active_geometry.get("source_size", [512, 640])
 	for index in range(_slot_count()):
-		var repeat_origin := origin + Vector2((FIGMA_CAP_SIZE.x + FIGMA_SLOT_SIZE.x * index) * scale_x, 0.0)
-		var tile_center := repeat_origin + Vector2(
-			(FIGMA_SLOT_SIZE.x * 0.5 + PORTRAIT_TILE_X_NUDGE) * scale_x,
-			FIGMA_TILE_RECT.get_center().y * scale_y
-		)
+		var repeat_origin := origin + Vector2((PORCELAIN_CAP_SIZE.x + PORCELAIN_SLOT_SIZE.x * index) * scale, 0.0)
+		var tile_center := repeat_origin + PORCELAIN_TILE_RECT.get_center() * scale
 		var slot_rect := Rect2(
 			tile_center - _tile_visual_size * 0.5,
 			_tile_visual_size
@@ -359,7 +357,7 @@ func _layout_portrait() -> void:
 		_slot_labels[index].position = Vector2.ZERO
 		_slot_labels[index].size = slot_rect.size
 		_tile_skin.configure_modifier_art(_slot_modifiers[index])
-	_layout_bonus_portrait(origin, scale_x, scale_y)
+	_layout_bonus_portrait(origin, scale, scale)
 
 
 func _layout_vertical() -> void:
@@ -492,7 +490,7 @@ func _layout_bonus_portrait(origin: Vector2, scale_x: float, scale_y: float) -> 
 		return
 	var bonus_index := clampi(int(_game.definition.tray_capacity()), 0, MAX_SLOT_COUNT - 1)
 	var repeat_origin := origin + Vector2(
-		(FIGMA_CAP_SIZE.x + FIGMA_SLOT_SIZE.x * bonus_index) * scale_x,
+		(PORCELAIN_CAP_SIZE.x + PORCELAIN_SLOT_SIZE.x * bonus_index) * scale_x,
 		0.0
 	)
 	_bonus_icon.position = repeat_origin + Vector2(5.0 * scale_x, 86.0 * scale_y)
@@ -527,7 +525,7 @@ func _layout_bonus_vertical(origin: Vector2, scale: float) -> void:
 
 
 func _portrait_scale(tile_size: Vector2) -> float:
-	return maxf(tile_size.x / FIGMA_TILE_RECT.size.x, tile_size.y / FIGMA_TILE_RECT.size.y)
+	return maxf(tile_size.x / PORCELAIN_TILE_RECT.size.x, tile_size.y / PORCELAIN_TILE_RECT.size.y)
 
 
 func _vertical_scale(tile_size: Vector2) -> float:
