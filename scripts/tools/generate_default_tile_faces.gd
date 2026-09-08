@@ -95,113 +95,146 @@ func _bamboo(value: int) -> String:
 			BROWNY, BROWNY, LIME, INK, INK, SKY_BLUE, INK, SKY_BLUE, INK, WHITE, INK, INK, SKY_BLUE, SKY_BLUE, GOLD, INK, INK, WHITE
 		]
 
-	var stalk_h := 130.0
-	var stalk_w := 42.0
-	if value in [2, 3]:
-		stalk_h = 260.0
-		stalk_w = 48.0
+	var stalk_w := 60.0
+	var stalk_h := 182.0
+	if value == 2:
+		stalk_w = 64.0
+		stalk_h = 190.0
+	elif value == 3:
+		stalk_w = 60.0
+		stalk_h = 175.0
 	elif value == 4:
-		stalk_h = 145.0
-		stalk_w = 44.0
+		stalk_w = 62.0
+		stalk_h = 180.0
+	elif value == 5:
+		stalk_w = 54.0
+		stalk_h = 155.0
+	elif value == 7:
+		stalk_w = 50.0
+		stalk_h = 125.0
+	elif value == 8:
+		stalk_w = 46.0
+		stalk_h = 175.0
+	elif value == 9:
+		stalk_w = 52.0
+		stalk_h = 112.0
 
 	var stalks := ""
 	var coords := _bamboo_coords(value)
 	for i in coords.size():
 		var pos: Vector2 = coords[i]
-		var is_tall := (value in [2, 3])
-		stalks += _single_bamboo_stalk(pos.x, pos.y, stalk_w, stalk_h, is_tall)
+		var is_red: bool = (value == 5 and i == 2)
+		stalks += _bone_stalk(pos.x, pos.y, stalk_w, stalk_h, is_red)
 	return stalks
 
 
-func _single_bamboo_stalk(cx: float, cy: float, w: float, h: float, tall: bool = false) -> String:
-	var half_w := w * 0.5
-	var half_h := h * 0.5
-	var top_y := cy - half_h
-	var bot_y := cy + half_h
-	var segments := 3 if tall else 2
-	var seg_h := h / float(segments)
+func _bone_stalk(cx: float, cy: float, w: float, h: float, is_red: bool = false) -> String:
+	var rw := w * 0.5
+	var ww := w * 0.39
+	var rh := rw * 0.85
+	var top := cy - h * 0.5
+	var bot := cy + h * 0.5
+	var neck_top := top + rh * 1.35
+	var neck_bot := bot - rh * 1.35
 
-	var s := """
-    <!-- Stalk %d,%d -->
+	# Smooth bone dumbbell silhouette path
+	var d := "M %.1f %.1f " % [cx - rw, top + rh]
+	d += "A %.1f %.1f 0 0 1 %.1f %.1f " % [rw, rh, cx + rw, top + rh]
+	d += "C %.1f %.1f, %.1f %.1f, %.1f %.1f " % [cx + rw, top + rh * 1.15, cx + ww * 1.05, neck_top - 5, cx + ww, neck_top]
+	d += "L %.1f %.1f " % [cx + ww, neck_bot]
+	d += "C %.1f %.1f, %.1f %.1f, %.1f %.1f " % [cx + ww * 1.05, neck_bot + 5, cx + rw, bot - rh * 1.15, cx + rw, bot - rh]
+	d += "A %.1f %.1f 0 0 1 %.1f %.1f " % [rw, rh, cx - rw, bot - rh]
+	d += "C %.1f %.1f, %.1f %.1f, %.1f %.1f " % [cx - rw, bot - rh * 1.15, cx - ww * 1.05, neck_bot + 5, cx - ww, neck_bot]
+	d += "L %.1f %.1f " % [cx - ww, neck_top]
+	d += "C %.1f %.1f, %.1f %.1f, %.1f %.1f Z" % [cx - ww * 1.05, neck_top - 5, cx - rw, top + rh * 1.15, cx - rw, top + rh]
+
+	var base_col := RED if is_red else "#0e6c26"
+	var light_col := "#ff6677" if is_red else "#48bc54"
+	var glint_col := "#ffe4e8" if is_red else "#d6ffd2"
+
+	return """
+    <!-- Bone Stalk at %.1f,%.1f -->
     <g>
-      <rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="%.1f" fill="%s" stroke="%s" stroke-width="9"/>""" % [
-		int(cx), int(cy), cx - half_w, top_y, w, h, half_w * 0.45, GREEN, INK
+      <!-- Base Outline & Fill -->
+      <path d="%s" fill="%s" stroke="#08140c" stroke-width="11"/>
+      <!-- Soft Broad Cylindrical Highlight -->
+      <line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="%s" stroke-width="%.1f" stroke-linecap="round" opacity="0.95"/>
+      <!-- Core Glossy Glint Line -->
+      <line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="%s" stroke-width="%.1f" stroke-linecap="round" opacity="0.95"/>
+      <!-- Top Bulb Highlight Pip -->
+      <ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="%s"/>
+      <ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#ffffff" opacity="0.85"/>
+      <!-- Bottom Bulb Highlight Pip -->
+      <ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="%s"/>
+      <ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#ffffff" opacity="0.85"/>
+    </g>""" % [
+		cx, cy, d, base_col,
+		cx, top + rh * 0.75, cx, bot - rh * 0.75, light_col, w * 0.27,
+		cx, top + rh * 1.05, cx, bot - rh * 1.05, glint_col, w * 0.08,
+		cx, top + rh * 0.7, rw * 0.42, rh * 0.32, light_col,
+		cx, top + rh * 0.7, rw * 0.2, rh * 0.16,
+		cx, bot - rh * 0.7, rw * 0.42, rh * 0.32, light_col,
+		cx, bot - rh * 0.7, rw * 0.2, rh * 0.16
 	]
-	# Center light stripe
-	s += """
-      <line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="%s" stroke-width="%.1f" opacity="0.5"/>""" % [
-		cx, top_y + 10.0, cx, bot_y - 10.0, LIME, w * 0.28
-	]
-	# Nodes / Joints
-	for i in range(1, segments):
-		var joint_y := top_y + float(i) * seg_h
-		s += """
-      <path d="M%.1f %.1f H%.1f" stroke="%s" stroke-width="10"/>
-      <ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="6" fill="%s" stroke="%s" stroke-width="4"/>""" % [
-			cx - half_w - 4.0, joint_y, cx + half_w + 4.0, INK,
-			cx, joint_y, half_w * 0.95, LIME, INK
-		]
-	s += """
-    </g>"""
-	return s
 
 
 func _bamboo_coords(value: int) -> Array[Vector2]:
 	var list: Array[Vector2] = []
 	match value:
 		2:
-			list.append(Vector2(128, 253))
-			list.append(Vector2(240, 253))
+			# Vertical stack of 2 bone pieces matching reference
+			list.append(Vector2(184, 150))
+			list.append(Vector2(184, 356))
 		3:
-			list.append(Vector2(92, 253))
-			list.append(Vector2(184, 253))
-			list.append(Vector2(276, 253))
+			list.append(Vector2(184, 155))
+			list.append(Vector2(115, 351))
+			list.append(Vector2(253, 351))
 		4:
-			list.append(Vector2(120, 160))
-			list.append(Vector2(248, 160))
-			list.append(Vector2(120, 346))
-			list.append(Vector2(248, 346))
+			list.append(Vector2(115, 150))
+			list.append(Vector2(253, 150))
+			list.append(Vector2(115, 356))
+			list.append(Vector2(253, 356))
 		5:
-			list.append(Vector2(100, 150))
-			list.append(Vector2(268, 150))
+			list.append(Vector2(95, 145))
+			list.append(Vector2(273, 145))
 			list.append(Vector2(184, 253))
-			list.append(Vector2(100, 356))
-			list.append(Vector2(268, 356))
+			list.append(Vector2(95, 361))
+			list.append(Vector2(273, 361))
 		6:
 			# 3 on top, 3 on bottom
-			list.append(Vector2(95, 160))
-			list.append(Vector2(184, 160))
-			list.append(Vector2(273, 160))
-			list.append(Vector2(95, 346))
-			list.append(Vector2(184, 346))
-			list.append(Vector2(273, 346))
+			list.append(Vector2(84, 145))
+			list.append(Vector2(184, 145))
+			list.append(Vector2(284, 145))
+			list.append(Vector2(84, 355))
+			list.append(Vector2(184, 355))
+			list.append(Vector2(284, 355))
 		7:
-			list.append(Vector2(95, 135))
-			list.append(Vector2(184, 150))
-			list.append(Vector2(273, 165))
-			list.append(Vector2(120, 290))
-			list.append(Vector2(248, 290))
-			list.append(Vector2(120, 410))
-			list.append(Vector2(248, 410))
+			list.append(Vector2(84, 130))
+			list.append(Vector2(184, 145))
+			list.append(Vector2(284, 160))
+			list.append(Vector2(115, 305))
+			list.append(Vector2(253, 305))
+			list.append(Vector2(115, 415))
+			list.append(Vector2(253, 415))
 		8:
-			list.append(Vector2(85, 160))
-			list.append(Vector2(151, 160))
-			list.append(Vector2(217, 160))
-			list.append(Vector2(283, 160))
-			list.append(Vector2(85, 346))
-			list.append(Vector2(151, 346))
-			list.append(Vector2(217, 346))
-			list.append(Vector2(283, 346))
+			list.append(Vector2(70, 145))
+			list.append(Vector2(146, 145))
+			list.append(Vector2(222, 145))
+			list.append(Vector2(298, 145))
+			list.append(Vector2(70, 355))
+			list.append(Vector2(146, 355))
+			list.append(Vector2(222, 355))
+			list.append(Vector2(298, 355))
 		9:
-			list.append(Vector2(95, 135))
-			list.append(Vector2(184, 135))
-			list.append(Vector2(273, 135))
-			list.append(Vector2(95, 253))
+			list.append(Vector2(84, 125))
+			list.append(Vector2(184, 125))
+			list.append(Vector2(284, 125))
+			list.append(Vector2(84, 253))
 			list.append(Vector2(184, 253))
-			list.append(Vector2(273, 253))
-			list.append(Vector2(95, 371))
-			list.append(Vector2(184, 371))
-			list.append(Vector2(273, 371))
+			list.append(Vector2(284, 253))
+			list.append(Vector2(84, 381))
+			list.append(Vector2(184, 381))
+			list.append(Vector2(284, 381))
 	return list
 
 
