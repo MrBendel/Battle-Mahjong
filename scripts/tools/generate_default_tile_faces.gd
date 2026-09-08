@@ -243,13 +243,13 @@ func _bamboo_coords(value: int) -> Array[Vector2]:
 # -----------------------------------------------------------------------------
 func _dots(value: int) -> String:
 	if value == 1:
-		return _target_wheel(184, 253, 115.0, true)
+		return _target_wheel(184, 253, 115.0)
 
 	var s := ""
 	var coords := _dots_coords(value)
 	var radius := 44.0
 	if value == 2:
-		radius = 64.0
+		radius = 80.0
 	elif value == 3:
 		radius = 54.0
 	elif value == 4:
@@ -261,37 +261,60 @@ func _dots(value: int) -> String:
 
 	for i in coords.size():
 		var pos: Vector2 = coords[i]
-		# In inspiration image, wheels have the red center pip!
-		s += _target_wheel(pos.x, pos.y, radius, true)
+		s += _target_wheel(pos.x, pos.y, radius)
 	return s
 
 
-func _target_wheel(cx: float, cy: float, r: float, red_center: bool = true) -> String:
-	var center_color := RED if red_center else NAVY
-	var ring_w := r * 0.22
-	var inner_r := r * 0.44
-	var pip_r := r * 0.25
-	var pin_r := r * 0.08
+func _target_wheel(cx: float, cy: float, r: float, _unused: bool = true) -> String:
+	# Concentric layers exactly matching the reference tile in the user's crop:
+	# 1. Dark outer rim / contour: stroke #060c14
+	# 2. Deep indigo/prussian navy body: fill #0b3158
+	# 3. Soft cyan-navy gloss rim: stroke #2564a2, opacity 0.6
+	# 4. Vibrant coral-pink/salmon ring: stroke #ee426e
+	# 5. Cylindrical specular glint on pink ring: stroke #ffb4c8
+	# 6. Inner dark core: fill #080e18, stroke #060c14
+	# 7. Warm ivory porcelain center aperture: fill #fffdf6, stroke #060c14
+	var stroke_dark := "#060c14"
+	var body_navy := "#0b3158"
+	var rim_cyan := "#2564a2"
+	var ring_pink := "#ee426e"
+	var glint_pink := "#ffb4c8"
+	var core_dark := "#080e18"
+	var center_ivory := "#fffdf6"
+
+	var outer_stroke_w: float = maxf(4.5, r * 0.11)
+	var gloss_r: float = r * 0.91
+	var gloss_w: float = maxf(2.0, r * 0.055)
+	var pink_r: float = r * 0.70
+	var pink_w: float = r * 0.22
+	var glint_w: float = maxf(2.5, r * 0.06)
+	var core_r: float = r * 0.54
+	var center_r: float = r * 0.31
+	var center_stroke_w: float = maxf(3.0, r * 0.065)
+
 	return """
     <!-- Target Wheel %.0f,%.0f -->
     <g>
-      <!-- Outer Navy Ring -->
+      <!-- Outer Navy Body & Contour -->
       <circle cx="%.1f" cy="%.1f" r="%.1f" fill="%s" stroke="%s" stroke-width="%.1f"/>
-      <!-- Concentric White Gap -->
-      <circle cx="%.1f" cy="%.1f" r="%.1f" fill="%s"/>
-      <!-- Inner Ring -->
-      <circle cx="%.1f" cy="%.1f" r="%.1f" fill="%s"/>
-      <!-- Center Pip -->
+      <!-- Gloss Accent Rim -->
+      <circle cx="%.1f" cy="%.1f" r="%.1f" fill="none" stroke="%s" stroke-width="%.1f" opacity="0.6"/>
+      <!-- Coral-Pink Concentric Band -->
+      <circle cx="%.1f" cy="%.1f" r="%.1f" fill="none" stroke="%s" stroke-width="%.1f"/>
+      <!-- Cylindrical Specular Glint -->
+      <circle cx="%.1f" cy="%.1f" r="%.1f" fill="none" stroke="%s" stroke-width="%.1f"/>
+      <!-- Inner Dark Core -->
+      <circle cx="%.1f" cy="%.1f" r="%.1f" fill="%s" stroke="%s" stroke-width="2.0"/>
+      <!-- Porcelain Ivory Center Aperture -->
       <circle cx="%.1f" cy="%.1f" r="%.1f" fill="%s" stroke="%s" stroke-width="%.1f"/>
-      <!-- Pinpoint white sparkle -->
-      <circle cx="%.1f" cy="%.1f" r="%.1f" fill="%s"/>
     </g>""" % [
 		cx, cy,
-		cx, cy, r, NAVY, INK, max(4.5, r * 0.1),
-		cx, cy, r - ring_w, WHITE,
-		cx, cy, inner_r, NAVY,
-		cx, cy, pip_r, center_color, INK, max(2.5, r * 0.06),
-		cx, cy, pin_r, WHITE
+		cx, cy, r, body_navy, stroke_dark, outer_stroke_w,
+		cx, cy, gloss_r, rim_cyan, gloss_w,
+		cx, cy, pink_r, ring_pink, pink_w,
+		cx, cy, pink_r, glint_pink, glint_w,
+		cx, cy, core_r, core_dark, stroke_dark,
+		cx, cy, center_r, center_ivory, stroke_dark, center_stroke_w
 	]
 
 
@@ -299,8 +322,8 @@ func _dots_coords(value: int) -> Array[Vector2]:
 	var list: Array[Vector2] = []
 	match value:
 		2:
-			list.append(Vector2(184, 150))
-			list.append(Vector2(184, 356))
+			list.append(Vector2(144, 164))
+			list.append(Vector2(224, 342))
 		3:
 			list.append(Vector2(105, 140))
 			list.append(Vector2(184, 253))

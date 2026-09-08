@@ -1,31 +1,35 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="368" height="506" viewBox="0 0 368 506">
   <g stroke-linecap="round" stroke-linejoin="round">
 
-    <!-- Target Wheel 184,150 -->
+    <!-- Target Wheel 144,164 -->
     <g>
-      <!-- Outer Navy Ring -->
-      <circle cx="184.0" cy="150.0" r="64.0" fill="#162f56" stroke="#121b24" stroke-width="6.4"/>
-      <!-- Concentric White Gap -->
-      <circle cx="184.0" cy="150.0" r="49.9" fill="#ffffff"/>
-      <!-- Inner Ring -->
-      <circle cx="184.0" cy="150.0" r="28.2" fill="#162f56"/>
-      <!-- Center Pip -->
-      <circle cx="184.0" cy="150.0" r="16.0" fill="#c92424" stroke="#121b24" stroke-width="3.8"/>
-      <!-- Pinpoint white sparkle -->
-      <circle cx="184.0" cy="150.0" r="5.1" fill="#ffffff"/>
+      <!-- Outer Navy Body & Contour -->
+      <circle cx="144.0" cy="164.0" r="80.0" fill="#0b3158" stroke="#060c14" stroke-width="8.8"/>
+      <!-- Gloss Accent Rim -->
+      <circle cx="144.0" cy="164.0" r="72.8" fill="none" stroke="#2564a2" stroke-width="4.4" opacity="0.6"/>
+      <!-- Coral-Pink Concentric Band -->
+      <circle cx="144.0" cy="164.0" r="56.0" fill="none" stroke="#ee426e" stroke-width="17.6"/>
+      <!-- Cylindrical Specular Glint -->
+      <circle cx="144.0" cy="164.0" r="56.0" fill="none" stroke="#ffb4c8" stroke-width="4.8"/>
+      <!-- Inner Dark Core -->
+      <circle cx="144.0" cy="164.0" r="43.2" fill="#080e18" stroke="#060c14" stroke-width="2.0"/>
+      <!-- Porcelain Ivory Center Aperture -->
+      <circle cx="144.0" cy="164.0" r="24.8" fill="#fffdf6" stroke="#060c14" stroke-width="5.2"/>
     </g>
-    <!-- Target Wheel 184,356 -->
+    <!-- Target Wheel 224,342 -->
     <g>
-      <!-- Outer Navy Ring -->
-      <circle cx="184.0" cy="356.0" r="64.0" fill="#162f56" stroke="#121b24" stroke-width="6.4"/>
-      <!-- Concentric White Gap -->
-      <circle cx="184.0" cy="356.0" r="49.9" fill="#ffffff"/>
-      <!-- Inner Ring -->
-      <circle cx="184.0" cy="356.0" r="28.2" fill="#162f56"/>
-      <!-- Center Pip -->
-      <circle cx="184.0" cy="356.0" r="16.0" fill="#c92424" stroke="#121b24" stroke-width="3.8"/>
-      <!-- Pinpoint white sparkle -->
-      <circle cx="184.0" cy="356.0" r="5.1" fill="#ffffff"/>
+      <!-- Outer Navy Body & Contour -->
+      <circle cx="224.0" cy="342.0" r="80.0" fill="#0b3158" stroke="#060c14" stroke-width="8.8"/>
+      <!-- Gloss Accent Rim -->
+      <circle cx="224.0" cy="342.0" r="72.8" fill="none" stroke="#2564a2" stroke-width="4.4" opacity="0.6"/>
+      <!-- Coral-Pink Concentric Band -->
+      <circle cx="224.0" cy="342.0" r="56.0" fill="none" stroke="#ee426e" stroke-width="17.6"/>
+      <!-- Cylindrical Specular Glint -->
+      <circle cx="224.0" cy="342.0" r="56.0" fill="none" stroke="#ffb4c8" stroke-width="4.8"/>
+      <!-- Inner Dark Core -->
+      <circle cx="224.0" cy="342.0" r="43.2" fill="#080e18" stroke="#060c14" stroke-width="2.0"/>
+      <!-- Porcelain Ivory Center Aperture -->
+      <circle cx="224.0" cy="342.0" r="24.8" fill="#fffdf6" stroke="#060c14" stroke-width="5.2"/>
     </g>
   </g>
 </svg>
