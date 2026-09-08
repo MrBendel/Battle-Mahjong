@@ -19,7 +19,7 @@ const PORTRAIT_FILL_RECT := Rect2(31.0, 94.0, 414.0, 40.0)
 const PORTRAIT_SCORE_OPTICAL_OFFSET := Vector2(4.0, -7.0)
 const PORTRAIT_STREAK_TITLE_OPTICAL_OFFSET := Vector2(7.0, -4.0)
 const PORTRAIT_STREAK_VALUE_OPTICAL_OFFSET := Vector2(2.0, -9.0)
-const PORTRAIT_MULTIPLIER_OPTICAL_OFFSET := Vector2(-7.0, -10.0)
+const PORTRAIT_MULTIPLIER_OPTICAL_OFFSET := Vector2(-7.0, 1.0)
 
 var _game: Variant
 var _gameplay_theme: Resource

@@ -5,10 +5,11 @@
       <stop offset="1" stop-color="#050d0f"/>
     </linearGradient>
   </defs>
-  <rect x="7" y="9" width="600" height="142" rx="23" fill="#020707" opacity=".62"/>
-  <rect x="3" y="3" width="600" height="142" rx="22" fill="url(#panel)" stroke="#d8c49e" stroke-width="5"/>
-  <rect x="7" y="7" width="592" height="134" rx="18" fill="none" stroke="#55605b" stroke-width="1.5" opacity=".72"/>
-  <path d="M16 11c126-5 438-5 573 0" fill="none" stroke="#fff2d4" stroke-width="2" opacity=".34"/>
-  <path d="M455 13v121M20 78h435" fill="none" stroke="#47514f" stroke-width="2" opacity=".55"/>
-  <path d="M458 13v121" fill="none" stroke="#020708" stroke-width="2" opacity=".7"/>
+  <rect x="7" y="8" width="600" height="143" rx="23" fill="#010506" opacity=".72"/>
+  <rect x="3.5" y="3.5" width="606" height="145" rx="22" fill="#11191a" stroke="#151817" stroke-width="7"/>
+  <rect x="5.5" y="5.5" width="602" height="141" rx="20" fill="url(#panel)" stroke="#d9c7a5" stroke-width="4"/>
+  <rect x="10" y="10" width="593" height="132" rx="16" fill="none" stroke="#626965" stroke-width="2" opacity=".72"/>
+  <path d="M16 9c126-4 438-4 580 0" fill="none" stroke="#fff1d3" stroke-width="2" opacity=".38"/>
+  <path d="M455 14v122M20 78h435" fill="none" stroke="#4b5350" stroke-width="2" opacity=".62"/>
+  <path d="M458 14v122" fill="none" stroke="#010607" stroke-width="2" opacity=".76"/>
 </svg>
