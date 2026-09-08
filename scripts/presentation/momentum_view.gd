@@ -8,8 +8,18 @@ const POSTER_SCRIPT_PINK_SHADOW_COLOR := Color("eb576f")
 const POSTER_SCRIPT_DARK_SHADOW_COLOR := Color("040d0a")
 const POSTER_SCRIPT_SHADOW_COLOR := POSTER_SCRIPT_PINK_SHADOW_COLOR
 
-const PORTRAIT_REFERENCE_SIZE := Vector2(322.0, 81.0)
-const PORTRAIT_FRAME_RECT := Rect2(118.0, 30.0, 173.3, 25.3)
+const PORTRAIT_REFERENCE_SIZE := Vector2(613.0, 155.0)
+const PORTRAIT_HEARTS_RECT := Rect2(20.0, 16.0, 198.0, 61.0)
+const PORTRAIT_SCORE_RECT := Rect2(225.0, 16.0, 230.0, 61.0)
+const PORTRAIT_STREAK_RECT := Rect2(462.0, 16.0, 138.0, 61.0)
+const PORTRAIT_MOMENTUM_RECT := Rect2(20.0, 84.0, 435.0, 61.0)
+const PORTRAIT_MULTIPLIER_RECT := Rect2(462.0, 84.0, 138.0, 61.0)
+const PORTRAIT_FRAME_RECT := Rect2(20.0, 84.0, 435.0, 61.0)
+const PORTRAIT_FILL_RECT := Rect2(31.0, 94.0, 414.0, 40.0)
+const PORTRAIT_SCORE_OPTICAL_OFFSET := Vector2(4.0, -7.0)
+const PORTRAIT_STREAK_TITLE_OPTICAL_OFFSET := Vector2(7.0, -4.0)
+const PORTRAIT_STREAK_VALUE_OPTICAL_OFFSET := Vector2(2.0, -9.0)
+const PORTRAIT_MULTIPLIER_OPTICAL_OFFSET := Vector2(-7.0, 10.0)
 
 var _game: Variant
 var _gameplay_theme: Resource
@@ -22,6 +32,7 @@ var _score: Label
 var _score_shadow: Label
 var _combo: Label
 var _combo_shadow: Label
+var _streak_title: Label
 var _meter: ProgressBar
 var _status_backing: TextureRect
 var _score_art: TextureRect
@@ -34,6 +45,7 @@ var _fill_clip: Control
 var _momentum_fill: TextureRect
 var _momentum_badge: TextureRect
 var _extra_life_icon: TextureRect
+var _heart_icons: Array[TextureRect] = []
 var _extra_life_count: Label
 var _effect_status: Label
 var _ticks: Array[Label] = []
@@ -86,11 +98,11 @@ func refresh(playback_time_ms: int) -> void:
 	_set_poster_text(_score, _score_shadow, _format_score(_game.score) if _portrait_style else "Score  %d" % _game.score)
 	_set_poster_text(_timer, _timer_shadow, _format_time(playback_time_ms))
 	var combo: int = _game.call("combo_at", playback_time_ms)
-	var combo_text := "STREAK %dX" % combo if _portrait_style and combo > 0 \
-		else "STREAK READY" if _portrait_style \
+	var combo_text := "x%d" % combo if _portrait_style and combo > 0 \
+		else "-" if _portrait_style \
 		else "Combo x%d" % combo if combo > 0 else "Combo ready"
 	if not _run_label.is_empty():
-		combo_text = "%s  |  %s" % [_run_label, combo_text]
+		combo_text = "%s  %s" % [_run_label, combo_text]
 	_set_poster_text(_combo, _combo_shadow, combo_text)
 	var ratio := clampf(float(momentum) / float(maximum), 0.0, 1.0) if maximum > 0 else 0.0
 	_fill_clip.size.x = _momentum_fill.size.x * ratio
@@ -107,9 +119,12 @@ func refresh(playback_time_ms: int) -> void:
 		])
 	_effect_status.text = "  |  ".join(status_parts)
 	_effect_status.visible = not status_parts.is_empty()
-	_extra_life_icon.visible = int(snapshot.extra_life_charges) > 0
-	_extra_life_count.visible = _extra_life_icon.visible
-	_extra_life_count.text = str(snapshot.extra_life_charges)
+	var heart_count := int(snapshot.extra_life_charges)
+	for index in range(_heart_icons.size()):
+		_heart_icons[index].visible = index < heart_count
+	_extra_life_count.visible = heart_count > _heart_icons.size()
+	_extra_life_count.text = "+%d" % (heart_count - _heart_icons.size()) \
+		if _extra_life_count.visible else ""
 	var freeze_wave := 0.5 + 0.5 * sin(float(playback_time_ms) * 0.008)
 	_momentum_fill.modulate = Color(0.68, 0.95, 1.0, 0.88 + freeze_wave * 0.12) \
 		if cold_remaining > 0 else Color.WHITE
@@ -159,17 +174,24 @@ func _build() -> void:
 	_score_art = _art(_load_texture(str(_gameplay_theme.score_box_path)))
 	add_child(_score_art)
 	_momentum_frame = _art(_load_texture(str(_gameplay_theme.momentum_frame_path)))
+	_momentum_frame.stretch_mode = TextureRect.STRETCH_SCALE
 	add_child(_momentum_frame)
 	_fill_clip = Control.new()
 	_fill_clip.clip_contents = true
 	_fill_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_fill_clip)
 	_momentum_fill = _art(_load_texture(str(_gameplay_theme.momentum_fill_path)))
+	_momentum_fill.stretch_mode = TextureRect.STRETCH_SCALE
 	_fill_clip.add_child(_momentum_fill)
 	_momentum_badge = _art(_load_texture(str(_gameplay_theme.momentum_badge_path)))
 	add_child(_momentum_badge)
 	_extra_life_icon = _art(_load_texture(str(_gameplay_theme.heart_icon_path)))
 	add_child(_extra_life_icon)
+	_heart_icons.append(_extra_life_icon)
+	for _index in range(2):
+		var heart_icon := _art(_load_texture(str(_gameplay_theme.heart_icon_path)))
+		add_child(heart_icon)
+		_heart_icons.append(heart_icon)
 
 	var regular_font := _load_font(str(_gameplay_theme.regular_font_path))
 	var bold_font := _load_font(str(_gameplay_theme.bold_font_path))
@@ -183,7 +205,7 @@ func _build() -> void:
 	_multiplier_shadow = _label("", score_font, 20, POSTER_SCRIPT_DARK_SHADOW_COLOR)
 	_multiplier_shadow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_multiplier_shadow)
-	_multiplier = _label("", score_font, 20, POSTER_SCRIPT_FACE_COLOR)
+	_multiplier = _label("", score_font, 20, Color("f42c69"))
 	_multiplier.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_multiplier)
 
@@ -201,6 +223,7 @@ func _build() -> void:
 	add_child(_score_shadow)
 	_score = _label("", score_font, 16, POSTER_SCRIPT_FACE_COLOR)
 	_score.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_score.clip_text = true
 	add_child(_score)
 
 	# Timer
@@ -215,16 +238,21 @@ func _build() -> void:
 	_combo_shadow = _label("", score_font, 12, POSTER_SCRIPT_DARK_SHADOW_COLOR)
 	_combo_shadow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_combo_shadow)
-	_combo = _label("", score_font, 12, POSTER_SCRIPT_FACE_COLOR)
+	_combo = _label("", score_font, 12, Color("ffc13b"))
 	_combo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_combo.clip_text = true
 	add_child(_combo)
+	_streak_title = _label("STREAK", score_font, 12, Color("fff0d4"))
+	_streak_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_streak_title.clip_text = true
+	add_child(_streak_title)
 
-	_extra_life_count = _label("", bold_font, 10, Color("fff4dc"))
+	_extra_life_count = _label("", score_font, 10, Color("fff4dc"))
 	_extra_life_count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_extra_life_count.add_theme_color_override("font_outline_color", Color("28151e"))
 	_extra_life_count.add_theme_constant_override("outline_size", 3)
 	add_child(_extra_life_count)
-	_effect_status = _label("", bold_font, 8, Color("f6fbff"))
+	_effect_status = _label("", score_font, 8, Color("f6fbff"))
 	_effect_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_effect_status.add_theme_color_override("font_outline_color", Color("07181b"))
 	_effect_status.add_theme_constant_override("outline_size", 3)
@@ -265,21 +293,23 @@ func _update_style_visibility() -> void:
 	_meter.visible = not _portrait_style
 	_status_backing.visible = _portrait_style
 	_score_art.visible = false
-	_score_title.visible = _portrait_style
-	_score_title_shadow.visible = _portrait_style
-	_timer.visible = _portrait_style
-	_timer_shadow.visible = _portrait_style
+	_score_title.visible = false
+	_score_title_shadow.visible = false
+	_timer.visible = false
+	_timer_shadow.visible = false
 	_score_shadow.visible = _score.visible
 	_multiplier_shadow.visible = _multiplier.visible
 	_combo_shadow.visible = _combo.visible
+	_streak_title.visible = _portrait_style
 	_momentum_frame.visible = _portrait_style
 	_fill_clip.visible = _portrait_style
 	_momentum_badge.visible = _portrait_style
-	_extra_life_icon.visible = false
+	for heart_icon in _heart_icons:
+		heart_icon.visible = false
 	_extra_life_count.visible = false
 	_effect_status.visible = false
 	for tick in _ticks:
-		tick.visible = _portrait_style
+		tick.visible = false
 
 
 func _layout() -> void:
@@ -289,33 +319,55 @@ func _layout() -> void:
 		_layout_legacy()
 		return
 	var scale := PresentationScaleScript.limiting_scale(size, PORTRAIT_REFERENCE_SIZE)
-	var score_origin := Vector2(0.0, (size.y - PORTRAIT_REFERENCE_SIZE.y * scale) * 0.5)
-	var frame_center_x := PORTRAIT_FRAME_RECT.get_center().x * scale
-	var momentum_origin := score_origin + Vector2(size.x * 0.5 - frame_center_x, 0.0)
-	_place_scaled(_status_backing, Rect2(2.0, 5.0, 316.0, 72.0), score_origin, scale)
+	var origin := Vector2(
+		(size.x - PORTRAIT_REFERENCE_SIZE.x * scale) * 0.5,
+		(size.y - PORTRAIT_REFERENCE_SIZE.y * scale) * 0.5
+	)
+	_place_scaled(_status_backing, Rect2(Vector2.ZERO, PORTRAIT_REFERENCE_SIZE), origin, scale)
 
-	_place_poster_pair(_score_title, _score_title_shadow, Rect2(14.0, 13.0, 90.0, 12.0), score_origin, scale, 10)
-	_place_poster_pair(_score, _score_shadow, Rect2(14.0, 23.0, 90.0, 22.0), score_origin, scale, 16)
-	_place_poster_pair(_timer, _timer_shadow, Rect2(36.0, 50.5, 72.0, 19.0), score_origin, scale, 11)
+	for index in range(_heart_icons.size()):
+		_place_scaled(
+			_heart_icons[index],
+			Rect2(PORTRAIT_HEARTS_RECT.position + Vector2(8.0 + 62.0 * index, 3.0), Vector2(62.0, 58.0)),
+			origin,
+			scale
+		)
+	_place_scaled(_extra_life_count, Rect2(PORTRAIT_HEARTS_RECT.position + Vector2(154.0, 17.0), Vector2(38.0, 28.0)), origin, scale, 34)
+	_place_poster_pair(_score, _score_shadow, Rect2(PORTRAIT_SCORE_RECT.position + PORTRAIT_SCORE_OPTICAL_OFFSET, PORTRAIT_SCORE_RECT.size), origin, scale, 78)
+	_place_scaled(
+		_streak_title,
+		Rect2(PORTRAIT_STREAK_RECT.position + PORTRAIT_STREAK_TITLE_OPTICAL_OFFSET, Vector2(124.0, 24.0)),
+		origin,
+		scale,
+		24
+	)
+	_place_plain_pair(
+		_combo,
+		_combo_shadow,
+		Rect2(PORTRAIT_STREAK_RECT.position + Vector2(0.0, 3.0) + PORTRAIT_STREAK_VALUE_OPTICAL_OFFSET, Vector2(134.0, 40.0)),
+		origin,
+		scale,
+		88
+	)
 
-	_place_scaled(_momentum_frame, PORTRAIT_FRAME_RECT, momentum_origin, scale)
-	_fill_clip.size = Vector2(162.9, 18.6) * scale
-	_place_scaled(_fill_clip, Rect2(122.7, 32.9, 162.9, 18.6), momentum_origin, scale)
+	_place_scaled(_momentum_frame, PORTRAIT_FRAME_RECT, origin, scale)
+	_fill_clip.size = PORTRAIT_FILL_RECT.size * scale
+	_place_scaled(_fill_clip, PORTRAIT_FILL_RECT, origin, scale)
 	_momentum_fill.position = Vector2.ZERO
-	_momentum_fill.size = Vector2(162.9, 18.6) * scale
-	_place_scaled(_momentum_badge, Rect2(275.9, 25.8, 34.2, 34.2), momentum_origin, scale)
-	_place_scaled(_extra_life_icon, Rect2(99.0, 7.0, 22.0, 22.0), score_origin, scale)
-	_place_scaled(_extra_life_count, Rect2(108.0, 8.0, 16.0, 16.0), score_origin, scale, 10)
+	_momentum_fill.size = PORTRAIT_FILL_RECT.size * scale
+	_place_scaled(_momentum_badge, Rect2(PORTRAIT_MULTIPLIER_RECT.position + Vector2(7.0, 5.0), Vector2(48.0, 51.0)), origin, scale)
+	_place_plain_pair(
+		_multiplier,
+		_multiplier_shadow,
+		Rect2(PORTRAIT_MULTIPLIER_RECT.position + Vector2(49.0, 0.0) + PORTRAIT_MULTIPLIER_OPTICAL_OFFSET, Vector2(85.0, 61.0)),
+		origin,
+		scale,
+		58
+	)
 
-	_place_poster_pair(_multiplier, _multiplier_shadow, Rect2(275.0, 24.5, 34.2, 34.2), momentum_origin, scale, 16)
-	_place_poster_pair(_combo, _combo_shadow, Rect2(135.0, 6.0, 140.0, 20.0), momentum_origin, scale, 12)
-
-	_place_scaled(_effect_status, Rect2(125.0, 34.0, 147.0, 15.0), momentum_origin, scale, 8)
+	_place_scaled(_effect_status, Rect2(142.0, 95.0, 294.0, 26.0), origin, scale, 9)
 	for control in [_momentum_frame, _momentum_badge, _extra_life_icon, _multiplier, _multiplier_shadow]:
 		control.pivot_offset = control.size * 0.5
-	for index in range(_ticks.size()):
-		var tick_center_x := 122.7 + 162.9 * float(index + 1) / 8.0
-		_place_scaled(_ticks[index], Rect2(tick_center_x - 10.0, 55.0, 20.0, 14.0), momentum_origin, scale, 8)
 	refresh(_game.elapsed_time_ms)
 
 
@@ -361,6 +413,11 @@ func _place_poster_pair(label: Label, shadow_label: Label, rect: Rect2, origin: 
 	if label != null:
 		_place_scaled(label, rect, origin, scale, font_size)
 		_apply_poster_script_shadow(label, scale)
+
+
+func _place_plain_pair(label: Label, shadow_label: Label, rect: Rect2, origin: Vector2, scale: float, font_size: int) -> void:
+	_place_scaled(shadow_label, Rect2(rect.position + Vector2(1.4, 1.8), rect.size), origin, scale, font_size)
+	_place_scaled(label, rect, origin, scale, font_size)
 
 
 func _set_poster_text(label: Label, shadow_label: Label, text: String) -> void:

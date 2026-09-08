@@ -44,6 +44,7 @@ var _negative_feedback_count := 0
 var _suppressed_tile_ids := {}
 var _compact_mode := false
 var _content_scale := 1.0
+var _vertical_stride_scale := 1.0
 var _hinted_tile_ids := {}
 var _tile_layout_positions := {}
 var _hint_elapsed := 0.0
@@ -182,6 +183,14 @@ func set_content_scale(content_scale: float) -> void:
 	if is_equal_approx(_content_scale, clamped_scale):
 		return
 	_content_scale = clamped_scale
+	_layout_tiles()
+
+
+func set_vertical_stride_scale(vertical_stride_scale: float) -> void:
+	var clamped_scale := clampf(vertical_stride_scale, 0.50, 1.00)
+	if is_equal_approx(_vertical_stride_scale, clamped_scale):
+		return
+	_vertical_stride_scale = clamped_scale
 	_layout_tiles()
 
 
@@ -791,7 +800,8 @@ func _layout_tiles() -> void:
 
 	var bounds := _grid_bounds()
 	var grid_width: float = float(bounds.size.x) * 0.5
-	var grid_height: float = float(bounds.size.y) * 0.5
+	var raw_grid_height: float = float(bounds.size.y) * 0.5
+	var grid_height := 1.0 + maxf(0.0, raw_grid_height - 1.0) * _vertical_stride_scale
 	var max_depth := 0
 	var active_geometry: Dictionary = _tile_skin.active_geometry()
 	var safe_area: Array = active_geometry.get("face_safe_area", [92, 104, 328, 400])
@@ -829,7 +839,7 @@ func _layout_tiles() -> void:
 		var depth_offset := per_layer_offset * float(tile.position.z)
 		button.position = origin + Vector2(
 			float(tile.position.x - bounds.position.x) * tile_size.x * 0.5,
-			float(tile.position.y - bounds.position.y) * tile_size.y * 0.5
+			float(tile.position.y - bounds.position.y) * tile_size.y * 0.5 * _vertical_stride_scale
 		) + depth_offset + tile_gap * 0.5
 		_tile_layout_positions[tile.id] = button.position
 		button.size = tile_size - tile_gap
