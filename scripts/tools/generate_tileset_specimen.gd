@@ -78,6 +78,7 @@ func _init() -> void:
 
 		canvas.blend_rect(face_img, Rect2i(0, 0, face_w, face_h), Vector2i(face_offset_x, face_offset_y))
 
+	canvas.save_png(ProjectSettings.globalize_path("res://docs/images/tileset-specimen.png"))
 	var err := canvas.save_png(OUTPUT_PATH)
 	if err == OK:
 		printerr("Successfully saved specimen to: ", OUTPUT_PATH)

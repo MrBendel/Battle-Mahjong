@@ -72,8 +72,8 @@ Editable tile masters live under `art-source/tiles/<skin>/`. Godot runtime tile 
 
 Rules:
 
-- SVG remains the canonical source format for flat face artwork and the shared Default ceramic base. Earlier orientation-specific raster masters remain under `art-source/tiles/default/bases/` as source history but are not selected by the active skin.
-- Runtime tile assets are transparent sRGB PNG files at 50% source scale. Face-down presentation reuses the canonical blank base and composites the selected independent back design.
+- SVG remains the canonical source format for flat face artwork. Master physical ceramic tile bases and terracotta backs use high-resolution 3D rendered raster masters with tactile bevels, debossed corner notches, and 1:1 front-and-back perspective alignment.
+- Runtime tile assets are transparent sRGB PNG files at 50% source scale. Face-down presentation reuses the canonical terracotta tile back and composites the selected independent back design.
 - Alpha is straight, not premultiplied.
 - File names are stable logical face IDs such as `bamboo_1.svg` and `red_dragon.svg`.
 - Runtime PNG files are generated outputs and must not be edited directly. The tile exporter downsamples raster base masters alongside SVG face masters.
