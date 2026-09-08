@@ -616,29 +616,62 @@ func _mascot_cat() -> String:
 
 
 func _mascot_bunny() -> String:
-	# Cute Pink Rabbit (larger scale)
+	# Cute Pink Rabbit matching reference artwork
 	return """
     <!-- Mascot Pink Bunny -->
-    <!-- Tall Ears -->
-    <path d="M120 230 C105 110 110 45 136 40 C162 35 170 110 155 230 Z" fill="%s" stroke="%s" stroke-width="11"/>
-    <path d="M126 205 C118 120 124 65 136 60 C148 55 154 120 145 205 Z" fill="#d94875"/>
-    <path d="M248 230 C263 110 258 45 232 40 C206 35 198 110 213 230 Z" fill="%s" stroke="%s" stroke-width="11"/>
-    <path d="M242 205 C250 120 244 65 232 60 C220 55 214 120 223 205 Z" fill="#d94875"/>
-    <!-- Head -->
-    <ellipse cx="184" cy="305" rx="125" ry="115" fill="%s" stroke="%s" stroke-width="11"/>
+    <defs>
+      <linearGradient id="bunny_body" x1="0.2" y1="0.1" x2="0.8" y2="0.9">
+        <stop offset="0%" stop-color="#fb89a9"/>
+        <stop offset="50%" stop-color="#f46e94"/>
+        <stop offset="100%" stop-color="#eb5881"/>
+      </linearGradient>
+    </defs>
+
+    <!-- Unified Head & Ears Silhouette -->
+    <path d="M184 395
+             C120 395 68 354 68 296
+             C68 244 106 218 118 214
+             C108 174 108 132 121 106
+             C127 92 143 92 148 106
+             C159 135 156 182 158 221
+             L210 221
+             C212 182 209 135 220 106
+             C225 92 241 92 247 106
+             C260 132 260 174 250 214
+             C262 218 300 244 300 296
+             C300 354 248 395 184 395 Z"
+          fill="url(#bunny_body)"
+          stroke="#0a0c10"
+          stroke-width="13"
+          stroke-linejoin="round"
+          stroke-linecap="round"/>
+
+    <!-- Subtle porcelain specular glaze line on left ear -->
+    <path d="M125 116 C117 148 117 182 124 206"
+          fill="none"
+          stroke="#ffffff"
+          stroke-width="5"
+          stroke-linecap="round"
+          opacity="0.32"/>
+
     <!-- Eyes -->
-    <ellipse cx="140" cy="300" rx="17" ry="21" fill="%s"/>
-    <circle cx="146" cy="293" r="6.5" fill="%s"/>
-    <ellipse cx="228" cy="300" rx="17" ry="21" fill="%s"/>
-    <circle cx="234" cy="293" r="6.5" fill="%s"/>
-    <!-- Cheeks -->
-    <circle cx="112" cy="332" r="17" fill="#fc9bb8" opacity="0.85"/>
-    <circle cx="256" cy="332" r="17" fill="#fc9bb8" opacity="0.85"/>
-    <!-- Nose & Mouth -->
-    <ellipse cx="184" cy="322" rx="8" ry="6" fill="%s"/>
-    <path d="M174 332 Q184 342 184 332 Q184 342 194 332" fill="none" stroke="%s" stroke-width="6"/>""" % [
-		PINK, INK, PINK, INK, PINK, INK, INK, WHITE, INK, WHITE, INK, INK
-	]
+    <circle cx="136" cy="303" r="14.5" fill="#0a0c10"/>
+    <circle cx="232" cy="303" r="14.5" fill="#0a0c10"/>
+
+    <!-- Nose -->
+    <ellipse cx="184" cy="329" rx="8.5" ry="6.5" fill="#0a0c10"/>
+
+    <!-- Vertical stem -->
+    <line x1="184" y1="334" x2="184" y2="345" stroke="#0a0c10" stroke-width="7" stroke-linecap="round"/>
+
+    <!-- Muzzle / Smile Arcs (ω) -->
+    <path d="M161 346 Q173 357 184 345 Q195 357 207 346"
+          fill="none"
+          stroke="#0a0c10"
+          stroke-width="7"
+          stroke-linecap="round"
+          stroke-linejoin="round"/>"""
+
 
 
 func _mascot_panda() -> String:
