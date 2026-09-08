@@ -33,7 +33,8 @@ func _init() -> void:
 	out.blend_rect(front, Rect2i(Vector2i.ZERO, front.get_size()), Vector2i(20, 40))
 	out.blend_rect(back, Rect2i(Vector2i.ZERO, back.get_size()), Vector2i(front.get_width() + 40, 40))
 
-	var out_path := "C:/Users/andre/.gemini/antigravity-ide/brain/35005bd2-3004-434f-8564-00eb2b6c70fb/tile_front_back_comparison.png"
-	out.save_png(out_path)
+	var out_path := "res://docs/images/tile-front-back-comparison.png"
+	out.save_png(ProjectSettings.globalize_path(out_path))
+	out.save_png("C:/Users/andre/.gemini/antigravity-ide/brain/35005bd2-3004-434f-8564-00eb2b6c70fb/tile_front_back_comparison.png")
 	print("Saved front-back comparison to: ", out_path)
 	quit(0)

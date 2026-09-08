@@ -37,7 +37,8 @@ func _init() -> void:
 	out.blit_rect(ref_img, Rect2i(Vector2i.ZERO, ref_img.get_size()), Vector2i(15, 30))
 	out.blit_rect(composite, Rect2i(Vector2i.ZERO, composite.get_size()), Vector2i(ref_w + 25, 30))
 
-	var out_path := "C:/Users/andre/.gemini/antigravity-ide/brain/35005bd2-3004-434f-8564-00eb2b6c70fb/dots_side_by_side_comparison.png"
-	out.save_png(out_path)
+	var out_path := "res://docs/images/dots-comparison.png"
+	out.save_png(ProjectSettings.globalize_path(out_path))
+	out.save_png("C:/Users/andre/.gemini/antigravity-ide/brain/35005bd2-3004-434f-8564-00eb2b6c70fb/dots_side_by_side_comparison.png")
 	print("Saved dots side-by-side to: ", out_path)
 	quit(0)
