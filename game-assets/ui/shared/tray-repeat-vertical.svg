@@ -1,13 +1,28 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="115" height="101" viewBox="0 0 115 101">
   <defs>
-    <linearGradient id="ceramic" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#fff0cf"/>
-      <stop offset="0.72" stop-color="#e8c99a"/>
-      <stop offset="1" stop-color="#b98a58"/>
+    <linearGradient id="porcelain" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#fff7e5"/>
+      <stop offset="0.18" stop-color="#f5e3c6"/>
+      <stop offset="0.78" stop-color="#e6cba4"/>
+      <stop offset="0.91" stop-color="#d4b083"/>
+      <stop offset="1" stop-color="#b88b60"/>
+    </linearGradient>
+    <linearGradient id="well" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#c3a17a"/>
+      <stop offset="0.14" stop-color="#d2b38d"/>
+      <stop offset="0.42" stop-color="#dec39d"/>
+      <stop offset="1" stop-color="#e8cfaa"/>
+    </linearGradient>
+    <linearGradient id="wellShade" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#866647" stop-opacity=".34"/>
+      <stop offset="1" stop-color="#866647" stop-opacity="0"/>
     </linearGradient>
   </defs>
-  <rect x="1" y="0" width="109" height="101" fill="url(#ceramic)" stroke="#2b211b" stroke-width="2"/>
-  <rect x="11" y="6" width="78" height="89" rx="10" fill="#c9aa7d" stroke="#6f5135" stroke-width="2"/>
-  <path d="M17 12c-4 12-4 65 0 77" fill="none" stroke="#fff7dc" stroke-width="3" opacity=".55"/>
-  <path d="M97 7v87" fill="none" stroke="#8f653e" stroke-width="2" opacity=".8"/>
+  <rect x="1" y="0" width="109" height="101" fill="url(#porcelain)"/>
+  <rect x="11" y="6" width="78" height="89" rx="11" fill="#b7936c" opacity=".58"/>
+  <rect x="14" y="8" width="74" height="85" rx="9" fill="url(#well)"/>
+  <rect x="15" y="9" width="24" height="83" rx="8" fill="url(#wellShade)"/>
+  <path d="M22 11h53" fill="none" stroke="#967454" stroke-width="2.5" opacity=".2"/>
+  <path d="M82 13c4 12 4 64 0 76" fill="none" stroke="#fff7e7" stroke-width="1.7" opacity=".62"/>
+  <path d="M98 7v87" fill="none" stroke="#a87950" stroke-width="1.4" opacity=".48"/>
 </svg>

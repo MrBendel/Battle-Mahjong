@@ -1281,7 +1281,7 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 	var board_tile_size: Vector2 = board.call("tile_visual_size")
 	var tray_tile_scale: float = float(shell.get("portrait_tray_tile_scale")) if orientation == "portrait" \
 		else float(shell.get("landscape_tray_tile_scale"))
-	var expected_tray_scale := 0.52 if orientation == "portrait" else 0.70
+	var expected_tray_scale := 0.72 if orientation == "portrait" else 0.70
 	_check(is_equal_approx(tray_tile_scale, expected_tray_scale), "%s uses its tuned tray tile scale" % orientation)
 	var expected_board_scale := float(shell.get("portrait_board_content_scale")) if orientation == "portrait" \
 		else float(shell.get("landscape_board_content_scale"))
@@ -1307,8 +1307,8 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 			tray.get("_queue_repeats")[0].texture.get_size() if tray.get("_queue_repeats")[0].texture != null else Vector2.ONE,
 			"portrait queue uses the supplied repeat artwork"
 		)
-		_check_equal(Vector2(25.0, 115.0), tray.get("_queue_left_cap").texture.get_size(), "portrait queue cap keeps its supplied source dimensions")
-		_check_equal(Vector2(63.0, 115.0), tray.get("_queue_repeats")[0].texture.get_size(), "portrait queue repeat keeps its supplied source dimensions")
+		_check_equal(Vector2(22.0, 100.0), tray.get("_queue_left_cap").texture.get_size(), "portrait porcelain tray cap keeps its source dimensions")
+		_check_equal(Vector2(72.0, 100.0), tray.get("_queue_repeats")[0].texture.get_size(), "portrait porcelain tray well keeps its source dimensions")
 		_check(tray.get("_queue_right_cap").flip_h, "portrait queue mirrors the supplied cap on the right")
 		var left_cap_rect: Rect2 = tray.get("_queue_left_cap").get_rect()
 		var right_cap_rect: Rect2 = tray.get("_queue_right_cap").get_rect()
@@ -1318,6 +1318,11 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 				_check(is_equal_approx(queue_section.size.y, left_cap_rect.size.y), "portrait queue repeat aligns to the cap bottom edge")
 		_check(is_equal_approx(right_cap_rect.position.y, left_cap_rect.position.y), "portrait queue right cap aligns to the left cap top edge")
 		_check(is_equal_approx(right_cap_rect.size.y, left_cap_rect.size.y), "portrait queue caps share the same rendered height")
+		var rendered_queue_rect := left_cap_rect.merge(right_cap_rect)
+		_check(
+			is_equal_approx(rendered_queue_rect.size.x / rendered_queue_rect.size.y, (22.0 * 2.0 + 72.0 * tray.call("_slot_count")) / 100.0),
+			"portrait porcelain tray preserves its authored aspect ratio"
+		)
 		_check_equal(6, tray.get("_queue_repeats").size(), "portrait queue owns reusable artwork for its 2-6 slot range")
 		var visible_queue_sections := 0
 		var previous_queue_section: TextureRect = null
@@ -1332,12 +1337,12 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 		var tray_capacity: int = shell.get("_game").tray.capacity
 		_check_equal(tray_capacity, visible_queue_sections, "portrait queue renders one repeated section per active slot")
 		_check_equal(tray_capacity, tray.call("_slot_count"), "portrait queue follows the live tray capacity")
-		var queue_scale_x: float = tray.size.x / (24.968 * 2.0 + 62.42 * tray_capacity)
+		var queue_scale_x: float = tray.get("_queue_repeats")[0].size.y / 100.0
 		for slot_index in range(tray_capacity):
-			var expected_slot_center_x: float = tray.get("_queue_repeats")[slot_index].position.x + (62.42 * 0.5 - 1.5) * queue_scale_x
+			var expected_slot_center_x: float = tray.get("_queue_repeats")[slot_index].position.x + 36.0 * queue_scale_x
 			_check(
 				is_equal_approx(tray.get("_slots")[slot_index].get_rect().get_center().x, expected_slot_center_x),
-				"portrait tray tile %d keeps its approved slight left bias in the visual queue slot" % (slot_index + 1)
+				"portrait tray tile %d centers in its porcelain well" % (slot_index + 1)
 			)
 		for slot_index in range(shell.get("_game").tray.tiles.size(), tray_capacity):
 			var empty_slot_style: StyleBoxFlat = tray.get("_slots")[slot_index].get_theme_stylebox("panel")
