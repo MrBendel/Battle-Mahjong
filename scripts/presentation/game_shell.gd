@@ -81,6 +81,12 @@ const PAIR_MATCH_FX_POOL_SIZE := 6
 @export_range(0.08, 0.50, 0.01) var flipped_auto_match_hold_seconds := 0.14
 ## Queue-compaction travel toward the next horizontal or vertical slot.
 @export_range(0.08, 0.30, 0.01) var tray_compaction_seconds := 0.16
+## Red danger pulse after an Extra Life intercepts a full tray.
+@export_range(0.10, 0.60, 0.01) var extra_life_tray_warning_seconds := 0.24
+## Travel time for rescued tray tiles to return to their Board slots.
+@export_range(0.16, 0.60, 0.01) var extra_life_return_seconds := 0.30
+## Small cascade between each rescued tile's return motion.
+@export_range(0.0, 0.12, 0.005) var extra_life_return_stagger_seconds := 0.025
 ## Travel time for tiles to settle into their shuffled positions.
 @export_range(0.08, 0.30, 0.01) var shuffle_move_seconds := 0.24
 ## Travel time for Bomb targets to form two columns around Board center.
@@ -149,6 +155,11 @@ var _tray_compaction_previews := {}
 var _tray_compaction_tweens := {}
 var _tray_compaction_count := 0
 var _last_tray_compaction_targets: Array[Rect2] = []
+var _extra_life_recovery_active := false
+var _extra_life_recovery_generation := 0
+var _extra_life_recovery_previews: Array = []
+var _extra_life_recovery_count := 0
+var _last_extra_life_return_targets: Array[Rect2] = []
 var _gameplay_background: NinePatchRect
 var _gameplay_background_wash: ColorRect
 var _portrait_hud_scrim: TextureRect
@@ -521,6 +532,7 @@ func _create_game() -> Variant:
 
 
 func _on_modifier_loadout_started(loadout: Array) -> void:
+	_cancel_extra_life_recovery()
 	_selected_modifier_loadout = loadout.duplicate(true)
 	if _modifier_picker != null:
 		remove_child(_modifier_picker)
@@ -651,6 +663,7 @@ func _select_tile_with_presentation(tile_id: String, bypass_input_lock := false)
 	var source_rect := Rect2()
 	var target_rect := Rect2()
 	var matching_source_rect := Rect2()
+	var recovery_visuals: Array = []
 	if _delete_pair_armed:
 		_delete_pair_armed = false
 		_regions.board.call("set_delete_pair_armed", false)
@@ -734,27 +747,42 @@ func _select_tile_with_presentation(tile_id: String, bypass_input_lock := false)
 		var matching_index := _matching_tray_index(tile_id)
 		tile_preview = _regions.board.call("create_tile_preview", tile_id)
 		source_rect = _regions.board.call("tile_global_rect", tile_id)
-		var target_index: int = mini(_game.tray.tiles.size(), 3)
+		var target_index: int = mini(_game.tray.tiles.size(), _game.tray.capacity - 1)
 		target_rect = _regions.tray.call("slot_global_rect", target_index)
 		if matching_index >= 0:
 			var matching_visual := _capture_tray_visual(matching_index)
 			matching_preview = matching_visual.get("preview")
 			matching_source_rect = matching_visual.get("rect", Rect2())
 			tray_compaction_visuals = _capture_tray_compaction_visuals(matching_index)
+		elif _game.tray.tiles.size() == _game.tray.capacity - 1 \
+				and int(_game.call("current_snapshot").extra_life_charges) > 0:
+			recovery_visuals = _capture_extra_life_tray_visuals()
 		result = _game.call("select_tile", tile_id, _playback_time_ms())
 		if _tray_contains_tile(tile_id):
 			_regions.tray.call("suppress_tile", tile_id)
 	var selection_transaction: Variant = _game.call("last_transaction")
 	var auto_clear_visuals := _capture_auto_clear_visuals(selection_transaction)
+	if result == GameStateScript.EXTRA_LIFE_USED:
+		var hidden_return_ids: Array[String] = []
+		for recovered_tile_id in selection_transaction.telemetry.get("recovered_tile_ids", []):
+			hidden_return_ids.append(str(recovered_tile_id))
+		hidden_return_ids.append(tile_id)
+		_regions.board.call("suppress_tiles", hidden_return_ids)
 	_refresh_game_views()
 	_play_flip_backs(revealed_before)
 	_play_transaction_auto_reveals(selection_transaction)
-	if tile_preview != null and result != GameStateScript.INVALID_SELECTION:
+	if result == GameStateScript.EXTRA_LIFE_USED:
+		_play_extra_life_recovery(
+			tile_preview,
+			source_rect,
+			target_rect,
+			tile_id,
+			recovery_visuals
+		)
+	elif tile_preview != null and result != GameStateScript.INVALID_SELECTION:
 		if result == GameStateScript.PAIR_RESOLVED:
 			_play_pair_to_tray(tile_preview, matching_preview, source_rect, target_rect, matching_source_rect)
 			_play_tray_compaction(tray_compaction_visuals)
-		elif result == GameStateScript.EXTRA_LIFE_USED:
-			tile_preview.queue_free()
 		else:
 			_play_tile_to_tray(tile_preview, source_rect, target_rect, tile_id)
 	elif tile_preview != null:
@@ -763,6 +791,8 @@ func _select_tile_with_presentation(tile_id: String, bypass_input_lock := false)
 		matching_preview.queue_free()
 	if result != GameStateScript.PAIR_RESOLVED:
 		_free_visual_previews(tray_compaction_visuals)
+	if result != GameStateScript.EXTRA_LIFE_USED:
+		_free_visual_previews(recovery_visuals)
 	if result == GameStateScript.PAIR_RESOLVED:
 		_play_haptic("pair")
 		var transaction: Variant = _game.call("last_transaction")
@@ -952,6 +982,7 @@ func _on_restart_requested() -> void:
 		next_tower_floor_requested.emit()
 		return
 	_clear_tray_compaction_previews()
+	_cancel_extra_life_recovery()
 	_cancel_auto_clear_animation()
 	_opening_countdown_active = false
 	_opening_countdown.call("cancel")
@@ -986,7 +1017,7 @@ func _on_restart_requested() -> void:
 
 func _on_pause_requested() -> void:
 	if _layout_generator_picker != null or _modifier_picker != null or _opening_countdown_active \
-			or _auto_clear_animation_active or _pause_started_at_ms >= 0 \
+			or _auto_clear_animation_active or _extra_life_recovery_active or _pause_started_at_ms >= 0 \
 			or _game_over_time_ms >= 0 or _game.status != GameStateScript.PLAYING:
 		return
 	_pause_started_at_ms = Time.get_ticks_msec()
@@ -1063,6 +1094,7 @@ func _gameplay_input_blocked() -> bool:
 		or _pause_started_at_ms >= 0 or _game_over_time_ms >= 0 \
 		or _shuffle_animation_active \
 		or _auto_clear_animation_active \
+		or _extra_life_recovery_active \
 		or _regions.has("board") and bool(_regions.board.call("is_deal_in_active")) \
 		or _game == null or _game.status != GameStateScript.PLAYING
 
@@ -1654,6 +1686,132 @@ func _take_active_tray_compaction(tile_id: String) -> Control:
 	_tray_compaction_previews.erase(tile_id)
 	_tray_compaction_tweens.erase(tile_id)
 	return preview
+
+
+func _capture_extra_life_tray_visuals() -> Array:
+	var visuals: Array = []
+	for index in range(_game.tray.tiles.size()):
+		var tile_id := str(_game.tray.tiles[index].id)
+		var preview: Control = _take_active_tile_transfer(tile_id)
+		if preview != null:
+			preview.remove_meta("pair_owns_transfer")
+		if preview == null:
+			preview = _take_active_tray_compaction(tile_id)
+		if preview == null:
+			preview = _regions.tray.call("create_tile_preview", index)
+		if preview != null:
+			visuals.append({
+				"tile_id": tile_id,
+				"preview": preview,
+				"rect": _regions.tray.call("slot_global_rect", index),
+			})
+	return visuals
+
+
+func _play_extra_life_recovery(
+		incoming: Control,
+		source_rect: Rect2,
+		tray_target_rect: Rect2,
+		incoming_tile_id: String,
+		recovered_visuals: Array
+) -> void:
+	_extra_life_recovery_generation += 1
+	var generation := _extra_life_recovery_generation
+	_extra_life_recovery_active = true
+	_extra_life_recovery_count += 1
+	_last_extra_life_return_targets.clear()
+
+	for visual in recovered_visuals:
+		var preview: Control = visual.preview
+		var slot_rect: Rect2 = visual.rect
+		if preview.get_parent() == null:
+			add_child(preview)
+		preview.position = _global_to_local(slot_rect.position)
+		preview.size = slot_rect.size
+		preview.pivot_offset = preview.size * 0.5
+		preview.scale = Vector2.ONE
+		preview.rotation = 0.0
+		preview.modulate = Color.WHITE
+		preview.z_index = 1000
+		visual["target_rect"] = _regions.board.call("tile_global_rect", str(visual.tile_id))
+
+	if incoming == null:
+		_finish_extra_life_recovery(recovered_visuals, generation)
+		return
+	add_child(incoming)
+	incoming.position = _global_to_local(source_rect.position)
+	incoming.size = source_rect.size
+	incoming.pivot_offset = incoming.size * 0.5
+	incoming.z_index = 1001
+	var incoming_visual := {
+		"tile_id": incoming_tile_id,
+		"preview": incoming,
+		"rect": tray_target_rect,
+		"target_rect": _regions.board.call("tile_global_rect", incoming_tile_id),
+	}
+	var visuals := recovered_visuals.duplicate()
+	visuals.append(incoming_visual)
+	_extra_life_recovery_previews = visuals
+
+	_tile_motion_count += 1
+	_last_tile_motion_target = tray_target_rect
+	var tray_position := _global_to_local(tray_target_rect.get_center()) - incoming.size * 0.5
+	var arrival := create_tween().set_parallel(true).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
+	arrival.tween_property(incoming, "position", tray_position, tile_transfer_seconds)
+	arrival.tween_property(incoming, "scale", _preview_scale_for_rect(incoming, tray_target_rect), tile_transfer_seconds)
+	arrival.finished.connect(_start_extra_life_warning.bind(visuals, generation))
+
+
+func _start_extra_life_warning(visuals: Array, generation: int) -> void:
+	if generation != _extra_life_recovery_generation:
+		return
+	_regions.tray.call("play_overflow_feedback", extra_life_tray_warning_seconds)
+	var warning_hold := create_tween()
+	warning_hold.tween_interval(extra_life_tray_warning_seconds)
+	warning_hold.finished.connect(_start_extra_life_return.bind(visuals, generation))
+
+
+func _start_extra_life_return(visuals: Array, generation: int) -> void:
+	if generation != _extra_life_recovery_generation:
+		return
+	var return_tween := create_tween().set_parallel(true).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
+	for index in range(visuals.size()):
+		var visual: Dictionary = visuals[index]
+		var preview: Control = visual.preview
+		var target_rect: Rect2 = visual.target_rect
+		_last_extra_life_return_targets.append(target_rect)
+		var target_position := _global_to_local(target_rect.get_center()) - preview.size * 0.5
+		var delay := extra_life_return_stagger_seconds * float(index)
+		return_tween.tween_property(preview, "position", target_position, extra_life_return_seconds).set_delay(delay)
+		return_tween.tween_property(preview, "scale", _preview_scale_for_rect(preview, target_rect), extra_life_return_seconds).set_delay(delay)
+		return_tween.tween_property(preview, "rotation", deg_to_rad(-3.0 if index % 2 == 0 else 3.0), extra_life_return_seconds * 0.5).set_delay(delay)
+	return_tween.finished.connect(_finish_extra_life_recovery.bind(visuals, generation))
+
+
+func _finish_extra_life_recovery(visuals: Array, generation: int) -> void:
+	if generation != _extra_life_recovery_generation:
+		return
+	var tile_ids: Array[String] = []
+	for visual in visuals:
+		tile_ids.append(str(visual.tile_id))
+		var preview: Control = visual.preview
+		if preview != null and is_instance_valid(preview):
+			preview.queue_free()
+	_extra_life_recovery_previews.clear()
+	_regions.board.call("reveal_tiles", tile_ids)
+	_extra_life_recovery_active = false
+
+
+func _cancel_extra_life_recovery() -> void:
+	_extra_life_recovery_generation += 1
+	_extra_life_recovery_active = false
+	for visual in _extra_life_recovery_previews:
+		var preview: Control = visual.get("preview")
+		if preview != null and is_instance_valid(preview):
+			preview.queue_free()
+	_extra_life_recovery_previews.clear()
+	if _regions.has("tray"):
+		_regions.tray.call("reset_overflow_feedback")
 
 
 func _clear_tray_compaction_previews() -> void:

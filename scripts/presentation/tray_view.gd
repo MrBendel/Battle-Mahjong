@@ -41,7 +41,9 @@ var _bonus_icon: TextureRect
 var _bonus_label: Label
 var _rendered_capacity := -1
 var _bonus_tween: Tween
+var _overflow_tween: Tween
 var capacity_feedback_count := 0
+var overflow_feedback_count := 0
 
 
 func _init(game_state: Variant, tile_skin: Variant = null, gameplay_theme: Resource = null) -> void:
@@ -431,6 +433,33 @@ func play_capacity_feedback() -> void:
 	_bonus_tween.tween_property(_bonus_icon, "scale", Vector2(1.22, 1.22), 0.16) \
 		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	_bonus_tween.tween_property(_bonus_icon, "scale", Vector2.ONE, 0.12)
+
+
+func play_overflow_feedback(duration_seconds: float) -> void:
+	reset_overflow_feedback()
+	overflow_feedback_count += 1
+	_overflow_tween = create_tween()
+	_overflow_tween.tween_property(
+		self,
+		"self_modulate",
+		Color(1.0, 0.34, 0.34, 1.0),
+		duration_seconds * 0.42
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_overflow_tween.tween_property(
+		self,
+		"self_modulate",
+		Color.WHITE,
+		duration_seconds * 0.58
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+
+
+func reset_overflow_feedback() -> void:
+	if _overflow_tween != null and _overflow_tween.is_valid():
+		_overflow_tween.kill()
+	_overflow_tween = null
+	self_modulate = Color.WHITE
+	if _queue_left_cap != null:
+		refresh()
 
 
 func slot_global_rect(index: int) -> Rect2:

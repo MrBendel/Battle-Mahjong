@@ -783,6 +783,7 @@ func _run() -> void:
 	_validate_board_input_order(shell, "after Shuffle")
 
 	var orientation := "portrait" if root.size.x < root.size.y else "landscape"
+	await _verify_extra_life_recovery(shell, orientation)
 	shell.call("_apply_layout")
 	await process_frame
 	_validate_regions(shell, orientation)
@@ -941,6 +942,57 @@ func _run() -> void:
 	await create_timer(0.1).timeout
 	printerr("PASS: responsive UI smoke" if _failures == 0 else "FAIL: %d responsive UI check(s)" % _failures)
 	quit(1 if _failures > 0 else 0)
+
+
+func _verify_extra_life_recovery(shell: Control, orientation: String) -> void:
+	shell.set("starting_hearts", 3)
+	shell.call("_on_restart_requested")
+	await process_frame
+	var game: Variant = shell.get("_game")
+	var selected_ids: Array[String] = []
+	var selected_faces := {}
+	var expected_targets: Array[Rect2] = []
+	for selection_index in range(4):
+		var candidate: Variant = null
+		for tile in game.board.call("selectable_tiles"):
+			var face_id: String = tile.face.logical_id()
+			if not game.board.call("is_tile_face_down", tile.id) and not selected_faces.has(face_id):
+				candidate = tile
+				selected_faces[face_id] = true
+				break
+		if candidate == null:
+			_fail("%s Extra Life setup finds four distinct selectable faces" % orientation)
+			return
+		selected_ids.append(candidate.id)
+		expected_targets.append(shell.get("_regions").board.call("tile_global_rect", candidate.id))
+		shell.call("_on_tile_selected", candidate.id)
+		if selection_index < 3:
+			await create_timer(float(shell.get("tile_transfer_seconds")) + 0.03).timeout
+
+	_check_equal(0, game.tray.tiles.size(), "%s Extra Life atomically clears the full tray" % orientation)
+	_check_equal(2, game.call("current_snapshot").extra_life_charges, "%s Extra Life consumes one starting heart" % orientation)
+	_check(shell.get("_extra_life_recovery_active"), "%s Extra Life locks Board input during recovery" % orientation)
+	_check(shell.call("_gameplay_input_blocked"), "%s recovery participates in the shared input boundary" % orientation)
+	_check_equal(4, shell.get("_extra_life_recovery_previews").size(), "%s recovery presents all four filled-tray tiles" % orientation)
+	for tile_id in selected_ids:
+		_check(not shell.get("_regions").board.get("_tile_buttons")[tile_id].visible, "%s recovered tile stays hidden at its Board slot during return" % orientation)
+
+	var tray: Control = shell.get("_regions").tray
+	var warning_count_before: int = tray.get("overflow_feedback_count")
+	await create_timer(float(shell.get("tile_transfer_seconds")) + 0.03).timeout
+	_check_equal(warning_count_before + 1, tray.get("overflow_feedback_count"), "%s full tray starts one red warning pulse after landing" % orientation)
+	await create_timer(float(shell.get("extra_life_tray_warning_seconds")) * 0.20).timeout
+	var warning_color: Color = tray.self_modulate
+	_check(warning_color != Color.WHITE, "%s tray artwork visibly tints during the danger beat (%s)" % [orientation, warning_color])
+
+	var recovery_duration: float = float(shell.get("extra_life_tray_warning_seconds")) \
+		+ float(shell.get("extra_life_return_seconds")) \
+		+ float(shell.get("extra_life_return_stagger_seconds")) * 3.0 + 0.08
+	await create_timer(recovery_duration).timeout
+	_check(not shell.get("_extra_life_recovery_active"), "%s Board input unlocks after every recovered tile lands" % orientation)
+	_check_equal(expected_targets, shell.get("_last_extra_life_return_targets"), "%s each recovered tile targets its stable Board slot" % orientation)
+	for tile_id in selected_ids:
+		_check(shell.get("_regions").board.get("_tile_buttons")[tile_id].visible, "%s recovered tile appears on the Board only after its return" % orientation)
 
 
 func _verify_layout_generator(requested_size: Vector2i) -> void:
