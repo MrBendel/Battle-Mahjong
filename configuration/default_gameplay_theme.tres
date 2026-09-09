@@ -6,5 +6,6 @@
 script = ExtResource("1_theme")
 theme_id = "default"
 display_name = "Default"
-tray_cap_path = "res://game-assets/ui/shared/tray-cap-horizontal.svg"
-tray_repeat_path = "res://game-assets/ui/shared/tray-repeat-horizontal.svg"
+tray_cap_path = "res://game-assets/ui/tray/porcelain/tray-left.png"
+tray_repeat_path = "res://game-assets/ui/tray/porcelain/tray-repeat.png"
+tray_right_cap_path = "res://game-assets/ui/tray/porcelain/tray-right.png"

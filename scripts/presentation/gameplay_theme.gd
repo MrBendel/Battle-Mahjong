@@ -21,8 +21,9 @@ class_name GameplayTheme
 @export_file("*.ttf", "*.otf", "*.tres") var poster_font_path := "res://assets/fonts/battle-mahjong-poster-script.tres"
 
 @export_group("Tray")
-@export_file("*.png", "*.svg", "*.webp") var tray_cap_path := "res://assets/UI/tile-queue/queue-cap.png"
-@export_file("*.png", "*.svg", "*.webp") var tray_repeat_path := "res://assets/UI/tile-queue/queue-repeat.png"
+@export_file("*.png", "*.svg", "*.webp") var tray_cap_path := "res://game-assets/ui/tray/porcelain/tray-left.png"
+@export_file("*.png", "*.svg", "*.webp") var tray_repeat_path := "res://game-assets/ui/tray/porcelain/tray-repeat.png"
+@export_file("*.png", "*.svg", "*.webp") var tray_right_cap_path := "res://game-assets/ui/tray/porcelain/tray-right.png"
 @export_file("*.png", "*.svg", "*.webp") var tray_vertical_cap_path := "res://game-assets/ui/shared/tray-cap-vertical.svg"
 @export_file("*.png", "*.svg", "*.webp") var tray_vertical_repeat_path := "res://game-assets/ui/shared/tray-repeat-vertical.svg"
 @export_file("*.png", "*.svg", "*.webp") var tray_bonus_icon_path := "res://game-assets/modifiers/tile-overlays/tray_plus_one.png"
@@ -74,6 +75,7 @@ func validation_errors() -> Array[String]:
 		"poster font": poster_font_path,
 		"tray cap": tray_cap_path,
 		"tray repeat": tray_repeat_path,
+		"tray right cap": tray_right_cap_path,
 		"vertical tray cap": tray_vertical_cap_path,
 		"vertical tray repeat": tray_vertical_repeat_path,
 		"tray bonus icon": tray_bonus_icon_path,

@@ -8,9 +8,10 @@ const MIN_SLOT_COUNT := 2
 const MAX_SLOT_COUNT := 6
 const MARGIN := 10.0
 const GAP := 8.0
-const PORCELAIN_CAP_SIZE := Vector2(22.0, 100.0)
-const PORCELAIN_SLOT_SIZE := Vector2(72.0, 100.0)
-const PORCELAIN_TILE_RECT := Rect2(11.0, 10.0, 50.0, 72.0)
+const PORCELAIN_LEFT_CAP_SIZE := Vector2(7.4, 100.0)
+const PORCELAIN_RIGHT_CAP_SIZE := Vector2(6.8, 100.0)
+const PORCELAIN_SLOT_SIZE := Vector2(62.7, 100.0)
+const PORCELAIN_TILE_RECT := Rect2(6.35, 9.0, 50.0, 72.0)
 const VERTICAL_CAP_SIZE := Vector2(115.0, 25.0)
 const VERTICAL_SLOT_SIZE := Vector2(115.0, 101.0)
 const VERTICAL_TILE_RECT := Rect2(22.5, 6.5, 70.0, 87.5)
@@ -88,7 +89,7 @@ func minimum_height_for_tile(tile_size: Vector2) -> float:
 	if _portrait_style:
 		if _vertical_style:
 			return ceilf((VERTICAL_CAP_SIZE.y * 2.0 + VERTICAL_SLOT_SIZE.y * _slot_count()) * _vertical_scale(tile_size))
-		return ceilf(PORCELAIN_CAP_SIZE.y * _portrait_scale(tile_size))
+		return ceilf(PORCELAIN_SLOT_SIZE.y * _portrait_scale(tile_size))
 	var expansion: Array = _tile_skin.layout_presentation.get("ink_outline_expansion_ratio", [0.055, 0.04])
 	var offset: Array = _tile_skin.layout_presentation.get("ink_outline_offset_ratio", [-0.004, 0.006])
 	var outline_bottom_ratio := float(expansion[1]) * 0.5 + maxf(0.0, float(offset[1]))
@@ -99,7 +100,7 @@ func minimum_width_for_tile(tile_size: Vector2) -> float:
 	if _portrait_style:
 		if _vertical_style:
 			return ceilf(VERTICAL_CAP_SIZE.x * _vertical_scale(tile_size))
-		return ceilf((PORCELAIN_CAP_SIZE.x * 2.0 + PORCELAIN_SLOT_SIZE.x * _slot_count()) * _portrait_scale(tile_size))
+		return ceilf((PORCELAIN_LEFT_CAP_SIZE.x + PORCELAIN_RIGHT_CAP_SIZE.x + PORCELAIN_SLOT_SIZE.x * _slot_count()) * _portrait_scale(tile_size))
 	var expansion: Array = _tile_skin.layout_presentation.get("ink_outline_expansion_ratio", [0.055, 0.04])
 	return ceilf(tile_size.x * (float(_slot_count()) + float(expansion[0])) + GAP * float(_slot_count() - 1))
 
@@ -208,8 +209,7 @@ func _build() -> void:
 		var repeat := _queue_art(_load_texture(str(_gameplay_theme.tray_repeat_path)))
 		add_child(repeat)
 		_queue_repeats.append(repeat)
-	_queue_right_cap = _queue_art(_load_texture(str(_gameplay_theme.tray_cap_path)))
-	_queue_right_cap.flip_h = true
+	_queue_right_cap = _queue_art(_load_texture(str(_gameplay_theme.tray_right_cap_path)))
 	add_child(_queue_right_cap)
 	_bonus_icon = _queue_art(_load_texture(str(_gameplay_theme.tray_bonus_icon_path)))
 	_bonus_icon.visible = false
@@ -306,36 +306,36 @@ func _layout() -> void:
 
 
 func _layout_portrait() -> void:
-	var base_queue_width := PORCELAIN_CAP_SIZE.x * 2.0 + PORCELAIN_SLOT_SIZE.x * _slot_count()
+	var base_queue_width := PORCELAIN_LEFT_CAP_SIZE.x + PORCELAIN_RIGHT_CAP_SIZE.x + PORCELAIN_SLOT_SIZE.x * _slot_count()
 	var scale := minf(
 		_portrait_scale(_tile_visual_size),
-		minf(size.x / base_queue_width, size.y / PORCELAIN_CAP_SIZE.y)
+		minf(size.x / base_queue_width, size.y / PORCELAIN_SLOT_SIZE.y)
 	)
 	var queue_width := base_queue_width * scale
-	var queue_height := PORCELAIN_CAP_SIZE.y * scale
+	var queue_height := PORCELAIN_SLOT_SIZE.y * scale
 	var origin := Vector2((size.x - queue_width) * 0.5, (size.y - queue_height) * 0.5)
 	_queue_left_cap.position = origin
 	_queue_left_cap.size = Vector2(
-		(PORCELAIN_CAP_SIZE.x + QUEUE_ART_SEAM_OVERLAP) * scale,
-		PORCELAIN_CAP_SIZE.y * scale
+		(PORCELAIN_LEFT_CAP_SIZE.x + QUEUE_ART_SEAM_OVERLAP) * scale,
+		PORCELAIN_SLOT_SIZE.y * scale
 	)
 	for index in range(MAX_SLOT_COUNT):
-		_queue_repeats[index].position = origin + Vector2((PORCELAIN_CAP_SIZE.x + PORCELAIN_SLOT_SIZE.x * index) * scale, 0.0)
+		_queue_repeats[index].position = origin + Vector2((PORCELAIN_LEFT_CAP_SIZE.x + PORCELAIN_SLOT_SIZE.x * index) * scale, 0.0)
 		_queue_repeats[index].size = Vector2(
 			(PORCELAIN_SLOT_SIZE.x + QUEUE_ART_SEAM_OVERLAP) * scale,
 			PORCELAIN_SLOT_SIZE.y * scale
 		)
-	_queue_right_cap.position = origin + Vector2((PORCELAIN_CAP_SIZE.x + PORCELAIN_SLOT_SIZE.x * _slot_count() - QUEUE_ART_SEAM_OVERLAP) * scale, 0.0)
+	_queue_right_cap.position = origin + Vector2((PORCELAIN_LEFT_CAP_SIZE.x + PORCELAIN_SLOT_SIZE.x * _slot_count() - QUEUE_ART_SEAM_OVERLAP) * scale, 0.0)
 	_queue_right_cap.size = Vector2(
-		(PORCELAIN_CAP_SIZE.x + QUEUE_ART_SEAM_OVERLAP) * scale,
-		PORCELAIN_CAP_SIZE.y * scale
+		(PORCELAIN_RIGHT_CAP_SIZE.x + QUEUE_ART_SEAM_OVERLAP) * scale,
+		PORCELAIN_SLOT_SIZE.y * scale
 	)
 
 	var active_geometry: Dictionary = _tile_skin.active_geometry()
 	var safe_area: Array = active_geometry.get("face_safe_area", [92, 104, 328, 400])
 	var source_size: Array = active_geometry.get("source_size", [512, 640])
 	for index in range(_slot_count()):
-		var repeat_origin := origin + Vector2((PORCELAIN_CAP_SIZE.x + PORCELAIN_SLOT_SIZE.x * index) * scale, 0.0)
+		var repeat_origin := origin + Vector2((PORCELAIN_LEFT_CAP_SIZE.x + PORCELAIN_SLOT_SIZE.x * index) * scale, 0.0)
 		var tile_center := repeat_origin + PORCELAIN_TILE_RECT.get_center() * scale
 		var slot_rect := Rect2(
 			tile_center - _tile_visual_size * 0.5,
@@ -490,7 +490,7 @@ func _layout_bonus_portrait(origin: Vector2, scale_x: float, scale_y: float) -> 
 		return
 	var bonus_index := clampi(int(_game.definition.tray_capacity()), 0, MAX_SLOT_COUNT - 1)
 	var repeat_origin := origin + Vector2(
-		(PORCELAIN_CAP_SIZE.x + PORCELAIN_SLOT_SIZE.x * bonus_index) * scale_x,
+		(PORCELAIN_LEFT_CAP_SIZE.x + PORCELAIN_SLOT_SIZE.x * bonus_index) * scale_x,
 		0.0
 	)
 	_bonus_icon.position = repeat_origin + Vector2(5.0 * scale_x, 86.0 * scale_y)
@@ -537,15 +537,18 @@ func _update_queue_art() -> void:
 		return
 	var cap_path := str(_gameplay_theme.tray_vertical_cap_path) if _vertical_style \
 		else str(_gameplay_theme.tray_cap_path)
+	var right_cap_path := str(_gameplay_theme.tray_vertical_cap_path) if _vertical_style \
+		else str(_gameplay_theme.tray_right_cap_path)
 	var repeat_path := str(_gameplay_theme.tray_vertical_repeat_path) if _vertical_style \
 		else str(_gameplay_theme.tray_repeat_path)
 	var cap_texture := _load_texture(cap_path)
+	var right_cap_texture := _load_texture(right_cap_path)
 	var repeat_texture := _load_texture(repeat_path)
 	_queue_left_cap.texture = cap_texture
-	_queue_right_cap.texture = cap_texture
+	_queue_right_cap.texture = right_cap_texture
 	_queue_left_cap.flip_h = false
 	_queue_left_cap.flip_v = false
-	_queue_right_cap.flip_h = not _vertical_style
+	_queue_right_cap.flip_h = false
 	_queue_right_cap.flip_v = _vertical_style
 	for repeat in _queue_repeats:
 		repeat.texture = repeat_texture

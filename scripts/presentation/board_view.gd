@@ -25,6 +25,7 @@ const FLIP_EDGE_HOLD_RATIO := 0.08
 var _game: Variant
 var _tile_buttons: Dictionary = {}
 var _shadow_art: Dictionary = {}
+var _contact_shadow_art: Dictionary = {}
 var _ink_outlines: Dictionary = {}
 var _base_art: Dictionary = {}
 var _back_art: Dictionary = {}
@@ -256,6 +257,7 @@ func _rebuild_tiles() -> void:
 		button.queue_free()
 	_tile_buttons.clear()
 	_shadow_art.clear()
+	_contact_shadow_art.clear()
 	_ink_outlines.clear()
 	_base_art.clear()
 	_back_art.clear()
@@ -288,6 +290,14 @@ func _rebuild_tiles() -> void:
 		shadow_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		shadow_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		button.add_child(shadow_art)
+
+		var contact_shadow_art := TextureRect.new()
+		contact_shadow_art.name = "ContactShadow"
+		contact_shadow_art.z_index = SHADOW_Z_OFFSET
+		contact_shadow_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		contact_shadow_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		contact_shadow_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		button.add_child(contact_shadow_art)
 
 		var ink_outline := TextureRect.new()
 		ink_outline.name = "InkOutline"
@@ -350,6 +360,7 @@ func _rebuild_tiles() -> void:
 		_tile_layer.add_child(button)
 		_tile_buttons[tile.id] = button
 		_shadow_art[tile.id] = shadow_art
+		_contact_shadow_art[tile.id] = contact_shadow_art
 		_ink_outlines[tile.id] = ink_outline
 		_base_art[tile.id] = base_art
 		_back_art[tile.id] = back_art
@@ -423,6 +434,8 @@ func refresh() -> void:
 		button.add_theme_stylebox_override("normal", _art_backing_style())
 		var shadow_art: TextureRect = _shadow_art[tile.id]
 		shadow_art.visible = shadow_art.texture != null
+		var contact_shadow_art: TextureRect = _contact_shadow_art[tile.id]
+		contact_shadow_art.visible = contact_shadow_art.texture != null
 		var base_art: TextureRect = _base_art[tile.id]
 		var back_art: TextureRect = _back_art[tile.id]
 		back_art.visible = face_down and back_art.texture != null
@@ -449,6 +462,7 @@ func refresh() -> void:
 func _apply_static_tile_art() -> void:
 	var base_texture: Texture2D = _tile_skin.tile_base_texture()
 	var back_texture: Texture2D = _tile_skin.tile_back_texture()
+	var shadow_texture: Texture2D = _tile_skin.tile_shadow_texture()
 	var shadow_modulate := Color(
 		0.02,
 		0.025,
@@ -458,8 +472,16 @@ func _apply_static_tile_art() -> void:
 	var blocked_modulate := _blocked_overlay_color()
 	for tile in _game.board.tiles:
 		var shadow_art: TextureRect = _shadow_art[tile.id]
-		shadow_art.texture = base_texture
+		shadow_art.texture = shadow_texture
 		shadow_art.modulate = shadow_modulate
+		var contact_shadow_art: TextureRect = _contact_shadow_art[tile.id]
+		contact_shadow_art.texture = base_texture
+		contact_shadow_art.modulate = Color(
+			0.015,
+			0.018,
+			0.016,
+			float(_tile_skin.depth_presentation.get("contact_shadow_opacity", 0.30))
+		)
 		var ink_outline: TextureRect = _ink_outlines[tile.id]
 		_tile_skin.configure_ink_outline(ink_outline)
 		var base_art: TextureRect = _base_art[tile.id]
@@ -846,12 +868,27 @@ func _layout_tiles() -> void:
 		button.z_index = tile.position.z * DEPTH_Z_STRIDE + TILE_SURFACE_Z_OFFSET
 		button.add_theme_font_size_override("font_size", clampi(int(tile_size.x * 0.25), 10, 18))
 		var shadow_offset_ratio: Array = _tile_skin.depth_presentation.get("shadow_offset_ratio", [0.05, 0.07])
+		var shadow_expansion_ratio: Array = _tile_skin.depth_presentation.get("shadow_expansion_ratio", [0.08, 0.06])
 		var shadow_art: TextureRect = _shadow_art[tile.id]
+		var shadow_expansion := Vector2(
+			button.size.x * float(shadow_expansion_ratio[0]),
+			button.size.y * float(shadow_expansion_ratio[1])
+		)
 		shadow_art.position = Vector2(
 			button.size.x * float(shadow_offset_ratio[0]),
 			button.size.y * float(shadow_offset_ratio[1])
+		) - shadow_expansion * 0.5
+		shadow_art.size = button.size + shadow_expansion
+		var contact_shadow_offset_ratio: Array = _tile_skin.depth_presentation.get(
+			"contact_shadow_offset_ratio",
+			[0.018, 0.025]
 		)
-		shadow_art.size = button.size
+		var contact_shadow_art: TextureRect = _contact_shadow_art[tile.id]
+		contact_shadow_art.position = Vector2(
+			button.size.x * float(contact_shadow_offset_ratio[0]),
+			button.size.y * float(contact_shadow_offset_ratio[1])
+		)
+		contact_shadow_art.size = button.size
 		var face_art: TextureRect = _face_art[tile.id]
 		face_art.position = Vector2(
 			float(safe_area[0]) / float(source_size[0]) * button.size.x,

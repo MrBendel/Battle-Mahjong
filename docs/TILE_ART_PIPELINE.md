@@ -37,8 +37,8 @@ Active base geometry:
 
 | Variant | Source | Runtime | Face safe area | Minimum footprint |
 | --- | --- | --- | --- | --- |
-| Portrait | `512 x 640` | `256 x 320` | `x=72, y=68, w=368, h=440` | `32 x 40` |
-| Landscape | `512 x 640` | `256 x 320` | `x=72, y=68, w=368, h=440` | `32 x 40` |
+| Portrait | `512 x 736` | `256 x 368` | `x=72, y=78, w=368, h=506` | `32 x 46` |
+| Landscape | `512 x 736` | `256 x 368` | `x=72, y=78, w=368, h=506` | `32 x 46` |
 
 Coordinates are recorded in each source tile's pixel space and scaled proportionally at runtime. Changing orientation does not rotate, reorder, transpose, or replace layout slot identifiers and does not affect simulation coverage or matching.
 
@@ -58,9 +58,11 @@ The current Godot proof renders the shared ceramic base as a texture, places imp
 
 ### Authored Depth Presentation
 
-The Default skin's `depth_presentation` manifest section controls board-stack lighting and lift. The renderer maps the lowest authored `z` layer to `lowest_layer_brightness`, anchors the layer directly below the top to `near_top_layer_brightness`, and keeps the highest layer at full brightness. Intermediate layers interpolate between those anchors. Every authored layer is offset by `layer_offset_ratio`; the offset is an `[x, y]` fraction of the current rendered tile size per layer, so negative `y` moves higher layers upward and remains responsive across tile geometry and viewport sizes. The renderer also projects an offset copy of the active tile-base silhouette beneath every tile. Tile surfaces and shadow passes occupy alternating presentation bands, so a cast shadow sits below every tile on its own authored layer and above the next layer down. These controls keep physical stack depth readable in both orientations without changing layout geometry or simulation state.
+The Default skin's `depth_presentation` manifest section controls board-stack lighting and lift. The renderer maps the lowest authored `z` layer to `lowest_layer_brightness`, anchors the layer directly below the top to `near_top_layer_brightness`, and keeps the highest layer at full brightness. Intermediate layers interpolate between those anchors. Every authored layer is offset by `layer_offset_ratio`; the offset is an `[x, y]` fraction of the current rendered tile size per layer, so negative `y` moves higher layers upward and remains responsive across tile geometry and viewport sizes.
 
-Blocked state is a separate low-opacity warm-neutral silhouette veil applied after the depth lighting. Covered tiles retain authored-layer shading and cast shadows without becoming gray or muddy, but a tile becomes canonical full brightness as soon as it is selectable or otherwise visually active. This prevents depth from being mistaken for availability. Tray tiles and moving previews remain fully lit because they are no longer being read as part of the board stack. Face-down tiles render the blank ceramic base without a question mark or rectangular placeholder.
+Each tile projects two presentation-only shadows: a tight, darker contact shadow derived from the active base silhouette and a larger, softer cast shadow using the skin's preblurred `shadow_asset`. Both occupy the render band below their own tile surface and above the next lower tile layer. Peer tiles therefore render cleanly over one another's shadows while upper tiles visibly shade the layer beneath them. The blur is precomputed rather than sampled by a per-tile shader, keeping the effect inexpensive on mobile. Opacity, offset, and cast expansion remain skin configuration values.
+
+Blocked state is a separate cool, low-saturation silhouette glaze applied after the depth lighting. It darkens and mutes locked tiles independently from their authored layer, including tiles blocked by peers at the same height. A tile becomes canonical warm, full brightness as soon as it is selectable or otherwise visually active. Depth therefore communicates physical elevation while desaturation communicates availability. Tray tiles and moving previews remain fully lit because they are no longer being read as part of the board stack. Face-down tiles render the blank ceramic base without a question mark or rectangular placeholder.
 
 The skin's `layout_presentation.adjacent_gap_ratio` controls spacing between immediately adjacent authored slots as a fraction of the active tile footprint. Zero makes control bounds touch; a small negative value compensates for transparent padding in base artwork. The Default skin uses `-0.025` so the visible ceramic edges meet in portrait and landscape. This setting is cosmetic and does not change authored positions, overlap rules, selectability, or replay data.
 
@@ -72,7 +74,8 @@ Editable tile masters live under `art-source/tiles/<skin>/`. Godot runtime tile 
 
 Rules:
 
-- SVG remains the canonical source format for flat face artwork. Master physical ceramic tile bases and terracotta backs use high-resolution 3D rendered raster masters with tactile bevels, debossed corner notches, and 1:1 front-and-back perspective alignment.
+- SVG remains the canonical source format for flat face artwork. Physical tile bases and backs use high-resolution transparent raster masters with 1:1 front-and-back perspective alignment.
+- The Default front favors a warm illustrated ceramic treatment: a tall upright silhouette, restrained highlight, thin irregular dark contour, and compact golden-brown foot. It intentionally omits corner wear and ornamental notches so the face artwork remains the visual identity. Cast shadows remain presentation layers rather than being baked into the base texture.
 - Runtime tile assets are transparent sRGB PNG files at 50% source scale. Face-down presentation reuses the canonical terracotta tile back and composites the selected independent back design.
 - Alpha is straight, not premultiplied.
 - File names are stable logical face IDs such as `bamboo_1.svg` and `red_dragon.svg`.
@@ -91,6 +94,8 @@ Each skin owns a versioned `skin.json` containing skin identity, geometry, guara
 The loader requires the initial 34 IDs but does not reject additional face definitions. This allows the vocabulary to grow without changing the renderer contract.
 
 Tile backs have two cosmetic layers. `back_variants` supplies a full-surface base that must read distinctly from the ivory front even before ornament is visible. `default_back_id` then chooses an entry from `back_designs`; each entry supplies transparent ornament artwork only. `base_variants.<orientation>.back_design_safe_area` defines where that ornament is composited over the back base. Back selection is cosmetic and must never enter matching, board, transaction, or replay logic. Durable player ownership and selection remain deferred to the profile milestone.
+
+The Default back uses a terracotta face for immediate face-down recognition while sharing the front tile's golden-brown lower sidewall, contour, proportions, and lighting. Front and back should therefore read as two faces of one physical tile rather than unrelated colored pieces.
 
 Tile-attached modifiers use the manifest's `modifiers` catalog and each orientation variant's `modifier_bounds`. The attachment area is a large upper-left badge so modifiers remain legible at phone gameplay size without obscuring the central face identity. The first shared overlay set uses an enamel arcade badge language: a pink heart for Extra Life, cyan snowflake for Cold Snap, amber impact `X` for Score Multiplier, and green expanding tray for Tray +1. Board tiles, tray tiles, and moving previews all resolve the same texture by modifier type. The artwork never enters simulation identity, attachment placement, transaction data, or replay state.
 
