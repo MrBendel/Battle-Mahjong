@@ -188,19 +188,28 @@ func _run_tile_skin_contract_tests() -> void:
 			and float(skin.depth_presentation.lowest_layer_brightness) < 1.0,
 		"Default skin keeps covered lower layers distinct without making them excessively dark"
 	)
-	_check_equal(0.96, float(skin.depth_presentation.near_top_layer_brightness), "Default skin keeps the layer below the top substantially lighter")
+	_check_equal(0.91, float(skin.depth_presentation.near_top_layer_brightness), "Default skin preserves contrast directly below the top layer")
 	var layer_offset: Array = skin.depth_presentation.layer_offset_ratio
 	_check_equal(2, layer_offset.size(), "Default skin exposes a two-axis authored-layer offset")
 	_check(float(layer_offset[1]) <= -0.05, "Default skin gives each higher layer a visible upward lift")
 	var blocked_overlay: Array = skin.depth_presentation.blocked_overlay_color
 	_check(
-		float(blocked_overlay[0]) > float(blocked_overlay[2]) \
-			and float(blocked_overlay[3]) < 0.3,
-		"blocked-state veil keeps covered tiles warm and readable"
+		absf(float(blocked_overlay[0]) - float(blocked_overlay[2])) < 0.05 \
+			and float(blocked_overlay[3]) >= 0.3,
+		"blocked-state veil is neutral, desaturated, and visibly darker"
 	)
 	_check(
 		float(skin.depth_presentation.shadow_opacity) > 0.0,
 		"Default skin enables cast tile shadows"
+	)
+	_check(
+		ResourceLoader.exists(str(skin.depth_presentation.shadow_asset)) \
+			or FileAccess.file_exists(str(skin.depth_presentation.shadow_asset)),
+		"Default skin provides a preblurred cast-shadow texture"
+	)
+	_check(
+		float(skin.depth_presentation.contact_shadow_opacity) > float(skin.depth_presentation.shadow_opacity),
+		"Default skin keeps contact shadows tighter and darker than soft cast shadows"
 	)
 	_check(float(skin.layout_presentation.adjacent_gap_ratio) <= 0.0, "Default skin joins adjacent tile artwork without gaps")
 	var ink_expansion: Array = skin.layout_presentation.ink_outline_expansion_ratio

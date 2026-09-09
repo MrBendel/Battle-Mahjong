@@ -1294,22 +1294,29 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 	_check(is_equal_approx(float(shell.get("tray_compaction_seconds")), 0.16), "%s uses the tuned queue-compaction beat" % orientation)
 	if orientation == "portrait":
 		_check(tray.get("_portrait_style"), "portrait enables the Figma queue presentation")
-		_check(tray.get("_queue_left_cap").visible and tray.get("_queue_right_cap").visible, "portrait queue renders both exported end caps")
-		var expected_cap := _load_test_texture("res://game-assets/ui/shared/tray-cap-horizontal.svg")
+		_check(tray.get("_queue_left_cap").visible and tray.get("_queue_right_cap").visible, "portrait queue renders both exported end wells")
+		var expected_cap := _load_test_texture("res://game-assets/ui/tray/porcelain/tray-left.png")
 		_check_equal(
 			expected_cap.get_size() if expected_cap != null else Vector2.ZERO,
 			tray.get("_queue_left_cap").texture.get_size() if tray.get("_queue_left_cap").texture != null else Vector2.ONE,
-			"portrait queue uses the supplied cap artwork"
+			"portrait queue uses the supplied left-end artwork"
 		)
-		var expected_repeat := _load_test_texture("res://game-assets/ui/shared/tray-repeat-horizontal.svg")
+		var expected_repeat := _load_test_texture("res://game-assets/ui/tray/porcelain/tray-repeat.png")
 		_check_equal(
 			expected_repeat.get_size() if expected_repeat != null else Vector2.ZERO,
 			tray.get("_queue_repeats")[0].texture.get_size() if tray.get("_queue_repeats")[0].texture != null else Vector2.ONE,
 			"portrait queue uses the supplied repeat artwork"
 		)
-		_check_equal(Vector2(22.0, 100.0), tray.get("_queue_left_cap").texture.get_size(), "portrait porcelain tray cap keeps its source dimensions")
-		_check_equal(Vector2(72.0, 100.0), tray.get("_queue_repeats")[0].texture.get_size(), "portrait porcelain tray well keeps its source dimensions")
-		_check(tray.get("_queue_right_cap").flip_h, "portrait queue mirrors the supplied cap on the right")
+		_check_equal(Vector2(167.0, 239.0), tray.get("_queue_left_cap").texture.get_size(), "portrait porcelain tray left end keeps its complete first well")
+		_check_equal(Vector2(150.0, 239.0), tray.get("_queue_repeats")[0].texture.get_size(), "portrait porcelain tray well keeps its runtime dimensions")
+		var expected_right_cap := _load_test_texture("res://game-assets/ui/tray/porcelain/tray-right.png")
+		_check_equal(
+			expected_right_cap,
+			tray.get("_queue_right_cap").texture,
+			"portrait queue uses its independently authored right end"
+		)
+		_check_equal(Vector2(166.0, 239.0), tray.get("_queue_right_cap").texture.get_size(), "portrait porcelain tray right end keeps its complete final well")
+		_check(not tray.get("_queue_right_cap").flip_h, "portrait queue does not mirror its independently authored right end")
 		var left_cap_rect: Rect2 = tray.get("_queue_left_cap").get_rect()
 		var right_cap_rect: Rect2 = tray.get("_queue_right_cap").get_rect()
 		for queue_section in tray.get("_queue_repeats"):
@@ -1320,10 +1327,10 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 		_check(is_equal_approx(right_cap_rect.size.y, left_cap_rect.size.y), "portrait queue caps share the same rendered height")
 		var rendered_queue_rect := left_cap_rect.merge(right_cap_rect)
 		_check(
-			is_equal_approx(rendered_queue_rect.size.x / rendered_queue_rect.size.y, (22.0 * 2.0 + 72.0 * tray.call("_slot_count")) / 100.0),
+			is_equal_approx(rendered_queue_rect.size.x / rendered_queue_rect.size.y, (70.0 + 69.4 + 62.7 * (tray.call("_slot_count") - 2)) / 100.0),
 			"portrait porcelain tray preserves its authored aspect ratio"
 		)
-		_check_equal(6, tray.get("_queue_repeats").size(), "portrait queue owns reusable artwork for its 2-6 slot range")
+		_check_equal(6, tray.get("_queue_repeats").size(), "tray owns enough repeat nodes for portrait and vertical 2-6 slot layouts")
 		var visible_queue_sections := 0
 		var previous_queue_section: TextureRect = null
 		for queue_section in tray.get("_queue_repeats"):
@@ -1335,11 +1342,13 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 		_check(tray.get("_queue_left_cap").get_rect().end.x > tray.get("_queue_repeats")[0].position.x, "portrait queue left cap overlaps the first repeat without changing its stride")
 		_check(previous_queue_section.get_rect().end.x > tray.get("_queue_right_cap").position.x, "portrait queue right cap overlaps the final repeat without changing its stride")
 		var tray_capacity: int = shell.get("_game").tray.capacity
-		_check_equal(tray_capacity, visible_queue_sections, "portrait queue renders one repeated section per active slot")
+		_check_equal(tray_capacity - 2, visible_queue_sections, "portrait queue repeats only wells between its two authored end wells")
 		_check_equal(tray_capacity, tray.call("_slot_count"), "portrait queue follows the live tray capacity")
-		var queue_scale_x: float = tray.get("_queue_repeats")[0].size.y / 100.0
+		var queue_scale: float = tray.get("_queue_repeats")[0].size.y / 100.0
 		for slot_index in range(tray_capacity):
-			var expected_slot_center_x: float = tray.get("_queue_repeats")[slot_index].position.x + 36.0 * queue_scale_x
+			var section_x: float = left_cap_rect.position.x + float(tray.call("_portrait_slot_section_x", slot_index)) * queue_scale
+			var well_center_x := 38.75 if slot_index == 0 else 31.35
+			var expected_slot_center_x: float = section_x + well_center_x * queue_scale
 			_check(
 				is_equal_approx(tray.get("_slots")[slot_index].get_rect().get_center().x, expected_slot_center_x),
 				"portrait tray tile %d centers in its porcelain well" % (slot_index + 1)
@@ -1441,6 +1450,7 @@ func _validate_board_tiles(shell: Control, orientation: String) -> void:
 	var has_visible_tile := false
 	var has_visible_base := false
 	var has_visible_shadow := false
+	var has_visible_contact_shadow := false
 	var has_visible_ink_outline := false
 	var selectable_brightness_is_canonical := true
 	var shadow_bands_isolate_layers := true
@@ -1451,9 +1461,11 @@ func _validate_board_tiles(shell: Control, orientation: String) -> void:
 		minimum_tile_size.x = minf(minimum_tile_size.x, button.size.x)
 		minimum_tile_size.y = minf(minimum_tile_size.y, button.size.y)
 		var shadow_art: TextureRect = button.get_node("DepthShadow")
+		var contact_shadow_art: TextureRect = button.get_node("ContactShadow")
 		var surface_band: int = tile.position.z * 2 + 1
 		var shadow_band: int = button.z_index + shadow_art.z_index
-		if button.z_index != surface_band or shadow_band != tile.position.z * 2:
+		var contact_shadow_band: int = button.z_index + contact_shadow_art.z_index
+		if button.z_index != surface_band or shadow_band != tile.position.z * 2 or contact_shadow_band != shadow_band:
 			shadow_bands_isolate_layers = false
 		if tile.position.z > 0 and not ((tile.position.z - 1) * 2 + 1 < shadow_band and shadow_band < surface_band):
 			shadow_bands_isolate_layers = false
@@ -1468,8 +1480,13 @@ func _validate_board_tiles(shell: Control, orientation: String) -> void:
 				_check(ink_outline.anchor_left < 0.0 and ink_outline.anchor_right > 1.0, "%s ink outline expands beyond the ceramic edge" % orientation)
 			if shadow_art.visible and not has_visible_shadow:
 				has_visible_shadow = true
-				_check(shadow_art.texture == skin.call("tile_base_texture"), "%s tile shadow follows the active base silhouette" % orientation)
+				_check(shadow_art.texture == skin.call("tile_shadow_texture"), "%s tile cast shadow uses the preblurred silhouette" % orientation)
 				_check(shadow_art.position.x > 0.0 and shadow_art.position.y > 0.0, "%s tile shadow projects down and right" % orientation)
+			if contact_shadow_art.visible and not has_visible_contact_shadow:
+				has_visible_contact_shadow = true
+				_check(contact_shadow_art.texture == skin.call("tile_base_texture"), "%s contact shadow follows the active tile silhouette" % orientation)
+				_check(contact_shadow_art.position.x > 0.0 and contact_shadow_art.position.y > 0.0, "%s contact shadow projects down and right" % orientation)
+				_check(contact_shadow_art.position.length() < shadow_art.position.length(), "%s contact shadow stays tighter than the cast shadow" % orientation)
 			var base_art: TextureRect = button.get_node("BaseArt")
 			if base_art.visible and not has_visible_base:
 				has_visible_base = true
@@ -1485,6 +1502,7 @@ func _validate_board_tiles(shell: Control, orientation: String) -> void:
 	_check(has_visible_tile, "%s board renders visible tiles" % orientation)
 	_check(has_visible_base, "%s board renders the supplied ceramic base artwork" % orientation)
 	_check(has_visible_shadow, "%s board renders cast shadows beneath tiles" % orientation)
+	_check(has_visible_contact_shadow, "%s board renders tight contact shadows beneath tiles" % orientation)
 	_check(shadow_bands_isolate_layers, "%s shadows render below their own layer and above the next tile layer" % orientation)
 	_check(has_visible_ink_outline, "%s board renders manga-ink tile silhouettes" % orientation)
 	_check(selectable_brightness_is_canonical, "%s all selectable tiles share canonical brightness" % orientation)
@@ -1655,7 +1673,8 @@ func _verify_modifier_activation_feedback(shell: Control) -> void:
 				_check_equal(5, game.tray.capacity, "Tray +1 expands the authoritative tray to five slots")
 				_check_equal(capacity_feedback_before + 1, tray.get("capacity_feedback_count"), "Tray +1 emphasizes the new queue section")
 				if tray.get("_portrait_style"):
-					_check(tray.get("_queue_repeats")[4].visible, "Tray +1 reveals a fifth repeat section in the existing queue artwork")
+					_check(tray.get("_queue_repeats")[2].visible, "Tray +1 inserts a third middle well before the final end well")
+					_check_equal(Color("baffd8"), tray.get("_queue_right_cap").modulate, "Tray +1 emphasizes the added final well")
 				else:
 					_check(tray.get("_slots")[4].visible, "Tray +1 reveals a fifth live slot in the landscape queue")
 				_check(tray.get("_bonus_icon").visible, "Tray +1 marks the expanded queue section")

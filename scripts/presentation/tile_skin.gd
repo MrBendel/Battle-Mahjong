@@ -23,6 +23,7 @@ var back_design_id := ""
 var _textures: Dictionary = {}
 var _base_textures: Dictionary = {}
 var _back_textures: Dictionary = {}
+var _shadow_texture: Texture2D
 var _back_design_textures: Dictionary = {}
 var _modifier_textures: Dictionary = {}
 var _load_errors: Array[String] = []
@@ -72,6 +73,10 @@ func validation_errors() -> Array[String]:
 	var blocked_overlay: Array = depth_presentation.get("blocked_overlay_color", [])
 	var shadow_opacity := float(depth_presentation.get("shadow_opacity", -1.0))
 	var shadow_offset: Array = depth_presentation.get("shadow_offset_ratio", [])
+	var shadow_asset := str(depth_presentation.get("shadow_asset", ""))
+	var shadow_expansion: Array = depth_presentation.get("shadow_expansion_ratio", [])
+	var contact_shadow_opacity := float(depth_presentation.get("contact_shadow_opacity", -1.0))
+	var contact_shadow_offset: Array = depth_presentation.get("contact_shadow_offset_ratio", [])
 	var layer_offset: Array = depth_presentation.get("layer_offset_ratio", [])
 	if depth_floor <= 0.0 or depth_floor > 1.0:
 		errors.append("Tile depth brightness must be in (0, 1].")
@@ -88,6 +93,13 @@ func validation_errors() -> Array[String]:
 		errors.append("Tile shadow opacity must be in [0, 1].")
 	if shadow_offset.size() != 2:
 		errors.append("Tile shadow offset ratio must contain x and y values.")
+	if shadow_asset.is_empty() or not (ResourceLoader.exists(shadow_asset) or FileAccess.file_exists(shadow_asset)):
+		errors.append("Tile cast shadow has no runtime asset.")
+	_validate_ratio_pair(shadow_expansion, "Tile shadow expansion", errors)
+	if contact_shadow_opacity < 0.0 or contact_shadow_opacity > 1.0:
+		errors.append("Tile contact shadow opacity must be in [0, 1].")
+	if contact_shadow_offset.size() != 2:
+		errors.append("Tile contact shadow offset ratio must contain x and y values.")
 	_validate_ratio_pair(layer_offset, "Tile layer offset", errors, true)
 	var adjacent_gap_ratio := float(layout_presentation.get("adjacent_gap_ratio", -1.0))
 	if adjacent_gap_ratio < -0.1 or adjacent_gap_ratio > 0.25:
@@ -169,6 +181,13 @@ func tile_back_texture() -> Texture2D:
 	var texture := _load_texture(str(back_variants.get(orientation, "")))
 	_back_textures[orientation] = texture
 	return texture
+
+
+func tile_shadow_texture() -> Texture2D:
+	if _shadow_texture != null:
+		return _shadow_texture
+	_shadow_texture = _load_texture(str(depth_presentation.get("shadow_asset", "")))
+	return _shadow_texture
 
 
 func set_back_design(value: String) -> bool:
