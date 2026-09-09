@@ -476,9 +476,9 @@ func _apply_static_tile_art() -> void:
 	var back_texture: Texture2D = _tile_skin.tile_back_texture()
 	var shadow_texture: Texture2D = _tile_skin.tile_shadow_texture()
 	var shadow_modulate := Color(
-		0.02,
-		0.025,
-		0.025,
+		0.055,
+		0.035,
+		0.022,
 		float(_tile_skin.depth_presentation.get("shadow_opacity", 0.42))
 	)
 	var blocked_modulate := _blocked_overlay_color()
@@ -489,9 +489,9 @@ func _apply_static_tile_art() -> void:
 		var contact_shadow_art: TextureRect = _contact_shadow_art[tile.id]
 		contact_shadow_art.texture = base_texture
 		contact_shadow_art.modulate = Color(
-			0.015,
-			0.018,
-			0.016,
+			0.035,
+			0.020,
+			0.012,
 			float(_tile_skin.depth_presentation.get("contact_shadow_opacity", 0.30))
 		)
 		var ink_outline: TextureRect = _ink_outlines[tile.id]

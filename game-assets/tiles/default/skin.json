@@ -54,11 +54,11 @@
     "near_top_layer_brightness": 0.91,
     "blocked_overlay_color": [0.10, 0.12, 0.13, 0.32],
     "shadow_asset": "res://game-assets/tiles/default/tile_shadow_soft.png",
-    "shadow_opacity": 0.28,
-    "shadow_offset_ratio": [0.08, 0.10],
-    "shadow_expansion_ratio": [0.10, 0.08],
-    "contact_shadow_opacity": 0.30,
-    "contact_shadow_offset_ratio": [0.018, 0.025],
+    "shadow_opacity": 0.58,
+    "shadow_offset_ratio": [0.08, 0.12],
+    "shadow_expansion_ratio": [0.12, 0.10],
+    "contact_shadow_opacity": 0.70,
+    "contact_shadow_offset_ratio": [0.020, 0.035],
     "layer_offset_ratio": [0.035, -0.095]
   },
   "layout_presentation": {
