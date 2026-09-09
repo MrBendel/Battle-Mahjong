@@ -8,10 +8,11 @@ const MIN_SLOT_COUNT := 2
 const MAX_SLOT_COUNT := 6
 const MARGIN := 10.0
 const GAP := 8.0
-const PORCELAIN_LEFT_CAP_SIZE := Vector2(7.4, 100.0)
-const PORCELAIN_RIGHT_CAP_SIZE := Vector2(6.8, 100.0)
+const PORCELAIN_LEFT_END_SIZE := Vector2(70.0, 100.0)
+const PORCELAIN_RIGHT_END_SIZE := Vector2(69.4, 100.0)
 const PORCELAIN_SLOT_SIZE := Vector2(62.7, 100.0)
 const PORCELAIN_TILE_RECT := Rect2(6.35, 9.0, 50.0, 72.0)
+const PORCELAIN_LEFT_TILE_RECT := Rect2(13.75, 9.0, 50.0, 72.0)
 const VERTICAL_CAP_SIZE := Vector2(115.0, 25.0)
 const VERTICAL_SLOT_SIZE := Vector2(115.0, 101.0)
 const VERTICAL_TILE_RECT := Rect2(22.5, 6.5, 70.0, 87.5)
@@ -100,7 +101,7 @@ func minimum_width_for_tile(tile_size: Vector2) -> float:
 	if _portrait_style:
 		if _vertical_style:
 			return ceilf(VERTICAL_CAP_SIZE.x * _vertical_scale(tile_size))
-		return ceilf((PORCELAIN_LEFT_CAP_SIZE.x + PORCELAIN_RIGHT_CAP_SIZE.x + PORCELAIN_SLOT_SIZE.x * _slot_count()) * _portrait_scale(tile_size))
+		return ceilf(_portrait_queue_width() * _portrait_scale(tile_size))
 	var expansion: Array = _tile_skin.layout_presentation.get("ink_outline_expansion_ratio", [0.055, 0.04])
 	return ceilf(tile_size.x * (float(_slot_count()) + float(expansion[0])) + GAP * float(_slot_count() - 1))
 
@@ -126,9 +127,12 @@ func refresh() -> void:
 	for index in range(MAX_SLOT_COUNT):
 		var enabled := index < current_capacity
 		_slots[index].visible = enabled
-		_queue_repeats[index].visible = _portrait_style and enabled
+		_queue_repeats[index].visible = _portrait_style and (
+			enabled if _vertical_style else index < current_capacity - 2
+		)
+		var repeat_slot_index := index if _vertical_style else index + 1
 		_queue_repeats[index].modulate = Color("baffd8") \
-			if _is_bonus_slot(index) else Color.WHITE
+			if _is_bonus_slot(repeat_slot_index) else Color.WHITE
 		if not enabled:
 			continue
 		var occupied: bool = index < _game.tray.tiles.size()
@@ -165,6 +169,10 @@ func refresh() -> void:
 			_slots[index].add_theme_stylebox_override("panel", _tile_style() if _portrait_style else _empty_slot_style())
 
 		label.add_theme_color_override("font_color", Color("202625") if presented else Color("68716f"))
+	_queue_left_cap.modulate = Color("baffd8") if _portrait_style and not _vertical_style \
+		and _is_bonus_slot(0) else Color.WHITE
+	_queue_right_cap.modulate = Color("baffd8") if _portrait_style and not _vertical_style \
+		and _is_bonus_slot(current_capacity - 1) else Color.WHITE
 	var snapshot: Variant = _game.call("current_snapshot")
 	var bonus_active := int(snapshot.tray_bonus_capacity) > 0
 	_bonus_icon.visible = bonus_active
@@ -306,7 +314,7 @@ func _layout() -> void:
 
 
 func _layout_portrait() -> void:
-	var base_queue_width := PORCELAIN_LEFT_CAP_SIZE.x + PORCELAIN_RIGHT_CAP_SIZE.x + PORCELAIN_SLOT_SIZE.x * _slot_count()
+	var base_queue_width := _portrait_queue_width()
 	var scale := minf(
 		_portrait_scale(_tile_visual_size),
 		minf(size.x / base_queue_width, size.y / PORCELAIN_SLOT_SIZE.y)
@@ -316,18 +324,18 @@ func _layout_portrait() -> void:
 	var origin := Vector2((size.x - queue_width) * 0.5, (size.y - queue_height) * 0.5)
 	_queue_left_cap.position = origin
 	_queue_left_cap.size = Vector2(
-		(PORCELAIN_LEFT_CAP_SIZE.x + QUEUE_ART_SEAM_OVERLAP) * scale,
+		(PORCELAIN_LEFT_END_SIZE.x + QUEUE_ART_SEAM_OVERLAP) * scale,
 		PORCELAIN_SLOT_SIZE.y * scale
 	)
 	for index in range(MAX_SLOT_COUNT):
-		_queue_repeats[index].position = origin + Vector2((PORCELAIN_LEFT_CAP_SIZE.x + PORCELAIN_SLOT_SIZE.x * index) * scale, 0.0)
+		_queue_repeats[index].position = origin + Vector2((PORCELAIN_LEFT_END_SIZE.x + PORCELAIN_SLOT_SIZE.x * index) * scale, 0.0)
 		_queue_repeats[index].size = Vector2(
 			(PORCELAIN_SLOT_SIZE.x + QUEUE_ART_SEAM_OVERLAP) * scale,
 			PORCELAIN_SLOT_SIZE.y * scale
 		)
-	_queue_right_cap.position = origin + Vector2((PORCELAIN_LEFT_CAP_SIZE.x + PORCELAIN_SLOT_SIZE.x * _slot_count() - QUEUE_ART_SEAM_OVERLAP) * scale, 0.0)
+	_queue_right_cap.position = origin + Vector2((PORCELAIN_LEFT_END_SIZE.x + PORCELAIN_SLOT_SIZE.x * (_slot_count() - 2)) * scale, 0.0)
 	_queue_right_cap.size = Vector2(
-		(PORCELAIN_RIGHT_CAP_SIZE.x + QUEUE_ART_SEAM_OVERLAP) * scale,
+		PORCELAIN_RIGHT_END_SIZE.x * scale,
 		PORCELAIN_SLOT_SIZE.y * scale
 	)
 
@@ -335,8 +343,9 @@ func _layout_portrait() -> void:
 	var safe_area: Array = active_geometry.get("face_safe_area", [92, 104, 328, 400])
 	var source_size: Array = active_geometry.get("source_size", [512, 640])
 	for index in range(_slot_count()):
-		var repeat_origin := origin + Vector2((PORCELAIN_LEFT_CAP_SIZE.x + PORCELAIN_SLOT_SIZE.x * index) * scale, 0.0)
-		var tile_center := repeat_origin + PORCELAIN_TILE_RECT.get_center() * scale
+		var section_origin := origin + Vector2(_portrait_slot_section_x(index) * scale, 0.0)
+		var tile_rect := PORCELAIN_LEFT_TILE_RECT if index == 0 else PORCELAIN_TILE_RECT
+		var tile_center := section_origin + tile_rect.get_center() * scale
 		var slot_rect := Rect2(
 			tile_center - _tile_visual_size * 0.5,
 			_tile_visual_size
@@ -489,13 +498,14 @@ func _layout_bonus_portrait(origin: Vector2, scale_x: float, scale_y: float) -> 
 	if not _bonus_icon.visible and int(_game.call("current_snapshot").tray_bonus_capacity) <= 0:
 		return
 	var bonus_index := clampi(int(_game.definition.tray_capacity()), 0, MAX_SLOT_COUNT - 1)
-	var repeat_origin := origin + Vector2(
-		(PORCELAIN_LEFT_CAP_SIZE.x + PORCELAIN_SLOT_SIZE.x * bonus_index) * scale_x,
+	var section_origin := origin + Vector2(
+		_portrait_slot_section_x(bonus_index) * scale_x,
 		0.0
 	)
-	_bonus_icon.position = repeat_origin + Vector2(5.0 * scale_x, 86.0 * scale_y)
+	var tile_rect := PORCELAIN_LEFT_TILE_RECT if bonus_index == 0 else PORCELAIN_TILE_RECT
+	_bonus_icon.position = section_origin + Vector2((tile_rect.position.x - 1.35) * scale_x, 86.0 * scale_y)
 	_bonus_icon.size = Vector2(17.0 * scale_x, 17.0 * scale_y)
-	_bonus_label.position = repeat_origin + Vector2(20.0 * scale_x, 86.0 * scale_y)
+	_bonus_label.position = _bonus_icon.position + Vector2(15.0 * scale_x, 0.0)
 	_bonus_label.size = Vector2(39.0 * scale_x, 17.0 * scale_y)
 	_bonus_label.add_theme_font_size_override("font_size", maxi(7, roundi(8.0 * minf(scale_x, scale_y))))
 
@@ -526,6 +536,17 @@ func _layout_bonus_vertical(origin: Vector2, scale: float) -> void:
 
 func _portrait_scale(tile_size: Vector2) -> float:
 	return maxf(tile_size.x / PORCELAIN_TILE_RECT.size.x, tile_size.y / PORCELAIN_TILE_RECT.size.y)
+
+
+func _portrait_queue_width() -> float:
+	return PORCELAIN_LEFT_END_SIZE.x + PORCELAIN_RIGHT_END_SIZE.x \
+		+ PORCELAIN_SLOT_SIZE.x * float(_slot_count() - 2)
+
+
+func _portrait_slot_section_x(index: int) -> float:
+	if index == 0:
+		return 0.0
+	return PORCELAIN_LEFT_END_SIZE.x + PORCELAIN_SLOT_SIZE.x * float(index - 1)
 
 
 func _vertical_scale(tile_size: Vector2) -> float:
@@ -563,7 +584,9 @@ func _update_style_visibility() -> void:
 	_queue_left_cap.visible = _portrait_style
 	_queue_right_cap.visible = _portrait_style
 	for index in range(_queue_repeats.size()):
-		_queue_repeats[index].visible = _portrait_style and index < _slot_count()
+		_queue_repeats[index].visible = _portrait_style and (
+			index < _slot_count() if _vertical_style else index < _slot_count() - 2
+		)
 
 
 func _queue_art(texture: Texture2D) -> TextureRect:

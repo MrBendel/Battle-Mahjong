@@ -24,7 +24,7 @@ The approved `bottom-menu-live` runtime package lives under `assets/UI/bottom-ba
 
 Runtime exports include the gameplay background, HUD top scrim, score box, Momentum frame/fill/badge, pause button, and the composable bottom action dock. The background intentionally retains its `941 x 1672` master dimensions because its `48 px` scale-9 margins are authored in that source coordinate space. The `390 x 167` HUD top scrim is the exact Figma vector: a dark top-to-transparent fade that scales to the full portrait viewport width.
 
-The portrait tray is assembled from independently authored porcelain left cap, repeatable recessed well, and right cap textures under `game-assets/ui/tray/porcelain/`. One repeat is rendered for each live capacity slot, supporting two through six slots without stretching a fixed four-slot bitmap. Godot slot controls remain transparent and provide only tile/animation geometry. The untouched source composition lives at `art-source/inspiration/tiles/tile-tray.png`; run `godot --headless --path . --script res://scripts/tools/slice_porcelain_tray.gd` to regenerate source and runtime slices. Landscape retains its dedicated vertical tray artwork. The live tray must render the same tile instances as the Board. The portrait action dock uses separately exported background, ceramic cap, icon, and quantity-plaque artwork so interaction and inventory values remain live.
+The portrait tray is assembled from an authored porcelain left end containing the first recessed well, a repeatable complete middle well, and a right end containing the final well under `game-assets/ui/tray/porcelain/`. A tray renders `capacity - 2` middle wells, supporting two through six slots without stretching a fixed four-slot bitmap or cutting through the curved outer transitions. Godot slot controls remain transparent and provide only tile/animation geometry. The untouched source composition lives at `art-source/inspiration/tiles/tile-tray.png`; run `godot --headless --path . --script res://scripts/tools/slice_porcelain_tray.gd` to regenerate source and runtime slices. Landscape retains its dedicated vertical tray artwork. The live tray must render the same tile instances as the Board. The portrait action dock uses separately exported background, ceramic cap, icon, and quantity-plaque artwork so interaction and inventory values remain live.
 
 Mila Script Sans Regular and Bold TTF files live under `assets/fonts/`. Shared `FontVariation` resources apply `-2 px` glyph spacing without modifying the supplied fonts. Godot uses Regular for values and Bold for headings, multiplier emphasis, tick labels, and action labels. WOFF2 files are retained alongside the supplied artwork package but are not loaded at runtime. No font license document was supplied with these files; redistribution rights must be confirmed before a public release.
 
@@ -37,7 +37,7 @@ Static exported artwork:
 - score-box shell;
 - Momentum frame, fill texture, and multiplier badge;
 - pause button;
-- queue caps and repeatable slot section.
+- queue end wells and repeatable middle-well section.
 
 Runtime UI:
 
@@ -49,7 +49,7 @@ Runtime UI:
 - pause interaction.
 - Hint, Shuffle, Delete, and Undo touch targets and inventory quantities.
 
-The Momentum fill is clipped inside the exported frame and scales horizontally from simulation state. The queue is assembled from a left cap, one repeated section per active capacity, and a mirrored right cap. Cap and repeat exports share a `115 px` source height and render on the same top/bottom edges. Adjacent artwork overlaps by one source pixel while retaining its authored horizontal stride; this prevents bilinear filtering from exposing each transparent crop boundary as a dark vertical seam. The exported repeat artwork owns the complete empty-slot appearance; Godot slot controls remain transparent positioning and animation targets until they contain a live Board tile. The queue supports capacities from two through six while the reference game remains at four.
+The Momentum fill is clipped inside the exported frame and scales horizontally from simulation state. The queue is assembled from left and right end sections that each own one complete well, with one middle section for every additional slot. All three exports share the same source height and render on the same top/bottom edges. Adjacent artwork overlaps slightly while retaining its authored horizontal stride; this prevents bilinear filtering from exposing each transparent crop boundary as a dark vertical seam. The exported pieces own the complete empty-slot appearance; Godot slot controls remain transparent positioning and animation targets until they contain a live Board tile. The queue supports capacities from two through six while the reference game remains at four.
 
 ## Responsive Contract
 

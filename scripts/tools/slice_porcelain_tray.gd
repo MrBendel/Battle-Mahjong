@@ -7,9 +7,9 @@ const RUNTIME_OUTPUT_DIR := "res://game-assets/ui/tray/porcelain"
 const RUNTIME_SCALE := 0.5
 
 const SLICES := {
-	"tray-left.png": Rect2i(282, 180, 35, 477),
+	"tray-left.png": Rect2i(282, 180, 334, 477),
 	"tray-repeat.png": Rect2i(616, 180, 299, 477),
-	"tray-right.png": Rect2i(1513, 180, 32, 477),
+	"tray-right.png": Rect2i(1214, 180, 331, 477),
 }
 
 
