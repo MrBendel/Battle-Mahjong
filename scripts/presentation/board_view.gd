@@ -200,8 +200,20 @@ func suppress_tile(tile_id: String) -> void:
 	refresh()
 
 
+func suppress_tiles(tile_ids: Array[String]) -> void:
+	for tile_id in tile_ids:
+		_suppressed_tile_ids[tile_id] = true
+	refresh()
+
+
 func reveal_tile(tile_id: String) -> void:
 	_suppressed_tile_ids.erase(tile_id)
+	refresh()
+
+
+func reveal_tiles(tile_ids: Array[String]) -> void:
+	for tile_id in tile_ids:
+		_suppressed_tile_ids.erase(tile_id)
 	refresh()
 
 
