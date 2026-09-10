@@ -902,6 +902,9 @@ func _run() -> void:
 		await process_frame
 	if OS.get_cmdline_user_args().has("--hud-reference-capture"):
 		var hud: Control = shell.get("_regions").momentum
+		var capture_counts := {"hint": 3, "shuffle": 2, "delete_pair": 1, "undo": 3}
+		shell.get("_game").get("_state").consumable_counts = capture_counts
+		shell.get("_regions").consumables.call("refresh")
 		hud.get("_score").text = "12,430"
 		hud.get("_score_shadow").text = "12,430"
 		hud.get("_combo").text = "x4"
@@ -1190,31 +1193,49 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 		_check(not board.get("_title_label").visible and not board.get("_status_label").visible, "portrait removes the placeholder Board header to maximize tile space")
 		_check(board.get("_tile_layer").position.y <= 6.01, "portrait tile layout begins near the top of the Board region")
 		var consumables: Control = regions.consumables
-		var bottom_background: NinePatchRect = consumables.get("_portrait_background")
-		_check(not bottom_background.visible and not consumables.get("_background").visible, "portrait removes the full-width ornamental consumables panel")
-		_check_equal(load("res://assets/UI/bottom-bar/bottom-tray-background-export.png"), bottom_background.texture, "portrait uses the supplied bottom bar background")
-		_check_equal(Vector2(2172.0, 724.0), bottom_background.texture.get_size(), "portrait bottom bar retains its authored source dimensions")
-		_check_equal(652, bottom_background.get_patch_margin(SIDE_LEFT), "portrait bottom bar preserves its 30 percent left patch")
-		_check_equal(652, bottom_background.get_patch_margin(SIDE_RIGHT), "portrait bottom bar preserves its 30 percent right patch")
-		_check_equal(362, bottom_background.get_patch_margin(SIDE_TOP), "portrait bottom bar preserves its 50 percent top patch")
-		_check_equal(362, bottom_background.get_patch_margin(SIDE_BOTTOM), "portrait bottom bar preserves its 50 percent bottom patch")
+		var bottom_background: Control = consumables.get("_portrait_background")
+		var tray_shadow: Panel = consumables.get("_portrait_tray_shadow")
+		var background_pieces: Array[TextureRect] = consumables.get("_portrait_background_pieces")
+		_check(bottom_background.visible and not consumables.get("_background").visible, "portrait displays the composable consumables tray")
+		_check(tray_shadow.visible and tray_shadow.position.y > bottom_background.position.y, "portrait consumables tray casts a downward shadow")
+		_check(absf(bottom_background.position.x - (consumables.size.x - bottom_background.position.x - bottom_background.size.x)) <= 0.75, "portrait consumables tray has balanced outer margins")
+		_check_equal(6, background_pieces.size(), "four actions compose two tray caps and four repeat sections")
+		_check_equal(load("res://game-assets/ui/consumables/tray-left.png"), background_pieces.front().texture, "portrait consumables tray uses its supplied left cap")
+		_check_equal(load("res://game-assets/ui/consumables/tray-right.png"), background_pieces.back().texture, "portrait consumables tray uses its supplied right cap")
+		for index in range(1, background_pieces.size() - 1):
+			_check_equal(load("res://game-assets/ui/consumables/tray-repeat.png"), background_pieces[index].texture, "portrait consumables tray repeats one middle section per action")
+			_check(background_pieces[index].position.x <= background_pieces[index - 1].position.x + background_pieces[index - 1].size.x, "portrait consumables tray pieces meet without gaps")
+		_check(background_pieces[-1].position.x <= background_pieces[-2].position.x + background_pieces[-2].size.x, "portrait consumables tray right cap meets its final repeat")
 		var portrait_art: Dictionary = consumables.get("_portrait_art")
 		var expected_icons := {
-			"hint": load("res://assets/UI/bottom-bar/icon-hint.png"),
-			"shuffle": load("res://assets/UI/bottom-bar/icon-shuffle.png"),
-			"delete_pair": load("res://assets/UI/bottom-bar/icon-delete.png"),
-			"undo": load("res://assets/UI/bottom-bar/icon-undo.png"),
+			"hint": load("res://game-assets/ui/consumables/hint.png"),
+			"shuffle": load("res://game-assets/ui/consumables/shuffle.png"),
+			"delete_pair": load("res://game-assets/ui/consumables/delete-pair.png"),
+			"undo": load("res://game-assets/ui/consumables/undo.png"),
 		}
 		for consumable_type in ["hint", "shuffle", "delete_pair", "undo"]:
 			var art: Dictionary = portrait_art[consumable_type]
-			_check(art.root.visible, "portrait displays %s Figma action artwork" % consumable_type)
-			_check_equal(load("res://assets/UI/bottom-bar/tile-cap.png"), art.cap.texture, "portrait %s uses the supplied ceramic cap" % consumable_type)
-			_check_equal(expected_icons[consumable_type], art.icon.texture, "portrait %s uses its exported Figma icon" % consumable_type)
-			_check_equal(load("res://assets/UI/bottom-bar/count-bg.png"), art.number_background.texture, "portrait %s uses the supplied quantity plaque" % consumable_type)
-			var action_font: FontVariation = art.title.get_theme_font("font")
-			_check_equal(load("res://assets/fonts/mila-script-sans-bold.ttf"), action_font.base_font, "portrait %s label uses Mila Script Sans Bold" % consumable_type)
-			_check_equal(-2, action_font.spacing_glyph, "portrait %s label uses tightened glyph spacing" % consumable_type)
+			_check(art.root.visible, "portrait displays %s composable action artwork" % consumable_type)
+			_check_equal(3, art.tile_layers.size(), "portrait %s supports a three-tile inventory stack" % consumable_type)
+			for tile_layer in art.tile_layers:
+				_check_equal(load("res://game-assets/ui/consumables/consumable-tile.png"), tile_layer.texture, "portrait %s stack reuses the supplied ceramic tile" % consumable_type)
+				_check(is_equal_approx(tile_layer.position.x, art.tile_layers.back().position.x), "portrait %s inventory stack rises without horizontal drift" % consumable_type)
+			_check_equal(1, art.tile_layers.filter(func(layer: TextureRect) -> bool: return layer.visible).size(), "single-count portrait %s displays one tile layer" % consumable_type)
+			_check(art.tile_shadow.visible and art.tile_shadow.position.y > art.tile_layers.back().position.y, "portrait %s ceramic tile casts a downward shadow" % consumable_type)
+			_check_equal(expected_icons[consumable_type], art.icon.texture, "portrait %s uses its supplied icon" % consumable_type)
+			_check_equal(load("res://assets/fonts/mila-script-sans-bold-tight.tres"), art.quantity.get_theme_font("font"), "portrait %s count uses the tightened Mila font" % consumable_type)
+			_check(art.quantity.position.x > art.tile_layers.back().position.x + art.tile_layers.back().size.x * 0.65 and art.quantity.position.y > art.tile_layers.back().position.y + art.tile_layers.back().size.y * 0.65, "portrait %s count occupies the tile's lower-right corner" % consumable_type)
 			_check_equal(str(shell.get("_game").call("consumable_count", consumable_type)), art.quantity.text, "portrait %s shows its live quantity" % consumable_type)
+		_check_equal(1, consumables.call("_stack_layer_count", 0), "empty inventory preserves one disabled control tile")
+		_check_equal(1, consumables.call("_stack_layer_count", 1), "one inventory item displays one tile")
+		_check_equal(2, consumables.call("_stack_layer_count", 2), "two inventory items display two tiles")
+		_check_equal(3, consumables.call("_stack_layer_count", 3), "three inventory items display three tiles")
+		_check_equal(3, consumables.call("_stack_layer_count", 12), "large inventory stacks cap at three visual tiles")
+		consumables.call("set_presented_action_types", ["hint"])
+		_check_equal(3, consumables.get("_portrait_background_pieces").size(), "one visible consumable composes two caps and one repeat")
+		_check(consumables.get("_buttons").hint.visible, "single-action consumables tray keeps its requested action visible")
+		_check(not consumables.get("_buttons").shuffle.visible, "single-action consumables tray hides omitted actions")
+		consumables.call("set_presented_action_types", ["hint", "shuffle", "delete_pair", "undo"])
 		var hud_scrim: TextureRect = shell.get("_portrait_hud_scrim")
 		_check(hud_scrim.visible, "portrait displays the exported Figma HUD top scrim")
 		var expected_scrim := _load_test_texture("res://game-assets/ui/portrait/hud_top_scrim.svg")

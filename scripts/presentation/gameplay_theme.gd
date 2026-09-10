@@ -30,13 +30,14 @@ class_name GameplayTheme
 
 @export_group("Controls")
 @export_file("*.png", "*.svg", "*.webp") var pause_button_path := "res://game-assets/ui/shared/pause-button.svg"
-@export_file("*.png", "*.svg", "*.webp") var consumables_background_path := "res://assets/UI/bottom-bar/bottom-tray-background-export.png"
-@export_file("*.png", "*.svg", "*.webp") var consumable_tile_path := "res://assets/UI/bottom-bar/tile-cap.png"
-@export_file("*.png", "*.svg", "*.webp") var consumable_count_path := "res://assets/UI/bottom-bar/count-bg.png"
-@export_file("*.png", "*.svg", "*.webp") var hint_icon_path := "res://assets/UI/bottom-bar/icon-hint.png"
-@export_file("*.png", "*.svg", "*.webp") var shuffle_icon_path := "res://assets/UI/bottom-bar/icon-shuffle.png"
-@export_file("*.png", "*.svg", "*.webp") var delete_pair_icon_path := "res://assets/UI/bottom-bar/icon-delete.png"
-@export_file("*.png", "*.svg", "*.webp") var undo_icon_path := "res://assets/UI/bottom-bar/icon-undo.png"
+@export_file("*.png", "*.svg", "*.webp") var consumables_left_cap_path := "res://game-assets/ui/consumables/tray-left.png"
+@export_file("*.png", "*.svg", "*.webp") var consumables_repeat_path := "res://game-assets/ui/consumables/tray-repeat.png"
+@export_file("*.png", "*.svg", "*.webp") var consumables_right_cap_path := "res://game-assets/ui/consumables/tray-right.png"
+@export_file("*.png", "*.svg", "*.webp") var consumable_tile_path := "res://game-assets/ui/consumables/consumable-tile.png"
+@export_file("*.png", "*.svg", "*.webp") var hint_icon_path := "res://game-assets/ui/consumables/hint.png"
+@export_file("*.png", "*.svg", "*.webp") var shuffle_icon_path := "res://game-assets/ui/consumables/shuffle.png"
+@export_file("*.png", "*.svg", "*.webp") var delete_pair_icon_path := "res://game-assets/ui/consumables/delete-pair.png"
+@export_file("*.png", "*.svg", "*.webp") var undo_icon_path := "res://game-assets/ui/consumables/undo.png"
 
 @export_group("Tiles")
 @export_file("*.json") var tile_skin_manifest_path := "res://game-assets/tiles/default/skin.json"
@@ -80,9 +81,10 @@ func validation_errors() -> Array[String]:
 		"vertical tray repeat": tray_vertical_repeat_path,
 		"tray bonus icon": tray_bonus_icon_path,
 		"Pause button": pause_button_path,
-		"consumables background": consumables_background_path,
+		"consumables left cap": consumables_left_cap_path,
+		"consumables repeat": consumables_repeat_path,
+		"consumables right cap": consumables_right_cap_path,
 		"consumable tile": consumable_tile_path,
-		"consumable count": consumable_count_path,
 		"Hint icon": hint_icon_path,
 		"Shuffle icon": shuffle_icon_path,
 		"Delete Pair icon": delete_pair_icon_path,
