@@ -4,21 +4,15 @@ class_name ConsumablesView
 const PresentationScaleScript := preload("res://scripts/presentation/presentation_scale.gd")
 const GameplayThemeScript := preload("res://scripts/presentation/gameplay_theme.gd")
 const ConsumableButtonScript := preload("res://scripts/presentation/consumable_button.gd")
-const HORIZONTAL_PATCH_RATIO := 0.30
-const VERTICAL_PATCH_RATIO := 0.50
-const PORTRAIT_REFERENCE_SIZE := Vector2(320.0, 100.0)
+const PORTRAIT_REFERENCE_SIZE := Vector2(471.0, 185.0)
 const VERTICAL_REFERENCE_SIZE := Vector2(78.0, 320.0)
-const PORTRAIT_BACKGROUND_RECT := Rect2(0.0, 8.0, 320.0, 84.0)
+const PORTRAIT_BACKGROUND_RECT := Rect2(0.0, 8.0, 471.0, 104.0)
+const PORTRAIT_CAP_WIDTH := 49.0
+const PORTRAIT_ACTION_MARGIN := 20.0
 const PORTRAIT_COMPONENT_Y_OFFSET := 0.0
+const PORTRAIT_TILE_OPTICAL_Y_OFFSET := -16.0
 const PORTRAIT_ACTION_TYPES := ["hint", "shuffle", "delete_pair", "undo"]
-const PORTRAIT_ACTION_X := [8.0, 86.0, 164.0, 242.0]
-const PORTRAIT_LABELS := ["HINT", "Shuffle", "Delete", "Undo"]
-const PORTRAIT_LABEL_RECTS := [
-	Rect2(41.7854, 19.1307, 34.7373, 19.1307),
-	Rect2(113.0220, 19.1307, 56.1334, 19.1307),
-	Rect2(200.3686, 19.1307, 47.0715, 19.1307),
-	Rect2(285.9532, 19.1307, 37.7579, 19.1307),
-]
+const TILE_BASE_THICKNESS_RATIO := 0.135
 
 signal hint_requested
 signal delete_pair_requested
@@ -31,7 +25,10 @@ var _buttons: Dictionary = {}
 var _portrait_art: Dictionary = {}
 var _notice: Label
 var _background: Panel
-var _portrait_background: NinePatchRect
+var _portrait_tray_shadow: Panel
+var _portrait_background: Control
+var _portrait_background_pieces: Array[TextureRect] = []
+var _presented_action_types: Array[String] = ["hint", "shuffle", "delete_pair", "undo"]
 var _title: Label
 var _action_rects: Dictionary = {}
 var _horizontal_dock := false
@@ -55,16 +52,19 @@ func _ready() -> void:
 	style.set_corner_radius_all(8)
 	_background.add_theme_stylebox_override("panel", style)
 	add_child(_background)
-	_portrait_background = NinePatchRect.new()
+	_portrait_tray_shadow = Panel.new()
+	_portrait_tray_shadow.name = "PortraitTrayShadow"
+	_portrait_tray_shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var tray_shadow_style := StyleBoxFlat.new()
+	tray_shadow_style.bg_color = Color(0.0, 0.0, 0.0, 0.01)
+	tray_shadow_style.shadow_color = Color(0.0, 0.0, 0.0, 0.48)
+	tray_shadow_style.shadow_size = 8
+	tray_shadow_style.shadow_offset = Vector2(0.0, 5.0)
+	tray_shadow_style.set_corner_radius_all(22)
+	_portrait_tray_shadow.add_theme_stylebox_override("panel", tray_shadow_style)
+	add_child(_portrait_tray_shadow)
+	_portrait_background = Control.new()
 	_portrait_background.name = "PortraitBackground"
-	_portrait_background.texture = _load_texture(str(_gameplay_theme.consumables_background_path))
-	var background_size := _portrait_background.texture.get_size()
-	_portrait_background.set_patch_margin(SIDE_LEFT, roundi(background_size.x * HORIZONTAL_PATCH_RATIO))
-	_portrait_background.set_patch_margin(SIDE_RIGHT, roundi(background_size.x * HORIZONTAL_PATCH_RATIO))
-	_portrait_background.set_patch_margin(SIDE_TOP, roundi(background_size.y * VERTICAL_PATCH_RATIO))
-	_portrait_background.set_patch_margin(SIDE_BOTTOM, roundi(background_size.y * VERTICAL_PATCH_RATIO))
-	_portrait_background.axis_stretch_horizontal = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
-	_portrait_background.axis_stretch_vertical = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
 	_portrait_background.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_portrait_background)
 	_title = Label.new()
@@ -81,6 +81,7 @@ func _ready() -> void:
 	_add_button("shuffle", "Shuffle", func() -> void: shuffle_requested.emit())
 	_add_button("delete_pair", "Delete Pair", func() -> void: delete_pair_requested.emit())
 	_add_button("undo", "Undo", func() -> void: undo_requested.emit())
+	_rebuild_portrait_background()
 	resized.connect(_layout)
 	refresh()
 	_layout()
@@ -102,6 +103,8 @@ func reset_input_state() -> void:
 	_add_button("shuffle", "Shuffle", func() -> void: shuffle_requested.emit())
 	_add_button("delete_pair", "Delete Pair", func() -> void: delete_pair_requested.emit())
 	_add_button("undo", "Undo", func() -> void: undo_requested.emit())
+	for consumable_type in _buttons:
+		_buttons[consumable_type].visible = _presented_action_types.has(consumable_type)
 	refresh()
 	_layout()
 
@@ -121,7 +124,12 @@ func refresh() -> void:
 			or consumable_type == "undo" and not _game.call("can_undo")
 		var art: Dictionary = _portrait_art[consumable_type]
 		art.quantity.text = str(count)
+		_apply_stack_count(art, count)
 		art.root.modulate = Color(0.48, 0.5, 0.49, 0.78) if button.disabled else Color.WHITE
+
+
+func _stack_layer_count(count: int) -> int:
+	return clampi(count, 1, 3)
 
 
 func show_notice(message: String) -> void:
@@ -137,6 +145,20 @@ func set_action_rects(rects: Dictionary) -> void:
 
 func clear_action_rects() -> void:
 	_action_rects.clear()
+	_layout()
+
+
+func set_presented_action_types(action_types: Array) -> void:
+	var accepted: Array[String] = []
+	for consumable_type in action_types:
+		if _buttons.has(consumable_type) and not accepted.has(consumable_type):
+			accepted.append(consumable_type)
+	if accepted.is_empty():
+		return
+	_presented_action_types = accepted
+	for consumable_type in _buttons:
+		_buttons[consumable_type].visible = _presented_action_types.has(consumable_type)
+	_rebuild_portrait_background()
 	_layout()
 
 
@@ -174,56 +196,77 @@ func _create_portrait_art(button: Button, consumable_type: String) -> Dictionary
 	root.name = "PortraitArt"
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	button.add_child(root)
-	var cap := TextureRect.new()
-	cap.name = "TileCap"
-	cap.texture = _load_texture(str(_gameplay_theme.consumable_tile_path))
-	cap.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	cap.stretch_mode = TextureRect.STRETCH_SCALE
-	cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(cap)
+	var tile_shadow := TextureRect.new()
+	tile_shadow.name = "TileShadow"
+	tile_shadow.texture = _load_texture(str(_gameplay_theme.consumable_tile_path))
+	tile_shadow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	tile_shadow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	tile_shadow.modulate = Color(0.0, 0.0, 0.0, 0.52)
+	tile_shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(tile_shadow)
+	var tile_layers: Array[TextureRect] = []
+	for index in 3:
+		var tile := TextureRect.new()
+		tile.name = "TileLayer%d" % index
+		tile.texture = _load_texture(str(_gameplay_theme.consumable_tile_path))
+		tile.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		tile.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		root.add_child(tile)
+		tile_layers.append(tile)
+	var front_content := Control.new()
+	front_content.name = "TopTileContent"
+	front_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(front_content)
 	var icon := TextureRect.new()
 	icon.name = "Icon"
 	icon.texture = _load_texture(_gameplay_theme.call("consumable_icon_path", consumable_type))
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(icon)
-	var number_background := TextureRect.new()
-	number_background.name = "NumberBackground"
-	number_background.texture = _load_texture(str(_gameplay_theme.consumable_count_path))
-	number_background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	number_background.stretch_mode = TextureRect.STRETCH_SCALE
-	number_background.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(number_background)
-	var title := Label.new()
-	title.name = "Title"
-	title.text = PORTRAIT_LABELS[PORTRAIT_ACTION_TYPES.find(consumable_type)]
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title.add_theme_font_override("font", _load_font(str(_gameplay_theme.bold_font_path)))
-	title.add_theme_font_size_override("font_size", 12)
-	title.add_theme_color_override("font_color", Color("f2dab2"))
-	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(title)
+	front_content.add_child(icon)
 	var quantity := Label.new()
 	quantity.name = "Quantity"
 	quantity.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	quantity.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	quantity.add_theme_font_override("font", _load_font(str(_gameplay_theme.bold_font_path)))
+	quantity.add_theme_font_override("font", _load_font(str(_gameplay_theme.poster_font_path)))
 	quantity.add_theme_font_size_override("font_size", 16)
-	quantity.add_theme_color_override("font_color", Color("151916"))
-	quantity.add_theme_color_override("font_outline_color", Color("fff0cf"))
-	quantity.add_theme_constant_override("outline_size", 2)
+	quantity.add_theme_color_override("font_color", Color("111714"))
+	quantity.add_theme_color_override("font_outline_color", Color("f7e6c7"))
+	quantity.add_theme_constant_override("outline_size", 1)
 	quantity.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(quantity)
+	front_content.add_child(quantity)
 	return {
 		"root": root,
-		"cap": cap,
+		"tile_shadow": tile_shadow,
+		"cap": tile_layers.back(),
+		"tile_layers": tile_layers,
+		"front_content": front_content,
 		"icon": icon,
-		"number_background": number_background,
-		"title": title,
 		"quantity": quantity,
 	}
+
+
+func _add_portrait_background_piece(piece_name: String, asset_path: String) -> void:
+	var piece := TextureRect.new()
+	piece.name = piece_name
+	piece.texture = _load_texture(asset_path)
+	piece.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	piece.stretch_mode = TextureRect.STRETCH_SCALE
+	piece.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_portrait_background.add_child(piece)
+	_portrait_background_pieces.append(piece)
+
+
+func _rebuild_portrait_background() -> void:
+	for piece in _portrait_background_pieces:
+		_portrait_background.remove_child(piece)
+		piece.queue_free()
+	_portrait_background_pieces.clear()
+	_add_portrait_background_piece("LeftCap", str(_gameplay_theme.consumables_left_cap_path))
+	for index in _presented_action_types.size():
+		_add_portrait_background_piece("Repeat%d" % index, str(_gameplay_theme.consumables_repeat_path))
+	_add_portrait_background_piece("RightCap", str(_gameplay_theme.consumables_right_cap_path))
 
 
 func _layout() -> void:
@@ -231,6 +274,7 @@ func _layout() -> void:
 		return
 	if not _action_rects.is_empty():
 		_background.visible = false
+		_portrait_tray_shadow.visible = false
 		_portrait_background.visible = false
 		_title.visible = false
 		_notice.visible = false
@@ -243,6 +287,7 @@ func _layout() -> void:
 		refresh()
 		return
 	_background.visible = not _horizontal_dock
+	_portrait_tray_shadow.visible = false
 	_portrait_background.visible = false
 	if _horizontal_dock:
 		if _vertical_dock:
@@ -279,27 +324,39 @@ func _layout() -> void:
 func _layout_portrait_background() -> void:
 	if size.x <= 0.0 or size.y <= 0.0:
 		return
+	_portrait_background.visible = true
 	var component_scale := PresentationScaleScript.limiting_scale(size, PORTRAIT_REFERENCE_SIZE)
 	var origin := (size - PORTRAIT_REFERENCE_SIZE * component_scale) * 0.5 \
 		+ Vector2(0.0, PORTRAIT_COMPONENT_Y_OFFSET * component_scale)
 	var target_rect := Rect2(origin + PORTRAIT_BACKGROUND_RECT.position * component_scale, PORTRAIT_BACKGROUND_RECT.size * component_scale)
-	var source_size := _portrait_background.texture.get_size()
-	var art_scale := target_rect.size.y / source_size.y
 	_portrait_background.position = target_rect.position
-	_portrait_background.size = Vector2(target_rect.size.x / art_scale, source_size.y)
-	_portrait_background.scale = Vector2.ONE * art_scale
+	_portrait_background.size = target_rect.size
+	_portrait_tray_shadow.visible = true
+	_portrait_tray_shadow.position = target_rect.position + Vector2(4.0, 4.0) * component_scale
+	_portrait_tray_shadow.size = target_rect.size - Vector2(8.0, 8.0) * component_scale
+	var cap_width := PORTRAIT_CAP_WIDTH * component_scale
+	var repeat_width := (target_rect.size.x - cap_width * 2.0) / float(_presented_action_types.size())
+	var piece_x := 0.0
+	for index in _portrait_background_pieces.size():
+		var piece := _portrait_background_pieces[index]
+		var piece_width := cap_width if index == 0 or index == _portrait_background_pieces.size() - 1 else repeat_width
+		var seam_overlap := 0.0 if index == 0 else maxf(1.0, component_scale)
+		piece.position = Vector2(piece_x - seam_overlap, 0.0)
+		piece.size = Vector2(piece_width + seam_overlap, target_rect.size.y)
+		piece_x += piece_width
 
 
 func _layout_portrait_actions() -> void:
 	var component_scale := PresentationScaleScript.limiting_scale(size, PORTRAIT_REFERENCE_SIZE)
 	var origin := (size - PORTRAIT_REFERENCE_SIZE * component_scale) * 0.5 \
 		+ Vector2(0.0, PORTRAIT_COMPONENT_Y_OFFSET * component_scale)
-	for index in PORTRAIT_ACTION_TYPES.size():
-		var consumable_type: String = PORTRAIT_ACTION_TYPES[index]
+	for index in _presented_action_types.size():
+		var consumable_type: String = _presented_action_types[index]
 		var button: Button = _buttons[consumable_type]
-		var action_x: float = PORTRAIT_ACTION_X[index]
-		button.position = origin + Vector2(action_x, 8.0) * component_scale
-		button.size = Vector2(70.0, 84.0) * component_scale
+		var repeat_width := (PORTRAIT_BACKGROUND_RECT.size.x - PORTRAIT_ACTION_MARGIN * 2.0) / float(_presented_action_types.size())
+		var action_x := PORTRAIT_ACTION_MARGIN + repeat_width * float(index)
+		button.position = origin + Vector2(action_x + 1.0, 0.0) * component_scale
+		button.size = Vector2(repeat_width - 2.0, 185.0) * component_scale
 		if button.has_method("set_scale_factor"):
 			button.call("set_scale_factor", component_scale)
 		button.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
@@ -309,18 +366,22 @@ func _layout_portrait_actions() -> void:
 		button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 		var art: Dictionary = _portrait_art[consumable_type]
 		art.root.visible = true
-		art.root.position = -Vector2(action_x, 8.0) * component_scale
-		art.root.size = PORTRAIT_REFERENCE_SIZE * component_scale
-		art.cap.position = Vector2(action_x, 8.0) * component_scale
-		art.cap.size = Vector2(70.0, 78.0) * component_scale
-		var icon_rect := _portrait_icon_rect(index)
-		art.icon.position = icon_rect.position * component_scale
-		art.icon.size = icon_rect.size * component_scale
-		art.number_background.visible = false
-		art.title.visible = false
-		art.quantity.position = Vector2(action_x + 45.0, 58.0) * component_scale
-		art.quantity.size = Vector2(19.0, 20.0) * component_scale
-		art.quantity.add_theme_font_size_override("font_size", maxi(11, roundi(15.0 * component_scale)))
+		art.root.position = Vector2.ZERO
+		art.root.size = button.size
+		var tile_width := minf(117.0, repeat_width - 16.0)
+		var tile_x := (repeat_width - tile_width) * 0.5
+		var tile_height := tile_width * 1.08
+		var tile_y := PORTRAIT_BACKGROUND_RECT.position.y + (PORTRAIT_BACKGROUND_RECT.size.y - tile_height) * 0.5 + PORTRAIT_TILE_OPTICAL_Y_OFFSET
+		var tile_rect := Rect2(Vector2(tile_x, tile_y) * component_scale, Vector2(tile_width, tile_height) * component_scale)
+		_layout_tile_stack(art, tile_rect, component_scale)
+		var icon_size := tile_width * 0.54
+		art.front_content.size = tile_rect.size
+		art.icon.position = Vector2((tile_width - icon_size) * 0.5, 12.0 + (tile_width - icon_size) * 0.15) * component_scale
+		art.icon.size = Vector2.ONE * icon_size * component_scale
+		art.quantity.position = Vector2(tile_width - 35.0, tile_height - 50.0) * component_scale
+		art.quantity.size = Vector2(28.0, 32.0) * component_scale
+		art.quantity.add_theme_font_size_override("font_size", maxi(12, roundi(31.0 * component_scale)))
+		_apply_stack_count(art, _game.call("consumable_count", consumable_type))
 
 
 func _layout_vertical_actions() -> void:
@@ -338,21 +399,33 @@ func _layout_vertical_actions() -> void:
 			button.add_theme_stylebox_override(style_name, StyleBoxEmpty.new())
 		var art: Dictionary = _portrait_art[consumable_type]
 		art.root.visible = true
-		art.root.position = -Vector2(4.0, action_y) * component_scale
-		art.root.size = VERTICAL_REFERENCE_SIZE * component_scale
-		art.cap.position = Vector2(4.0, action_y) * component_scale
-		art.cap.size = Vector2(70.0, 76.0) * component_scale
-		art.icon.position = Vector2(22.0, action_y + 20.0) * component_scale
+		art.root.position = Vector2.ZERO
+		art.root.size = button.size
+		var tile_rect := Rect2(Vector2(4.0, 4.0) * component_scale, Vector2(62.0, 68.0) * component_scale)
+		_layout_tile_stack(art, tile_rect, component_scale)
+		art.front_content.size = tile_rect.size
+		art.icon.position = Vector2(18.0, 16.0) * component_scale
 		art.icon.size = Vector2(34.0, 34.0) * component_scale
-		art.number_background.visible = false
-		art.title.visible = false
-		art.quantity.position = Vector2(49.0, action_y + 53.0) * component_scale
+		art.quantity.position = Vector2(43.0, 47.0) * component_scale
 		art.quantity.size = Vector2(19.0, 20.0) * component_scale
 		art.quantity.add_theme_font_size_override("font_size", maxi(11, roundi(15.0 * component_scale)))
+		_apply_stack_count(art, _game.call("consumable_count", consumable_type))
 
 
-func _portrait_icon_rect(index: int) -> Rect2:
-	return Rect2(PORTRAIT_ACTION_X[index] + 18.0, 24.0, 34.0, 34.0)
+func _layout_tile_stack(art: Dictionary, front_rect: Rect2, component_scale: float) -> void:
+	art.tile_shadow.position = front_rect.position + Vector2(0.0, 7.0) * component_scale
+	art.tile_shadow.size = front_rect.size
+	var layer_rise := front_rect.size.x * TILE_BASE_THICKNESS_RATIO
+	for index in art.tile_layers.size():
+		art.tile_layers[index].position = front_rect.position + Vector2(0.0, -layer_rise * float(index))
+		art.tile_layers[index].size = front_rect.size
+
+
+func _apply_stack_count(art: Dictionary, count: int) -> void:
+	var visible_layers := _stack_layer_count(count)
+	for index in art.tile_layers.size():
+		art.tile_layers[index].visible = index < visible_layers
+	art.front_content.position = art.tile_layers[visible_layers - 1].position
 
 
 func _set_portrait_art_visible(consumable_type: String, visible: bool) -> void:
