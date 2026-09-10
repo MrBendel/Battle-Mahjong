@@ -10,6 +10,7 @@ const PORTRAIT_BACKGROUND_RECT := Rect2(0.0, 8.0, 471.0, 104.0)
 const PORTRAIT_CAP_WIDTH := 49.0
 const PORTRAIT_ACTION_MARGIN := 20.0
 const PORTRAIT_COMPONENT_Y_OFFSET := 0.0
+const PORTRAIT_TILE_OPTICAL_Y_OFFSET := -8.0
 const PORTRAIT_ACTION_TYPES := ["hint", "shuffle", "delete_pair", "undo"]
 const TILE_BASE_THICKNESS_RATIO := 0.135
 
@@ -370,7 +371,7 @@ func _layout_portrait_actions() -> void:
 		var tile_width := minf(117.0, repeat_width - 16.0)
 		var tile_x := (repeat_width - tile_width) * 0.5
 		var tile_height := tile_width * 1.08
-		var tile_y := PORTRAIT_BACKGROUND_RECT.position.y + (PORTRAIT_BACKGROUND_RECT.size.y - tile_height) * 0.5
+		var tile_y := PORTRAIT_BACKGROUND_RECT.position.y + (PORTRAIT_BACKGROUND_RECT.size.y - tile_height) * 0.5 + PORTRAIT_TILE_OPTICAL_Y_OFFSET
 		var tile_rect := Rect2(Vector2(tile_x, tile_y) * component_scale, Vector2(tile_width, tile_height) * component_scale)
 		_layout_tile_stack(art, tile_rect, component_scale)
 		var icon_size := tile_width * 0.54
