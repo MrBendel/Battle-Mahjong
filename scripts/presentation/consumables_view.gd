@@ -228,7 +228,7 @@ func _create_portrait_art(button: Button, consumable_type: String) -> Dictionary
 	quantity.name = "Quantity"
 	quantity.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	quantity.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	quantity.add_theme_font_override("font", _load_font(str(_gameplay_theme.bold_font_path)))
+	quantity.add_theme_font_override("font", _load_font(str(_gameplay_theme.poster_font_path)))
 	quantity.add_theme_font_size_override("font_size", 16)
 	quantity.add_theme_color_override("font_color", Color("111714"))
 	quantity.add_theme_color_override("font_outline_color", Color("f7e6c7"))
