@@ -10,7 +10,7 @@ const PORTRAIT_BACKGROUND_RECT := Rect2(0.0, 8.0, 471.0, 104.0)
 const PORTRAIT_CAP_WIDTH := 49.0
 const PORTRAIT_ACTION_MARGIN := 20.0
 const PORTRAIT_COMPONENT_Y_OFFSET := 0.0
-const PORTRAIT_TILE_OPTICAL_Y_OFFSET := -8.0
+const PORTRAIT_TILE_OPTICAL_Y_OFFSET := -16.0
 const PORTRAIT_ACTION_TYPES := ["hint", "shuffle", "delete_pair", "undo"]
 const TILE_BASE_THICKNESS_RATIO := 0.135
 
@@ -378,7 +378,7 @@ func _layout_portrait_actions() -> void:
 		art.front_content.size = tile_rect.size
 		art.icon.position = Vector2((tile_width - icon_size) * 0.5, 12.0 + (tile_width - icon_size) * 0.15) * component_scale
 		art.icon.size = Vector2.ONE * icon_size * component_scale
-		art.quantity.position = Vector2(tile_width - 40.0, tile_height - 46.0) * component_scale
+		art.quantity.position = Vector2(tile_width - 35.0, tile_height - 50.0) * component_scale
 		art.quantity.size = Vector2(28.0, 32.0) * component_scale
 		art.quantity.add_theme_font_size_override("font_size", maxi(12, roundi(31.0 * component_scale)))
 		_apply_stack_count(art, _game.call("consumable_count", consumable_type))
