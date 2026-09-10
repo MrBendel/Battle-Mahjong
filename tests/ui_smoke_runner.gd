@@ -1222,6 +1222,7 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 				_check(is_equal_approx(tile_layer.position.x, art.tile_layers.front().position.x), "portrait %s inventory stack rises without horizontal drift" % consumable_type)
 			var layer_rise: float = art.tile_layers[0].position.y - art.tile_layers[1].position.y
 			_check(layer_rise >= art.tile_layers[0].size.x * 0.12 and layer_rise <= art.tile_layers[0].size.x * 0.15, "portrait %s stack rises by the ceramic base thickness" % consumable_type)
+			_check(absf(art.tile_layers[0].get_global_rect().get_center().y - bottom_background.get_global_rect().get_center().y) <= 0.75, "portrait %s bottom tile is vertically centered in the tray" % consumable_type)
 			_check_equal(1, art.tile_layers.filter(func(layer: TextureRect) -> bool: return layer.visible).size(), "single-count portrait %s displays one tile layer" % consumable_type)
 			_check(art.tile_shadow.visible and art.tile_shadow.position.y > art.tile_layers.front().position.y, "portrait %s ceramic tile casts a downward shadow" % consumable_type)
 			_check_equal(expected_icons[consumable_type], art.icon.texture, "portrait %s uses its supplied icon" % consumable_type)
