@@ -11,7 +11,7 @@ const PORTRAIT_CAP_WIDTH := 49.0
 const PORTRAIT_ACTION_MARGIN := 20.0
 const PORTRAIT_COMPONENT_Y_OFFSET := 0.0
 const PORTRAIT_ACTION_TYPES := ["hint", "shuffle", "delete_pair", "undo"]
-const PORTRAIT_STACK_OFFSET := Vector2(0.0, -5.0)
+const TILE_BASE_THICKNESS_RATIO := 0.135
 
 signal hint_requested
 signal delete_pair_requested
@@ -413,8 +413,9 @@ func _layout_vertical_actions() -> void:
 func _layout_tile_stack(art: Dictionary, front_rect: Rect2, component_scale: float) -> void:
 	art.tile_shadow.position = front_rect.position + Vector2(0.0, 7.0) * component_scale
 	art.tile_shadow.size = front_rect.size
+	var layer_rise := front_rect.size.x * TILE_BASE_THICKNESS_RATIO
 	for index in art.tile_layers.size():
-		art.tile_layers[index].position = front_rect.position + PORTRAIT_STACK_OFFSET * float(index) * component_scale
+		art.tile_layers[index].position = front_rect.position + Vector2(0.0, -layer_rise * float(index))
 		art.tile_layers[index].size = front_rect.size
 
 
