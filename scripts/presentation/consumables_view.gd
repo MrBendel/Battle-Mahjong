@@ -4,11 +4,11 @@ class_name ConsumablesView
 const PresentationScaleScript := preload("res://scripts/presentation/presentation_scale.gd")
 const GameplayThemeScript := preload("res://scripts/presentation/gameplay_theme.gd")
 const ConsumableButtonScript := preload("res://scripts/presentation/consumable_button.gd")
-const PORTRAIT_REFERENCE_SIZE := Vector2(400.0, 120.0)
+const PORTRAIT_REFERENCE_SIZE := Vector2(471.0, 185.0)
 const VERTICAL_REFERENCE_SIZE := Vector2(78.0, 320.0)
-const PORTRAIT_BACKGROUND_RECT := Rect2(0.0, 8.0, 400.0, 104.0)
+const PORTRAIT_BACKGROUND_RECT := Rect2(0.0, 0.0, 471.0, 185.0)
 const PORTRAIT_CAP_WIDTH := 36.0
-const PORTRAIT_ACTION_MARGIN := 12.0
+const PORTRAIT_ACTION_MARGIN := 20.0
 const PORTRAIT_COMPONENT_Y_OFFSET := 0.0
 const PORTRAIT_ACTION_TYPES := ["hint", "shuffle", "delete_pair", "undo"]
 const PORTRAIT_STACK_OFFSET := Vector2(0.0, -5.0)
@@ -123,9 +123,7 @@ func refresh() -> void:
 			or consumable_type == "undo" and not _game.call("can_undo")
 		var art: Dictionary = _portrait_art[consumable_type]
 		art.quantity.text = str(count)
-		var visible_layers := _stack_layer_count(count)
-		for index in art.tile_layers.size():
-			art.tile_layers[index].visible = index >= art.tile_layers.size() - visible_layers
+		_apply_stack_count(art, count)
 		art.root.modulate = Color(0.48, 0.5, 0.49, 0.78) if button.disabled else Color.WHITE
 
 
@@ -240,6 +238,9 @@ func _create_portrait_art(button: Button, consumable_type: String) -> Dictionary
 		"tile_layers": tile_layers,
 		"icon": icon,
 		"quantity": quantity,
+		"icon_base_position": Vector2.ZERO,
+		"quantity_base_position": Vector2.ZERO,
+		"stack_scale": 1.0,
 	}
 
 
@@ -351,8 +352,8 @@ func _layout_portrait_actions() -> void:
 		var button: Button = _buttons[consumable_type]
 		var repeat_width := (PORTRAIT_BACKGROUND_RECT.size.x - PORTRAIT_ACTION_MARGIN * 2.0) / float(_presented_action_types.size())
 		var action_x := PORTRAIT_ACTION_MARGIN + repeat_width * float(index)
-		button.position = origin + Vector2(action_x, 8.0) * component_scale
-		button.size = Vector2(repeat_width, 84.0) * component_scale
+		button.position = origin + Vector2(action_x + 1.0, 0.0) * component_scale
+		button.size = Vector2(repeat_width - 2.0, 185.0) * component_scale
 		if button.has_method("set_scale_factor"):
 			button.call("set_scale_factor", component_scale)
 		button.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
@@ -364,15 +365,21 @@ func _layout_portrait_actions() -> void:
 		art.root.visible = true
 		art.root.position = Vector2.ZERO
 		art.root.size = button.size
-		var tile_width := minf(76.0, repeat_width - 4.0)
+		var tile_width := minf(117.0, repeat_width - 16.0)
 		var tile_x := (repeat_width - tile_width) * 0.5
-		var tile_rect := Rect2(Vector2(tile_x, 17.0) * component_scale, Vector2(tile_width, 82.0) * component_scale)
+		var tile_height := tile_width * 1.08
+		var tile_rect := Rect2(Vector2(tile_x, 18.0) * component_scale, Vector2(tile_width, tile_height) * component_scale)
 		_layout_tile_stack(art, tile_rect, component_scale)
-		art.icon.position = Vector2(tile_x + (tile_width - 43.0) * 0.5, 33.0) * component_scale
-		art.icon.size = Vector2(43.0, 43.0) * component_scale
-		art.quantity.position = Vector2(tile_x + tile_width - 24.0, 73.0) * component_scale
-		art.quantity.size = Vector2(20.0, 22.0) * component_scale
-		art.quantity.add_theme_font_size_override("font_size", maxi(12, roundi(17.0 * component_scale)))
+		var icon_size := tile_width * 0.54
+		art.icon_base_position = Vector2(tile_x + (tile_width - icon_size) * 0.5, 30.0 + (tile_width - icon_size) * 0.15) * component_scale
+		art.icon.position = art.icon_base_position
+		art.icon.size = Vector2.ONE * icon_size * component_scale
+		art.quantity_base_position = Vector2(tile_x + tile_width - 34.0, 18.0 + tile_height - 38.0) * component_scale
+		art.quantity.position = art.quantity_base_position
+		art.quantity.size = Vector2(28.0, 32.0) * component_scale
+		art.quantity.add_theme_font_size_override("font_size", maxi(12, roundi(31.0 * component_scale)))
+		art.stack_scale = component_scale
+		_apply_stack_count(art, _game.call("consumable_count", consumable_type))
 
 
 func _layout_vertical_actions() -> void:
@@ -394,19 +401,31 @@ func _layout_vertical_actions() -> void:
 		art.root.size = button.size
 		_layout_tile_stack(art, Rect2(Vector2(4.0, 4.0) * component_scale, Vector2(62.0, 68.0) * component_scale), component_scale)
 		art.icon.position = Vector2(22.0, 20.0) * component_scale
+		art.icon_base_position = art.icon.position
 		art.icon.size = Vector2(34.0, 34.0) * component_scale
 		art.quantity.position = Vector2(47.0, 51.0) * component_scale
+		art.quantity_base_position = art.quantity.position
 		art.quantity.size = Vector2(19.0, 20.0) * component_scale
 		art.quantity.add_theme_font_size_override("font_size", maxi(11, roundi(15.0 * component_scale)))
+		art.stack_scale = component_scale
+		_apply_stack_count(art, _game.call("consumable_count", consumable_type))
 
 
 func _layout_tile_stack(art: Dictionary, front_rect: Rect2, component_scale: float) -> void:
 	art.tile_shadow.position = front_rect.position + Vector2(0.0, 7.0) * component_scale
 	art.tile_shadow.size = front_rect.size
 	for index in art.tile_layers.size():
-		var depth := float(art.tile_layers.size() - 1 - index)
-		art.tile_layers[index].position = front_rect.position + PORTRAIT_STACK_OFFSET * depth * component_scale
+		art.tile_layers[index].position = front_rect.position + PORTRAIT_STACK_OFFSET * float(index) * component_scale
 		art.tile_layers[index].size = front_rect.size
+
+
+func _apply_stack_count(art: Dictionary, count: int) -> void:
+	var visible_layers := _stack_layer_count(count)
+	for index in art.tile_layers.size():
+		art.tile_layers[index].visible = index < visible_layers
+	var top_offset := PORTRAIT_STACK_OFFSET * float(visible_layers - 1) * float(art.stack_scale)
+	art.icon.position = Vector2(art.icon_base_position) + top_offset
+	art.quantity.position = Vector2(art.quantity_base_position) + top_offset
 
 
 func _set_portrait_art_visible(consumable_type: String, visible: bool) -> void:
