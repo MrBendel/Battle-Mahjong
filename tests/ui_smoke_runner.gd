@@ -1223,8 +1223,9 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 			_check_equal(1, art.tile_layers.filter(func(layer: TextureRect) -> bool: return layer.visible).size(), "single-count portrait %s displays one tile layer" % consumable_type)
 			_check(art.tile_shadow.visible and art.tile_shadow.position.y > art.tile_layers.front().position.y, "portrait %s ceramic tile casts a downward shadow" % consumable_type)
 			_check_equal(expected_icons[consumable_type], art.icon.texture, "portrait %s uses its supplied icon" % consumable_type)
+			_check(art.quantity.get_parent() == art.front_content and art.front_content.position == art.tile_layers.front().position, "portrait %s count belongs to the top visible tile" % consumable_type)
 			_check_equal(load("res://assets/fonts/mila-script-sans-bold-tight.tres"), art.quantity.get_theme_font("font"), "portrait %s count uses the tightened Mila font" % consumable_type)
-			var quantity_center: Vector2 = art.quantity.position + art.quantity.size * 0.5
+			var quantity_center: Vector2 = art.front_content.position + art.quantity.position + art.quantity.size * 0.5
 			_check(quantity_center.x > art.tile_layers.front().position.x + art.tile_layers.front().size.x * 0.65 and quantity_center.y > art.tile_layers.front().position.y + art.tile_layers.front().size.y * 0.65, "portrait %s count occupies the tile's lower-right corner" % consumable_type)
 			_check_equal(str(shell.get("_game").call("consumable_count", consumable_type)), art.quantity.text, "portrait %s shows its live quantity" % consumable_type)
 		_check_equal(1, consumables.call("_stack_layer_count", 0), "empty inventory preserves one disabled control tile")

@@ -6,8 +6,8 @@ const GameplayThemeScript := preload("res://scripts/presentation/gameplay_theme.
 const ConsumableButtonScript := preload("res://scripts/presentation/consumable_button.gd")
 const PORTRAIT_REFERENCE_SIZE := Vector2(471.0, 185.0)
 const VERTICAL_REFERENCE_SIZE := Vector2(78.0, 320.0)
-const PORTRAIT_BACKGROUND_RECT := Rect2(0.0, 0.0, 471.0, 185.0)
-const PORTRAIT_CAP_WIDTH := 36.0
+const PORTRAIT_BACKGROUND_RECT := Rect2(0.0, 8.0, 471.0, 104.0)
+const PORTRAIT_CAP_WIDTH := 49.0
 const PORTRAIT_ACTION_MARGIN := 20.0
 const PORTRAIT_COMPONENT_Y_OFFSET := 0.0
 const PORTRAIT_ACTION_TYPES := ["hint", "shuffle", "delete_pair", "undo"]
@@ -213,13 +213,17 @@ func _create_portrait_art(button: Button, consumable_type: String) -> Dictionary
 		tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		root.add_child(tile)
 		tile_layers.append(tile)
+	var front_content := Control.new()
+	front_content.name = "TopTileContent"
+	front_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(front_content)
 	var icon := TextureRect.new()
 	icon.name = "Icon"
 	icon.texture = _load_texture(_gameplay_theme.call("consumable_icon_path", consumable_type))
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(icon)
+	front_content.add_child(icon)
 	var quantity := Label.new()
 	quantity.name = "Quantity"
 	quantity.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -230,17 +234,15 @@ func _create_portrait_art(button: Button, consumable_type: String) -> Dictionary
 	quantity.add_theme_color_override("font_outline_color", Color("f7e6c7"))
 	quantity.add_theme_constant_override("outline_size", 1)
 	quantity.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(quantity)
+	front_content.add_child(quantity)
 	return {
 		"root": root,
 		"tile_shadow": tile_shadow,
 		"cap": tile_layers.back(),
 		"tile_layers": tile_layers,
+		"front_content": front_content,
 		"icon": icon,
 		"quantity": quantity,
-		"icon_base_position": Vector2.ZERO,
-		"quantity_base_position": Vector2.ZERO,
-		"stack_scale": 1.0,
 	}
 
 
@@ -371,14 +373,12 @@ func _layout_portrait_actions() -> void:
 		var tile_rect := Rect2(Vector2(tile_x, 18.0) * component_scale, Vector2(tile_width, tile_height) * component_scale)
 		_layout_tile_stack(art, tile_rect, component_scale)
 		var icon_size := tile_width * 0.54
-		art.icon_base_position = Vector2(tile_x + (tile_width - icon_size) * 0.5, 30.0 + (tile_width - icon_size) * 0.15) * component_scale
-		art.icon.position = art.icon_base_position
+		art.front_content.size = tile_rect.size
+		art.icon.position = Vector2((tile_width - icon_size) * 0.5, 12.0 + (tile_width - icon_size) * 0.15) * component_scale
 		art.icon.size = Vector2.ONE * icon_size * component_scale
-		art.quantity_base_position = Vector2(tile_x + tile_width - 34.0, 18.0 + tile_height - 38.0) * component_scale
-		art.quantity.position = art.quantity_base_position
+		art.quantity.position = Vector2(tile_width - 40.0, tile_height - 46.0) * component_scale
 		art.quantity.size = Vector2(28.0, 32.0) * component_scale
 		art.quantity.add_theme_font_size_override("font_size", maxi(12, roundi(31.0 * component_scale)))
-		art.stack_scale = component_scale
 		_apply_stack_count(art, _game.call("consumable_count", consumable_type))
 
 
@@ -399,15 +399,14 @@ func _layout_vertical_actions() -> void:
 		art.root.visible = true
 		art.root.position = Vector2.ZERO
 		art.root.size = button.size
-		_layout_tile_stack(art, Rect2(Vector2(4.0, 4.0) * component_scale, Vector2(62.0, 68.0) * component_scale), component_scale)
-		art.icon.position = Vector2(22.0, 20.0) * component_scale
-		art.icon_base_position = art.icon.position
+		var tile_rect := Rect2(Vector2(4.0, 4.0) * component_scale, Vector2(62.0, 68.0) * component_scale)
+		_layout_tile_stack(art, tile_rect, component_scale)
+		art.front_content.size = tile_rect.size
+		art.icon.position = Vector2(18.0, 16.0) * component_scale
 		art.icon.size = Vector2(34.0, 34.0) * component_scale
-		art.quantity.position = Vector2(47.0, 51.0) * component_scale
-		art.quantity_base_position = art.quantity.position
+		art.quantity.position = Vector2(43.0, 47.0) * component_scale
 		art.quantity.size = Vector2(19.0, 20.0) * component_scale
 		art.quantity.add_theme_font_size_override("font_size", maxi(11, roundi(15.0 * component_scale)))
-		art.stack_scale = component_scale
 		_apply_stack_count(art, _game.call("consumable_count", consumable_type))
 
 
@@ -423,9 +422,7 @@ func _apply_stack_count(art: Dictionary, count: int) -> void:
 	var visible_layers := _stack_layer_count(count)
 	for index in art.tile_layers.size():
 		art.tile_layers[index].visible = index < visible_layers
-	var top_offset := PORTRAIT_STACK_OFFSET * float(visible_layers - 1) * float(art.stack_scale)
-	art.icon.position = Vector2(art.icon_base_position) + top_offset
-	art.quantity.position = Vector2(art.quantity_base_position) + top_offset
+	art.front_content.position = art.tile_layers[visible_layers - 1].position
 
 
 func _set_portrait_art_visible(consumable_type: String, visible: bool) -> void:
