@@ -902,7 +902,7 @@ func _run() -> void:
 		await process_frame
 	if OS.get_cmdline_user_args().has("--hud-reference-capture"):
 		var hud: Control = shell.get("_regions").momentum
-		var capture_counts := {"hint": 3, "shuffle": 2, "delete_pair": 1, "undo": 3}
+		var capture_counts := {"hint": 3, "shuffle": 2, "delete_pair": 1, "undo": 5}
 		shell.get("_game").get("_state").consumable_counts = capture_counts
 		shell.get("_regions").consumables.call("refresh")
 		hud.get("_score").text = "12,430"
@@ -1213,6 +1213,7 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 			"delete_pair": load("res://game-assets/ui/consumables/delete-pair.png"),
 			"undo": load("res://game-assets/ui/consumables/undo.png"),
 		}
+		var expected_stack_layers := {"hint": 3, "shuffle": 2, "delete_pair": 1, "undo": 3}
 		for consumable_type in ["hint", "shuffle", "delete_pair", "undo"]:
 			var art: Dictionary = portrait_art[consumable_type]
 			_check(art.root.visible, "portrait displays %s composable action artwork" % consumable_type)
@@ -1224,13 +1225,14 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 			_check(layer_rise >= art.tile_layers[0].size.x * 0.12 and layer_rise <= art.tile_layers[0].size.x * 0.15, "portrait %s stack rises by the ceramic base thickness" % consumable_type)
 			var tile_center_lift: float = bottom_background.get_global_rect().get_center().y - art.tile_layers[0].get_global_rect().get_center().y
 			_check(tile_center_lift > art.tile_layers[0].size.x * 0.15 and tile_center_lift < art.tile_layers[0].size.x * 0.2, "portrait %s bottom tile receives the approved upward optical correction" % consumable_type)
-			_check_equal(1, art.tile_layers.filter(func(layer: TextureRect) -> bool: return layer.visible).size(), "single-count portrait %s displays one tile layer" % consumable_type)
+			_check_equal(expected_stack_layers[consumable_type], art.tile_layers.filter(func(layer: TextureRect) -> bool: return layer.visible).size(), "portrait %s stack reflects its starter quantity" % consumable_type)
 			_check(art.tile_shadow.visible and art.tile_shadow.position.y > art.tile_layers.front().position.y, "portrait %s ceramic tile casts a downward shadow" % consumable_type)
 			_check_equal(expected_icons[consumable_type], art.icon.texture, "portrait %s uses its supplied icon" % consumable_type)
-			_check(art.quantity.get_parent() == art.front_content and art.front_content.position == art.tile_layers.front().position, "portrait %s count belongs to the top visible tile" % consumable_type)
+			var top_tile: TextureRect = art.tile_layers[expected_stack_layers[consumable_type] - 1]
+			_check(art.quantity.get_parent() == art.front_content and art.front_content.position == top_tile.position, "portrait %s count belongs to the top visible tile" % consumable_type)
 			_check_equal(load("res://assets/fonts/battle-mahjong-poster-script.tres"), art.quantity.get_theme_font("font"), "portrait %s count uses the scorebox Poster Script font" % consumable_type)
 			var quantity_center: Vector2 = art.front_content.position + art.quantity.position + art.quantity.size * 0.5
-			_check(quantity_center.x > art.tile_layers.front().position.x + art.tile_layers.front().size.x * 0.65 and quantity_center.y > art.tile_layers.front().position.y + art.tile_layers.front().size.y * 0.65, "portrait %s count occupies the tile's lower-right corner" % consumable_type)
+			_check(quantity_center.x > top_tile.position.x + top_tile.size.x * 0.65 and quantity_center.y > top_tile.position.y + top_tile.size.y * 0.65, "portrait %s count occupies the tile's lower-right corner" % consumable_type)
 			_check_equal(str(shell.get("_game").call("consumable_count", consumable_type)), art.quantity.text, "portrait %s shows its live quantity" % consumable_type)
 		_check_equal(1, consumables.call("_stack_layer_count", 0), "empty inventory preserves one disabled control tile")
 		_check_equal(1, consumables.call("_stack_layer_count", 1), "one inventory item displays one tile")

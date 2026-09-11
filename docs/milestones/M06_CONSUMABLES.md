@@ -6,7 +6,7 @@ Add deliberate, limited-use recovery tools without weakening deterministic simul
 
 ## Run Inventory
 
-`GameDefinition` snapshots integer quantities for Hint, Undo, Delete Pair, and Shuffle. The reference game starts with one of each so the playable shell exposes the complete M6 slice. `GameStateData` owns the remaining quantities, and every successful use records the complete before/after inventory in its transaction.
+`GameDefinition` snapshots integer quantities for Hint, Undo, Delete Pair, and Shuffle. The current reference game starts with three Hints, five Undos, one Delete Pair, and two Shuffles so the playable shell exposes the complete M6 slice with useful playtest quantities. The Delete Pair action currently uses the bomb-style bottom-bar icon; it remains distinct from the tile-attached Bomb modifier. `GameStateData` owns the remaining quantities, and every successful use records the complete before/after inventory in its transaction.
 
 M6 does not implement accounts, persistent ownership, rewards, purchases, or profile progression. A later profile system supplies the run snapshot when creating the definition.
 

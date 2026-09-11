@@ -447,7 +447,7 @@ func _run_tray_and_game_tests() -> void:
 	_check(not barrier_game.call("can_undo"), "resolved pair clears prior Undo eligibility")
 	_check_equal(GameStateScript.NOTHING_TO_UNDO, barrier_game.call("undo_last_unmatched"), "Undo cannot cross a resolved pair")
 	_check_equal(barrier_revision, barrier_game.revision, "blocked Undo appends no transaction")
-	_check_equal(1, barrier_game.call("consumable_count", "undo"), "blocked Undo consumes no charge")
+	_check_equal(5, barrier_game.call("consumable_count", "undo"), "blocked Undo consumes no charge")
 	_check_equal(["held_before_pair"], _tile_ids(barrier_game.tray.tiles), "tile selected before pair remains in tray")
 	barrier_game.call("select_tile", "selected_after_pair")
 	_check(barrier_game.call("can_undo"), "new unmatched selection establishes fresh Undo eligibility")
@@ -1600,7 +1600,7 @@ func _run_consumable_tests() -> void:
 		).valid,
 		"runtime Shuffle verifier rejects a duplicate and incomplete route"
 	)
-	_check_equal({"hint": 1, "undo": 1, "delete_pair": 1, "shuffle": 1}, definition.consumable_inventory, "new run snapshots starter consumable quantities")
+	_check_equal({"hint": 3, "undo": 5, "delete_pair": 1, "shuffle": 2}, definition.consumable_inventory, "new run snapshots starter consumable quantities")
 	var parsed: Variant = GameDefinitionScript.from_dict(JSON.parse_string(JSON.stringify(definition.to_dict())))
 	_check_equal(definition.consumable_inventory, parsed.consumable_inventory, "consumable inventory round-trips with definition")
 	_check_equal(definition.definition_hash(), parsed.definition_hash(), "consumables participate in replay definition identity")
@@ -1609,8 +1609,8 @@ func _run_consumable_tests() -> void:
 	hint_game.call("select_tile", "a_1")
 	_check_equal(GameStateScript.HINTED, hint_game.call("request_hint"), "Hint finds a selectable mate for a tray tile first")
 	_check_equal(["a_1", "a_2"], hint_game.call("hinted_tile_ids"), "Hint records the tray-to-board suggestion deterministically")
-	_check_equal(0, hint_game.call("consumable_count", "hint"), "successful Hint consumes exactly one Hint")
-	_check_equal(1, hint_game.call("consumable_count", "undo"), "Hint never consumes Undo")
+	_check_equal(2, hint_game.call("consumable_count", "hint"), "successful Hint consumes exactly one Hint")
+	_check_equal(5, hint_game.call("consumable_count", "undo"), "Hint never consumes Undo")
 	hint_game.call("select_tile", "a_2")
 	_check(hint_game.call("hinted_tile_ids").is_empty(), "next accepted action clears the transient Hint")
 
@@ -1623,8 +1623,8 @@ func _run_consumable_tests() -> void:
 	var revision_before_hint: int = no_pair_game.revision
 	_check_equal(GameStateScript.NO_HINT_AVAILABLE, no_pair_game.call("request_hint"), "Hint reports when no available pair exists")
 	_check_equal(revision_before_hint, no_pair_game.revision, "failed Hint records no transaction")
-	_check_equal(1, no_pair_game.call("consumable_count", "hint"), "failed Hint consumes no Hint")
-	_check_equal(1, no_pair_game.call("consumable_count", "undo"), "failed Hint consumes no Undo")
+	_check_equal(3, no_pair_game.call("consumable_count", "hint"), "failed Hint consumes no Hint")
+	_check_equal(5, no_pair_game.call("consumable_count", "undo"), "failed Hint consumes no Undo")
 
 	var delete_game := GameStateScript.new(definition)
 	delete_game.call("select_tile", "a_1")
@@ -1639,7 +1639,7 @@ func _run_consumable_tests() -> void:
 	_check(not delete_game.call("can_undo"), "Delete Pair clears prior Undo eligibility")
 	_check_equal(GameStateScript.NOTHING_TO_UNDO, delete_game.call("undo_last_unmatched"), "Undo cannot cross a Delete Pair transaction")
 	_check_equal(revision_after_delete, delete_game.revision, "Undo blocked by Delete Pair appends no transaction")
-	_check_equal(1, delete_game.call("consumable_count", "undo"), "Undo blocked by Delete Pair consumes no charge")
+	_check_equal(5, delete_game.call("consumable_count", "undo"), "Undo blocked by Delete Pair consumes no charge")
 	_check_equal(["a_1"], _tile_ids(delete_game.tray.tiles), "Delete Pair leaves the committed tray tile in place")
 
 	var obstructed_face := TileFaceScript.new("consumable", "obstructed")
@@ -1679,7 +1679,7 @@ func _run_consumable_tests() -> void:
 	_check_equal(3, tray_before.size(), "Shuffle scenario starts with an almost-full tray")
 	_check_equal(GameStateScript.SHUFFLED, shuffle_game.call("shuffle"), "Shuffle works with three unresolved tray tiles")
 	_check_equal(tray_before, shuffle_game.call("current_snapshot").tray_tile_ids, "Shuffle preserves tray contents and order")
-	_check_equal(0, shuffle_game.call("consumable_count", "shuffle"), "successful Shuffle consumes exactly one charge")
+	_check_equal(1, shuffle_game.call("consumable_count", "shuffle"), "successful Shuffle consumes exactly one charge")
 	_check(shuffle_game.call("current_snapshot").rng_state != definition.seed, "Shuffle advances deterministic RNG state")
 	var repeat_game := GameStateScript.new(definition)
 	for tile_id in ["a_1", "b_1", "c_1"]:
@@ -1693,9 +1693,10 @@ func _run_consumable_tests() -> void:
 	_check_equal(GameStateScript.SHUFFLED, two_tile_tray_game.call("shuffle"), "Shuffle also works with two unresolved tray tiles")
 
 	var undo_game := GameStateScript.new(definition)
-	undo_game.call("select_tile", "a_1")
-	undo_game.call("undo_last_unmatched")
-	_check_equal(0, undo_game.call("consumable_count", "undo"), "successful Undo consumes its own charge")
+	for expected_remaining in range(4, -1, -1):
+		undo_game.call("select_tile", "a_1")
+		_check_equal(GameStateScript.UNDONE, undo_game.call("undo_last_unmatched"), "available Undo returns the unmatched tile")
+		_check_equal(expected_remaining, undo_game.call("consumable_count", "undo"), "successful Undo consumes exactly one charge")
 	undo_game.call("select_tile", "a_1")
 	_check_equal(GameStateScript.CONSUMABLE_UNAVAILABLE, undo_game.call("undo_last_unmatched"), "Undo rejects when its run quantity is exhausted")
 

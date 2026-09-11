@@ -8,7 +8,7 @@ const TYPES := [HINT, UNDO, DELETE_PAIR, SHUFFLE]
 
 
 static func starter() -> Dictionary:
-	return {HINT: 1, UNDO: 1, DELETE_PAIR: 1, SHUFFLE: 1}
+	return {HINT: 3, UNDO: 5, DELETE_PAIR: 1, SHUFFLE: 2}
 
 
 static func normalize(inventory: Dictionary) -> Dictionary:
