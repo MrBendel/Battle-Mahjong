@@ -45,7 +45,7 @@ func _test_clean_tap() -> void:
 	var pressed_count := [0]
 	btn.pressed.connect(func() -> void: pressed_count[0] += 1)
 
-	var touch_pos := btn.global_position + Vector2(40, 40)
+	var touch_pos := Vector2(40, 40)
 
 	# Touch down
 	var down := InputEventScreenTouch.new()
@@ -73,7 +73,7 @@ func _test_swipe_up_cancelled() -> void:
 	var pressed_count := [0]
 	btn.pressed.connect(func() -> void: pressed_count[0] += 1)
 
-	var start_pos := btn.global_position + Vector2(40, 50)
+	var start_pos := Vector2(40, 50)
 
 	# Touch down
 	var down := InputEventScreenTouch.new()
@@ -109,7 +109,7 @@ func _test_bottom_viewport_edge_rejected() -> void:
 	btn.pressed.connect(func() -> void: pressed_count[0] += 1)
 
 	# Touch down in bottom margin zone (within 28px of 1280, e.g. 1265)
-	var edge_pos := Vector2(140, 1268)
+	var edge_pos := Vector2(40, 68)
 	var down := InputEventScreenTouch.new()
 	down.index = 0
 	down.position = edge_pos
@@ -136,7 +136,7 @@ func _test_bottom_button_edge_rejected() -> void:
 	btn.pressed.connect(func() -> void: pressed_count[0] += 1)
 
 	# Touch down at local y = 106 (within 10px of button bottom 110)
-	var edge_pos := btn.global_position + Vector2(40, 106)
+	var edge_pos := Vector2(40, 106)
 	var down := InputEventScreenTouch.new()
 	down.index = 0
 	down.position = edge_pos
@@ -161,7 +161,7 @@ func _test_drag_slop_exceeded_cancelled() -> void:
 	var pressed_count := [0]
 	btn.pressed.connect(func() -> void: pressed_count[0] += 1)
 
-	var start_pos := btn.global_position + Vector2(40, 40)
+	var start_pos := Vector2(40, 40)
 	var down := InputEventScreenTouch.new()
 	down.index = 0
 	down.position = start_pos
@@ -192,7 +192,7 @@ func _test_touch_canceled_event() -> void:
 	var pressed_count := [0]
 	btn.pressed.connect(func() -> void: pressed_count[0] += 1)
 
-	var start_pos := btn.global_position + Vector2(40, 40)
+	var start_pos := Vector2(40, 40)
 	var down := InputEventScreenTouch.new()
 	down.index = 0
 	down.position = start_pos
@@ -221,13 +221,13 @@ func _test_off_screen_drag_entry_ignored() -> void:
 	# A drag event arrives without a down event on this button (off-screen swipe entered)
 	var drag := InputEventScreenDrag.new()
 	drag.index = 0
-	drag.position = btn.global_position + Vector2(40, 40)
+	drag.position = Vector2(40, 40)
 	btn._gui_input(drag)
 
 	# Followed by a release
 	var up := InputEventScreenTouch.new()
 	up.index = 0
-	up.position = btn.global_position + Vector2(40, 40)
+	up.position = Vector2(40, 40)
 	up.pressed = false
 	btn._gui_input(up)
 
@@ -241,7 +241,7 @@ func _test_disarm_resets_state() -> void:
 	var pressed_count := [0]
 	btn.pressed.connect(func() -> void: pressed_count[0] += 1)
 
-	var start_pos := btn.global_position + Vector2(40, 40)
+	var start_pos := Vector2(40, 40)
 	var down := InputEventScreenTouch.new()
 	down.index = 0
 	down.position = start_pos

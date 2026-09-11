@@ -60,3 +60,5 @@ Board tiles overlap visually, so their scene-tree sibling order must follow the 
 ## Input Boundary
 
 This composition improves thumb reach and spatial predictability for mobile and future controller navigation. It does not itself implement gamepad tile navigation, focus graphs, or console platform integration; those remain separate input work.
+
+Godot delivers touch and drag positions to `Control._gui_input()` in that control's local coordinate space. Custom mobile controls convert those local positions through their global transform exactly once before applying viewport-edge checks; treating them as viewport coordinates breaks release hit-testing on translated phone layouts.

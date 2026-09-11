@@ -77,8 +77,10 @@ func _get_event_coords(event: InputEvent) -> Dictionary:
 	var global_pos := Vector2.ZERO
 	var local_pos := Vector2.ZERO
 	if event is InputEventScreenTouch or event is InputEventScreenDrag:
-		global_pos = event.position
-		local_pos = get_global_transform().affine_inverse() * event.position
+		# Control._gui_input() receives touch positions in this control's local
+		# coordinate space, just like mouse events without global_position.
+		local_pos = event.position
+		global_pos = get_global_transform() * local_pos
 	elif event is InputEventMouseButton or event is InputEventMouseMotion:
 		if "global_position" in event and event.global_position != Vector2.ZERO:
 			global_pos = event.global_position
