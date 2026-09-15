@@ -43,6 +43,12 @@ const PORTRAIT_TRAY_RECT := Rect2(165.0, 207.0, 611.0, 155.0)
 const PORTRAIT_BOARD_RECT := Rect2(76.0, 418.0, 791.0, 964.0)
 const PORTRAIT_ACTIONS_RECT := Rect2(236.0, 1445.0, 471.0, 185.0)
 const PORTRAIT_HUD_SCRIM_SIZE := Vector2(390.0, 167.0)
+const LANDSCAPE_PROPORTION_REFERENCE_SIZE := Vector2(1680.0, 909.0)
+const LANDSCAPE_STATUS_RECT := Rect2(31.0, 25.0, 560.0, 143.0)
+const LANDSCAPE_BOARD_RECT := Rect2(455.0, 58.0, 835.0, 807.0)
+const LANDSCAPE_TRAY_RECT := Rect2(1468.0, 143.0, 148.0, 653.0)
+const LANDSCAPE_ACTIONS_RECT := Rect2(22.0, 755.0, 410.0, 146.0)
+const LANDSCAPE_PAUSE_RECT := Rect2(1570.0, 25.0, 78.0, 78.0)
 const PORTRAIT_QUEUE_SOURCE_HEIGHT := 100.0
 const PORTRAIT_QUEUE_BOTTOM_TRANSPARENT := 8.0
 const PORTRAIT_QUEUE_TO_BOARD_GAP := -6.0
@@ -69,10 +75,10 @@ const PAIR_MATCH_FX_POOL_SIZE := 6
 @export_range(0.45, 1.00, 0.01) var landscape_tray_tile_scale := 0.70
 ## Keeps the Board as the hero without allowing it to consume the entire felt surface.
 @export_range(0.55, 1.00, 0.01) var portrait_board_content_scale := 1.00
-@export_range(0.55, 1.00, 0.01) var landscape_board_content_scale := 0.80
+@export_range(0.55, 1.00, 0.01) var landscape_board_content_scale := 1.00
 ## Compresses only visual row spacing so the portrait-authored stack fits the target Board silhouette.
 @export_range(0.50, 1.00, 0.01) var portrait_board_vertical_stride_scale := 0.85
-@export_range(0.50, 1.00, 0.01) var landscape_board_vertical_stride_scale := 1.00
+@export_range(0.50, 1.40, 0.01) var landscape_board_vertical_stride_scale := 1.20
 ## Travel time for Board-to-Tray, flipped staging, and Undo return presentation.
 @export_range(0.12, 0.40, 0.01) var tile_transfer_seconds := 0.24
 ## Full back-to-front or front-to-back Board flip duration.
@@ -433,7 +439,7 @@ func _build_gameplay_background() -> void:
 	_gameplay_background_wash = ColorRect.new()
 	_gameplay_background_wash.name = "GameplayBackgroundWash"
 	_gameplay_background_wash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_gameplay_background_wash.color = Color(0.01, 0.025, 0.025, 0.24)
+	_gameplay_background_wash.color = Color(0.008, 0.012, 0.02, 0.16)
 	_gameplay_background_wash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_gameplay_background_wash)
 
@@ -1989,11 +1995,16 @@ func _apply_layout() -> void:
 	var orientation := "Landscape" if viewport_size.x >= viewport_size.y else "Portrait"
 	_tile_skin.call("set_orientation", orientation.to_lower())
 	var portrait := orientation == "Portrait"
+	_gameplay_background.texture = _load_texture(
+		str(gameplay_theme.background_path_for_orientation(orientation))
+	)
 	_gameplay_background_wash.visible = false
 	_portrait_hud_scrim.visible = portrait
 	_regions.momentum.call("set_portrait_style", true)
-	_regions.tray.call("set_layout_mode", true, not portrait)
-	_regions.consumables.call("set_dock_layout", not portrait)
+	_regions.tray.call("set_layout_mode", true, false)
+	_regions.tray.call("set_porcelain_vertical", not portrait)
+	_regions.tray.rotation = 0.0
+	_regions.consumables.call("set_dock_layout", false)
 	_regions.board.call("set_compact_mode", true)
 	_regions.board.call(
 		"set_content_scale",
@@ -2028,7 +2039,7 @@ func _apply_layout() -> void:
 	_pause_menu.call("set_safe_area_insets", _get_safe_area_insets())
 	_end_game_menu.call("set_safe_area_insets", _get_safe_area_insets())
 	_regions.board.call("refresh_layout", false)
-	_regions.tray.call("set_tile_visual_size", _regions.board.call("tile_visual_size") * active_tray_scale)
+	_regions.tray.call("set_tile_visual_size", tray_visual_size)
 	_regions.tray.call("refresh")
 	_performance_callout.call("place_over", Rect2(_regions.board.position, _regions.board.size))
 	_opening_countdown.call("place_over", Rect2(_regions.board.position, _regions.board.size))
@@ -2144,41 +2155,20 @@ func _rect_to_dict(rect: Rect2) -> Dictionary:
 func _apply_landscape_layout(size: Vector2) -> void:
 	var insets := _get_safe_area_insets()
 	var content := SafeAreaScript.content_rect(size, insets)
-	var margin := 12.0
-	var gap := 10.0
-	var safe_rect := Rect2(content.position + Vector2(margin, margin), content.size - Vector2(margin * 2.0, margin * 2.0))
+	var safe_rect := content
 	var banner_offset := 0.0
 	if _update_banner != null and _update_banner.visible:
 		var banner_height := 44.0
 		_place(_update_banner, Rect2(safe_rect.position, Vector2(safe_rect.size.x, banner_height)))
-		banner_offset = banner_height + gap
-	var top_start := safe_rect.position.y + banner_offset
-	var bottom_limit := safe_rect.end.y
-	var usable_height := bottom_limit - top_start
-	var left_width := clampf(safe_rect.size.x * 0.27, 260.0, 520.0)
-	var tray_width := clampf(safe_rect.size.x * 0.12, 120.0, 190.0)
-	var status_height := clampf(usable_height * 0.24, 118.0, 176.0)
-	var controls_width := clampf(safe_rect.size.x * 0.065, 86.0, 118.0)
-	var controls_height := minf(usable_height * 0.56, 390.0)
-	var board_left := safe_rect.position.x + left_width + gap
-	var board_right := safe_rect.end.x - tray_width - gap
-	var board_rect := Rect2(
-		Vector2(board_left, top_start),
-		Vector2(maxf(1.0, board_right - board_left), usable_height)
+		banner_offset = banner_height + 10.0
+	var layout_content := Rect2(
+		content.position + Vector2(0.0, banner_offset),
+		content.size - Vector2(0.0, banner_offset)
 	)
-
-	_place(_regions.momentum, Rect2(safe_rect.position.x, top_start, left_width, status_height))
-	_place(_regions.consumables, Rect2(
-		safe_rect.position.x,
-		bottom_limit - controls_height,
-		controls_width,
-		controls_height
-	))
-	_place(_regions.board, board_rect)
-	_place(_regions.tray, Rect2(
-		Vector2(board_right + gap, top_start + gap * 2.0),
-		Vector2(tray_width, maxf(1.0, usable_height - gap * 4.0))
-	))
+	_place(_regions.momentum, _landscape_proportion_rect(layout_content, LANDSCAPE_STATUS_RECT))
+	_place(_regions.board, _landscape_proportion_rect(layout_content, LANDSCAPE_BOARD_RECT))
+	_place(_regions.consumables, _landscape_proportion_rect(layout_content, LANDSCAPE_ACTIONS_RECT))
+	_place(_regions.tray, _landscape_proportion_rect(layout_content, LANDSCAPE_TRAY_RECT))
 	_regions.consumables.call("clear_action_rects")
 	_regions.character.visible = false
 
@@ -2219,6 +2209,11 @@ func _apply_figma_portrait_layout(size: Vector2, compact: bool) -> void:
 
 func _portrait_proportion_rect(content: Rect2, reference_rect: Rect2) -> Rect2:
 	var scale := content.size / PORTRAIT_PROPORTION_REFERENCE_SIZE
+	return Rect2(content.position + reference_rect.position * scale, reference_rect.size * scale)
+
+
+func _landscape_proportion_rect(content: Rect2, reference_rect: Rect2) -> Rect2:
+	var scale := content.size / LANDSCAPE_PROPORTION_REFERENCE_SIZE
 	return Rect2(content.position + reference_rect.position * scale, reference_rect.size * scale)
 
 
@@ -2264,8 +2259,11 @@ func _place_pause_button(size: Vector2) -> void:
 		_pause_button.position = Vector2(pause_rect.end.x - button_size, pause_rect.position.y + banner_y_offset)
 		_pause_button.size = Vector2(button_size, button_size)
 	else:
-		_pause_button.position = Vector2(size.x - 54.0 - insets.size.x, 14.0 + insets.position.y + banner_y_offset)
-		_pause_button.size = Vector2(40.0, 40.0)
+		var content := SafeAreaScript.content_rect(size, insets)
+		var pause_rect := _landscape_proportion_rect(content, LANDSCAPE_PAUSE_RECT)
+		var button_size := minf(pause_rect.size.x, pause_rect.size.y)
+		_pause_button.position = pause_rect.position + Vector2(0.0, banner_y_offset)
+		_pause_button.size = Vector2(button_size, button_size)
 
 
 static func _load_texture(asset_path: String) -> Texture2D:

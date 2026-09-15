@@ -440,10 +440,10 @@ Screen edges may carry substantially more personality than the area directly ben
 
 Implemented background decision:
 
-- the first source master is a `1024 x 1536` portrait raster with a calm charcoal and ink-green center and dry-brush color around the perimeter;
-- the runtime export is `768 x 1152` and uses an aspect-covered center crop in every viewport;
-- a subtle dark wash keeps panel gaps and exposed background from competing with tile faces;
-- the source prompt and export notes live at `art-source/backgrounds/gameplay_brush_arcade.prompt.md`.
+- the default sources are borderless `941 x 1672` portrait and `1672 x 941` landscape rasters with near-black blue-charcoal centers and restrained Japanese brush plus skull, star, cat, and tile doodles around the perimeter;
+- runtime assets keep their master dimensions and fixed `48 px` scale-9 margins; landscape falls back to portrait when a theme does not supply a dedicated composition;
+- a subtle neutral blue-black wash keeps panel gaps and exposed background from competing with tile faces without restoring a green cast;
+- the source prompt and export notes live at `art-source/backgrounds/gameplay_midnight_ink.prompt.md`; the earlier `gameplay_brush_arcade` proof remains available as a superseded exploration.
 
 ## Responsive Requirements
 
