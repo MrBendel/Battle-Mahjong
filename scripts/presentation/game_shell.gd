@@ -141,7 +141,6 @@ var _game: Variant
 var _game_started_at_ms := 0
 var _delete_pair_armed := false
 var _tile_skin: Variant
-var _tray_tile_skin: Variant
 var _tile_motion_count := 0
 var _last_tile_motion_target := Rect2()
 var _pair_feedback_count := 0
@@ -276,14 +275,13 @@ func _input(event: InputEvent) -> void:
 func _build_shell() -> void:
 	_game = _create_game()
 	_tile_skin = TileSkinScript.new(str(gameplay_theme.tile_skin_manifest_path))
-	_tray_tile_skin = TileSkinScript.new(str(gameplay_theme.tile_skin_manifest_path))
 	_game_started_at_ms = Time.get_ticks_msec()
 	_regions.board = BoardViewScript.new(_game, _tile_skin)
 	_regions.board.call("set_flip_duration", tile_flip_seconds)
 	_regions.momentum = MomentumViewScript.new(_game, gameplay_theme)
 	if _launch_floor_number > 0:
 		_regions.momentum.call("set_run_label", "FLOOR %d" % _launch_floor_number)
-	_regions.tray = TrayViewScript.new(_game, _tray_tile_skin, gameplay_theme)
+	_regions.tray = TrayViewScript.new(_game, _tile_skin, gameplay_theme)
 	_regions.consumables = ConsumablesViewScript.new(_game, gameplay_theme)
 	_regions.character = _make_region("Character / FX", "decorative reaction space", Color(0.17, 0.11, 0.13, 1.0))
 
@@ -1996,7 +1994,6 @@ func _apply_layout() -> void:
 	var viewport_i := Vector2i(int(viewport_size.x), int(viewport_size.y))
 	var orientation := "Landscape" if viewport_size.x >= viewport_size.y else "Portrait"
 	_tile_skin.call("set_orientation", orientation.to_lower())
-	_tray_tile_skin.call("set_orientation", "portrait")
 	var portrait := orientation == "Portrait"
 	_gameplay_background.texture = _load_texture(
 		str(gameplay_theme.background_path_for_orientation(orientation))
@@ -2005,7 +2002,7 @@ func _apply_layout() -> void:
 	_portrait_hud_scrim.visible = portrait
 	_regions.momentum.call("set_portrait_style", true)
 	_regions.tray.call("set_layout_mode", true, false)
-	_regions.tray.call("set_slot_counter_rotation", not portrait)
+	_regions.tray.call("set_porcelain_vertical", not portrait)
 	_regions.tray.rotation = 0.0
 	_regions.consumables.call("set_dock_layout", false)
 	_regions.board.call("set_compact_mode", true)
@@ -2031,8 +2028,7 @@ func _apply_layout() -> void:
 	_regions.board.call("refresh_layout")
 	var tile_visual_size: Vector2 = _regions.board.call("tile_visual_size")
 	var active_tray_scale := portrait_tray_tile_scale if portrait else landscape_tray_tile_scale
-	var tray_visual_size := tile_visual_size * active_tray_scale if portrait \
-		else Vector2(tile_visual_size.y, tile_visual_size.x) * active_tray_scale
+	var tray_visual_size := tile_visual_size * active_tray_scale
 	var required_tray_height := float(_regions.tray.call("minimum_height_for_tile", tray_visual_size))
 	var required_tray_width := float(_regions.tray.call("minimum_width_for_tile", tray_visual_size))
 	_reflow_for_tray_clearance(orientation, required_tray_height, required_tray_width)
@@ -2172,10 +2168,7 @@ func _apply_landscape_layout(size: Vector2) -> void:
 	_place(_regions.momentum, _landscape_proportion_rect(layout_content, LANDSCAPE_STATUS_RECT))
 	_place(_regions.board, _landscape_proportion_rect(layout_content, LANDSCAPE_BOARD_RECT))
 	_place(_regions.consumables, _landscape_proportion_rect(layout_content, LANDSCAPE_ACTIONS_RECT))
-	_place_rotated_landscape_tray(
-		_regions.tray,
-		_landscape_proportion_rect(layout_content, LANDSCAPE_TRAY_RECT)
-	)
+	_place(_regions.tray, _landscape_proportion_rect(layout_content, LANDSCAPE_TRAY_RECT))
 	_regions.consumables.call("clear_action_rects")
 	_regions.character.visible = false
 
@@ -2222,13 +2215,6 @@ func _portrait_proportion_rect(content: Rect2, reference_rect: Rect2) -> Rect2:
 func _landscape_proportion_rect(content: Rect2, reference_rect: Rect2) -> Rect2:
 	var scale := content.size / LANDSCAPE_PROPORTION_REFERENCE_SIZE
 	return Rect2(content.position + reference_rect.position * scale, reference_rect.size * scale)
-
-
-func _place_rotated_landscape_tray(tray: Control, visual_rect: Rect2) -> void:
-	# Rotate the complete portrait porcelain component so its cap/repeat contract stays shared.
-	var top_right := Vector2(visual_rect.end.x, visual_rect.position.y)
-	_place(tray, Rect2(top_right, Vector2(visual_rect.size.y, visual_rect.size.x)))
-	tray.rotation = PI * 0.5
 
 
 func _place(control: Control, rect: Rect2) -> void:

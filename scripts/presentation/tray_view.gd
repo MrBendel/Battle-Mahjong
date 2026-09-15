@@ -34,7 +34,7 @@ var _tile_visual_size := Vector2(32.0, 40.0)
 var _suppressed_tile_ids := {}
 var _portrait_style := false
 var _vertical_style := false
-var _counter_rotate_slots := false
+var _porcelain_vertical_style := false
 var _queue_left_cap: TextureRect
 var _queue_right_cap: TextureRect
 var _queue_repeats: Array[TextureRect] = []
@@ -69,6 +69,7 @@ func set_game_state(game_state: Variant) -> void:
 func set_portrait_style(enabled: bool) -> void:
 	_portrait_style = enabled
 	_vertical_style = false
+	_porcelain_vertical_style = false
 	_update_queue_art()
 	_update_style_visibility()
 	_layout()
@@ -82,8 +83,8 @@ func set_layout_mode(themed: bool, vertical: bool) -> void:
 	_layout()
 
 
-func set_slot_counter_rotation(enabled: bool) -> void:
-	_counter_rotate_slots = enabled
+func set_porcelain_vertical(enabled: bool) -> void:
+	_porcelain_vertical_style = _portrait_style and enabled
 	_layout()
 
 
@@ -96,6 +97,8 @@ func set_tile_visual_size(tile_size: Vector2) -> void:
 
 func minimum_height_for_tile(tile_size: Vector2) -> float:
 	if _portrait_style:
+		if _porcelain_vertical_style:
+			return ceilf(_porcelain_vertical_height() * _porcelain_vertical_scale(tile_size))
 		if _vertical_style:
 			return ceilf((VERTICAL_CAP_SIZE.y * 2.0 + VERTICAL_SLOT_SIZE.y * _slot_count()) * _vertical_scale(tile_size))
 		return ceilf(PORCELAIN_SLOT_SIZE.y * _portrait_scale(tile_size))
@@ -107,6 +110,8 @@ func minimum_height_for_tile(tile_size: Vector2) -> float:
 
 func minimum_width_for_tile(tile_size: Vector2) -> float:
 	if _portrait_style:
+		if _porcelain_vertical_style:
+			return ceilf(PORCELAIN_SLOT_SIZE.y * _porcelain_vertical_scale(tile_size))
 		if _vertical_style:
 			return ceilf(VERTICAL_CAP_SIZE.x * _vertical_scale(tile_size))
 		return ceilf(_portrait_queue_width() * _portrait_scale(tile_size))
@@ -288,6 +293,9 @@ func _layout() -> void:
 	for slot in _slots:
 		slot.size = _tile_visual_size
 	if _portrait_style:
+		if _porcelain_vertical_style:
+			_layout_porcelain_vertical()
+			return
 		if _vertical_style:
 			_layout_vertical()
 			return
@@ -322,6 +330,10 @@ func _layout() -> void:
 
 
 func _layout_portrait() -> void:
+	_queue_left_cap.rotation = 0.0
+	_queue_right_cap.rotation = 0.0
+	for repeat in _queue_repeats:
+		repeat.rotation = 0.0
 	var base_queue_width := _portrait_queue_width()
 	var scale := minf(
 		_portrait_scale(_tile_visual_size),
@@ -361,7 +373,7 @@ func _layout_portrait() -> void:
 		_slots[index].position = slot_rect.position
 		_slots[index].size = slot_rect.size
 		_slots[index].pivot_offset = slot_rect.size * 0.5
-		_slots[index].rotation = -PI * 0.5 if _counter_rotate_slots else 0.0
+		_slots[index].rotation = 0.0
 		_slots[index].add_theme_stylebox_override("panel", _tile_style())
 		_slot_bases[index].position = Vector2.ZERO
 		_slot_bases[index].size = slot_rect.size
@@ -377,6 +389,65 @@ func _layout_portrait() -> void:
 		_slot_labels[index].size = slot_rect.size
 		_tile_skin.configure_modifier_art(_slot_modifiers[index])
 	_layout_bonus_portrait(origin, scale, scale)
+
+
+func _layout_porcelain_vertical() -> void:
+	var base_height := _porcelain_vertical_height()
+	var scale := minf(
+		_porcelain_vertical_scale(_tile_visual_size),
+		minf(size.x / PORCELAIN_SLOT_SIZE.y, size.y / base_height)
+	)
+	var queue_size := Vector2(PORCELAIN_SLOT_SIZE.y, base_height) * scale
+	var origin := (size - queue_size) * 0.5
+	_layout_rotated_queue_section(_queue_left_cap, origin.y, PORCELAIN_LEFT_END_SIZE.x, scale)
+	for index in range(MAX_SLOT_COUNT):
+		_layout_rotated_queue_section(
+			_queue_repeats[index],
+			origin.y + (PORCELAIN_LEFT_END_SIZE.x + PORCELAIN_SLOT_SIZE.x * index) * scale,
+			PORCELAIN_SLOT_SIZE.x,
+			scale
+		)
+	_layout_rotated_queue_section(
+		_queue_right_cap,
+		origin.y + (PORCELAIN_LEFT_END_SIZE.x + PORCELAIN_SLOT_SIZE.x * (_slot_count() - 2)) * scale,
+		PORCELAIN_RIGHT_END_SIZE.x,
+		scale
+	)
+
+	var active_geometry: Dictionary = _tile_skin.active_geometry()
+	var safe_area: Array = active_geometry.get("face_safe_area", [250, 100, 1036, 740])
+	var source_size: Array = active_geometry.get("source_size", [1536, 1024])
+	for index in range(_slot_count()):
+		var section_y := origin.y + _porcelain_slot_section_y(index) * scale
+		var well_center_y := 38.75 if index == 0 else 31.35
+		var tile_center := Vector2(origin.x + 55.0 * scale, section_y + well_center_y * scale)
+		var slot_rect := Rect2(tile_center - _tile_visual_size * 0.5, _tile_visual_size)
+		_slots[index].position = slot_rect.position
+		_slots[index].size = slot_rect.size
+		_slots[index].pivot_offset = slot_rect.size * 0.5
+		_slots[index].rotation = 0.0
+		_slots[index].add_theme_stylebox_override("panel", _tile_style())
+		_slot_bases[index].position = Vector2.ZERO
+		_slot_bases[index].size = slot_rect.size
+		_slot_art[index].position = Vector2(
+			float(safe_area[0]) / float(source_size[0]) * slot_rect.size.x,
+			float(safe_area[1]) / float(source_size[1]) * slot_rect.size.y
+		)
+		_slot_art[index].size = Vector2(
+			float(safe_area[2]) / float(source_size[0]) * slot_rect.size.x,
+			float(safe_area[3]) / float(source_size[1]) * slot_rect.size.y
+		)
+		_slot_labels[index].position = Vector2.ZERO
+		_slot_labels[index].size = slot_rect.size
+		_tile_skin.configure_modifier_art(_slot_modifiers[index])
+	_layout_bonus_porcelain_vertical(origin, scale)
+
+
+func _layout_rotated_queue_section(art: TextureRect, section_y: float, section_width: float, scale: float) -> void:
+	art.position = Vector2((size.x + PORCELAIN_SLOT_SIZE.y * scale) * 0.5, section_y)
+	art.size = Vector2((section_width + QUEUE_ART_SEAM_OVERLAP) * scale, PORCELAIN_SLOT_SIZE.y * scale)
+	art.pivot_offset = Vector2.ZERO
+	art.rotation = PI * 0.5
 
 
 func _layout_vertical() -> void:
@@ -571,6 +642,16 @@ func _layout_bonus_vertical(origin: Vector2, scale: float) -> void:
 	_bonus_label.add_theme_font_size_override("font_size", maxi(7, roundi(8.0 * scale)))
 
 
+func _layout_bonus_porcelain_vertical(origin: Vector2, scale: float) -> void:
+	var bonus_index := clampi(int(_game.definition.tray_capacity()), 0, MAX_SLOT_COUNT - 1)
+	var section_y := origin.y + _porcelain_slot_section_y(bonus_index) * scale
+	_bonus_icon.position = Vector2(origin.x + 78.0 * scale, section_y + 4.0 * scale)
+	_bonus_icon.size = Vector2.ONE * 17.0 * scale
+	_bonus_label.position = Vector2(origin.x + 62.0 * scale, section_y + 21.0 * scale)
+	_bonus_label.size = Vector2(35.0, 17.0) * scale
+	_bonus_label.add_theme_font_size_override("font_size", maxi(7, roundi(8.0 * scale)))
+
+
 func _portrait_scale(tile_size: Vector2) -> float:
 	return maxf(tile_size.x / PORCELAIN_TILE_RECT.size.x, tile_size.y / PORCELAIN_TILE_RECT.size.y)
 
@@ -584,6 +665,18 @@ func _portrait_slot_section_x(index: int) -> float:
 	if index == 0:
 		return 0.0
 	return PORCELAIN_LEFT_END_SIZE.x + PORCELAIN_SLOT_SIZE.x * float(index - 1)
+
+
+func _porcelain_vertical_height() -> float:
+	return _portrait_queue_width()
+
+
+func _porcelain_vertical_scale(tile_size: Vector2) -> float:
+	return maxf(tile_size.x / PORCELAIN_TILE_RECT.size.y, tile_size.y / PORCELAIN_TILE_RECT.size.x)
+
+
+func _porcelain_slot_section_y(index: int) -> float:
+	return _portrait_slot_section_x(index)
 
 
 func _vertical_scale(tile_size: Vector2) -> float:

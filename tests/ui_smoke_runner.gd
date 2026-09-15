@@ -377,8 +377,8 @@ func _run() -> void:
 		_check(first_slot_art.visible and first_slot_art.texture != null, "arrival reveals the selected face artwork")
 		var first_slot_base: TextureRect = shell.get("_regions").tray.get("_slot_bases")[0]
 		_check(
-			first_slot_base.visible and first_slot_base.texture == shell.get("_tray_tile_skin").call("tile_base_texture"),
-			"arrival uses the tray's orientation-specific ceramic base"
+			first_slot_base.visible and first_slot_base.texture == shell.get("_tile_skin").call("tile_base_texture"),
+			"arrival uses the active orientation's ceramic base in the tray"
 		)
 		var first_slot_ink: TextureRect = shell.get("_regions").tray.get("_slot_ink_outlines")[0]
 		_check(first_slot_ink.visible and first_slot_ink.texture == first_slot_base.texture, "tray tile preserves the manga-ink silhouette")
@@ -1443,13 +1443,12 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 			var empty_slot_style: StyleBoxFlat = tray.get("_slots")[slot_index].get_theme_stylebox("panel")
 			_check_equal(Color.TRANSPARENT, empty_slot_style.bg_color, "portrait empty slot %d is supplied only by Figma artwork" % (slot_index + 1))
 	else:
-		_check(tray.get("_portrait_style") and not tray.get("_vertical_style"), "landscape reuses the portrait porcelain tray component")
-		_check(is_equal_approx(tray.rotation, PI * 0.5), "landscape rotates the shared porcelain tray into its right rail")
+		_check(tray.get("_portrait_style") and tray.get("_porcelain_vertical_style"), "landscape arranges the portrait porcelain tray pieces in its right rail")
+		_check(is_zero_approx(tray.rotation), "landscape leaves live tray tiles in screen orientation")
 		_check_equal(load("res://game-assets/ui/tray/porcelain/tray-left.png"), tray.get("_queue_left_cap").texture, "landscape tray reuses the portrait left end")
 		_check_equal(load("res://game-assets/ui/tray/porcelain/tray-repeat.png"), tray.get("_queue_repeats")[0].texture, "landscape tray reuses the portrait repeat well")
 		_check_equal(load("res://game-assets/ui/tray/porcelain/tray-right.png"), tray.get("_queue_right_cap").texture, "landscape tray reuses the portrait right end")
-	var expected_tray_tile_size := board_tile_size * tray_tile_scale if orientation == "portrait" \
-		else Vector2(board_tile_size.y, board_tile_size.x) * tray_tile_scale
+	var expected_tray_tile_size := board_tile_size * tray_tile_scale
 	for slot in tray.get("_slots"):
 		_check(slot.size.is_equal_approx(expected_tray_tile_size), "%s tray slot scales down from the board tile footprint" % orientation)
 	var callout: Control = shell.get("_performance_callout")
