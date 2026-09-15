@@ -2,7 +2,7 @@
 
 The mobile/console-oriented shell follows two presentation compositions around the same portrait-authored board. Orientation may reposition HUD and action regions and select an orientation-specific cosmetic tile geometry, but it never rotates, transposes, or rearranges stable board slots.
 
-`configuration/default_gameplay_theme.tres` is the shared presentation asset contract for both compositions. It selects the background layers, HUD artwork and fonts, tray pieces, consumable pieces and icons, Pause artwork, and tile-skin manifest. Views receive that same resource when the shell constructs them; orientation changes placement, not theme ownership or runtime state. New themes may override individual exported paths while inheriting defaults for the remaining pieces, allowing seasonal releases without duplicating a complete portrait or landscape screen.
+`configuration/default_gameplay_theme.tres` is the shared presentation asset contract for both compositions. It selects the background layers, HUD artwork and fonts, tray pieces, consumable pieces and icons, Pause artwork, and tile-skin manifest. A theme may supply a landscape background composition; otherwise landscape falls back to its portrait background. Views receive that same resource when the shell constructs them; orientation changes presentation, not theme ownership or runtime state. New themes may override individual exported paths while inheriting defaults for the remaining pieces, allowing seasonal releases without duplicating a complete portrait or landscape screen.
 
 ## Portrait
 
@@ -13,7 +13,7 @@ Portrait uses the M7 Figma HUD documented in [Figma Portrait Gameplay UI](FIGMA_
 3. The largest possible uninterrupted Board region.
 4. A bottom action dock ordered Hint, Shuffle, Delete Pair, Undo.
 
-The aspect-covered Figma background may crop laterally but never stretches. Score and Momentum use exported frames with runtime Mila Script Sans text; the Momentum fill remains clipped and animated from live state. The pause control stays square in the upper-right safe area. The queue is centered and composed from first-well and final-well end sections plus a repeatable middle well for capacities from two through six.
+The themed background selects its landscape composition when supplied and otherwise falls back to the portrait surface. Both use fixed-margin scale-9 rendering. Score and Momentum use exported frames with runtime Mila Script Sans text; the Momentum fill remains clipped and animated from live state. The pause control stays square in the upper-right safe area. The queue is centered and composed from first-well and final-well end sections plus a repeatable middle well for capacities from two through six.
 
 Portrait region proportions are normalized from the approved `942 x 1672` layout guide: Status `64.9% x 9.3%`, Tray `64.9% x 9.3%`, Board `84.0% x 57.7%`, and Actions `50.0% x 11.1%`. Their reference offsets are data constants in `game_shell.gd` and are projected into the safe display independently on each axis. The Board uses its full region fit and an `0.85` presentation-only vertical slot stride so the tall authored stack fills the broader target silhouette without changing tile geometry or gameplay coordinates.
 
@@ -25,13 +25,13 @@ On compact phones below `800` logical pixels tall, the redundant Board title and
 
 ## Landscape
 
-Landscape reuses the same themed components around a centered portrait-authored Board:
+Landscape reuses the same themed components in the proportions established by the horizontal gameplay reference:
 
-- Score and Momentum occupy the upper-left.
-- The tray becomes one vertical ceramic rack to the right of the Board.
+- Score and Momentum occupy a compact upper-left panel.
+- The portrait porcelain tray is rotated as one component into a vertical rack to the right of the Board.
 - Pause occupies the upper-right safe area.
-- The portrait-authored Board remains centered without changing slot IDs or layer order.
-- Hint, Shuffle, Delete Pair, and Undo reuse the ceramic action tiles in one vertical lower-left stack.
+- The portrait-authored Board fills the broad center without changing slot IDs or layer order.
+- Hint, Shuffle, Delete Pair, and Undo reuse the ceramic action tiles in one lower-left row.
 
 Consumables are managed by one transparent overlay whose visible buttons remain completely outside the Board. Each landscape action preserves at least a `54 x 54` logical-pixel target in the validated reference viewport.
 
@@ -43,7 +43,7 @@ Safe-area insets are applied before margins and region allocation. When space be
 2. Debug information.
 3. Nonessential region labels and notices.
 
-Board tiles, tray tiles, Momentum, score, pause, and consumable actions remain readable and operable. `portrait_board_content_scale` and `landscape_board_content_scale` tune the centered puzzle footprint independently of simulation geometry; they currently default to `1.00` and `0.80`. Portrait and landscape tray tiles use `0.72` and `0.70` of the rendered Board tile footprint respectively. The portrait tray preserves the authored first and final wells in its end sections and repeats only complete middle wells, remaining data-driven across the two-to-six-slot range. Its portrait presentation scales as one unit to preserve the authored silhouette; landscape uses a vertical counterpart with the same material language. Transfer previews animate into the active smaller target using the shell's `tile_transfer_seconds` presentation setting. When resolving a held tile compacts later tray entries, presentation previews preserve their old positions through the pair collision and then travel toward their next slot over `tray_compaction_seconds`; authoritative tray order still updates immediately.
+Board tiles, tray tiles, Momentum, score, pause, and consumable actions remain readable and operable. `portrait_board_content_scale` and `landscape_board_content_scale` tune the centered puzzle footprint independently of simulation geometry; both currently default to `1.00`. Landscape projects score, Board, tray, actions, and Pause from the approved `1680 x 909` horizontal reference into the current safe display. The wide landscape tile uses a `1.20` visual row stride to fill the taller central silhouette without changing stable slots or simulation coordinates. Portrait and landscape tray tiles use `0.72` and `0.70` of the rendered Board tile footprint respectively. Landscape rotates the complete shared porcelain tray at presentation time; its authored end wells and repeatable middle wells remain the same assets and data-driven two-to-six-slot component used by portrait. Tray contents counter-rotate and use portrait tile geometry so their faces remain upright within the right-side rack. Transfer previews animate into the active smaller target using the shell's `tile_transfer_seconds` presentation setting. When resolving a held tile compacts later tray entries, presentation previews preserve their old positions through the pair collision and then travel toward their next slot over `tray_compaction_seconds`; authoritative tray order still updates immediately.
 
 An Extra Life recovery commits atomically, then presentation completes the readable consequence: the attempted final tile reaches the last tray slot, the active tray artwork receives a short red warning pulse, and the attempted tile plus every recovered tray tile cascade back to their stable Board slots. Board input remains locked until all return previews land. Warning, return, and stagger durations are Inspector tuning and do not enter transactions or replay state.
 

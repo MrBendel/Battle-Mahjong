@@ -6,6 +6,8 @@
 script = ExtResource("1_theme")
 theme_id = "default"
 display_name = "Default"
+background_path = "res://game-assets/backgrounds/gameplay_midnight_ink.png"
+background_landscape_path = "res://game-assets/backgrounds/gameplay_midnight_ink_landscape.png"
 tray_cap_path = "res://game-assets/ui/tray/porcelain/tray-left.png"
 tray_repeat_path = "res://game-assets/ui/tray/porcelain/tray-repeat.png"
 tray_right_cap_path = "res://game-assets/ui/tray/porcelain/tray-right.png"

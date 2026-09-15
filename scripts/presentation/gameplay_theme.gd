@@ -6,6 +6,7 @@ class_name GameplayTheme
 
 @export_group("Surface")
 @export_file("*.png", "*.svg", "*.webp") var background_path := "res://game-assets/ui/portrait/background.png"
+@export_file("*.png", "*.svg", "*.webp") var background_landscape_path := ""
 @export_range(0, 512, 1) var background_patch_margin := 48
 @export_file("*.png", "*.svg", "*.webp") var hud_scrim_path := "res://game-assets/ui/portrait/hud_top_scrim.svg"
 
@@ -56,6 +57,12 @@ func consumable_icon_path(consumable_type: String) -> String:
 	return ""
 
 
+func background_path_for_orientation(orientation: String) -> String:
+	if orientation.to_lower() == "landscape" and not background_landscape_path.is_empty():
+		return background_landscape_path
+	return background_path
+
+
 func validation_errors() -> Array[String]:
 	var errors: Array[String] = []
 	if theme_id.strip_edges().is_empty():
@@ -91,6 +98,8 @@ func validation_errors() -> Array[String]:
 		"Undo icon": undo_icon_path,
 		"tile skin manifest": tile_skin_manifest_path,
 	}
+	if not background_landscape_path.is_empty():
+		asset_paths["landscape background"] = background_landscape_path
 	for label in asset_paths:
 		var asset_path := str(asset_paths[label])
 		if asset_path.is_empty() or not (ResourceLoader.exists(asset_path) or FileAccess.file_exists(asset_path)):

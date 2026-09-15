@@ -34,6 +34,7 @@ var _tile_visual_size := Vector2(32.0, 40.0)
 var _suppressed_tile_ids := {}
 var _portrait_style := false
 var _vertical_style := false
+var _counter_rotate_slots := false
 var _queue_left_cap: TextureRect
 var _queue_right_cap: TextureRect
 var _queue_repeats: Array[TextureRect] = []
@@ -78,6 +79,11 @@ func set_layout_mode(themed: bool, vertical: bool) -> void:
 	_vertical_style = themed and vertical
 	_update_queue_art()
 	_update_style_visibility()
+	_layout()
+
+
+func set_slot_counter_rotation(enabled: bool) -> void:
+	_counter_rotate_slots = enabled
 	_layout()
 
 
@@ -354,6 +360,8 @@ func _layout_portrait() -> void:
 		)
 		_slots[index].position = slot_rect.position
 		_slots[index].size = slot_rect.size
+		_slots[index].pivot_offset = slot_rect.size * 0.5
+		_slots[index].rotation = -PI * 0.5 if _counter_rotate_slots else 0.0
 		_slots[index].add_theme_stylebox_override("panel", _tile_style())
 		_slot_bases[index].position = Vector2.ZERO
 		_slot_bases[index].size = slot_rect.size

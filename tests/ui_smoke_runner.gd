@@ -71,9 +71,14 @@ func _run() -> void:
 		await process_frame
 	var gameplay_background: NinePatchRect = shell.get("_gameplay_background")
 	_check(gameplay_background != null and gameplay_background.texture != null, "gameplay shell renders the M7 background asset")
-	var expected_bg_texture: Texture2D = load("res://game-assets/ui/portrait/background.png") if ResourceLoader.exists("res://game-assets/ui/portrait/background.png") else ImageTexture.create_from_image(Image.load_from_file("res://game-assets/ui/portrait/background.png"))
-	_check_equal(expected_bg_texture.get_size(), gameplay_background.texture.get_size(), "gameplay shell reuses the Figma background in every orientation")
-	_check_equal(Vector2(941.0, 1672.0), gameplay_background.texture.get_size(), "gameplay background retains the Figma master dimensions required by its scale-9 contract")
+	var requested_orientation := "landscape" if requested_size.x >= requested_size.y else "portrait"
+	var expected_background_path: String = shell.get("gameplay_theme").call(
+		"background_path_for_orientation", requested_orientation
+	)
+	var expected_bg_texture := _load_test_texture(expected_background_path)
+	_check_equal(expected_bg_texture, gameplay_background.texture, "gameplay shell selects its orientation-specific background")
+	var expected_background_size := Vector2(1672.0, 941.0) if requested_orientation == "landscape" else Vector2(941.0, 1672.0)
+	_check_equal(expected_background_size, gameplay_background.texture.get_size(), "gameplay background retains its authored orientation dimensions")
 	for side in [SIDE_LEFT, SIDE_TOP, SIDE_RIGHT, SIDE_BOTTOM]:
 		_check_equal(48, gameplay_background.get_patch_margin(side), "gameplay background preserves its 48 px scale-9 border")
 	_check_equal(NinePatchRect.AXIS_STRETCH_MODE_STRETCH, gameplay_background.axis_stretch_horizontal, "gameplay background stretches its scale-9 interior horizontally")
@@ -372,8 +377,8 @@ func _run() -> void:
 		_check(first_slot_art.visible and first_slot_art.texture != null, "arrival reveals the selected face artwork")
 		var first_slot_base: TextureRect = shell.get("_regions").tray.get("_slot_bases")[0]
 		_check(
-			first_slot_base.visible and first_slot_base.texture == shell.get("_tile_skin").call("tile_base_texture"),
-			"arrival uses the Board's active ceramic base in the tray"
+			first_slot_base.visible and first_slot_base.texture == shell.get("_tray_tile_skin").call("tile_base_texture"),
+			"arrival uses the tray's orientation-specific ceramic base"
 		)
 		var first_slot_ink: TextureRect = shell.get("_regions").tray.get("_slot_ink_outlines")[0]
 		_check(first_slot_ink.visible and first_slot_ink.texture == first_slot_base.texture, "tray tile preserves the manga-ink silhouette")
@@ -1177,16 +1182,17 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 	var safe_viewport: Rect2 = SafeAreaScript.content_rect(viewport_rect.size, shell.call("_get_safe_area_insets"))
 	var debug_panel: Control = shell.get("_debug_panel")
 	var pause_button: Button = shell.get("_pause_button")
+	var gameplay_theme: Resource = shell.get("gameplay_theme")
 	var momentum: Control = regions.momentum
 	var board: Control = regions.board
 	var combo_label: Label = momentum.get("_combo")
 	var momentum_meter: ProgressBar = momentum.get("_meter")
 	_check(not Rect2(combo_label.position, combo_label.size).intersects(Rect2(momentum_meter.position, momentum_meter.size)), "%s Combo readout does not cover Momentum meter" % orientation)
-	var expected_bg := _load_test_texture("res://game-assets/ui/portrait/background.png")
+	var expected_bg := _load_test_texture(str(gameplay_theme.call("background_path_for_orientation", orientation)))
 	_check_equal(
-		expected_bg.get_size() if expected_bg != null else Vector2.ZERO,
-		shell.get("_gameplay_background").texture.get_size() if shell.get("_gameplay_background").texture != null else Vector2.ONE,
-		"%s uses the shared Figma gameplay background" % orientation
+		expected_bg,
+		shell.get("_gameplay_background").texture,
+		"%s uses its themed orientation background" % orientation
 	)
 	if orientation == "portrait":
 		var expected_portrait_scale := minf(safe_viewport.size.x / 390.0, safe_viewport.size.y / 844.0)
@@ -1331,7 +1337,7 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 		)
 	else:
 		_check(not shell.get("_portrait_hud_scrim").visible, "landscape hides the portrait-only HUD top scrim")
-		_check(not regions.consumables.get("_portrait_background").visible, "landscape hides the portrait bottom bar artwork")
+		_check(regions.consumables.get("_portrait_background").visible, "landscape reuses the compact porcelain consumables bar")
 		for art in regions.consumables.get("_portrait_art").values():
 			_check(art.root.visible, "landscape reuses the shared compact ceramic action artwork")
 		_check(momentum.get("_portrait_style"), "landscape reuses the shared compact status presentation")
@@ -1346,7 +1352,8 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 			names.append(name)
 	for name in names:
 		var region: Control = regions[name]
-		var region_rect := Rect2(region.position, region.size)
+		var region_rect := _tray_visual_rect(region) if orientation == "landscape" and name == "tray" \
+			else Rect2(region.position, region.size)
 		_check(
 			viewport_rect.encloses(region_rect),
 			"%s %s stays inside viewport (%s in %s)" % [orientation, name, region_rect, viewport_rect]
@@ -1365,7 +1372,7 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 	var expected_board_scale := float(shell.get("portrait_board_content_scale")) if orientation == "portrait" \
 		else float(shell.get("landscape_board_content_scale"))
 	_check(is_equal_approx(float(board.get("_content_scale")), expected_board_scale), "%s applies its responsive Board content scale" % orientation)
-	var expected_vertical_stride := 0.85 if orientation == "portrait" else 1.00
+	var expected_vertical_stride := 0.85 if orientation == "portrait" else 1.20
 	_check(is_equal_approx(float(board.get("_vertical_stride_scale")), expected_vertical_stride), "%s uses its tuned visual Board row stride" % orientation)
 	_check(is_equal_approx(float(shell.get("tile_transfer_seconds")), 0.24), "%s uses the slower tray transfer beat" % orientation)
 	_check(is_equal_approx(float(shell.get("tile_flip_seconds")), 0.25), "%s uses the tuned quarter-second tile flip" % orientation)
@@ -1436,11 +1443,15 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 			var empty_slot_style: StyleBoxFlat = tray.get("_slots")[slot_index].get_theme_stylebox("panel")
 			_check_equal(Color.TRANSPARENT, empty_slot_style.bg_color, "portrait empty slot %d is supplied only by Figma artwork" % (slot_index + 1))
 	else:
-		_check(tray.get("_portrait_style") and tray.get("_vertical_style"), "landscape uses the shared vertical ceramic tray")
-		_check_equal(Vector2(115.0, 25.0), tray.get("_queue_left_cap").texture.get_size(), "landscape tray cap keeps its vertical source dimensions")
-		_check_equal(Vector2(115.0, 101.0), tray.get("_queue_repeats")[0].texture.get_size(), "landscape tray repeat keeps its vertical source dimensions")
+		_check(tray.get("_portrait_style") and not tray.get("_vertical_style"), "landscape reuses the portrait porcelain tray component")
+		_check(is_equal_approx(tray.rotation, PI * 0.5), "landscape rotates the shared porcelain tray into its right rail")
+		_check_equal(load("res://game-assets/ui/tray/porcelain/tray-left.png"), tray.get("_queue_left_cap").texture, "landscape tray reuses the portrait left end")
+		_check_equal(load("res://game-assets/ui/tray/porcelain/tray-repeat.png"), tray.get("_queue_repeats")[0].texture, "landscape tray reuses the portrait repeat well")
+		_check_equal(load("res://game-assets/ui/tray/porcelain/tray-right.png"), tray.get("_queue_right_cap").texture, "landscape tray reuses the portrait right end")
+	var expected_tray_tile_size := board_tile_size * tray_tile_scale if orientation == "portrait" \
+		else Vector2(board_tile_size.y, board_tile_size.x) * tray_tile_scale
 	for slot in tray.get("_slots"):
-		_check(slot.size.is_equal_approx(board_tile_size * tray_tile_scale), "%s tray slot scales down from the board tile footprint" % orientation)
+		_check(slot.size.is_equal_approx(expected_tray_tile_size), "%s tray slot scales down from the board tile footprint" % orientation)
 	var callout: Control = shell.get("_performance_callout")
 	var callout_label: Label = callout.get("_label")
 	_check_equal(Rect2(board.position, board.size), Rect2(callout.position, callout.size), "%s callout tracks the board region" % orientation)
@@ -1476,20 +1487,22 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 	if orientation == "portrait":
 		_check(board.position.y > tray.position.y + tray.size.y, "portrait preserves the approved breathing room below the tray")
 	else:
-		_check(board.position.x + board.size.x <= tray.position.x, "landscape tray stays to the right of the game board")
+		var landscape_tray_rect := _tray_visual_rect(tray)
+		_check(landscape_tray_rect.position.x >= board.position.x + board.size.x, "landscape tray stays to the right of the game board")
 	var board_global_rect := board.get_global_rect()
+	var tray_visual_rect := _tray_visual_rect(tray)
 	for slot_index in range(4):
 		var tray_tile_rect: Rect2 = tray.call("slot_visual_global_rect", slot_index)
 		_check(not tray_tile_rect.intersects(board_global_rect), "%s rendered tray tile %d does not overlap the Board" % [orientation, slot_index + 1])
-		_check(tray.get_global_rect().encloses(tray_tile_rect), "%s rendered tray tile %d stays inside the Tray" % [orientation, slot_index + 1])
+		_check(tray_visual_rect.encloses(tray_tile_rect), "%s rendered tray tile %d stays inside the Tray" % [orientation, slot_index + 1])
 	if orientation == "portrait":
 		_check(board.position.y + board.size.y <= regions.consumables.position.y, "portrait Board ends above the compact action dock")
 		for button in regions.consumables.get("_buttons").values():
 			_check(not button.get_global_rect().intersects(board_global_rect), "portrait consumable touch targets stay below the Board")
 		_check(not regions.character.visible, "portrait decorative region yields to the gameplay stack")
 	else:
-		_check(regions.momentum.position.x + regions.momentum.size.x <= board.position.x, "landscape Momentum stays in the upper-left rail")
-		_check(is_equal_approx(tray.get_rect().get_center().y, board.get_rect().get_center().y), "landscape tray is vertically centered beside the Board")
+		_check(regions.momentum.get_rect().get_center().x < board.get_rect().get_center().x, "landscape Momentum stays in the upper-left of the composition")
+		_check(regions.consumables.position.x + regions.consumables.size.x <= board.position.x, "landscape consumables stay in the lower-left beside the Board")
 		_check(not regions.character.visible, "landscape decorative region yields to the central Board and side actions")
 	var pause_rect := Rect2(pause_button.position, pause_button.size)
 	if orientation == "portrait":
@@ -1499,15 +1512,25 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 
 	for first_index in range(names.size()):
 		for second_index in range(first_index + 1, names.size()):
-			if orientation == "landscape" and "consumables" in [names[first_index], names[second_index]]:
+			if orientation == "landscape" and (
+				"consumables" in [names[first_index], names[second_index]]
+				or [names[first_index], names[second_index]].has("board")
+				and [names[first_index], names[second_index]].has("momentum")
+			):
 				continue
 			if orientation == "portrait" and "board" in [names[first_index], names[second_index]] \
 				and ("tray" in [names[first_index], names[second_index]] or "consumables" in [names[first_index], names[second_index]]):
 				continue
-			var first: Control = regions[names[first_index]]
-			var second: Control = regions[names[second_index]]
+			var first_name: String = names[first_index]
+			var second_name: String = names[second_index]
+			var first: Control = regions[first_name]
+			var second: Control = regions[second_name]
+			var first_rect := _tray_visual_rect(first) if orientation == "landscape" and first_name == "tray" \
+				else Rect2(first.position, first.size)
+			var second_rect := _tray_visual_rect(second) if orientation == "landscape" and second_name == "tray" \
+				else Rect2(second.position, second.size)
 			_check(
-				not Rect2(first.position, first.size).intersects(Rect2(second.position, second.size)),
+				not first_rect.intersects(second_rect),
 				"%s %s and %s do not overlap" % [orientation, names[first_index], names[second_index]]
 			)
 
@@ -1620,10 +1643,16 @@ func _validate_board_tiles(shell: Control, orientation: String) -> void:
 				),
 				"%s layer directly below the top uses the lighter skin-defined brightness" % orientation
 			)
-	_check(
-		minimum_tile_size.y > minimum_tile_size.x,
-		"%s uses the shared upright tile artwork (%s)" % [orientation, minimum_tile_size]
-	)
+	if orientation == "landscape":
+		_check(
+			minimum_tile_size.x > minimum_tile_size.y,
+			"landscape uses the wide tile artwork without changing authored slots (%s)" % minimum_tile_size
+		)
+	else:
+		_check(
+			minimum_tile_size.y > minimum_tile_size.x,
+			"portrait uses the upright tile artwork (%s)" % minimum_tile_size
+		)
 
 
 func _validate_consumables(shell: Control, orientation: String) -> void:
@@ -1641,15 +1670,15 @@ func _validate_consumables(shell: Control, orientation: String) -> void:
 		_check(panel_rect.encloses(Rect2(control.position, control.size)), "%s consumable control stays inside its panel" % orientation)
 	if orientation == "portrait" or orientation == "landscape":
 		_check(consumables.get("_horizontal_dock"), "%s uses themed consumable artwork" % orientation)
-	if orientation == "portrait":
-		_check(not consumables.get("_vertical_dock"), "portrait keeps consumables in one bottom row")
+	if orientation == "portrait" or orientation == "landscape":
+		_check(not consumables.get("_vertical_dock"), "%s keeps consumables in one row" % orientation)
 		_check(buttons.hint.position.x < buttons.shuffle.position.x, "portrait places Shuffle after Hint")
 		_check(buttons.shuffle.position.x < buttons.delete_pair.position.x, "portrait places Delete after Shuffle")
 		_check(buttons.delete_pair.position.x < buttons.undo.position.x, "portrait keeps Undo rightmost")
 		var first_button_y: float = buttons.values()[0].position.y
 		for button in buttons.values():
-			_check(is_equal_approx(button.position.y, first_button_y), "portrait consumables remain in one bottom row")
-			_check(button.text.is_empty(), "portrait action touch targets do not draw generic Button text")
+			_check(is_equal_approx(button.position.y, first_button_y), "%s consumables remain in one row" % orientation)
+			_check(button.text.is_empty(), "%s action touch targets do not draw generic Button text" % orientation)
 	for first_index in range(controls.size()):
 		for second_index in range(first_index + 1, controls.size()):
 			var first_rect := Rect2(controls[first_index].position, controls[first_index].size)
@@ -1666,16 +1695,12 @@ func _validate_consumables(shell: Control, orientation: String) -> void:
 			)
 	_check(buttons.has("undo"), "%s consumables own Undo" % orientation)
 	if orientation == "landscape":
-		_check(consumables.get("_vertical_dock"), "landscape stacks the shared ceramic consumables vertically")
 		var board_rect := Rect2(board.position, board.size)
 		for consumable_type in buttons:
 			var button: Button = buttons[consumable_type]
 			var button_rect := Rect2(consumables.position + button.position, button.size)
 			_check(not button_rect.intersects(board_rect), "landscape %s stays in a side rail outside the Board" % consumable_type)
 			_check(button.size.x >= 54.0 and button.size.y >= 54.0, "landscape %s preserves a large touch target" % consumable_type)
-		_check(buttons.hint.position.y < buttons.shuffle.position.y, "landscape places Shuffle below Hint")
-		_check(buttons.shuffle.position.y < buttons.delete_pair.position.y, "landscape places Delete below Shuffle")
-		_check(buttons.delete_pair.position.y < buttons.undo.position.y, "landscape keeps Undo at the bottom of the action stack")
 	else:
 		for consumable_type in buttons:
 			if consumable_type != "undo":
@@ -1684,6 +1709,19 @@ func _validate_consumables(shell: Control, orientation: String) -> void:
 	for child in shell.get("_regions").tray.get_children():
 		tray_has_command_button = tray_has_command_button or child is Button
 	_check(not tray_has_command_button, "%s tray contains no command buttons" % orientation)
+
+
+func _tray_visual_rect(tray: Control) -> Rect2:
+	var visual_rect := tray.get_global_transform() * Rect2(Vector2.ZERO, tray.size)
+	for art in [tray.get("_queue_left_cap"), tray.get("_queue_right_cap")]:
+		if art.visible:
+			visual_rect = visual_rect.merge(art.get_global_transform() * Rect2(Vector2.ZERO, art.size))
+	for art in tray.get("_queue_repeats"):
+		if art.visible:
+			visual_rect = visual_rect.merge(art.get_global_transform() * Rect2(Vector2.ZERO, art.size))
+	for slot_index in range(tray.call("_slot_count")):
+		visual_rect = visual_rect.merge(tray.call("slot_visual_global_rect", slot_index))
+	return visual_rect
 
 
 func _validate_board_input_order(shell: Control, context: String) -> void:

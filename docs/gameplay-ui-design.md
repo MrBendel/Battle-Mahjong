@@ -339,13 +339,9 @@ Instead, existing components reflow into the extra horizontal space.
 Conceptually:
 
     ┌───────────────────────────────────────────────────┐
-    │ STATUS HUD                                PAUSE   │
+    │ STATUS HUD      HORIZONTAL HOLD TRAY       PAUSE  │
     │                                                   │
-    │                PLAYFIELD          HOLD TRAY       │
-    │                                     [tile]        │
-    │                                     [tile]        │
-    │                                     [tile]        │
-    │                                     [empty]       │
+    │                     PLAYFIELD                     │
     │                                                   │
     │ CONSUMABLES                                       │
     └───────────────────────────────────────────────────┘
@@ -360,9 +356,9 @@ Portrait:
 
 Landscape:
 
-    vertical tray beside playfield
+    horizontal tray above playfield
 
-The portrait tray is reflowed into the landscape tray.
+Both orientations reuse the same composable porcelain tray artwork and capacity.
 
 It is NOT duplicated.
 
@@ -372,11 +368,7 @@ Never place another tray underneath the landscape playfield.
 
 # 11. Landscape Playfield
 
-Use the horizontal space for peripheral UI.
-
-Do not use it as justification for making the board itself wider.
-
-The landscape board should consume as much vertical space as practical.
+Use the horizontal tile skin and available width to make the unchanged portrait-authored Board topology larger. This is presentation-only and must not rotate, transpose, or rearrange stable slots.
 
 Peripheral systems can occupy the left and right margins:
 
@@ -388,10 +380,11 @@ LEFT:
 - consumables where appropriate
 
 CENTER:
+- horizontal hold tray
 - playfield
 
 RIGHT:
-- vertical hold tray
+- breathing room and edge decoration
 
 TOP RIGHT:
 - pause
@@ -403,9 +396,7 @@ of otherwise unused horizontal space.
 
 # 12. Landscape Hold Tray
 
-The landscape tray is the same conceptual object as the portrait tray.
-
-It becomes vertical.
+The landscape tray is the same conceptual object and artwork as the portrait tray. It remains horizontal and is centered above the playfield.
 
 Use the same physical visual language:
 
@@ -504,8 +495,8 @@ Particular attention should be paid to:
 
 - portrait top HUD
 - pause button
-- landscape left/right HUD regions
-- landscape vertical tray
+- landscape left HUD region
+- landscape top tray
 - bottom consumables
 
 The playfield should be centered within the remaining usable gameplay region,

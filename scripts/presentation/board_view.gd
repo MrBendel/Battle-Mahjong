@@ -188,7 +188,7 @@ func set_content_scale(content_scale: float) -> void:
 
 
 func set_vertical_stride_scale(vertical_stride_scale: float) -> void:
-	var clamped_scale := clampf(vertical_stride_scale, 0.50, 1.00)
+	var clamped_scale := clampf(vertical_stride_scale, 0.50, 1.40)
 	if is_equal_approx(_vertical_stride_scale, clamped_scale):
 		return
 	_vertical_stride_scale = clamped_scale
@@ -300,7 +300,7 @@ func _rebuild_tiles() -> void:
 		shadow_art.z_index = SHADOW_Z_OFFSET
 		shadow_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		shadow_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		shadow_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		shadow_art.stretch_mode = TextureRect.STRETCH_SCALE
 		button.add_child(shadow_art)
 
 		var contact_shadow_art := TextureRect.new()
