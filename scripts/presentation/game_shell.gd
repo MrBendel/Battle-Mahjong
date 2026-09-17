@@ -1,7 +1,7 @@
 extends Control
 
 signal return_to_town_requested
-signal next_tower_floor_requested
+signal tower_floor_completed(result: Dictionary)
 
 const DebugPanelScript := preload("res://scripts/ui/debug_panel.gd")
 const DeterministicRngScript := preload("res://scripts/simulation/deterministic_rng.gd")
@@ -114,6 +114,11 @@ const PAIR_MATCH_FX_POOL_SIZE := 6
 ## Initial tile deal-in after confirming the pregame modifier loadout.
 @export_range(0.08, 0.60, 0.01) var board_deal_seconds := 0.24
 @export_range(0.0, 0.80, 0.01) var board_deal_stagger_seconds := 0.34
+## Tower-only lift after a floor clears, before the next deterministic floor is installed.
+@export_range(0.15, 0.80, 0.01) var tower_floor_rise_seconds := 0.32
+## Tower-only drop used when the next floor enters the continuous run.
+@export_range(0.15, 0.80, 0.01) var tower_floor_drop_seconds := 0.34
+@export_range(0.0, 0.60, 0.01) var tower_floor_drop_stagger_seconds := 0.18
 ## Duration of each 3-2-1 opening countdown beat.
 @export_range(0.18, 1.00, 0.01) var opening_countdown_step_seconds := 0.55
 @export_category("Feedback")
@@ -217,6 +222,11 @@ var _launch_mode := "quick_play"
 var _launch_floor_number := 0
 var _runtime_deal_options: Dictionary = {}
 var _runtime_tray_capacity := GameStateScript.BASE_TRAY_CAPACITY
+var _tower_score_offset := 0
+var _tower_elapsed_time_offset_ms := 0
+var _tower_transition_active := false
+var _tower_transition_count := 0
+var _tower_transition_smoke_count := 0
 
 
 func configure_launch(options: Dictionary) -> void:
@@ -227,6 +237,8 @@ func configure_launch(options: Dictionary) -> void:
 	_runtime_tray_capacity = int(options.get("tray_capacity", GameStateScript.BASE_TRAY_CAPACITY))
 	_runtime_layout_seed = int(options.get("seed", START_SEED))
 	_rng.set_seed(_runtime_layout_seed)
+	_tower_score_offset = maxi(0, int(options.get("run_score", 0)))
+	_tower_elapsed_time_offset_ms = maxi(0, int(options.get("run_elapsed_time_ms", 0)))
 	show_layout_generator_on_start = bool(options.get("show_layout_generator", true))
 	show_modifier_picker_on_start = bool(options.get("show_modifier_picker", true))
 
@@ -279,8 +291,7 @@ func _build_shell() -> void:
 	_regions.board = BoardViewScript.new(_game, _tile_skin)
 	_regions.board.call("set_flip_duration", tile_flip_seconds)
 	_regions.momentum = MomentumViewScript.new(_game, gameplay_theme)
-	if _launch_floor_number > 0:
-		_regions.momentum.call("set_run_label", "FLOOR %d" % _launch_floor_number)
+	_regions.momentum.call("set_run_totals", _tower_score_offset, _tower_elapsed_time_offset_ms)
 	_regions.tray = TrayViewScript.new(_game, _tile_skin, gameplay_theme)
 	_regions.consumables = ConsumablesViewScript.new(_game, gameplay_theme)
 	_regions.character = _make_region("Character / FX", "decorative reaction space", Color(0.17, 0.11, 0.13, 1.0))
@@ -589,6 +600,50 @@ func _finish_opening_sequence_if_ready() -> void:
 	_opening_countdown_active = false
 	_game_started_at_ms = Time.get_ticks_msec()
 	_paused_duration_ms = 0
+	_tower_transition_active = false
+	_announce_tower_floor()
+
+
+func _announce_tower_floor() -> void:
+	if _launch_floor_number <= 0:
+		return
+	_performance_callout.call("play_alert", {
+		"type": "tower_floor",
+		"key": "tower_floor_%d" % _launch_floor_number,
+		"text": "FLOOR %d" % _launch_floor_number,
+	})
+
+
+func begin_tower_floor_transition(options: Dictionary) -> void:
+	if _launch_mode != "tower" or not _tower_transition_active:
+		return
+	configure_launch(options)
+	_game_over_time_ms = -1
+	_game_over_pending = false
+	_pause_started_at_ms = -1
+	_paused_duration_ms = 0
+	_game = _create_game()
+	_last_tray_capacity = _game.tray.capacity
+	_regions.board.modulate = Color.WHITE
+	_regions.board.call("set_game_state", _game)
+	_regions.board.call("set_tiles_visible", false)
+	_regions.tray.call("set_game_state", _game)
+	_regions.momentum.call("set_game_state", _game)
+	_regions.momentum.call("set_run_totals", _tower_score_offset, _tower_elapsed_time_offset_ms)
+	_regions.consumables.call("set_game_state", _game)
+	_end_game_menu.call("set_tower_floor", _launch_floor_number)
+	_performance_callout.call("reset")
+	_modifier_feedback.call("reset")
+	_opening_countdown_active = true
+	_opening_countdown_complete = true
+	_opening_deal_complete = false
+	_game_started_at_ms = Time.get_ticks_msec()
+	_apply_layout()
+	_regions.board.call(
+		"play_floor_drop_in",
+		tower_floor_drop_seconds,
+		tower_floor_drop_stagger_seconds
+	)
 
 
 func _open_modifier_picker(initial_loadout: Array) -> void:
@@ -847,7 +902,7 @@ func _play_transaction_callout(transaction: Variant) -> void:
 	_play_modifier_feedback(transaction.telemetry)
 	if arcade_callout_tuning == null:
 		return
-	var score_after := int(_game.call("current_snapshot").score)
+	var score_after := _tower_score_offset + int(_game.call("current_snapshot").score)
 	var alert: Dictionary = _arcade_callout_policy.call(
 		"choose_for_transaction",
 		transaction.telemetry,
@@ -985,7 +1040,7 @@ func _on_shuffle_requested() -> void:
 
 func _on_restart_requested() -> void:
 	if _launch_mode == "tower" and _game != null and _game.status == GameStateScript.WON:
-		next_tower_floor_requested.emit()
+		_begin_tower_floor_completion()
 		return
 	_clear_tray_compaction_previews()
 	_cancel_extra_life_recovery()
@@ -1098,6 +1153,7 @@ func _gameplay_input_blocked() -> bool:
 		or _modifier_picker != null \
 		or _opening_countdown_active \
 		or _pause_started_at_ms >= 0 or _game_over_time_ms >= 0 \
+		or _tower_transition_active \
 		or _shuffle_animation_active \
 		or _auto_clear_animation_active \
 		or _extra_life_recovery_active \
@@ -1172,8 +1228,47 @@ func _present_game_over_if_ready() -> void:
 	_game_over_time_ms = _playback_time_ms()
 	if _pause_button != null:
 		_pause_button.visible = false
+	if _launch_mode == "tower" and _game.status == GameStateScript.WON:
+		_begin_tower_floor_completion()
+		return
 	if _end_game_menu != null:
-		_end_game_menu.call("show_result", _game, _game_over_time_ms)
+		_end_game_menu.call(
+			"show_result",
+			_game,
+			_game_over_time_ms,
+			_tower_score_offset,
+			_tower_elapsed_time_offset_ms
+		)
+
+
+func _begin_tower_floor_completion() -> void:
+	if _tower_transition_active or _game == null or _game.status != GameStateScript.WON:
+		return
+	_tower_transition_active = true
+	_tower_transition_count += 1
+	_performance_callout.call("play_alert", {
+		"type": "tower_floor",
+		"key": "tower_floor_clear_%d" % _launch_floor_number,
+		"text": "FLOOR CLEAR!",
+	})
+	_spawn_tower_transition_smoke()
+	var board_start: Vector2 = _regions.board.position
+	var rise_distance := maxf(18.0, _regions.board.size.y * 0.045)
+	var tween := create_tween().set_parallel(true).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.tween_property(
+		_regions.board,
+		"position",
+		board_start - Vector2(0.0, rise_distance),
+		tower_floor_rise_seconds
+	)
+	tween.tween_property(_regions.board, "modulate:a", 0.20, tower_floor_rise_seconds)
+	tween.finished.connect(func() -> void:
+		tower_floor_completed.emit({
+			"floor_number": _launch_floor_number,
+			"score": int(_game.score),
+			"elapsed_time_ms": _game_over_time_ms,
+		})
+	)
 
 
 func _play_tile_to_tray(preview: Control, source_rect: Rect2, target_rect: Rect2, tile_id: String) -> void:
@@ -1852,6 +1947,26 @@ func _spawn_match_burst(global_center: Vector2) -> void:
 	burst.position = _global_to_local(global_center) - burst.pivot_offset
 	burst.z_index = 1001
 	burst.call("play")
+
+
+func _spawn_tower_transition_smoke() -> void:
+	if _pair_match_fx_pool.is_empty():
+		return
+	_tower_transition_smoke_count += 1
+	var board_center: Vector2 = _regions.board.global_position + _regions.board.size * 0.5
+	var spread: float = _regions.board.size.x * 0.08
+	for offset_x in [-spread, spread]:
+		var smoke: Control = _pair_match_fx_pool[_next_pair_match_fx_index]
+		_next_pair_match_fx_index = (_next_pair_match_fx_index + 1) % _pair_match_fx_pool.size()
+		var responsive_scale := PresentationScaleScript.safe_display_scale(
+			get_viewport_rect().size,
+			_get_safe_area_insets(),
+			PORTRAIT_REFERENCE_SIZE
+		) * match_fx_scale_multiplier * 1.55
+		smoke.scale = Vector2.ONE * responsive_scale
+		smoke.position = _global_to_local(board_center + Vector2(offset_x, 0.0)) - smoke.pivot_offset
+		smoke.z_index = 1001
+		smoke.call("play_smoke_only")
 
 
 func _initialize_match_fx_pool() -> void:

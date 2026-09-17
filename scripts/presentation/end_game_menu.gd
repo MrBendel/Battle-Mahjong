@@ -24,7 +24,7 @@ func set_tower_floor(floor_number: int) -> void:
 	_tower_floor = maxi(0, floor_number)
 
 
-func show_result(game: Variant, elapsed_ms: int) -> void:
+func show_result(game: Variant, elapsed_ms: int, score_offset: int = 0, elapsed_offset_ms: int = 0) -> void:
 	if game == null:
 		return
 	var is_win := str(game.status) == GameStateDataScript.WON
@@ -44,7 +44,7 @@ func show_result(game: Variant, elapsed_ms: int) -> void:
 		_restart_button.text = "TRY FLOOR AGAIN" if _tower_floor > 0 else "PLAY AGAIN"
 		_undo_button.visible = can_undo
 
-	_populate_stats(game, elapsed_ms)
+	_populate_stats(game, elapsed_ms + maxi(0, elapsed_offset_ms), maxi(0, score_offset))
 	visible = true
 	_restart_button.grab_focus()
 	_layout()
@@ -103,7 +103,7 @@ func _build_overlay_content() -> void:
 	_content.add_child(_town_button)
 
 
-func _populate_stats(game: Variant, elapsed_ms: int) -> void:
+func _populate_stats(game: Variant, elapsed_ms: int, score_offset: int = 0) -> void:
 	for child in _stats_container.get_children():
 		_stats_container.remove_child(child)
 		child.queue_free()
@@ -113,7 +113,7 @@ func _populate_stats(game: Variant, elapsed_ms: int) -> void:
 	var mins := seconds / 60
 	var secs := seconds % 60
 	var time_str := "%d:%02d" % [mins, secs]
-	var score: int = int(game.get("score")) if "score" in game else 0
+	var score: int = score_offset + (int(game.get("score")) if "score" in game else 0)
 	var resolved_pairs: int = int(game.tray.resolved_pair_count) if "tray" in game else 0
 	var max_combo: int = int(game.get("max_combo")) if "max_combo" in game else 0
 	var stats := [

@@ -67,6 +67,12 @@ func play() -> void:
 	_particles.emitting = true
 
 
+func play_smoke_only() -> void:
+	play_count += 1
+	_particles.restart()
+	_particles.emitting = true
+
+
 func _play_impact_burst() -> void:
 	if _burst_tween != null and _burst_tween.is_valid():
 		_burst_tween.kill()

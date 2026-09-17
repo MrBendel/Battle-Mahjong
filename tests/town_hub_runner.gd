@@ -92,14 +92,35 @@ func _verify_orientation(viewport_size: Vector2i, label: String) -> void:
 	_check(tower_game.get("_layout_generator_picker") == null, "%s Tower starts its generated floor directly" % label)
 	_check_equal(1, tower_game.get("_launch_floor_number"), "%s Tower starts on floor one" % label)
 	var tower_momentum: Control = tower_game.get("_regions").momentum
-	_check("FLOOR 1" in str(tower_momentum.get("_combo").text), "%s Tower HUD identifies the current floor" % label)
+	_check(not "FLOOR" in str(tower_momentum.get("_combo").text), "%s Tower keeps floor text out of the streak HUD" % label)
+	_finish_tower_opening_for_test(tower_game)
+	var tower_callout: Control = tower_game.get("_performance_callout")
+	_check_equal("tower_floor_1", tower_callout.get("last_callout_key"), "%s Tower announces floor one" % label)
+	_check_equal("FLOOR 1", tower_callout.get("last_text"), "%s Tower floor-one announcement uses concise text" % label)
 	var floor_one_seed: int = tower_game.get("_runtime_layout_seed")
-	app.call("_on_next_tower_floor_requested")
-	await process_frame
-	await process_frame
+	var floor_one_game: Variant = tower_game.get("_game")
+	floor_one_game.get("_state").status = "won"
+	floor_one_game.get("_state").score = 1250
+	tower_game.set("_game_over_time_ms", 42000)
+	tower_game.call("_begin_tower_floor_completion")
+	await create_timer(1.1).timeout
+	var continued_tower_game: Control = app.get("_game_shell")
+	_check(tower_game == continued_tower_game, "%s Tower keeps one gameplay shell between floors" % label)
 	tower_game = app.get("_game_shell")
 	_check_equal(2, tower_game.get("_launch_floor_number"), "%s Tower advances to floor two" % label)
 	_check(floor_one_seed != int(tower_game.get("_runtime_layout_seed")), "%s next Tower floor uses a new deal seed" % label)
+	_check_equal(1250, tower_game.get("_tower_score_offset"), "%s Tower carries score into floor two" % label)
+	_check_equal(42000, tower_game.get("_tower_elapsed_time_offset_ms"), "%s Tower carries active time into floor two" % label)
+	_check_equal(1, tower_game.get("_tower_transition_count"), "%s Tower plays one upward floor-clear transition" % label)
+	_check_equal(1, tower_game.get("_tower_transition_smoke_count"), "%s Tower plays transition smoke once per cleared floor" % label)
+	_check_equal(1, tower_game.get("_regions").board.get("_floor_drop_in_count"), "%s next Tower floor drops into the existing shell" % label)
+	tower_momentum = tower_game.get("_regions").momentum
+	_check(not "FLOOR" in str(tower_momentum.get("_combo").text), "%s next Tower floor keeps the streak HUD compact" % label)
+	_check("1250" in str(tower_momentum.get("_score").text).replace(",", "").replace(" ", ""), "%s Tower HUD displays cumulative score" % label)
+	_check("00:42" in str(tower_momentum.get("_timer").text), "%s Tower HUD displays cumulative active time" % label)
+	tower_callout = tower_game.get("_performance_callout")
+	_check_equal("tower_floor_2", tower_callout.get("last_callout_key"), "%s Tower announces floor two" % label)
+	_check_equal("FLOOR 2", tower_callout.get("last_text"), "%s Tower floor-two announcement increments" % label)
 	app.call("_show_hub")
 	await process_frame
 	_check(app.get("_hub") != null, "%s gameplay can return to town" % label)
@@ -107,6 +128,18 @@ func _verify_orientation(viewport_size: Vector2i, label: String) -> void:
 	root.remove_child(app)
 	app.queue_free()
 	await process_frame
+
+
+func _finish_tower_opening_for_test(game_shell: Control) -> void:
+	var modifier_picker: Control = game_shell.get("_modifier_picker")
+	if modifier_picker != null:
+		game_shell.remove_child(modifier_picker)
+		modifier_picker.queue_free()
+		game_shell.set("_modifier_picker", null)
+	game_shell.set("_opening_countdown_active", true)
+	game_shell.set("_opening_countdown_complete", true)
+	game_shell.set("_opening_deal_complete", true)
+	game_shell.call("_finish_opening_sequence_if_ready")
 
 
 func _check(condition: bool, message: String) -> void:

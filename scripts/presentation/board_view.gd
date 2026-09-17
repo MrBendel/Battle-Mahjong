@@ -64,6 +64,7 @@ var _performance_preview_creation_count := 0
 var _performance_input_sort_count := 0
 var _deal_in_tween: Tween
 var _deal_in_count := 0
+var _floor_drop_in_count := 0
 var _art_backing_style_cache: StyleBoxFlat
 var _disabled_tile_style_cache: StyleBoxFlat
 
@@ -139,12 +140,55 @@ func play_deal_in(duration_seconds: float = 0.24, stagger_seconds: float = 0.34)
 	)
 
 
+func play_floor_drop_in(duration_seconds: float = 0.30, stagger_seconds: float = 0.18) -> void:
+	_cancel_deal_in()
+	if _tile_layer == null:
+		return
+	_tile_layer.visible = true
+	var active_buttons: Array[Button] = []
+	for tile in _game.board.tiles:
+		var button: Button = _tile_buttons.get(tile.id)
+		if button != null and button.visible:
+			active_buttons.append(button)
+	if active_buttons.is_empty():
+		deal_in_finished.emit()
+		return
+	_floor_drop_in_count += 1
+	_deal_in_tween = create_tween().set_parallel(true)
+	var duration := maxf(0.12, duration_seconds)
+	var stagger := maxf(0.0, stagger_seconds)
+	var drop_distance := maxf(size.y * 0.22, active_buttons[0].size.y * 2.2)
+	for index in range(active_buttons.size()):
+		var button := active_buttons[index]
+		var target_position: Vector2 = _tile_layout_positions.get(str(button.name), button.position)
+		var target_modulate := button.modulate
+		button.pivot_offset = button.size * 0.5
+		button.position = target_position - Vector2(0.0, drop_distance)
+		button.scale = Vector2(0.94, 0.94)
+		button.modulate = Color(target_modulate.r, target_modulate.g, target_modulate.b, 0.0)
+		var delay := stagger * float(index) / float(maxi(1, active_buttons.size() - 1))
+		_deal_in_tween.tween_property(button, "position", target_position, duration) \
+			.set_delay(delay).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		_deal_in_tween.tween_property(button, "scale", Vector2.ONE, duration) \
+			.set_delay(delay).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		_deal_in_tween.tween_property(button, "modulate", target_modulate, duration * 0.70) \
+			.set_delay(delay).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_deal_in_tween.finished.connect(func() -> void:
+		_deal_in_tween = null
+		deal_in_finished.emit()
+	)
+
+
 func _cancel_deal_in() -> void:
 	if _deal_in_tween != null and _deal_in_tween.is_valid():
 		_deal_in_tween.kill()
 	_deal_in_tween = null
-	for button in _tile_buttons.values():
+	for tile_id in _tile_buttons:
+		var button: Button = _tile_buttons[tile_id]
 		button.scale = Vector2.ONE
+		if _tile_layout_positions.has(tile_id):
+			button.position = _tile_layout_positions[tile_id]
+		button.modulate.a = 1.0
 
 
 func set_flip_duration(seconds: float) -> void:
@@ -429,7 +473,7 @@ func refresh() -> void:
 				or revealable_ids.has(tile.id) or revealed_playable \
 				or _game.definition.rules_version < 12 and revealed_tray_match)) \
 			and _game.status == "playing"
-		var visually_active: bool = selectable or revealed_flipped
+		var visually_active: bool = selectable
 		button.tooltip_text = _tile_tooltip(tile)
 		button.disabled = _game.status != "playing"
 		button.set_meta("targetable", selectable)
@@ -437,7 +481,8 @@ func refresh() -> void:
 		button.set_meta("revealed_flipped", revealed_flipped)
 		button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if selectable else Control.CURSOR_FORBIDDEN
 		var depth_brightness := _depth_brightness(tile.position.z, max_depth)
-		var presentation_brightness := 1.0 if visually_active else depth_brightness
+		var presentation_brightness := 1.0 if visually_active \
+			else depth_brightness * _blocked_brightness_multiplier()
 		button.modulate = Color(presentation_brightness, presentation_brightness, presentation_brightness)
 		button.set_meta("presentation_brightness", presentation_brightness)
 		button.set_meta("depth_brightness", depth_brightness)
@@ -953,6 +998,13 @@ func _blocked_overlay_color() -> Color:
 		[0.06, 0.16, 0.18, 0.46]
 	)
 	return Color(float(channels[0]), float(channels[1]), float(channels[2]), float(channels[3]))
+
+
+func _blocked_brightness_multiplier() -> float:
+	return clampf(float(_tile_skin.depth_presentation.get(
+		"blocked_brightness_multiplier",
+		0.84
+	)), 0.0, 1.0)
 
 
 func _grid_bounds() -> Rect2i:

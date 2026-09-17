@@ -4,14 +4,18 @@ The Tower is the endless-play direction. The first playable runtime loop and the
 
 ## Runtime Loop
 
-Selecting **The Tower** in town creates a run seed and starts floor 1 immediately after the existing modifier-loadout step. Each floor is an ordinary, independently replayable `GameDefinition`; the Tower run owns only the run seed and current floor number. Clearing a floor offers **Next Floor**, while losing can replay that same floor. Returning to town ends the in-memory run.
+Selecting **The Tower** in town creates a run seed and starts floor 1 after the existing modifier-loadout step. Once the opening countdown and Board deal finish, the shared arcade-callout lane announces `FLOOR N`; the compact Streak readout remains dedicated to Streak state.
+
+Tower is presented as one continuous run. Clearing a floor locks input, announces `FLOOR CLEAR!`, raises the cleared playfield through a lightweight smoke transition, and drops the next generated tile stack into the same gameplay shell. The next floor opens for input only after that drop settles. Transition animation time is excluded from active-play time.
+
+Score and active-play time accumulate across completed floors. `TowerRun` records each floor result idempotently and owns the run totals, while every floor remains an ordinary, independently replayable `GameDefinition` with its own transactional score and clock. The HUD adds the run totals to the active floor's local values; it does not inject prior-floor state into the current floor simulation. Losing shows the cumulative run result and can replay that floor. Returning to town ends the in-memory run.
 
 `configuration/tower/tower_runtime.json` controls the initial runtime curve. A floor deterministically derives separate layout and deal seeds from `(run seed, floor number)`. The current curve keeps the portrait-first 96-tile board envelope stable while increasing:
 
 - unique tile identities, from 12 toward 24;
 - deterministic deal shuffle, from 40% toward 100%.
 
-The floor sequence is unbounded and reproducible. Persistence, rewards, checkpoints, and profile progression remain deferred; this is the playable mode foundation rather than the finished Tower metagame.
+The floor sequence is unbounded and reproducible. The initial modifier selection is reused as the shell advances; later floors do not reopen the pregame picker. Persistence, rewards, checkpoints, and profile progression remain deferred; this is the playable mode foundation rather than the finished Tower metagame.
 
 ## Segment Contract
 
