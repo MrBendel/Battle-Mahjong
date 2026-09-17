@@ -52,7 +52,8 @@
   "depth_presentation": {
     "lowest_layer_brightness": 0.70,
     "near_top_layer_brightness": 0.91,
-    "blocked_overlay_color": [0.10, 0.12, 0.13, 0.32],
+    "blocked_brightness_multiplier": 0.82,
+    "blocked_overlay_color": [0.11, 0.13, 0.14, 0.46],
     "shadow_asset": "res://game-assets/tiles/default/tile_shadow_soft.png",
     "shadow_opacity": 0.58,
     "shadow_offset_ratio": [0.08, 0.12],

@@ -195,8 +195,12 @@ func _run_tile_skin_contract_tests() -> void:
 	_check(float(layer_offset[1]) <= -0.05, "Default skin gives each higher layer a visible upward lift")
 	var blocked_overlay: Array = skin.depth_presentation.blocked_overlay_color
 	_check(
+		float(skin.depth_presentation.blocked_brightness_multiplier) <= 0.85,
+		"blocked tiles receive a strong whole-tile luminance reduction"
+	)
+	_check(
 		absf(float(blocked_overlay[0]) - float(blocked_overlay[2])) < 0.05 \
-			and float(blocked_overlay[3]) >= 0.3,
+			and float(blocked_overlay[3]) >= 0.4,
 		"blocked-state veil is neutral, desaturated, and visibly darker"
 	)
 	_check(
@@ -542,9 +546,10 @@ func _run_flipped_tile_tests() -> void:
 
 	var tray_game := GameStateScript.new(_definition_with_flips(direct_tiles, ["flipped"]))
 	_check_equal(GameStateScript.SELECTED, tray_game.call("select_tile", "ordinary", 100), "ordinary mate can enter tray before reveal")
-	_check_equal(GameStateScript.FLIPPED_PAIR_RESOLVED, tray_game.call("reveal_tile", "flipped", 200), "face-down tile auto-matches an existing tray tile")
+	_check(tray_game.board.call("is_tile_revealed_flipped", "flipped"), "sole remaining layer tile auto-reveals after its ordinary mate enters the tray")
+	_check(bool(tray_game.call("last_transaction").telemetry.all_flipped_tiles_revealed), "automatic sole-tile reveal records complete reveal progress")
+	_check_equal(GameStateScript.FLIPPED_PAIR_RESOLVED, tray_game.call("reveal_tile", "flipped", 200), "revealed tile auto-matches an existing tray tile")
 	_check_equal(0, tray_game.tray.tiles.size(), "tray-to-flipped match clears held tile atomically")
-	_check(bool(tray_game.call("last_transaction").telemetry.all_flipped_tiles_revealed), "first auto-matching reveal still records complete reveal progress")
 	var rules_thirteen_definition := GameDefinitionScript.new(1, direct_tiles, {"tray_capacity": 4}, 13, [], {}, null, ["flipped"])
 	var rules_thirteen_game := GameStateScript.new(rules_thirteen_definition)
 	rules_thirteen_game.call("select_tile", "ordinary", 100)
@@ -561,7 +566,7 @@ func _run_flipped_tile_tests() -> void:
 	var danger_game := GameStateScript.new(_definition_with_flips(danger_tiles, ["danger_flip"]))
 	for held_id in ["held_a", "held_b", "held_c"]:
 		_check_equal(GameStateScript.SELECTED, danger_game.call("select_tile", held_id), "danger setup fills one tray slot")
-	_check_equal(GameStateScript.TILE_REVEALED, danger_game.call("reveal_tile", "danger_flip"), "danger setup reveals its flipped tile")
+	_check(danger_game.board.call("is_tile_revealed_flipped", "danger_flip"), "last free back on the open danger layer reveals automatically")
 	_check_equal(GameStateScript.GAME_OVER, danger_game.call("tap_tile", "danger_flip"), "revealed flipped tile cannot bypass a three-tile tray")
 	_check_equal(GameStateScript.LOST, danger_game.status, "fourth authoritative tray tile loses normally")
 	_check(not danger_game.board.call("is_tile_active", "danger_flip"), "losing revealed tile occupies the fourth tray slot")
@@ -623,19 +628,112 @@ func _run_flipped_tile_tests() -> void:
 	var cover_face := TileFaceScript.new("test", "cover_pair")
 	var uncover_tiles := [
 		TileInstanceScript.new("auto_flip", memory_face, BoardPositionScript.new(0, 0, 0)),
-		TileInstanceScript.new("auto_mate", memory_face, BoardPositionScript.new(8, 0, 0)),
 		TileInstanceScript.new("cover_first", cover_face, BoardPositionScript.new(0, 0, 1)),
 		TileInstanceScript.new("cover_second", cover_face, BoardPositionScript.new(4, 0, 1)),
 	]
 	var uncover_definition: Variant = _definition_with_flips(uncover_tiles, ["auto_flip"])
 	var uncover_game := GameStateScript.new(uncover_definition)
+	var uncover_initial_hash: String = uncover_game.call("current_snapshot").state_hash()
 	_check(not uncover_game.board.call("is_tile_revealable", "auto_flip"), "covered auto-flip tile begins inaccessible")
 	_check_equal(GameStateScript.SELECTED, uncover_game.call("select_tile", "cover_first"), "removing a covering tile remains an ordinary selection")
-	_check(uncover_game.board.call("is_tile_face_down", "auto_flip"), "newly uncovered tile remains face-down")
-	_check(uncover_game.board.call("is_tile_revealable", "auto_flip"), "newly uncovered tile becomes manually revealable")
-	_check(not uncover_game.call("last_transaction").telemetry.has("auto_revealed_tile_ids"), "uncovering records no automatic reveal telemetry")
+	_check(uncover_game.board.call("is_tile_revealed_flipped", "auto_flip"), "sole remaining face-down tile on a visible layer reveals automatically")
+	_check_equal(["auto_flip"], uncover_game.call("last_transaction").telemetry.auto_revealed_tile_ids, "open-layer reveal records deterministic telemetry")
+	_check(bool(uncover_game.call("last_transaction").telemetry.first_reveal_of_flipped_tile), "automatic cleanup records first-reveal progress")
+	_check(bool(uncover_game.call("last_transaction").telemetry.all_flipped_tiles_revealed), "automatic final reveal completes flipped-tile progress")
+	var uncover_transaction: Variant = uncover_game.call("last_transaction")
+	var uncover_replica := GameStateScript.new(uncover_definition)
+	_check(bool(uncover_replica.call("apply_transaction", uncover_transaction).accepted), "open-layer automatic reveal replays")
+	_check_equal(uncover_game.call("current_snapshot").state_hash(), uncover_replica.call("current_snapshot").state_hash(), "automatic reveal replay reaches the same state")
+	var uncover_reversed: Variant = GameReducerScript.new().call(
+		"apply_reverse",
+		uncover_definition,
+		uncover_game.call("current_snapshot"),
+		uncover_transaction
+	)
+	_check(uncover_reversed != null, "open-layer automatic reveal applies in reverse")
+	_check_equal(uncover_initial_hash, uncover_reversed.state_hash(), "reverse restores the covered face-down state")
 	_check_equal(GameStateScript.UNDONE, uncover_game.call("undo_last_unmatched"), "uncovering selection remains undoable")
 	_check(not uncover_game.board.call("is_tile_revealable", "auto_flip"), "Undo restores the covering tile and hidden state atomically")
+	var rules_nineteen_definition := GameDefinitionScript.new(1, uncover_tiles, {"tray_capacity": 4}, 19, [], {}, null, ["auto_flip"])
+	var rules_nineteen_game := GameStateScript.new(rules_nineteen_definition)
+	rules_nineteen_game.call("select_tile", "cover_first")
+	_check(rules_nineteen_game.board.call("is_tile_face_down", "auto_flip"), "rules version 19 preserves manual reveal behavior")
+	_check(not rules_nineteen_game.call("last_transaction").telemetry.has("auto_revealed_tile_ids"), "legacy manual reveal records no automatic telemetry")
+	var last_layer_tile_definition: Variant = _definition_with_flips([
+		TileInstanceScript.new("last_layer_flip", memory_face, BoardPositionScript.new(0, 0, 2)),
+		TileInstanceScript.new("last_layer_neighbor", other_face, BoardPositionScript.new(8, 0, 2)),
+	], ["last_layer_flip"])
+	var last_layer_tile_game := GameStateScript.new(last_layer_tile_definition)
+	_check(last_layer_tile_game.board.call("is_tile_revealable", "last_layer_flip"), "final-layer regression starts with an already-accessible back")
+	last_layer_tile_game.call("select_tile", "last_layer_neighbor")
+	_check(last_layer_tile_game.board.call("is_tile_revealed_flipped", "last_layer_flip"), "clearing the last neighboring tile reveals the layer's remaining back")
+	_check_equal(["last_layer_flip"], last_layer_tile_game.call("last_transaction").telemetry.auto_revealed_tile_ids, "last-tile cleanup uses the automatic flip presentation path")
+	var last_back_definition: Variant = _definition_with_flips([
+		TileInstanceScript.new("last_back", memory_face, BoardPositionScript.new(0, 0, 2)),
+		TileInstanceScript.new("same_layer_ordinary", other_face, BoardPositionScript.new(8, 0, 2)),
+		TileInstanceScript.new("unrelated_trigger", cover_face, BoardPositionScript.new(20, 0, 3)),
+	], ["last_back"])
+	var last_back_game := GameStateScript.new(last_back_definition)
+	last_back_game.call("select_tile", "unrelated_trigger")
+	_check(last_back_game.board.call("is_tile_active", "same_layer_ordinary"), "last-back regression keeps an ordinary tile on the same layer")
+	_check(last_back_game.board.call("is_tile_revealed_flipped", "last_back"), "last free face-down tile reveals while ordinary same-layer tiles remain")
+	_check_equal(["last_back"], last_back_game.call("last_transaction").telemetry.auto_revealed_tile_ids, "last-back regression drives the shared flip animation telemetry")
+	last_back_game.call("select_tile", "same_layer_ordinary")
+	_check(last_back_game.board.call("is_tile_revealed_flipped", "last_back"), "automatic final-layer reveal stays face-up after another board selection")
+	_check(not last_back_game.call("last_transaction").telemetry.has("auto_revealed_tile_ids"), "persistent cleanup reveal is not emitted again")
+	var blocked_back_face := TileFaceScript.new("test", "blocked_back")
+	var last_free_back_definition: Variant = _definition_with_flips([
+		TileInstanceScript.new("last_free_back", memory_face, BoardPositionScript.new(0, 0, 1)),
+		TileInstanceScript.new("trapped_back", blocked_back_face, BoardPositionScript.new(8, 0, 1)),
+		TileInstanceScript.new("trapped_back_cover", other_face, BoardPositionScript.new(8, 0, 2)),
+		TileInstanceScript.new("free_back_trigger", cover_face, BoardPositionScript.new(20, 0, 2)),
+	], ["last_free_back", "trapped_back"])
+	var last_free_back_game := GameStateScript.new(last_free_back_definition)
+	last_free_back_game.call("select_tile", "free_back_trigger")
+	_check(last_free_back_game.board.call("is_tile_face_down", "trapped_back"), "blocked same-layer back remains face-down")
+	_check(last_free_back_game.board.call("is_tile_face_down", "last_free_back"), "another same-layer back still suppresses automatic cleanup")
+	_check(not last_free_back_game.call("last_transaction").telemetry.has("auto_revealed_tile_ids"), "layer cleanup waits until only one face-down tile remains")
+	var side_blocked_definition: Variant = _definition_with_flips([
+		TileInstanceScript.new("left_blocker", other_face, BoardPositionScript.new(0, 0, 1)),
+		TileInstanceScript.new("visible_side_blocked_back", memory_face, BoardPositionScript.new(2, 0, 1)),
+		TileInstanceScript.new("right_blocker", cover_face, BoardPositionScript.new(4, 0, 1)),
+		TileInstanceScript.new("side_blocked_trigger", cover_face, BoardPositionScript.new(20, 0, 2)),
+	], ["visible_side_blocked_back"])
+	var side_blocked_game := GameStateScript.new(side_blocked_definition)
+	_check(side_blocked_game.board.call("is_tile_visible", "visible_side_blocked_back"), "side-blocked regression back is visible")
+	_check(not side_blocked_game.board.call("is_tile_revealable", "visible_side_blocked_back"), "side-blocked regression back is not manually revealable")
+	side_blocked_game.call("select_tile", "side_blocked_trigger")
+	_check(side_blocked_game.board.call("is_tile_revealed_flipped", "visible_side_blocked_back"), "final visible back auto-reveals even while side-locked")
+	_check_equal(["visible_side_blocked_back"], side_blocked_game.call("last_transaction").telemetry.auto_revealed_tile_ids, "side-locked cleanup drives the shared flip animation")
+
+	var second_flip_face := TileFaceScript.new("test", "second_flip")
+	var two_remaining_tiles := [
+		TileInstanceScript.new("first_remaining_flip", memory_face, BoardPositionScript.new(0, 0, 0)),
+		TileInstanceScript.new("second_remaining_flip", second_flip_face, BoardPositionScript.new(8, 0, 0)),
+		TileInstanceScript.new("two_cover_first", cover_face, BoardPositionScript.new(0, 0, 1)),
+		TileInstanceScript.new("two_cover_second", cover_face, BoardPositionScript.new(4, 0, 1)),
+	]
+	var two_remaining_game := GameStateScript.new(_definition_with_flips(
+		two_remaining_tiles,
+		["first_remaining_flip", "second_remaining_flip"]
+	))
+	two_remaining_game.call("select_tile", "two_cover_first")
+	_check(two_remaining_game.board.call("is_tile_face_down", "first_remaining_flip"), "open layer keeps multiple remaining tiles face-down")
+	_check(two_remaining_game.board.call("is_tile_face_down", "second_remaining_flip"), "automatic reveal waits for the layer's final face-down tile")
+	two_remaining_game.call("reveal_tile", "first_remaining_flip")
+	two_remaining_game.call("tap_tile", "first_remaining_flip")
+	_check(two_remaining_game.board.call("is_tile_revealed_flipped", "second_remaining_flip"), "playing one of two open backs automatically reveals the layer's last back")
+
+	var partially_covered_tiles := [
+		TileInstanceScript.new("open_candidate", memory_face, BoardPositionScript.new(0, 0, 0)),
+		TileInstanceScript.new("still_covered", other_face, BoardPositionScript.new(8, 0, 0)),
+		TileInstanceScript.new("candidate_cover", cover_face, BoardPositionScript.new(0, 0, 1)),
+		TileInstanceScript.new("remaining_cover", other_face, BoardPositionScript.new(8, 0, 1)),
+	]
+	var partially_covered_game := GameStateScript.new(_definition_with_flips(partially_covered_tiles, ["open_candidate"]))
+	partially_covered_game.call("select_tile", "candidate_cover")
+	_check(partially_covered_game.board.call("is_tile_revealed_flipped", "open_candidate"), "last free back reveals even while an ordinary same-layer tile remains covered elsewhere")
+	_check_equal(["open_candidate"], partially_covered_game.call("last_transaction").telemetry.auto_revealed_tile_ids, "covered ordinary neighbors do not suppress the final-back reveal")
 	var rules_twelve_auto_definition := GameDefinitionScript.new(1, uncover_tiles, {"tray_capacity": 4}, 12, [], {}, null, ["auto_flip"])
 	var rules_twelve_auto_game := GameStateScript.new(rules_twelve_auto_definition)
 	_check_equal(GameStateScript.SELECTED, rules_twelve_auto_game.call("select_tile", "cover_first"), "rules version 12 covering selection still applies")
@@ -760,7 +858,7 @@ func _run_momentum_tests() -> void:
 		TileInstanceScript.new("fourth", second_face, BoardPositionScript.new(12, 0, 0)),
 	])
 	var configuration: Dictionary = definition.configuration
-	_check_equal(19, definition.rules_version, "current games snapshot rules version 19")
+	_check_equal(20, definition.rules_version, "current games snapshot rules version 20")
 	_check_equal(1, MomentumRulesScript.multiplier_for(12499, configuration), "momentum below first threshold stays x1")
 	_check_equal(2, MomentumRulesScript.multiplier_for(12500, configuration), "first visible threshold enters x2")
 	_check_equal(8, MomentumRulesScript.multiplier_for(87500, configuration), "seventh visible threshold enters x8")
@@ -2018,6 +2116,20 @@ func _run_generator_solver_tests() -> void:
 	_check(tower_run.call("validation_errors").is_empty(), "Tower runtime configuration validates")
 	var first_floor: Dictionary = tower_run.call("floor_spec")
 	_check_equal(first_floor, repeated_tower_run.call("floor_spec"), "Tower runtime floor is deterministic")
+	_check(tower_run.call("record_floor_result", {
+		"floor_number": 1,
+		"score": 1250,
+		"elapsed_time_ms": 42000,
+	}), "Tower records its current floor result")
+	_check(not tower_run.call("record_floor_result", {
+		"floor_number": 1,
+		"score": 9999,
+		"elapsed_time_ms": 9999,
+	}), "Tower floor results are idempotent")
+	var first_floor_totals: Dictionary = tower_run.call("run_totals")
+	_check_equal(1250, first_floor_totals.score, "Tower accumulates completed-floor score")
+	_check_equal(42000, first_floor_totals.elapsed_time_ms, "Tower accumulates completed-floor active time")
+	_check_equal(1, first_floor_totals.completed_floor_count, "Tower counts completed floors once")
 	tower_run.call("advance")
 	var second_floor: Dictionary = tower_run.call("floor_spec")
 	_check_equal(2, second_floor.floor_number, "Tower runtime advances one floor at a time")

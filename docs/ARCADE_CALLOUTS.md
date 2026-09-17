@@ -17,6 +17,8 @@ The renderer owns one live-text label. A new accepted alert replaces the active 
 
 The opening `3`, `2`, `1` countdown is a separate pre-game presentation lane rather than a gameplay callout. It is centered over the responsive Board with chromatic text shadows and radial streaks. The Board deals in behind it, but gameplay input, elapsed run time, and Momentum decay remain at zero until both the countdown and deal animation finish.
 
+Tower floors use the shared arcade-callout lane for a concise `FLOOR N` announcement immediately after the opening countdown or inter-floor tile drop finishes. A completed floor first emits `FLOOR CLEAR!` while the Board transitions upward. The floor number is run context rather than Streak state, so it must not be inserted into the compact Streak readout.
+
 Callout typography, outline weight, vertical motion, and lane height scale from the rendered Board dimensions. Long localized or system copy is fitted to the available width after scaling, preserving legibility on high-resolution phones without clipping compact portrait layouts.
 
 ## Combo Cadence

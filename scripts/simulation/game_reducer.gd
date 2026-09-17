@@ -193,7 +193,7 @@ func _is_valid(definition: Variant, state: Variant) -> bool:
 		revealed_ids[tile_id] = true
 		if state.tile_zones.get(tile_id) == GameStateDataScript.ZONE_BOARD:
 			active_revealed_count += 1
-	if state.rules_version >= 10 and active_revealed_count > 1:
+	if state.rules_version >= 10 and state.rules_version < 20 and active_revealed_count > 1:
 		return false
 	if resolved_count != state.resolved_pair_count * 2:
 		return false

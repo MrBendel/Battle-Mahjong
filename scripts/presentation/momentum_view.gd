@@ -54,7 +54,8 @@ var _audio_playback: Variant
 var _modifier_tween: Tween
 var modifier_feedback_count := 0
 var last_modifier_feedback := ""
-var _run_label := ""
+var _score_offset := 0
+var _elapsed_time_offset_ms := 0
 
 
 func _init(game_state: Variant, gameplay_theme: Resource = null) -> void:
@@ -75,15 +76,16 @@ func set_game_state(game_state: Variant) -> void:
 	refresh(_game.elapsed_time_ms)
 
 
+func set_run_totals(score_offset: int, elapsed_time_offset_ms: int) -> void:
+	_score_offset = maxi(0, score_offset)
+	_elapsed_time_offset_ms = maxi(0, elapsed_time_offset_ms)
+	refresh(_game.elapsed_time_ms)
+
+
 func set_portrait_style(enabled: bool) -> void:
 	_portrait_style = enabled
 	_update_style_visibility()
 	_layout()
-
-
-func set_run_label(value: String) -> void:
-	_run_label = value
-	refresh(_game.elapsed_time_ms)
 
 
 func refresh(playback_time_ms: int) -> void:
@@ -95,14 +97,14 @@ func refresh(playback_time_ms: int) -> void:
 	_meter.max_value = maximum
 	_meter.value = momentum
 	_set_poster_text(_multiplier, _multiplier_shadow, "x%d" % multiplier)
-	_set_poster_text(_score, _score_shadow, _format_score(_game.score) if _portrait_style else "Score  %d" % _game.score)
-	_set_poster_text(_timer, _timer_shadow, _format_time(playback_time_ms))
+	var displayed_score := _score_offset + int(_game.score)
+	var displayed_time_ms := _elapsed_time_offset_ms + playback_time_ms
+	_set_poster_text(_score, _score_shadow, _format_score(displayed_score) if _portrait_style else "Score  %d" % displayed_score)
+	_set_poster_text(_timer, _timer_shadow, _format_time(displayed_time_ms))
 	var combo: int = _game.call("combo_at", playback_time_ms)
 	var combo_text := "x%d" % combo if _portrait_style and combo > 0 \
 		else "-" if _portrait_style \
 		else "Combo x%d" % combo if combo > 0 else "Combo ready"
-	if not _run_label.is_empty():
-		combo_text = "%s  %s" % [_run_label, combo_text]
 	_set_poster_text(_combo, _combo_shadow, combo_text)
 	var ratio := clampf(float(momentum) / float(maximum), 0.0, 1.0) if maximum > 0 else 0.0
 	_fill_clip.size.x = _momentum_fill.size.x * ratio

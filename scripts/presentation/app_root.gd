@@ -135,6 +135,21 @@ func _start_tower() -> void:
 
 
 func _show_tower_floor() -> void:
+	var options := _tower_floor_launch_options(true)
+	if options.is_empty():
+		_show_hub()
+		return
+	_replace_active_screen(null)
+	_game_shell = GAME_SHELL_SCENE.instantiate()
+	_game_shell.name = "GameShell"
+	_game_shell.call("configure_launch", options)
+	_game_shell.return_to_town_requested.connect(_show_hub)
+	_game_shell.tower_floor_completed.connect(_on_tower_floor_completed)
+	_replace_active_screen(_game_shell)
+	_hub = null
+
+
+func _tower_floor_launch_options(show_modifier_picker: bool) -> Dictionary:
 	var spec: Dictionary = _tower_run.call("floor_spec")
 	var requirements: Variant = BoardLayoutRequirementsScript.load_file(spec.requirements_path)
 	var layout: Variant = ProceduralLayoutGeneratorScript.new().call(
@@ -145,12 +160,9 @@ func _show_tower_floor() -> void:
 	)
 	if layout == null:
 		push_error("Tower floor generation failed for floor %d." % int(spec.floor_number))
-		_show_hub()
-		return
-	_replace_active_screen(null)
-	_game_shell = GAME_SHELL_SCENE.instantiate()
-	_game_shell.name = "GameShell"
-	_game_shell.call("configure_launch", {
+		return {}
+	var totals: Dictionary = _tower_run.call("run_totals")
+	return {
 		"mode": "tower",
 		"floor_number": spec.floor_number,
 		"seed": spec.deal_seed,
@@ -158,16 +170,21 @@ func _show_tower_floor() -> void:
 		"deal_options": spec.deal_options,
 		"tray_capacity": spec.tray_capacity,
 		"show_layout_generator": false,
-	})
-	_game_shell.return_to_town_requested.connect(_show_hub)
-	_game_shell.next_tower_floor_requested.connect(_on_next_tower_floor_requested)
-	_replace_active_screen(_game_shell)
-	_hub = null
+		"show_modifier_picker": show_modifier_picker,
+		"run_score": totals.score,
+		"run_elapsed_time_ms": totals.elapsed_time_ms,
+	}
 
 
-func _on_next_tower_floor_requested() -> void:
+func _on_tower_floor_completed(result: Dictionary) -> void:
+	if _tower_run == null or not bool(_tower_run.call("record_floor_result", result)):
+		return
 	_tower_run.call("advance")
-	_show_tower_floor()
+	var options := _tower_floor_launch_options(false)
+	if options.is_empty():
+		_show_hub()
+		return
+	_game_shell.call("begin_tower_floor_transition", options)
 
 
 func _new_run_seed() -> int:

@@ -14,6 +14,10 @@ var unique_tile_count_max: int
 var shuffle_basis_points_start: int
 var shuffle_basis_points_per_floor: int
 var shuffle_basis_points_max: int
+var total_score := 0
+var total_elapsed_time_ms := 0
+var completed_floor_count := 0
+var _recorded_floor_results := {}
 
 
 func _init(seed: int, configuration: Dictionary) -> void:
@@ -72,6 +76,30 @@ func floor_spec() -> Dictionary:
 
 func advance() -> void:
 	floor_number += 1
+
+
+func record_floor_result(result: Dictionary) -> bool:
+	var completed_floor := int(result.get("floor_number", 0))
+	if completed_floor != floor_number or _recorded_floor_results.has(completed_floor):
+		return false
+	var score := maxi(0, int(result.get("score", 0)))
+	var elapsed_time_ms := maxi(0, int(result.get("elapsed_time_ms", 0)))
+	_recorded_floor_results[completed_floor] = {
+		"score": score,
+		"elapsed_time_ms": elapsed_time_ms,
+	}
+	total_score += score
+	total_elapsed_time_ms += elapsed_time_ms
+	completed_floor_count += 1
+	return true
+
+
+func run_totals() -> Dictionary:
+	return {
+		"score": total_score,
+		"elapsed_time_ms": total_elapsed_time_ms,
+		"completed_floor_count": completed_floor_count,
+	}
 
 
 static func load_configuration(path: String) -> Dictionary:
