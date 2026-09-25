@@ -23,6 +23,12 @@ func is_visible(tile: Variant, tiles: Array) -> bool:
 	return false
 
 
+func has_tile_above(tile: Variant, tiles: Array) -> bool:
+	if tile == null or not tiles.has(tile):
+		return false
+	return _has_tile_above(tile, tiles)
+
+
 func _is_cell_covered(tile: Variant, cell_x: int, cell_y: int, tiles: Array) -> bool:
 	for other in tiles:
 		if not _is_active_other(tile, other) or other.position.z <= tile.position.z:

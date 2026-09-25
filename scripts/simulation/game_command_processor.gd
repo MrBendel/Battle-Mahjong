@@ -43,23 +43,55 @@ func build_transaction(command: Variant, definition: Variant, state: Variant, ti
 	if command.playback_time_ms < state.elapsed_time_ms:
 		return {"result": STALE_TIME}
 
+	var built: Dictionary
 	match command.type:
 		GameCommandScript.SELECT_TILE:
-			return _build_select(command, definition, state, timeline)
+			built = _build_select(command, definition, state, timeline)
 		GameCommandScript.REVEAL_TILE:
-			return _build_reveal(command, definition, state, timeline)
+			built = _build_reveal(command, definition, state, timeline)
 		GameCommandScript.UNDO:
-			return _build_undo(command, definition, state, timeline)
+			built = _build_undo(command, definition, state, timeline)
 		GameCommandScript.HINT:
-			return _build_hint(command, definition, state)
+			built = _build_hint(command, definition, state)
 		GameCommandScript.DELETE_PAIR:
-			return _build_delete_pair(command, definition, state, timeline)
+			built = _build_delete_pair(command, definition, state, timeline)
 		GameCommandScript.SHUFFLE:
-			return _build_shuffle(command, definition, state)
+			built = _build_shuffle(command, definition, state)
 		GameCommandScript.BREAK_COMBO:
-			return _build_break_combo(command, definition, state)
+			built = _build_break_combo(command, definition, state)
 		_:
-			return {"result": UNKNOWN_COMMAND}
+			built = {"result": UNKNOWN_COMMAND}
+	if built.has("transaction"):
+		_append_all_board_tiles_visible_telemetry(definition, state, built.transaction)
+	return built
+
+
+func _append_all_board_tiles_visible_telemetry(
+	definition: Variant,
+	state: Variant,
+	transaction: Variant
+) -> void:
+	if _all_active_board_tiles_visible(definition, state):
+		return
+	var projected: Variant = state.duplicate_data()
+	for change in transaction.changes:
+		match change.type:
+			GameChangeScript.TILE_ZONE:
+				projected.tile_zones[change.target] = change.after
+			GameChangeScript.TILE_SLOT:
+				projected.tile_slot_ids[change.target] = change.after
+			GameChangeScript.STATUS:
+				projected.status = change.after
+	if projected.status != GameStateDataScript.PLAYING:
+		return
+	if _all_active_board_tiles_visible(definition, projected):
+		transaction.telemetry["all_board_tiles_visible"] = true
+
+
+func _all_active_board_tiles_visible(definition: Variant, state: Variant) -> bool:
+	var board := BoardStateScript.new(definition, state)
+	var active: Array = board.call("active_tiles")
+	return not active.is_empty() and board.call("visible_tiles").size() == active.size()
 
 
 func can_undo(state: Variant, timeline: Array) -> bool:

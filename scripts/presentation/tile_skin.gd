@@ -9,6 +9,7 @@ var display_name := ""
 var geometry: Dictionary = {}
 var base_variants: Dictionary = {}
 var back_variants: Dictionary = {}
+var blocked_back_variants: Dictionary = {}
 var default_back_id := ""
 var back_designs: Dictionary = {}
 var modifiers: Dictionary = {}
@@ -22,7 +23,9 @@ var back_design_id := ""
 
 var _textures: Dictionary = {}
 var _base_textures: Dictionary = {}
+var _blocked_base_textures: Dictionary = {}
 var _back_textures: Dictionary = {}
+var _blocked_back_textures: Dictionary = {}
 var _shadow_texture: Texture2D
 var _back_design_textures: Dictionary = {}
 var _modifier_textures: Dictionary = {}
@@ -48,6 +51,10 @@ func validation_errors() -> Array[String]:
 		var asset_path := str(variant.get("asset", ""))
 		if asset_path.is_empty() or not (ResourceLoader.exists(asset_path) or FileAccess.file_exists(asset_path)):
 			errors.append("Tile base variant '%s' has no runtime asset." % variant_id)
+		var blocked_asset_path := str(variant.get("blocked_asset", ""))
+		if not blocked_asset_path.is_empty() \
+				and not (ResourceLoader.exists(blocked_asset_path) or FileAccess.file_exists(blocked_asset_path)):
+			errors.append("Tile base variant '%s' has no blocked-state runtime asset." % variant_id)
 		var source_size: Array = variant.get("source_size", [])
 		var safe_area: Array = variant.get("face_safe_area", [])
 		var back_safe_area: Array = variant.get("back_design_safe_area", [])
@@ -56,6 +63,10 @@ func validation_errors() -> Array[String]:
 		var back_path := str(back_variants.get(variant_id, ""))
 		if back_path.is_empty() or not (ResourceLoader.exists(back_path) or FileAccess.file_exists(back_path)):
 			errors.append("Missing tile back variant: %s" % variant_id)
+		var blocked_back_path := str(blocked_back_variants.get(variant_id, ""))
+		if not blocked_back_path.is_empty() \
+				and not (ResourceLoader.exists(blocked_back_path) or FileAccess.file_exists(blocked_back_path)):
+			errors.append("Tile back variant '%s' has no blocked-state runtime asset." % variant_id)
 	if default_back_id.is_empty() or not back_designs.has(default_back_id):
 		errors.append("Default tile-back design must reference a known design.")
 	for design_id in back_designs:
@@ -81,8 +92,8 @@ func validation_errors() -> Array[String]:
 	var layer_offset: Array = depth_presentation.get("layer_offset_ratio", [])
 	if depth_floor <= 0.0 or depth_floor > 1.0:
 		errors.append("Tile depth brightness must be in (0, 1].")
-	if near_top_brightness <= depth_floor or near_top_brightness > 1.0:
-		errors.append("Near-top tile brightness must be above the lowest layer and at most 1.")
+	if near_top_brightness < depth_floor or near_top_brightness > 1.0:
+		errors.append("Near-top tile brightness must be at least the lowest layer and at most 1.")
 	if blocked_brightness <= 0.0 or blocked_brightness >= 1.0:
 		errors.append("Blocked tile brightness multiplier must be in (0, 1).")
 	if blocked_overlay.size() != 4:
@@ -178,11 +189,28 @@ func tile_base_texture() -> Texture2D:
 	return texture
 
 
+func blocked_tile_base_texture() -> Texture2D:
+	if _blocked_base_textures.has(orientation):
+		return _blocked_base_textures[orientation]
+	var active := active_geometry()
+	var texture := _load_texture(str(active.get("blocked_asset", "")))
+	_blocked_base_textures[orientation] = texture
+	return texture
+
+
 func tile_back_texture() -> Texture2D:
 	if _back_textures.has(orientation):
 		return _back_textures[orientation]
 	var texture := _load_texture(str(back_variants.get(orientation, "")))
 	_back_textures[orientation] = texture
+	return texture
+
+
+func blocked_tile_back_texture() -> Texture2D:
+	if _blocked_back_textures.has(orientation):
+		return _blocked_back_textures[orientation]
+	var texture := _load_texture(str(blocked_back_variants.get(orientation, "")))
+	_blocked_back_textures[orientation] = texture
 	return texture
 
 
@@ -330,6 +358,7 @@ func _load_manifest(manifest_path: String) -> void:
 	geometry = parsed.get("geometry", {}).duplicate(true)
 	base_variants = parsed.get("base_variants", {}).duplicate(true)
 	back_variants = parsed.get("back_variants", {}).duplicate(true)
+	blocked_back_variants = parsed.get("blocked_back_variants", {}).duplicate(true)
 	default_back_id = str(parsed.get("default_back_id", ""))
 	back_designs = parsed.get("back_designs", {}).duplicate(true)
 	modifiers = parsed.get("modifiers", {}).duplicate(true)

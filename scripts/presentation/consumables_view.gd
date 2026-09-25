@@ -4,7 +4,7 @@ class_name ConsumablesView
 const PresentationScaleScript := preload("res://scripts/presentation/presentation_scale.gd")
 const GameplayThemeScript := preload("res://scripts/presentation/gameplay_theme.gd")
 const ConsumableButtonScript := preload("res://scripts/presentation/consumable_button.gd")
-const PORTRAIT_REFERENCE_SIZE := Vector2(471.0, 185.0)
+const PORTRAIT_REFERENCE_SIZE := Vector2(471.0, 120.0)
 const VERTICAL_REFERENCE_SIZE := Vector2(78.0, 320.0)
 const PORTRAIT_BACKGROUND_RECT := Rect2(0.0, 8.0, 471.0, 104.0)
 const PORTRAIT_CAP_WIDTH := 49.0
@@ -356,7 +356,7 @@ func _layout_portrait_actions() -> void:
 		var repeat_width := (PORTRAIT_BACKGROUND_RECT.size.x - PORTRAIT_ACTION_MARGIN * 2.0) / float(_presented_action_types.size())
 		var action_x := PORTRAIT_ACTION_MARGIN + repeat_width * float(index)
 		button.position = origin + Vector2(action_x + 1.0, 0.0) * component_scale
-		button.size = Vector2(repeat_width - 2.0, 185.0) * component_scale
+		button.size = Vector2(repeat_width - 2.0, 120.0) * component_scale
 		if button.has_method("set_scale_factor"):
 			button.call("set_scale_factor", component_scale)
 		button.add_theme_stylebox_override("normal", StyleBoxEmpty.new())

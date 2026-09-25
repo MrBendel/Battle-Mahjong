@@ -6,18 +6,21 @@ Arcade callouts recognize exceptional play with live text and reusable presentat
 
 Only one alert may be shown at a time. A pair transaction is reduced to at most one alert using this priority:
 
-1. Modifier rewards with their exact snapshotted effect, such as `EXTRA LIFE +1` or `SCORE BOOST 2.0X`.
-2. One-time board progress such as `ALL TILES REVEALED!`.
-3. A flipped tile that reveals directly into its held tray mate: `MATCH!`.
-4. Pair-difficulty recognition such as `WELL HIDDEN!`, `EAGLE EYES!`, or `AMAZING FIND!`.
-5. Current-run score milestones such as `SCORE 10K!`.
-6. Combo milestones such as `11 COMBO!`.
+1. Endgame board progress: `ALL PIECES REVEALED!`.
+2. Modifier rewards with their exact snapshotted effect, such as `EXTRA LIFE +1` or `SCORE BOOST 2.0X`.
+3. One-time flipped-tile progress such as `ALL TILES REVEALED!`.
+4. A flipped tile that reveals directly into its held tray mate: `MATCH!`.
+5. Pair-difficulty recognition such as `WELL HIDDEN!`, `EAGLE EYES!`, or `AMAZING FIND!`.
+6. Current-run score milestones such as `SCORE 10K!`.
+7. Combo milestones such as `11 COMBO!`.
 
 The renderer owns one live-text label. A new accepted alert replaces the active presentation rather than creating an overlapping label. Text is not baked into bitmap assets so localization and future announcer packs can consume the same event keys.
 
 The opening `3`, `2`, `1` countdown is a separate pre-game presentation lane rather than a gameplay callout. It is centered over the responsive Board with chromatic text shadows and radial streaks. The Board deals in behind it, but gameplay input, elapsed run time, and Momentum decay remain at zero until both the countdown and deal animation finish.
 
 Tower floors use the shared arcade-callout lane for a concise `FLOOR N` announcement immediately after the opening countdown or inter-floor tile drop finishes. A completed floor first emits `FLOOR CLEAR!` while the Board transitions upward. The floor number is run context rather than Streak state, so it must not be inserted into the compact Streak readout.
+
+The first transaction that leaves every remaining board tile geometrically visible emits `ALL PIECES REVEALED!` and begins the endgame automatic-clear sequence. The shell locks manual board input and submits ordinary replayable tile taps, recalculating after every step so newly selectable pairs enter naturally. The sequence does not bypass tray capacity, flipped-tile, scoring, modifier, or replay rules.
 
 Callout typography, outline weight, vertical motion, and lane height scale from the rendered Board dimensions. Long localized or system copy is fitted to the available width after scaling, preserving legibility on high-resolution phones without clipping compact portrait layouts.
 
@@ -40,6 +43,7 @@ Score milestones recognize progress inside the active run. Durable high-score ca
 - Combo milestones beginning above 10.
 - Configurable current-run score milestones.
 - One-time flipped-tile completion: `ALL TILES REVEALED!`.
+- One-time fully visible endgame transition: `ALL PIECES REVEALED!`.
 - Readability confirmation for a flipped tile that auto-matches a held tray mate: `MATCH!`.
 - Modifier rewards from natural, flipped, and Delete Pair resolution: Extra Life charges, Cold Snap duration, Score Multiplier strength, and Tray +1 pair duration.
 

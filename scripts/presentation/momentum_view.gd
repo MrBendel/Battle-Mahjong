@@ -529,3 +529,24 @@ static func _load_font(asset_path: String) -> Font:
 		font.load_dynamic_font(asset_path)
 		return font
 	return null
+
+
+## The authoritative count has already changed; animate a cosmetic departing heart.
+func play_heart_loss(duration: float) -> void:
+	if _game == null or _heart_icons.is_empty():
+		return
+	var count := int(_game.call("current_snapshot").extra_life_charges)
+	var source: TextureRect = _heart_icons[clampi(count, 0, _heart_icons.size() - 1)]
+	var ghost := TextureRect.new()
+	ghost.texture = source.texture
+	ghost.expand_mode = source.expand_mode
+	ghost.stretch_mode = source.stretch_mode
+	ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(ghost)
+	ghost.position = source.position
+	ghost.size = source.size
+	ghost.pivot_offset = ghost.size * 0.5
+	var tween := create_tween().set_parallel(true)
+	tween.tween_property(ghost, "scale", Vector2(1.65, 1.65), duration).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+	tween.tween_property(ghost, "modulate", Color(1.0, 0.15, 0.15, 0.0), duration)
+	tween.chain().tween_callback(ghost.queue_free)
