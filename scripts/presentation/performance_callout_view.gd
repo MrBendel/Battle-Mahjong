@@ -16,6 +16,7 @@ const TYPE_COLORS := {
 	"board_progress": Color("ff91bd"),
 	"modifier_reward": Color("ffbd5a"),
 	"tower_floor": Color("ffbd5a"),
+	"notice": Color("fff27a"),
 }
 
 var play_count := 0

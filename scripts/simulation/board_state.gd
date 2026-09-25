@@ -88,6 +88,11 @@ func is_tile_accessible(tile_id: String) -> bool:
 	return tile != null and _selectability.call("is_selectable", tile, active_tiles())
 
 
+func is_tile_covered(tile_id: String) -> bool:
+	var tile: Variant = get_tile(tile_id)
+	return tile != null and _selectability.call("has_tile_above", tile, active_tiles())
+
+
 func is_tile_flipped(tile_id: String) -> bool:
 	return tile_id in _definition.flipped_tile_ids
 

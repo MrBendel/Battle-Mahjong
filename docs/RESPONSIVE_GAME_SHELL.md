@@ -60,3 +60,39 @@ Board tiles overlap visually, so their scene-tree sibling order must follow the 
 ## Input Boundary
 
 This composition improves thumb reach and spatial predictability for mobile and future controller navigation. It does not itself implement gamepad tile navigation, focus graphs, or console platform integration; those remain separate input work.
+
+### Tray danger and heart-loss feedback
+
+One remaining tray space starts a presentation-only three-second timer, including expanded Tray +1 capacity. A soft red edge vignette and tray tint then pulse slowly; creating space, pausing, or leaving play clears the warning. The edge width uses the shared safe-display scale. Inspector properties control delay, pulse period, and warning/impact strength.
+
+Extra Life recovery holds the filled tray for 420 ms after arrival, with a single red edge impact, rocking tile previews, a departing themed heart, and a dedicated 100 ms haptic respecting the session preference. Returns take 360 ms plus stagger. The existing recovery input lock lasts through landing; simulation still commits recovery atomically. Timing remains outside replay state.
+
+### Interchangeable Board trays
+
+The large Board tray is independent of the small tile queue. `GameplayTheme.board_tray_skin` selects `dark`, `paper`, `porcelain`, `terrazzo`, or `walnut`; the default is `dark`. The theme also exposes an enable flag, reference-space interior padding, and a texture override. This is Inspector/theme selection only; player ownership and saved cosmetic preferences remain deferred.
+
+Runtime artwork lives in `game-assets/ui/board-trays/`, copied unchanged from the supplied `art-source/inspiration/gameplay/background frame*.png` masters. Four supplied variants contain opaque checkerboard outside the rim. Their runtime shader borrows the dark original's alpha silhouette; custom texture overrides should supply their own transparency. The layered Board uses a nine-patch frame below shadows and tiles, with a shared PresentationScale-derived rim and padding in both orientations. Frame input is ignored, and stable layout slots, tile skins, transactions, and hashes are unchanged.
+
+The Board tray extends beyond the tile-fit region by a theme-controlled `26 x 30` reference-pixel outset, with a `0.30` source-to-reference rim scale. This gives the supplied inspiration's broader surface and heavier rim without shrinking or relocating the tile field. Both values scale with the rendered Board region through `PresentationScale` and apply to all five skins.
+
+### Larger portrait playfield and lower actions
+
+The annotated gameplay reference updates portrait placement to queue `(105, 195, 731, 205)`, Board `(54, 450, 835, 1020)`, and actions `(236, 1530, 471, 120)` in the existing `942 x 1672` safe-display reference. The portrait action component removes unused lower source space from its layout and touch bounds (`471 x 120`), letting the dock sit nearer the safe bottom edge. The portrait Board uses `0.74` cosmetic vertical stride to fit larger tiles, and queue tiles use `0.90` of the Board tile footprint. Landscape keeps its existing shell recipe and tile tuning. Stable slot topology, coverage, and matching rules are unchanged.
+
+Portrait queue clearance reserves the full queue Control bounds, an eight-reference-pixel safe-display-scaled gap, and the theme’s scaled Board-frame outset. This runs even when the queue does not grow. The Board bottom stays anchored; its top and tile-fit area yield as needed on wide portrait displays and with the update banner.
+
+Board tiles fit the full framed interior (frame rectangle minus theme padding), including the extra surface created by the frame outset. With `board_tray_fill_height` enabled, width-limited layouts relax cosmetic row compression up to the natural 1.0 stride to use available height. Tile proportions and stable slots remain unchanged; width and natural row spacing remain safety limits.
+
+Vertical centering uses the actual projected top and bottom of all authored tile rectangles, including per-layer lift, rather than assuming maximum lift occurs at the outermost rows. Removed tiles remain part of these layout bounds so the stack never recenters during play.
+
+Queue tiles use the theme-controlled `tray_tile_fill_scale` (default `1.12`) to fill their wells more closely. This enlarges live tiles and the shared transfer/collision target rectangles by 12 percent around each existing well center without enlarging queue artwork or shifting the Board.
+
+The porcelain queue artwork uses `tray_artwork_scale = 0.95` in both orientations. Caps and repeats shrink together around the queue center, while held tile sizes remain unchanged and target centers follow the tighter wells.
+
+Tile audio is presentation-only: an airy 220 ms swoosh starts when a tile begins its tray transfer (including flipped matches and heart-loss arrival), and a short ceramic clack plays at the shared pair impact/pop, including assisted collisions. Two reusable AudioStreamPlayers allow four overlapping voices each. Inspector stream and volume properties are replaceable; the existing Sound toggle mutes them. Original PCM assets are reproducible with `python scripts/tools/generate_tile_audio.py` and use no gameplay RNG.
+
+Portrait spacing now uses a `0.90` horizontal stride and `0.92` minimum vertical stride to balance the upright ceramic footprint. Height fitting may relax rows up to `1.0`; the same horizontal stride is used for both fit calculations and tile positions. These Inspector-controlled presentation values supersede the earlier `0.74` row compression and preserve authored slot identities and simulation geometry. Landscape tuning is unchanged.
+
+The travel swoosh defaults to -22 dB (6 dB quieter). A separate 100 ms brush/tick flip sound defaults to -25 dB, playing at the Board flip midpoint or the start of an already edge-on auto-match reveal. It shares the Sound preference and has Inspector stream/volume overrides.
+
+A previously revealed flipped tile with a held mate can resolve through `PAIR_RESOLVED` (for example after rules-20 automatic cleanup). The direct-match presentation accepts both ordinary and flipped pair results, routing either through tray arrival, collision, and the shared impact/audio event rather than freeing the captured previews. Regression: `tests/tray_pair_presentation_runner.gd`.

@@ -57,7 +57,7 @@ The Momentum fill is clipped inside the exported frame and scales horizontally f
 
 Portrait layout is resolved inside the safe-area content rectangle:
 
-1. Portrait and landscape Midnight Ink backgrounds use scale-9 rendering with fixed `48 px` source margins on every edge. Each orientation selects its authored composition; themes without a landscape override fall back to the portrait surface.
+1. Portrait and landscape Manga Paper backgrounds use scale-9 rendering with fixed `48 px` source margins on every edge. Each orientation selects its authored composition; themes without a landscape override fall back to the portrait surface.
 2. Score, Momentum, and pause anchor to the safe-area top.
 3. The queue is centered below the HUD.
 4. The existing Board consumes the flexible middle region.

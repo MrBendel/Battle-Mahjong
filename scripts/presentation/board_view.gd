@@ -1,10 +1,14 @@
 extends Control
 class_name BoardView
 
+const PresentationScaleScript := preload("res://scripts/presentation/presentation_scale.gd")
+const GameplayThemeScript := preload("res://scripts/presentation/gameplay_theme.gd")
+
 const TileSkinScript := preload("res://scripts/presentation/tile_skin.gd")
 
 signal tile_selected(tile_id: String)
 signal locked_tile_tapped(tile_id: String)
+signal flip_turned
 signal deal_in_finished
 
 const HEADER_HEIGHT := 48.0
@@ -22,6 +26,8 @@ const HINT_BOB_RATIO := 0.035
 const FLIP_CLOSE_RATIO := 0.42
 const FLIP_EDGE_HOLD_RATIO := 0.08
 
+var _gameplay_theme: Resource
+var _board_tray: NinePatchRect
 var _game: Variant
 var _tile_buttons: Dictionary = {}
 var _shadow_art: Dictionary = {}
@@ -46,6 +52,7 @@ var _suppressed_tile_ids := {}
 var _compact_mode := false
 var _content_scale := 1.0
 var _vertical_stride_scale := 1.0
+var _horizontal_stride_scale := 1.0
 var _hinted_tile_ids := {}
 var _tile_layout_positions := {}
 var _hint_elapsed := 0.0
@@ -69,7 +76,8 @@ var _art_backing_style_cache: StyleBoxFlat
 var _disabled_tile_style_cache: StyleBoxFlat
 
 
-func _init(game_state: Variant, tile_skin: Variant = null) -> void:
+func _init(game_state: Variant, tile_skin: Variant = null, gameplay_theme: Resource = null) -> void:
+	_gameplay_theme = GameplayThemeScript.new() if gameplay_theme == null else gameplay_theme
 	_game = game_state
 	_tile_skin = TileSkinScript.new() if tile_skin == null else tile_skin
 
@@ -231,6 +239,14 @@ func set_content_scale(content_scale: float) -> void:
 	_layout_tiles()
 
 
+func set_horizontal_stride_scale(value: float) -> void:
+	var new_scale := clampf(value, 0.75, 1.10)
+	if is_equal_approx(new_scale, _horizontal_stride_scale):
+		return
+	_horizontal_stride_scale = new_scale
+	_layout_tiles()
+
+
 func set_vertical_stride_scale(vertical_stride_scale: float) -> void:
 	var clamped_scale := clampf(vertical_stride_scale, 0.50, 1.40)
 	if is_equal_approx(_vertical_stride_scale, clamped_scale):
@@ -272,6 +288,7 @@ func set_tiles_temporarily_face_down(tile_ids: Array[String], face_down: bool, r
 
 
 func _build() -> void:
+	_build_board_tray()
 	_title_label = Label.new()
 	_title_label.text = "Board"
 	_title_label.position = Vector2(BOARD_MARGIN, 8.0)
@@ -285,6 +302,7 @@ func _build() -> void:
 	add_child(_status_label)
 
 	_tile_layer = Control.new()
+	_tile_layer.z_index = 1
 	_tile_layer.mouse_filter = Control.MOUSE_FILTER_PASS
 	add_child(_tile_layer)
 
@@ -474,6 +492,19 @@ func refresh() -> void:
 				or _game.definition.rules_version < 12 and revealed_tray_match)) \
 			and _game.status == "playing"
 		var visually_active: bool = selectable
+		var covered_from_above: bool = _game.board.call("is_tile_covered", tile.id)
+		var blocked_base_texture: Texture2D = _tile_skin.blocked_tile_base_texture()
+		var blocked_back_texture: Texture2D = _tile_skin.blocked_tile_back_texture()
+		var uses_dedicated_blocked_base := not visually_active and not covered_from_above \
+			and not face_down \
+			and blocked_base_texture != null
+		var uses_dedicated_blocked_back := not visually_active and not covered_from_above \
+			and face_down \
+			and blocked_back_texture != null
+		var uses_dedicated_blocked_art := uses_dedicated_blocked_base \
+			or uses_dedicated_blocked_back
+		var uses_fallback_blocked_art := not visually_active and not covered_from_above \
+			and not uses_dedicated_blocked_art
 		button.tooltip_text = _tile_tooltip(tile)
 		button.disabled = _game.status != "playing"
 		button.set_meta("targetable", selectable)
@@ -481,8 +512,11 @@ func refresh() -> void:
 		button.set_meta("revealed_flipped", revealed_flipped)
 		button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if selectable else Control.CURSOR_FORBIDDEN
 		var depth_brightness := _depth_brightness(tile.position.z, max_depth)
-		var presentation_brightness := 1.0 if visually_active \
-			else depth_brightness * _blocked_brightness_multiplier()
+		var presentation_brightness := depth_brightness
+		if visually_active:
+			presentation_brightness = 1.0
+		elif uses_fallback_blocked_art:
+			presentation_brightness *= _blocked_brightness_multiplier()
 		button.modulate = Color(presentation_brightness, presentation_brightness, presentation_brightness)
 		button.set_meta("presentation_brightness", presentation_brightness)
 		button.set_meta("depth_brightness", depth_brightness)
@@ -494,7 +528,11 @@ func refresh() -> void:
 		var contact_shadow_art: TextureRect = _contact_shadow_art[tile.id]
 		contact_shadow_art.visible = contact_shadow_art.texture != null
 		var base_art: TextureRect = _base_art[tile.id]
+		base_art.texture = blocked_base_texture if uses_dedicated_blocked_base \
+			else _tile_skin.tile_base_texture()
 		var back_art: TextureRect = _back_art[tile.id]
+		back_art.texture = blocked_back_texture if uses_dedicated_blocked_back \
+			else _tile_skin.tile_back_texture()
 		back_art.visible = face_down and back_art.texture != null
 		var back_design_art: TextureRect = _back_design_art[tile.id]
 		back_design_art.visible = face_down and back_design_art.texture != null
@@ -504,7 +542,7 @@ func refresh() -> void:
 		var hint_glow: TextureRect = _hint_glows[tile.id]
 		hint_glow.visible = false
 		var blocked_overlay: TextureRect = _blocked_overlays[tile.id]
-		blocked_overlay.visible = not visually_active
+		blocked_overlay.visible = uses_fallback_blocked_art
 		button.text = "" if face_down or face_art.texture != null else _tile_label(tile)
 		var modifier_art: TextureRect = _modifier_art[tile.id]
 		modifier_art.visible = modifier_art.texture != null
@@ -777,6 +815,7 @@ func play_flip(tile_id: String, revealing: bool = true, duration_override: float
 	tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	tween.tween_property(button, "scale:x", 0.06, close_seconds)
 	tween.tween_callback(_set_flip_side.bind(tile_id, revealing))
+	tween.tween_callback(func() -> void: flip_turned.emit())
 	tween.tween_callback(_show_flip_blur.bind(tile_id, duration_seconds))
 	tween.tween_interval(edge_hold_seconds)
 	tween.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
@@ -874,11 +913,20 @@ func _layout_tiles() -> void:
 		maxf(1.0, size.x - board_margin * 2.0),
 		maxf(1.0, size.y - header_height - board_margin)
 	)
+	if _board_tray != null and _board_tray.visible:
+		var frame_scale := PresentationScaleScript.limiting_scale(size, Vector2(328.0, 487.0))
+		var artwork_scale := frame_scale * float(_gameplay_theme.board_tray_rim_scale)
+		var outset: Vector2 = _gameplay_theme.board_tray_outset * frame_scale
+		var frame_rect := Rect2(area.position - outset, area.size + outset * 2.0)
+		_board_tray.position = frame_rect.position
+		_board_tray.scale = Vector2.ONE * artwork_scale
+		_board_tray.size = frame_rect.size / artwork_scale
+		area = frame_rect.grow(-float(_gameplay_theme.board_tray_padding) * frame_scale)
 	_tile_layer.position = area.position
 	_tile_layer.size = area.size
 
 	var bounds := _grid_bounds()
-	var grid_width: float = float(bounds.size.x) * 0.5
+	var grid_width: float = 1.0 + maxf(0.0, float(bounds.size.x) * 0.5 - 1.0) * _horizontal_stride_scale
 	var raw_grid_height: float = float(bounds.size.y) * 0.5
 	var grid_height := 1.0 + maxf(0.0, raw_grid_height - 1.0) * _vertical_stride_scale
 	var max_depth := 0
@@ -891,9 +939,17 @@ func _layout_tiles() -> void:
 		"layer_offset_ratio",
 		[0.05, -0.08]
 	)
-	var control_allowance := Vector2(12.0, 12.0)
+	var control_allowance := Vector2(12.0, 12.0) * PresentationScaleScript.limiting_scale(size, Vector2(328.0, 487.0))
 	var depth_width_units := float(max_depth) * absf(float(layer_offset_ratio[0]))
 	var depth_height_units := float(max_depth) * absf(float(layer_offset_ratio[1]))
+	var effective_stride := _vertical_stride_scale
+	if _gameplay_theme.board_tray_enabled and _gameplay_theme.board_tray_fill_height and raw_grid_height > 1.0:
+		# At the width limit, relax cosmetic row compression to consume the
+		# remaining height. Tile geometry stays proportional and slots stay stable.
+		var width_limit := (area.size.x - control_allowance.x) / (grid_width + depth_width_units)
+		var height_units: float = (area.size.y - control_allowance.y) / (width_limit * _tile_skin.tile_aspect())
+		effective_stride = clampf((height_units - 1.0 - depth_height_units) / (raw_grid_height - 1.0), _vertical_stride_scale, maxf(1.0, _vertical_stride_scale))
+		grid_height = 1.0 + (raw_grid_height - 1.0) * effective_stride
 	var tile_width: float = minf(
 		(area.size.x - control_allowance.x) / (grid_width + depth_width_units),
 		(area.size.y - control_allowance.y) \
@@ -912,13 +968,25 @@ func _layout_tiles() -> void:
 	var depth_max := Vector2(maxf(0.0, maximum_depth_offset.x), maxf(0.0, maximum_depth_offset.y))
 	var depth_extent := depth_max - depth_min
 	var origin := (area.size - board_size - depth_extent) * 0.5 - depth_min
+	# Center the actual projected stack, not a hypothetical rectangle that
+	# assumes the highest layer reaches both outermost rows. Include removed
+	# tiles so clearing the board never shifts the remaining tile positions.
+	var stack_top := INF
+	var stack_bottom := -INF
+	for tile in _game.board.tiles:
+		var projected_y := float(tile.position.y - bounds.position.y) * tile_size.y * 0.5 * effective_stride \
+			+ per_layer_offset.y * float(tile.position.z) + tile_gap.y * 0.5
+		stack_top = minf(stack_top, projected_y)
+		stack_bottom = maxf(stack_bottom, projected_y + tile_size.y - tile_gap.y)
+	if is_finite(stack_top) and is_finite(stack_bottom):
+		origin.y = (area.size.y - (stack_bottom - stack_top)) * 0.5 - stack_top
 
 	for tile in _game.board.tiles:
 		var button: Button = _tile_buttons[tile.id]
 		var depth_offset := per_layer_offset * float(tile.position.z)
 		button.position = origin + Vector2(
-			float(tile.position.x - bounds.position.x) * tile_size.x * 0.5,
-			float(tile.position.y - bounds.position.y) * tile_size.y * 0.5 * _vertical_stride_scale
+			float(tile.position.x - bounds.position.x) * tile_size.x * 0.5 * _horizontal_stride_scale,
+			float(tile.position.y - bounds.position.y) * tile_size.y * 0.5 * effective_stride
 		) + depth_offset + tile_gap * 0.5
 		_tile_layout_positions[tile.id] = button.position
 		button.size = tile_size - tile_gap
@@ -1090,3 +1158,32 @@ func _panel_style() -> StyleBoxFlat:
 	style.set_border_width_all(2)
 	style.set_corner_radius_all(8)
 	return style
+
+
+func _build_board_tray() -> void:
+	_board_tray = NinePatchRect.new()
+	_board_tray.name = "BoardTray"
+	_board_tray.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_board_tray.z_index = 0
+	_board_tray.visible = bool(_gameplay_theme.board_tray_enabled)
+	_board_tray.texture = load(_gameplay_theme.call("board_tray_texture_path"))
+	_board_tray.patch_margin_left = 100
+	_board_tray.patch_margin_right = 100
+	_board_tray.patch_margin_top = 100
+	_board_tray.patch_margin_bottom = 100
+	# Supplied variants share the original silhouette but have opaque checkerboard margins.
+	# Mask only at presentation time; preserve all source artwork unchanged.
+	if str(_gameplay_theme.board_tray_skin) != "dark" and str(_gameplay_theme.board_tray_texture_override).is_empty():
+		var shader := Shader.new()
+		shader.code = """shader_type canvas_item;
+uniform sampler2D silhouette : filter_linear;
+void fragment() {
+ vec4 art = texture(TEXTURE, UV);
+ art.a *= texture(silhouette, UV).a;
+ COLOR = art;
+}"""
+		var material := ShaderMaterial.new()
+		material.shader = shader
+		material.set_shader_parameter("silhouette", load("res://game-assets/ui/board-trays/dark.png"))
+		_board_tray.material = material
+	add_child(_board_tray)

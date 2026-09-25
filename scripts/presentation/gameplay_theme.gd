@@ -21,7 +21,19 @@ class_name GameplayTheme
 @export_file("*.ttf", "*.otf", "*.tres") var bold_font_path := "res://assets/fonts/mila-script-sans-bold-tight.tres"
 @export_file("*.ttf", "*.otf", "*.tres") var poster_font_path := "res://assets/fonts/battle-mahjong-poster-script.tres"
 
+@export_group("Board Tray")
+@export_enum("dark", "paper", "porcelain", "terrazzo", "walnut") var board_tray_skin := "dark"
+@export var board_tray_enabled := true
+@export var board_tray_fill_height := true
+@export_range(4.0, 32.0, 1.0) var board_tray_padding := 16.0
+## Extra surface around the tile field, in Board reference pixels.
+@export var board_tray_outset := Vector2(26.0, 30.0)
+@export_range(0.10, 0.50, 0.01) var board_tray_rim_scale := 0.30
+@export_file("*.png", "*.webp") var board_tray_texture_override := ""
+
 @export_group("Tray")
+@export_range(0.95, 1.0, 0.01) var tray_artwork_scale := 0.95
+@export_range(1.0, 1.15, 0.01) var tray_tile_fill_scale := 1.12
 @export_file("*.png", "*.svg", "*.webp") var tray_cap_path := "res://game-assets/ui/tray/porcelain/tray-left.png"
 @export_file("*.png", "*.svg", "*.webp") var tray_repeat_path := "res://game-assets/ui/tray/porcelain/tray-repeat.png"
 @export_file("*.png", "*.svg", "*.webp") var tray_right_cap_path := "res://game-assets/ui/tray/porcelain/tray-right.png"
@@ -100,8 +112,17 @@ func validation_errors() -> Array[String]:
 	}
 	if not background_landscape_path.is_empty():
 		asset_paths["landscape background"] = background_landscape_path
+	if board_tray_enabled:
+		asset_paths["Board tray"] = board_tray_texture_path()
 	for label in asset_paths:
 		var asset_path := str(asset_paths[label])
 		if asset_path.is_empty() or not (ResourceLoader.exists(asset_path) or FileAccess.file_exists(asset_path)):
 			errors.append("Missing %s asset: %s" % [label, asset_path])
 	return errors
+
+
+func board_tray_texture_path() -> String:
+	if not board_tray_texture_override.is_empty():
+		return board_tray_texture_override
+	var skin := board_tray_skin if board_tray_skin in ["dark", "paper", "porcelain", "terrazzo", "walnut"] else "dark"
+	return "res://game-assets/ui/board-trays/%s.png" % skin

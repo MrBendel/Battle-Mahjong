@@ -18,7 +18,9 @@ func _init() -> void:
 
 func _run() -> void:
 	var requested_size := Vector2i(720, 1280)
-	if OS.get_cmdline_user_args().has("--large-portrait"):
+	if OS.get_cmdline_user_args().has("--square-portrait"):
+		requested_size = Vector2i(1107, 1306)
+	elif OS.get_cmdline_user_args().has("--large-portrait"):
 		requested_size = Vector2i(1080, 2400)
 	elif OS.get_cmdline_user_args().has("--small-phone"):
 		requested_size = Vector2i(375, 667)
@@ -171,6 +173,7 @@ func _run() -> void:
 	_check_equal(modifier_art.texture, preview_modifier.texture, "moving tile preview preserves attached modifier artwork")
 	modifier_preview.queue_free()
 	var tile_skin: Variant = shell.get("_tile_skin")
+	var board_view: Control = shell.get("_regions").board
 	for modifier_id in ["extra_life", "cold_snap", "score_multiplier", "tray_plus_one", "three_pair_clear", "bomb"]:
 		_check(
 			tile_skin.call("modifier_texture", modifier_id) != null,
@@ -187,9 +190,12 @@ func _run() -> void:
 		var reveal_base: TextureRect = reveal_button.get_node("BaseArt")
 		var reveal_back: TextureRect = reveal_button.get_node("BackArt")
 		var reveal_back_design: TextureRect = reveal_button.get_node("BackDesignArt")
+		var reveal_overlay: TextureRect = reveal_button.get_node("BlockedOverlay")
 		_check(bool(reveal_button.get_meta("face_down")), "face-down presentation records hidden state")
 		_check(not reveal_art.visible and reveal_button.text.is_empty(), "face-down presentation hides tile identity without a question mark")
 		_check(reveal_back.visible and reveal_back.texture != null and not reveal_base.visible, "face-down presentation uses the dedicated tile back")
+		_check_equal(tile_skin.call("tile_back_texture"), reveal_back.texture, "revealable face-down tile uses the enabled portrait back")
+		_check(not reveal_overlay.visible, "revealable face-down tile has no blocked veil")
 		_check(reveal_back_design.visible and reveal_back_design.texture != null, "face-down presentation composites an independent cosmetic back design")
 		var hover_style: StyleBoxFlat = reveal_button.get_theme_stylebox("hover")
 		var pressed_style: StyleBoxFlat = reveal_button.get_theme_stylebox("pressed")
@@ -246,7 +252,20 @@ func _run() -> void:
 		_check_equal(revealed_motion_before + 1, shell.get("_tile_motion_count"), "second flipped-tile tap starts the normal tray transfer")
 		shell.call("_on_restart_requested")
 		live_game = shell.get("_game")
-	var board_view: Control = shell.get("_regions").board
+	var blocked_face_down_id := ""
+	for tile in live_game.board.tiles:
+		if live_game.board.call("is_tile_active", tile.id) \
+				and live_game.board.call("is_tile_face_down", tile.id) \
+				and not live_game.board.call("is_tile_revealable", tile.id) \
+				and not live_game.board.call("is_tile_covered", tile.id):
+			blocked_face_down_id = tile.id
+			break
+	if not blocked_face_down_id.is_empty() and tile_skin.call("blocked_tile_back_texture") != null:
+		var blocked_back_button: Button = board_view.get("_tile_buttons")[blocked_face_down_id]
+		var blocked_back_art: TextureRect = blocked_back_button.get_node("BackArt")
+		var blocked_back_overlay: TextureRect = blocked_back_button.get_node("BlockedOverlay")
+		_check_equal(tile_skin.call("blocked_tile_back_texture"), blocked_back_art.texture, "inaccessible face-down tile uses the locked portrait back")
+		_check(not blocked_back_overlay.visible, "dedicated locked back replaces the legacy blocked veil")
 	shell.call("_on_hint_requested")
 	var animated_hint_id := ""
 	for hinted_tile_id in live_game.call("hinted_tile_ids"):
@@ -269,6 +288,10 @@ func _run() -> void:
 		var restored_button: Button = board_view.get("_tile_buttons")[animated_hint_id]
 		_check(not restored_button.get_node("HintGlow").visible, "clearing Hint removes its glow")
 		_check_equal(board_view.get("_tile_layout_positions")[animated_hint_id], restored_button.position, "clearing Hint restores the tile position")
+	shell.call("_show_no_hint_available")
+	_check_equal("No moves! try something else!", shell.get("_regions").consumables.get("_notice").text, "failed Hint uses the actionable no-moves notice")
+	_check_equal("notice", shell.get("_performance_callout").get("last_alert_type"), "failed Hint uses the responsive callout lane")
+	_check_equal("No moves! try something else!", shell.get("_performance_callout").get("last_text"), "failed Hint callout preserves the approved copy")
 	var stage_visuals := []
 	for rect in [Rect2(Vector2(32.0, 120.0), Vector2(42.0, 54.0)), Rect2(Vector2(root.size.x - 74.0, root.size.y - 180.0), Vector2(42.0, 54.0))]:
 		var preview := Panel.new()
@@ -370,8 +393,8 @@ func _run() -> void:
 			"board-to-tray transfer never fades through a transparent landing frame"
 		)
 		_check(
-			is_instance_valid(transfer_preview) and transfer_preview.scale.x < 1.0,
-			"board-to-tray transfer visibly scales toward the smaller tray footprint"
+			is_instance_valid(transfer_preview) and absf(transfer_preview.size.x * transfer_preview.scale.x - expected_target.size.x) < absf(transfer_preview.size.x - expected_target.size.x) + 0.01,
+			"board-to-tray transfer scales toward the configured slot footprint"
 		)
 		await create_timer(0.12).timeout
 		_check(first_slot_art.visible and first_slot_art.texture != null, "arrival reveals the selected face artwork")
@@ -690,7 +713,8 @@ func _run() -> void:
 	for tile in live_game.board.tiles:
 		if live_game.board.call("is_tile_visible", tile.id) \
 				and not live_game.board.call("is_tile_selectable", tile.id) \
-				and not live_game.board.call("is_tile_revealable", tile.id):
+				and not live_game.board.call("is_tile_revealable", tile.id) \
+				and not live_game.board.call("is_tile_covered", tile.id):
 			visible_blocked_tile_id = tile.id
 			break
 	_check(not visible_blocked_tile_id.is_empty(), "reference layout contains a visible tile blocked from normal movement")
@@ -700,7 +724,12 @@ func _run() -> void:
 		var revision_before: int = live_game.revision
 		var target_button: Button = board.get("_tile_buttons")[visible_blocked_tile_id]
 		var target_overlay: TextureRect = target_button.get_node("BlockedOverlay")
-		_check(target_overlay.visible and target_overlay.modulate.a > 0.0, "normally unselectable tile has the cool blocked-state veil")
+		var blocked_base: Texture2D = board.get("_tile_skin").call("blocked_tile_base_texture")
+		if blocked_base != null:
+			_check_equal(blocked_base, target_button.get_node("BaseArt").texture, "normally unselectable tile uses dedicated locked ceramic artwork")
+			_check(not target_overlay.visible, "dedicated locked ceramic replaces the legacy blocked veil")
+		else:
+			_check(target_overlay.visible and target_overlay.modulate.a > 0.0, "normally unselectable tile uses the fallback blocked-state veil")
 		board.call("_on_tile_pressed", visible_blocked_tile_id)
 		_check_equal(revision_before + 1, live_game.revision, "blocked-tile feedback records a live Combo break")
 		_check_equal(0, live_game.call("combo_at", shell.call("_playback_time_ms")), "blocked tile tap kills Combo")
@@ -710,6 +739,7 @@ func _run() -> void:
 		shell.call("_on_delete_pair_requested")
 		_check(not target_button.disabled, "Delete Pair mode enables visible tiles blocked from normal movement")
 		_check_equal(Color.WHITE, target_button.modulate, "Delete Pair target uses canonical available-tile brightness")
+		_check_equal(board.get("_tile_skin").call("tile_base_texture"), target_button.get_node("BaseArt").texture, "Delete Pair target restores the enabled ceramic base")
 		_check(not target_overlay.visible, "Delete Pair target removes the blocked-state veil")
 		var delete_target_style: StyleBoxFlat = target_button.get_theme_stylebox("normal")
 		_check_equal(Color.TRANSPARENT, delete_target_style.bg_color, "Delete Pair mode adds no target background")
@@ -808,6 +838,8 @@ func _run() -> void:
 			not Rect2(banner.position, banner.size).intersects(Rect2(shell.get("_pause_button").position, shell.get("_pause_button").size)),
 			"%s update banner does not cover pause button" % orientation
 		)
+		if orientation == "portrait":
+			_check(shell.get("_regions").board.get("_board_tray").get_global_rect().position.y >= shell.get("_regions").tray.get_global_rect().end.y, "update banner preserves queue-to-Board rim clearance")
 		banner.call("_on_dismiss_pressed")
 		_check(not banner.visible, "%s update banner hides on dismiss" % orientation)
 		await process_frame
@@ -976,6 +1008,13 @@ func _verify_extra_life_recovery(shell: Control, orientation: String) -> void:
 		shell.call("_on_tile_selected", candidate.id)
 		if selection_index < 3:
 			await create_timer(float(shell.get("tile_transfer_seconds")) + 0.03).timeout
+		if selection_index == 2:
+			shell.set("_tray_danger_elapsed", 0.0)
+			shell.call("_update_tray_danger", 2.9)
+			_check(not shell.get("_tray_danger_overlay").visible, "danger edges wait three seconds")
+			shell.call("_update_tray_danger", 0.5)
+			_check(shell.get("_tray_danger_overlay").visible, "one free tray slot starts delayed danger edges")
+
 
 	_check_equal(0, game.tray.tiles.size(), "%s Extra Life atomically clears the full tray" % orientation)
 	_check_equal(2, game.call("current_snapshot").extra_life_charges, "%s Extra Life consumes one starting heart" % orientation)
@@ -1197,7 +1236,10 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 	if orientation == "portrait":
 		var expected_portrait_scale := minf(safe_viewport.size.x / 390.0, safe_viewport.size.y / 844.0)
 		_check(not board.get("_title_label").visible and not board.get("_status_label").visible, "portrait removes the placeholder Board header to maximize tile space")
-		_check(board.get("_tile_layer").position.y <= 6.01, "portrait tile layout begins near the top of the Board region")
+		var tray_padding := float(shell.gameplay_theme.board_tray_padding) * PresentationScaleScript.limiting_scale(board.size, Vector2(328.0, 487.0)) if shell.gameplay_theme.board_tray_enabled else 0.0
+		_check(board.get("_tile_layer").position.y <= 6.01 + tray_padding, "portrait tile layout reserves only the compact header and themed tray rim")
+		_check(board.get("_board_tray").mouse_filter == Control.MOUSE_FILTER_IGNORE, "Board tray artwork never intercepts tile taps")
+		_check(board.get("_board_tray").get_global_rect().position.y >= regions.tray.get_global_rect().end.y, "portrait queue clears the decorative Board tray rim")
 		var consumables: Control = regions.consumables
 		var bottom_background: Control = consumables.get("_portrait_background")
 		var tray_shadow: Panel = consumables.get("_portrait_tray_shadow")
@@ -1367,12 +1409,12 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 	var board_tile_size: Vector2 = board.call("tile_visual_size")
 	var tray_tile_scale: float = float(shell.get("portrait_tray_tile_scale")) if orientation == "portrait" \
 		else float(shell.get("landscape_tray_tile_scale"))
-	var expected_tray_scale := 0.72 if orientation == "portrait" else 0.70
+	var expected_tray_scale := 0.90 if orientation == "portrait" else 0.70
 	_check(is_equal_approx(tray_tile_scale, expected_tray_scale), "%s uses its tuned tray tile scale" % orientation)
 	var expected_board_scale := float(shell.get("portrait_board_content_scale")) if orientation == "portrait" \
 		else float(shell.get("landscape_board_content_scale"))
 	_check(is_equal_approx(float(board.get("_content_scale")), expected_board_scale), "%s applies its responsive Board content scale" % orientation)
-	var expected_vertical_stride := 0.85 if orientation == "portrait" else 1.20
+	var expected_vertical_stride := 0.92 if orientation == "portrait" else 1.20
 	_check(is_equal_approx(float(board.get("_vertical_stride_scale")), expected_vertical_stride), "%s uses its tuned visual Board row stride" % orientation)
 	_check(is_equal_approx(float(shell.get("tile_transfer_seconds")), 0.24), "%s uses the slower tray transfer beat" % orientation)
 	_check(is_equal_approx(float(shell.get("tile_flip_seconds")), 0.25), "%s uses the tuned quarter-second tile flip" % orientation)
@@ -1448,8 +1490,8 @@ func _validate_regions(shell: Control, orientation: String) -> void:
 		_check_equal(load("res://game-assets/ui/tray/porcelain/tray-left.png"), tray.get("_queue_left_cap").texture, "landscape tray reuses the portrait left end")
 		_check_equal(load("res://game-assets/ui/tray/porcelain/tray-repeat.png"), tray.get("_queue_repeats")[0].texture, "landscape tray reuses the portrait repeat well")
 		_check_equal(load("res://game-assets/ui/tray/porcelain/tray-right.png"), tray.get("_queue_right_cap").texture, "landscape tray reuses the portrait right end")
-	var expected_tray_tile_size := board_tile_size * tray_tile_scale
-	for slot in tray.get("_slots"):
+	var expected_tray_tile_size := board_tile_size * tray_tile_scale * float(shell.gameplay_theme.tray_tile_fill_scale)
+	for slot in tray.get("_slots").slice(0, tray.call("_slot_count")):
 		_check(slot.size.is_equal_approx(expected_tray_tile_size), "%s tray slot scales down from the board tile footprint" % orientation)
 	var callout: Control = shell.get("_performance_callout")
 	var callout_label: Label = callout.get("_label")
@@ -1582,7 +1624,7 @@ func _validate_board_tiles(shell: Control, orientation: String) -> void:
 			if shadow_art.visible and not has_visible_shadow:
 				has_visible_shadow = true
 				_check(shadow_art.texture == skin.call("tile_shadow_texture"), "%s tile cast shadow uses the preblurred silhouette" % orientation)
-				_check(shadow_art.position.x > 0.0 and shadow_art.position.y > 0.0, "%s tile shadow projects down and right" % orientation)
+				_check(shadow_art.position.y > absf(shadow_art.position.x), "%s tile cast shadow projects primarily downward" % orientation)
 			if contact_shadow_art.visible and not has_visible_contact_shadow:
 				has_visible_contact_shadow = true
 				_check(contact_shadow_art.texture == skin.call("tile_base_texture"), "%s contact shadow follows the active tile silhouette" % orientation)
@@ -1631,7 +1673,7 @@ func _validate_board_tiles(shell: Control, orientation: String) -> void:
 		var previous_brightness := float(board.call("_depth_brightness", 0, maximum_depth))
 		for depth in range(1, maximum_depth + 1):
 			var brightness := float(board.call("_depth_brightness", depth, maximum_depth))
-			_check(brightness > previous_brightness, "%s authored layer %d is brighter than layer %d" % [orientation, depth, depth - 1])
+			_check(brightness > previous_brightness, "%s authored layer %d uses a restrained natural value step" % [orientation, depth])
 			previous_brightness = brightness
 		_check(is_equal_approx(previous_brightness, 1.0), "%s highest authored layer remains fully lit" % orientation)
 		if maximum_depth > 1:
@@ -1642,6 +1684,18 @@ func _validate_board_tiles(shell: Control, orientation: String) -> void:
 				),
 				"%s layer directly below the top uses the lighter skin-defined brightness" % orientation
 			)
+	var covered_art_checked := false
+	for tile in shell.get("_game").board.tiles:
+		if shell.get("_game").board.call("is_tile_active", tile.id) \
+				and shell.get("_game").board.call("is_tile_covered", tile.id):
+			var covered_button: Button = board.get("_tile_buttons")[tile.id]
+			var covered_base: TextureRect = covered_button.get_node("BaseArt")
+			var covered_overlay: TextureRect = covered_button.get_node("BlockedOverlay")
+			_check_equal(skin.call("tile_base_texture"), covered_base.texture, "%s vertically covered tile keeps the normal ceramic base" % orientation)
+			_check(not covered_overlay.visible, "%s vertically covered tile uses shadows instead of a blocked veil" % orientation)
+			covered_art_checked = true
+			break
+	_check(covered_art_checked, "%s validates natural presentation for a vertically covered tile" % orientation)
 	if orientation == "landscape":
 		_check(
 			minimum_tile_size.x > minimum_tile_size.y,

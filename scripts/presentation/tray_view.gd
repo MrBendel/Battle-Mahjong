@@ -339,6 +339,7 @@ func _layout_portrait() -> void:
 		_portrait_scale(_tile_visual_size),
 		minf(size.x / base_queue_width, size.y / PORCELAIN_SLOT_SIZE.y)
 	)
+	scale *= float(_gameplay_theme.tray_artwork_scale)
 	var queue_width := base_queue_width * scale
 	var queue_height := PORCELAIN_SLOT_SIZE.y * scale
 	var origin := Vector2((size.x - queue_width) * 0.5, (size.y - queue_height) * 0.5)
@@ -367,8 +368,8 @@ func _layout_portrait() -> void:
 		var tile_rect := PORCELAIN_LEFT_TILE_RECT if index == 0 else PORCELAIN_TILE_RECT
 		var tile_center := section_origin + tile_rect.get_center() * scale
 		var slot_rect := Rect2(
-			tile_center - _tile_visual_size * 0.5,
-			_tile_visual_size
+			tile_center - _tile_visual_size * float(_gameplay_theme.tray_tile_fill_scale) * 0.5,
+			_tile_visual_size * float(_gameplay_theme.tray_tile_fill_scale)
 		)
 		_slots[index].position = slot_rect.position
 		_slots[index].size = slot_rect.size
@@ -397,6 +398,7 @@ func _layout_porcelain_vertical() -> void:
 		_porcelain_vertical_scale(_tile_visual_size),
 		minf(size.x / PORCELAIN_SLOT_SIZE.y, size.y / base_height)
 	)
+	scale *= float(_gameplay_theme.tray_artwork_scale)
 	var queue_size := Vector2(PORCELAIN_SLOT_SIZE.y, base_height) * scale
 	var origin := (size - queue_size) * 0.5
 	_layout_rotated_queue_section(_queue_left_cap, origin.y, PORCELAIN_LEFT_END_SIZE.x, scale)
@@ -421,7 +423,7 @@ func _layout_porcelain_vertical() -> void:
 		var section_y := origin.y + _porcelain_slot_section_y(index) * scale
 		var well_center_y := 38.75 if index == 0 else 31.35
 		var tile_center := Vector2(origin.x + 55.0 * scale, section_y + well_center_y * scale)
-		var slot_rect := Rect2(tile_center - _tile_visual_size * 0.5, _tile_visual_size)
+		var slot_rect := Rect2(tile_center - _tile_visual_size * float(_gameplay_theme.tray_tile_fill_scale) * 0.5, _tile_visual_size * float(_gameplay_theme.tray_tile_fill_scale))
 		_slots[index].position = slot_rect.position
 		_slots[index].size = slot_rect.size
 		_slots[index].pivot_offset = slot_rect.size * 0.5
@@ -480,7 +482,7 @@ func _layout_vertical() -> void:
 	for index in range(_slot_count()):
 		var repeat_origin := origin + Vector2(0.0, (VERTICAL_CAP_SIZE.y + VERTICAL_SLOT_SIZE.y * index) * scale)
 		var tile_center := repeat_origin + VERTICAL_TILE_RECT.get_center() * scale
-		var slot_rect := Rect2(tile_center - _tile_visual_size * 0.5, _tile_visual_size)
+		var slot_rect := Rect2(tile_center - _tile_visual_size * float(_gameplay_theme.tray_tile_fill_scale) * 0.5, _tile_visual_size * float(_gameplay_theme.tray_tile_fill_scale))
 		_slots[index].position = slot_rect.position
 		_slots[index].size = slot_rect.size
 		_slots[index].add_theme_stylebox_override("panel", _tile_style())

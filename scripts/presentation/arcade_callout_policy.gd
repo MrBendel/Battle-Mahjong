@@ -2,6 +2,8 @@ extends RefCounted
 class_name ArcadeCalloutPolicy
 
 func choose_for_transaction(telemetry: Dictionary, score_after: int, tuning: Resource) -> Dictionary:
+	if bool(telemetry.get("all_board_tiles_visible", false)):
+		return _alert("board_progress", "all_pieces_revealed", "ALL PIECES REVEALED!")
 	if bool(telemetry.get("extra_life_consumed", false)):
 		return _alert("modifier_reward", "extra_life_save", "EXTRA LIFE SAVE!")
 	var modifier_alert := _choose_modifier_reward(telemetry)

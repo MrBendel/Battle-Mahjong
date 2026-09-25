@@ -35,13 +35,14 @@ const UpdateCheckerScript := preload("res://scripts/presentation/update_checker.
 const SafeAreaScript := preload("res://scripts/presentation/safe_area.gd")
 const PresentationScaleScript := preload("res://scripts/presentation/presentation_scale.gd")
 const GameplayThemeScript := preload("res://scripts/presentation/gameplay_theme.gd")
+const EndgameAutoClearPlannerScript := preload("res://scripts/simulation/endgame_auto_clear_planner.gd")
 const PORTRAIT_REFERENCE_SIZE := Vector2(390.0, 844.0)
 const PORTRAIT_PROPORTION_REFERENCE_SIZE := Vector2(942.0, 1672.0)
 const PORTRAIT_STATUS_RECT := Rect2(31.0, 23.0, 611.0, 156.0)
 const PORTRAIT_PAUSE_RECT := Rect2(836.0, 23.0, 81.0, 87.0)
-const PORTRAIT_TRAY_RECT := Rect2(165.0, 207.0, 611.0, 155.0)
-const PORTRAIT_BOARD_RECT := Rect2(76.0, 418.0, 791.0, 964.0)
-const PORTRAIT_ACTIONS_RECT := Rect2(236.0, 1445.0, 471.0, 185.0)
+const PORTRAIT_TRAY_RECT := Rect2(105.0, 195.0, 731.0, 205.0)
+const PORTRAIT_BOARD_RECT := Rect2(54.0, 450.0, 835.0, 1020.0)
+const PORTRAIT_ACTIONS_RECT := Rect2(236.0, 1530.0, 471.0, 120.0)
 const PORTRAIT_HUD_SCRIM_SIZE := Vector2(390.0, 167.0)
 const LANDSCAPE_PROPORTION_REFERENCE_SIZE := Vector2(1680.0, 909.0)
 const LANDSCAPE_STATUS_RECT := Rect2(31.0, 25.0, 560.0, 143.0)
@@ -61,6 +62,7 @@ const PAIR_POP_EXPAND_SECONDS := 0.08
 const PAIR_POP_FADE_SECONDS := 0.13
 const PAIR_POP_SECONDS := PAIR_POP_EXPAND_SECONDS + PAIR_POP_FADE_SECONDS
 const PAIR_MATCH_FX_POOL_SIZE := 6
+const NO_HINT_AVAILABLE_MESSAGE := "No moves! try something else!"
 
 @export var momentum_tuning: Resource
 @export var modifier_tuning: Resource
@@ -71,13 +73,14 @@ const PAIR_MATCH_FX_POOL_SIZE := 6
 ## Temporary prototype grant. Future modes snapshot the player's earned hearts here.
 @export_range(0, 99, 1) var starting_hearts := 3
 ## Uniform tray-tile scale relative to the current rendered Board tile footprint.
-@export_range(0.45, 1.00, 0.01) var portrait_tray_tile_scale := 0.72
+@export_range(0.45, 1.00, 0.01) var portrait_tray_tile_scale := 0.90
 @export_range(0.45, 1.00, 0.01) var landscape_tray_tile_scale := 0.70
 ## Keeps the Board as the hero without allowing it to consume the entire felt surface.
 @export_range(0.55, 1.00, 0.01) var portrait_board_content_scale := 1.00
 @export_range(0.55, 1.00, 0.01) var landscape_board_content_scale := 1.00
 ## Compresses only visual row spacing so the portrait-authored stack fits the target Board silhouette.
-@export_range(0.50, 1.00, 0.01) var portrait_board_vertical_stride_scale := 0.85
+@export_range(0.75, 1.10, 0.01) var portrait_board_horizontal_stride_scale := 0.90
+@export_range(0.50, 1.00, 0.01) var portrait_board_vertical_stride_scale := 0.92
 @export_range(0.50, 1.40, 0.01) var landscape_board_vertical_stride_scale := 1.20
 ## Travel time for Board-to-Tray, flipped staging, and Undo return presentation.
 @export_range(0.12, 0.40, 0.01) var tile_transfer_seconds := 0.24
@@ -88,9 +91,9 @@ const PAIR_MATCH_FX_POOL_SIZE := 6
 ## Queue-compaction travel toward the next horizontal or vertical slot.
 @export_range(0.08, 0.30, 0.01) var tray_compaction_seconds := 0.16
 ## Red danger pulse after an Extra Life intercepts a full tray.
-@export_range(0.10, 0.60, 0.01) var extra_life_tray_warning_seconds := 0.24
+@export_range(0.10, 0.60, 0.01) var extra_life_tray_warning_seconds := 0.42
 ## Travel time for rescued tray tiles to return to their Board slots.
-@export_range(0.16, 0.60, 0.01) var extra_life_return_seconds := 0.30
+@export_range(0.16, 0.60, 0.01) var extra_life_return_seconds := 0.36
 ## Small cascade between each rescued tile's return motion.
 @export_range(0.0, 0.12, 0.005) var extra_life_return_stagger_seconds := 0.025
 ## Travel time for tiles to settle into their shuffled positions.
@@ -111,6 +114,8 @@ const PAIR_MATCH_FX_POOL_SIZE := 6
 @export_range(0.05, 0.50, 0.01) var assisted_clear_selection_interval_seconds := 0.05
 ## Delay after the normal pair match before Three Pair Clear selects its next pair.
 @export_range(0.30, 1.40, 0.01) var assisted_clear_pair_interval_seconds := 0.55
+## Readability beat after the endgame reveal callout before automatic taps begin.
+@export_range(0.20, 1.50, 0.05) var endgame_autoclear_activation_hold_seconds := 0.75
 ## Initial tile deal-in after confirming the pregame modifier loadout.
 @export_range(0.08, 0.60, 0.01) var board_deal_seconds := 0.24
 @export_range(0.0, 0.80, 0.01) var board_deal_stagger_seconds := 0.34
@@ -125,6 +130,15 @@ const PAIR_MATCH_FX_POOL_SIZE := 6
 ## Multiplier applied after match FX inherit the limiting safe-display scale.
 @export_range(0.50, 2.00, 0.05) var match_fx_scale_multiplier := 1.30
 @export var sound_enabled_on_start := true
+@export var tile_swoosh_sound: AudioStream = preload("res://game-assets/audio/tile_swoosh.wav")
+@export var tile_collision_sound: AudioStream = preload("res://game-assets/audio/tile_collision.wav")
+@export_range(-40.0, 0.0, 1.0) var tile_swoosh_volume_db := -22.0
+@export_range(-40.0, 0.0, 1.0) var tile_collision_volume_db := -12.0
+@export var tile_flip_sound: AudioStream = preload("res://game-assets/audio/tile_flip.wav")
+@export_range(-40.0, 0.0, 1.0) var tile_flip_volume_db := -25.0
+var _tile_flip_player: AudioStreamPlayer
+var _tile_swoosh_player: AudioStreamPlayer
+var _tile_collision_player: AudioStreamPlayer
 @export var haptics_enabled_on_start := true
 @export_range(1, 200, 1) var selection_haptic_duration_ms := 18
 @export_range(0.0, 1.0, 0.05) var selection_haptic_amplitude := 0.25
@@ -166,6 +180,14 @@ var _tray_compaction_previews := {}
 var _tray_compaction_tweens := {}
 var _tray_compaction_count := 0
 var _last_tray_compaction_targets: Array[Rect2] = []
+@export_range(0.0, 10.0, 0.1) var tray_danger_delay_seconds := 3.0
+@export_range(0.5, 4.0, 0.1) var tray_danger_pulse_seconds := 1.8
+@export_range(0.0, 1.0, 0.01) var tray_danger_opacity := 0.22
+@export_range(0.0, 1.0, 0.01) var tray_impact_opacity := 0.65
+@export_range(1, 300, 1) var heart_loss_haptic_duration_ms := 100
+var _tray_danger_elapsed := 0.0
+var _tray_impact_remaining := 0.0
+var _tray_danger_overlay: ColorRect
 var _extra_life_recovery_active := false
 var _extra_life_recovery_generation := 0
 var _extra_life_recovery_previews: Array = []
@@ -207,6 +229,10 @@ var _auto_clear_pending_visuals: Array = []
 var _auto_clear_generation := 0
 var _assisted_clear_selection_count := 0
 var _assisted_clear_completed_pair_count := 0
+var _endgame_autoclear_active := false
+var _endgame_autoclear_started := false
+var _endgame_autoclear_generation := 0
+var _endgame_autoclear_step_count := 0
 var _bomb_formation_count := 0
 var _last_bomb_formation_targets: Array = []
 var _last_bomb_collision_targets: Array[Rect2] = []
@@ -252,11 +278,13 @@ func _ready() -> void:
 	_sound_enabled = sound_enabled_on_start
 	_haptics_enabled = haptics_enabled_on_start
 	_apply_sound_preference()
+	_build_tile_audio()
 	get_viewport().size_changed.connect(_apply_layout)
 	_build_gameplay_background()
 	_selected_modifier_loadout = ModifierLoadoutScript.playtest_all() if playtest_all_modifiers \
 		else ModifierLoadoutScript.starter()
 	_build_shell()
+	_build_tray_danger_overlay()
 	if show_layout_generator_on_start and not playtest_all_modifiers:
 		_open_layout_generator(_runtime_layout_seed)
 	elif show_modifier_picker_on_start and not playtest_all_modifiers:
@@ -288,8 +316,9 @@ func _build_shell() -> void:
 	_game = _create_game()
 	_tile_skin = TileSkinScript.new(str(gameplay_theme.tile_skin_manifest_path))
 	_game_started_at_ms = Time.get_ticks_msec()
-	_regions.board = BoardViewScript.new(_game, _tile_skin)
+	_regions.board = BoardViewScript.new(_game, _tile_skin, gameplay_theme)
 	_regions.board.call("set_flip_duration", tile_flip_seconds)
+	_regions.board.connect("flip_turned", _play_flip_audio)
 	_regions.momentum = MomentumViewScript.new(_game, gameplay_theme)
 	_regions.momentum.call("set_run_totals", _tower_score_offset, _tower_elapsed_time_offset_ms)
 	_regions.tray = TrayViewScript.new(_game, _tile_skin, gameplay_theme)
@@ -550,6 +579,7 @@ func _create_game() -> Variant:
 
 func _on_modifier_loadout_started(loadout: Array) -> void:
 	_cancel_extra_life_recovery()
+	_reset_endgame_autoclear()
 	_selected_modifier_loadout = loadout.duplicate(true)
 	if _modifier_picker != null:
 		remove_child(_modifier_picker)
@@ -602,6 +632,7 @@ func _finish_opening_sequence_if_ready() -> void:
 	_paused_duration_ms = 0
 	_tower_transition_active = false
 	_announce_tower_floor()
+	_maybe_start_endgame_autoclear()
 
 
 func _announce_tower_floor() -> void:
@@ -622,6 +653,7 @@ func begin_tower_floor_transition(options: Dictionary) -> void:
 	_game_over_pending = false
 	_pause_started_at_ms = -1
 	_paused_duration_ms = 0
+	_reset_endgame_autoclear()
 	_game = _create_game()
 	_last_tray_capacity = _game.tray.capacity
 	_regions.board.modulate = Color.WHITE
@@ -687,6 +719,7 @@ func _on_layout_seed_requested(seed: int) -> void:
 	_runtime_layout_seed = seed
 	_runtime_layout = generated_layout
 	_rng.call("set_seed", seed)
+	_reset_endgame_autoclear()
 	_game = _create_game()
 	_last_tray_capacity = _game.tray.capacity
 	_regions.board.call("set_game_state", _game)
@@ -786,7 +819,7 @@ func _select_tile_with_presentation(tile_id: String, bypass_input_lock := false)
 					visual.preview.queue_free()
 				_regions.board.call("play_flip", tile_id, true)
 				_play_transaction_callout(direct_transaction)
-			elif result == GameStateScript.FLIPPED_PAIR_RESOLVED:
+			elif result == GameStateScript.FLIPPED_PAIR_RESOLVED or result == GameStateScript.PAIR_RESOLVED:
 				_play_haptic("pair")
 				if direct_matching_zone == GameStateDataScript.ZONE_TRAY:
 					_play_flipped_match_to_tray(direct_visuals, direct_target_rect, face_down)
@@ -893,6 +926,9 @@ func _play_haptic(kind: String) -> void:
 		return
 	var duration_ms := pair_haptic_duration_ms if kind == "pair" else selection_haptic_duration_ms
 	var amplitude := pair_haptic_amplitude if kind == "pair" else selection_haptic_amplitude
+	if kind == "heart_loss":
+		duration_ms = heart_loss_haptic_duration_ms
+		amplitude = 1.0
 	_haptic_event_count += 1
 	_last_haptic_kind = kind
 	Input.vibrate_handheld(duration_ms, amplitude)
@@ -900,6 +936,9 @@ func _play_haptic(kind: String) -> void:
 
 func _play_transaction_callout(transaction: Variant) -> void:
 	_play_modifier_feedback(transaction.telemetry)
+	if _endgame_autoclear_started \
+			and bool(transaction.telemetry.get("all_board_tiles_visible", false)):
+		return
 	if arcade_callout_tuning == null:
 		return
 	var score_after := _tower_score_offset + int(_game.call("current_snapshot").score)
@@ -994,10 +1033,19 @@ func _on_hint_requested() -> void:
 		return
 	var result: String = _game.call("request_hint", _playback_time_ms())
 	if result == GameStateScript.NO_HINT_AVAILABLE:
-		_regions.consumables.call("show_notice", "No pair is available. Try another move or Shuffle.")
+		_show_no_hint_available()
 	else:
 		_regions.consumables.call("show_notice", "Suggested pair highlighted.")
 	_refresh_game_views()
+
+
+func _show_no_hint_available() -> void:
+	_regions.consumables.call("show_notice", NO_HINT_AVAILABLE_MESSAGE)
+	_performance_callout.call("play_alert", {
+		"type": "notice",
+		"key": "no_hint_available",
+		"text": NO_HINT_AVAILABLE_MESSAGE,
+	})
 
 
 func _on_delete_pair_requested() -> void:
@@ -1045,6 +1093,7 @@ func _on_restart_requested() -> void:
 	_clear_tray_compaction_previews()
 	_cancel_extra_life_recovery()
 	_cancel_auto_clear_animation()
+	_reset_endgame_autoclear()
 	_opening_countdown_active = false
 	_opening_countdown.call("cancel")
 	_shuffle_animation_generation += 1
@@ -1156,6 +1205,7 @@ func _gameplay_input_blocked() -> bool:
 		or _tower_transition_active \
 		or _shuffle_animation_active \
 		or _auto_clear_animation_active \
+		or _endgame_autoclear_active \
 		or _extra_life_recovery_active \
 		or _regions.has("board") and bool(_regions.board.call("is_deal_in_active")) \
 		or _game == null or _game.status != GameStateScript.PLAYING
@@ -1204,6 +1254,7 @@ func _refresh_game_views() -> void:
 		_regions.tray.call("refresh")
 	_regions.momentum.call("refresh", _playback_time_ms())
 	_regions.consumables.call("refresh")
+	_maybe_start_endgame_autoclear()
 	_check_game_over()
 
 
@@ -1272,6 +1323,7 @@ func _begin_tower_floor_completion() -> void:
 
 
 func _play_tile_to_tray(preview: Control, source_rect: Rect2, target_rect: Rect2, tile_id: String) -> void:
+	_play_tile_audio(false)
 	add_child(preview)
 	preview.position = _global_to_local(source_rect.position)
 	preview.size = source_rect.size
@@ -1371,6 +1423,7 @@ func _prepare_pair_to_tray(incoming: Control, held: Control, source_rect: Rect2,
 func _start_pair_to_tray_motion(incoming: Control, held: Control, target_rect: Rect2, held_source_rect: Rect2) -> void:
 	if not is_instance_valid(incoming):
 		return
+	_play_tile_audio(false)
 	_tile_motion_count += 1
 	_last_tile_motion_target = target_rect
 	var target_position := _global_to_local(target_rect.get_center()) - incoming.size * 0.5
@@ -1402,6 +1455,7 @@ func _play_flipped_match_to_tray(visuals: Array, target_rect: Rect2, reveal_inco
 		_start_pair_to_tray_motion(incoming, held, target_rect, held_source_rect)
 		return
 	incoming.scale = Vector2(0.08, 1.0)
+	_play_flip_audio()
 	var reveal_tween := create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	reveal_tween.tween_property(incoming, "scale", Vector2.ONE, tile_flip_seconds)
 	reveal_tween.tween_interval(flipped_auto_match_hold_seconds)
@@ -1472,6 +1526,66 @@ func _play_assisted_input_sequence(assisted_pairs: Array, initial_delay: float) 
 		initial_delay + assisted_clear_activation_hold_seconds,
 		generation
 	)
+
+
+func _maybe_start_endgame_autoclear() -> void:
+	if _endgame_autoclear_started or _endgame_autoclear_active \
+			or _game == null or _game.status != GameStateScript.PLAYING \
+			or _opening_countdown_active or _modifier_picker != null \
+			or _layout_generator_picker != null:
+		return
+	var transaction: Variant = _game.call("last_transaction")
+	var triggered_by_transaction: bool = transaction != null \
+		and bool(transaction.telemetry.get("all_board_tiles_visible", false))
+	var state: Variant = _game.call("current_snapshot")
+	if not triggered_by_transaction \
+			and not EndgameAutoClearPlannerScript.new().call("is_ready", _game.definition, state):
+		return
+	_endgame_autoclear_started = true
+	_endgame_autoclear_active = true
+	_endgame_autoclear_generation += 1
+	var generation := _endgame_autoclear_generation
+	_performance_callout.call("play_alert", {
+		"type": "board_progress",
+		"key": "all_pieces_revealed",
+		"text": "ALL PIECES REVEALED!",
+	})
+	_run_endgame_autoclear(generation)
+
+
+func _run_endgame_autoclear(generation: int) -> void:
+	await get_tree().create_timer(endgame_autoclear_activation_hold_seconds).timeout
+	var planner := EndgameAutoClearPlannerScript.new()
+	while generation == _endgame_autoclear_generation \
+			and _game != null and _game.status == GameStateScript.PLAYING:
+		if _lifecycle_input_suspended or _application_backgrounded or _pause_started_at_ms >= 0 \
+				or _auto_clear_animation_active or _shuffle_animation_active:
+			await get_tree().create_timer(0.10).timeout
+			continue
+		var step: Dictionary = planner.call(
+			"next_step",
+			_game.definition,
+			_game.call("current_snapshot")
+		)
+		if step.is_empty():
+			break
+		var tile_ids: Array = step.get("tile_ids", [])
+		for tile_id in tile_ids:
+			if generation != _endgame_autoclear_generation \
+					or _game.status != GameStateScript.PLAYING:
+				break
+			_endgame_autoclear_step_count += 1
+			_select_tile_with_presentation(str(tile_id), true)
+			await get_tree().create_timer(assisted_clear_selection_interval_seconds).timeout
+		await get_tree().create_timer(assisted_clear_pair_interval_seconds).timeout
+	if generation == _endgame_autoclear_generation:
+		_endgame_autoclear_active = false
+
+
+func _reset_endgame_autoclear() -> void:
+	_endgame_autoclear_generation += 1
+	_endgame_autoclear_active = false
+	_endgame_autoclear_started = false
 
 
 func _run_assisted_input_sequence(assisted_pairs: Array, initial_delay: float, generation: int) -> void:
@@ -1653,6 +1767,7 @@ func _play_flipped_pair_via_open_slots(visuals: Array, reveal_incoming: bool = f
 	_last_tile_motion_target = targets[1]
 	if reveal_incoming:
 		previews[0].scale = Vector2(0.08, 1.0)
+		_play_flip_audio()
 		var reveal_tween := create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		reveal_tween.tween_property(previews[0], "scale", Vector2.ONE, tile_flip_seconds)
 		reveal_tween.tween_interval(flipped_auto_match_hold_seconds)
@@ -1691,6 +1806,7 @@ func _play_transaction_auto_reveals(transaction: Variant) -> void:
 
 
 func _play_pair_pop(previews: Array, global_center: Vector2) -> void:
+	_play_tile_audio(true)
 	_pair_feedback_count += 1
 	_last_pair_feedback_position = global_center
 	_spawn_match_burst(global_center)
@@ -1857,6 +1973,7 @@ func _play_extra_life_recovery(
 	_tile_motion_count += 1
 	_last_tile_motion_target = tray_target_rect
 	var tray_position := _global_to_local(tray_target_rect.get_center()) - incoming.size * 0.5
+	_play_tile_audio(false)
 	var arrival := create_tween().set_parallel(true).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
 	arrival.tween_property(incoming, "position", tray_position, tile_transfer_seconds)
 	arrival.tween_property(incoming, "scale", _preview_scale_for_rect(incoming, tray_target_rect), tile_transfer_seconds)
@@ -1866,7 +1983,16 @@ func _play_extra_life_recovery(
 func _start_extra_life_warning(visuals: Array, generation: int) -> void:
 	if generation != _extra_life_recovery_generation:
 		return
+	_tray_impact_remaining = extra_life_tray_warning_seconds
+	_play_haptic("heart_loss")
+	_regions.momentum.call("play_heart_loss", extra_life_tray_warning_seconds)
 	_regions.tray.call("play_overflow_feedback", extra_life_tray_warning_seconds)
+	for visual in visuals:
+		var preview: Control = visual.preview
+		var shake := create_tween()
+		shake.tween_property(preview, "rotation", deg_to_rad(-5.0), 0.06)
+		shake.tween_property(preview, "rotation", deg_to_rad(5.0), 0.08)
+		shake.tween_property(preview, "rotation", 0.0, 0.11)
 	var warning_hold := create_tween()
 	warning_hold.tween_interval(extra_life_tray_warning_seconds)
 	warning_hold.finished.connect(_start_extra_life_return.bind(visuals, generation))
@@ -1904,6 +2030,8 @@ func _finish_extra_life_recovery(visuals: Array, generation: int) -> void:
 
 
 func _cancel_extra_life_recovery() -> void:
+	_tray_danger_elapsed = 0.0
+	_tray_impact_remaining = 0.0
 	_extra_life_recovery_generation += 1
 	_extra_life_recovery_active = false
 	for visual in _extra_life_recovery_previews:
@@ -2050,6 +2178,7 @@ func _global_to_local(point: Vector2) -> Vector2:
 
 
 func _process(_delta: float) -> void:
+	_update_tray_danger(_delta)
 	if _pause_started_at_ms < 0 and _game != null and _regions.has("momentum"):
 		_regions.momentum.call("refresh", _playback_time_ms())
 	if _android_capture_frames_remaining > 0:
@@ -2125,6 +2254,7 @@ func _apply_layout() -> void:
 		"set_content_scale",
 		portrait_board_content_scale if portrait else landscape_board_content_scale
 	)
+	_regions.board.call("set_horizontal_stride_scale", portrait_board_horizontal_stride_scale if portrait else 1.0)
 	_regions.board.call(
 		"set_vertical_stride_scale",
 		portrait_board_vertical_stride_scale if portrait else landscape_board_vertical_stride_scale
@@ -2154,6 +2284,7 @@ func _apply_layout() -> void:
 	_pause_menu.call("set_safe_area_insets", _get_safe_area_insets())
 	_end_game_menu.call("set_safe_area_insets", _get_safe_area_insets())
 	_regions.board.call("refresh_layout", false)
+	tray_visual_size = _regions.board.call("tile_visual_size") * active_tray_scale
 	_regions.tray.call("set_tile_visual_size", tray_visual_size)
 	_regions.tray.call("refresh")
 	_performance_callout.call("place_over", Rect2(_regions.board.position, _regions.board.size))
@@ -2185,25 +2316,15 @@ func _reflow_for_tray_clearance(
 		var expanded_width := minf(required_width, board.size.x)
 		tray.position.x = board.position.x + (board.size.x - expanded_width) * 0.5
 		tray.size.x = expanded_width
-	if required_height <= tray.size.y:
-		return
 	var board_bottom := board.position.y + board.size.y
-	if orientation == "Portrait":
-		var queue_scale := required_height / PORTRAIT_QUEUE_SOURCE_HEIGHT
-		tray.size.y = required_height
-		var board_top := tray.position.y + required_height \
-			- PORTRAIT_QUEUE_BOTTOM_TRANSPARENT * queue_scale \
-			+ PORTRAIT_QUEUE_TO_BOARD_GAP * queue_scale
-		board.position.y = board_top
-		board.size.y = maxf(1.0, board_bottom - board_top)
-		return
-	if required_height <= tray.size.y:
-		return
-	var gap := 10.0 if orientation == "Landscape" or get_viewport_rect().size.y >= 800.0 else 7.0
-	tray.size.y = required_height
-	if orientation == "Landscape":
-		_regions.momentum.size.y = required_height
-	var board_top := tray.position.y + tray.size.y + gap
+	tray.size.y = maxf(tray.size.y, required_height)
+	# Reserve the decorative rim as well as the tile-fit region. Its outset can
+	# reach above the Board Control even when the queue needs no size increase.
+	var frame_scale := PresentationScaleScript.limiting_scale(board.size, Vector2(328.0, 487.0))
+	var rim_outset := float(gameplay_theme.board_tray_outset.y) * frame_scale \
+		if gameplay_theme.board_tray_enabled else 0.0
+	var gap := 8.0 * PresentationScaleScript.safe_display_scale(get_viewport_rect().size, _get_safe_area_insets())
+	var board_top := maxf(board.position.y, tray.position.y + tray.size.y + gap + rim_outset)
 	board.position.y = board_top
 	board.size.y = maxf(1.0, board_bottom - board_top)
 
@@ -2389,3 +2510,85 @@ static func _load_texture(asset_path: String) -> Texture2D:
 		if img != null:
 			return ImageTexture.create_from_image(img)
 	return null
+
+
+func _build_tray_danger_overlay() -> void:
+	_tray_danger_overlay = ColorRect.new()
+	_tray_danger_overlay.name = "TrayDangerEdges"
+	_tray_danger_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_tray_danger_overlay.z_index = 1002
+	var shader := Shader.new()
+	shader.code = """shader_type canvas_item;
+uniform float strength = 0.0;
+uniform vec2 edge_width = vec2(0.1);
+void fragment() {
+ vec2 edge = min(UV, vec2(1.0) - UV);
+ float vignette = pow(1.0 - smoothstep(0.0, 1.0, min(edge.x / edge_width.x, edge.y / edge_width.y)), 2.0);
+ COLOR = vec4(0.85, 0.025, 0.04, vignette * strength);
+}"""
+	var material := ShaderMaterial.new()
+	material.shader = shader
+	_tray_danger_overlay.material = material
+	add_child(_tray_danger_overlay)
+	_tray_danger_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+
+
+func _update_tray_danger(delta: float) -> void:
+	if _tray_danger_overlay == null:
+		return
+	var active: bool = _game != null and _game.status == GameStateScript.PLAYING \
+		and _pause_started_at_ms < 0 and not _application_backgrounded \
+		and _modifier_picker == null and _layout_generator_picker == null
+	var danger: bool = active and not _extra_life_recovery_active \
+		and _game.tray.tiles.size() == _game.tray.capacity - 1
+	_tray_danger_elapsed = _tray_danger_elapsed + delta if danger else 0.0
+	var strength := 0.0
+	if _tray_danger_elapsed > tray_danger_delay_seconds:
+		var elapsed := _tray_danger_elapsed - tray_danger_delay_seconds
+		strength = tray_danger_opacity * minf(elapsed, 1.0) \
+			* (0.65 - 0.35 * cos(elapsed * TAU / tray_danger_pulse_seconds))
+	if active and _tray_impact_remaining > 0.0:
+		strength = maxf(strength, tray_impact_opacity * _tray_impact_remaining / extra_life_tray_warning_seconds)
+		_tray_impact_remaining = maxf(0.0, _tray_impact_remaining - delta)
+	_tray_danger_overlay.visible = active and strength > 0.0
+	_tray_danger_overlay.material.set_shader_parameter("strength", strength)
+	var safe_scale := PresentationScaleScript.safe_display_scale(size, _get_safe_area_insets())
+	_tray_danger_overlay.material.set_shader_parameter("edge_width", Vector2(52.0, 52.0) * safe_scale / size.max(Vector2.ONE))
+	if _regions.has("tray"):
+		_regions.tray.modulate = Color(1.0, 1.0 - strength * 0.45, 1.0 - strength * 0.45)
+
+
+func _build_tile_audio() -> void:
+	_tile_flip_player = AudioStreamPlayer.new()
+	_tile_flip_player.name = "TileFlipAudio"
+	_tile_flip_player.stream = tile_flip_sound
+	_tile_flip_player.volume_db = tile_flip_volume_db
+	_tile_flip_player.max_polyphony = 2
+	add_child(_tile_flip_player)
+	_tile_swoosh_player = AudioStreamPlayer.new()
+	_tile_swoosh_player.name = "TileSwooshAudio"
+	_tile_swoosh_player.stream = tile_swoosh_sound
+	_tile_swoosh_player.volume_db = tile_swoosh_volume_db
+	_tile_swoosh_player.max_polyphony = 4
+	add_child(_tile_swoosh_player)
+	_tile_collision_player = AudioStreamPlayer.new()
+	_tile_collision_player.name = "TileCollisionAudio"
+	_tile_collision_player.stream = tile_collision_sound
+	_tile_collision_player.volume_db = tile_collision_volume_db
+	_tile_collision_player.max_polyphony = 4
+	add_child(_tile_collision_player)
+
+
+func _play_tile_audio(collision: bool) -> void:
+	if not _sound_enabled or _application_backgrounded or _pause_started_at_ms >= 0:
+		return
+	var player := _tile_collision_player if collision else _tile_swoosh_player
+	if player != null and player.stream != null:
+		player.play()
+
+
+func _play_flip_audio() -> void:
+	if not _sound_enabled or _application_backgrounded or _pause_started_at_ms >= 0:
+		return
+	if _tile_flip_player != null and _tile_flip_player.stream != null:
+		_tile_flip_player.play()

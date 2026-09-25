@@ -41,6 +41,7 @@ const ArcadeCalloutPolicyScript := preload("res://scripts/presentation/arcade_ca
 const UpdateCheckerScript := preload("res://scripts/presentation/update_checker.gd")
 const TrayAwareShufflePlannerScript := preload("res://scripts/simulation/tray_aware_shuffle_planner.gd")
 const AssistedPairClearPlannerScript := preload("res://scripts/simulation/three_pair_clear_planner.gd")
+const EndgameAutoClearPlannerScript := preload("res://scripts/simulation/endgame_auto_clear_planner.gd")
 
 var _failures := 0
 var _assertions := 0
@@ -161,22 +162,32 @@ func _run_tile_skin_contract_tests() -> void:
 	_check_equal(1, skin.back_designs.size(), "tile backs use a replaceable cosmetic design catalog")
 	_check(str(skin.back_variants.portrait) != str(skin.base_variants.portrait.asset), "tile back uses a visually distinct full-surface base")
 	_check(str(skin.back_variants.portrait) != str(skin.back_variants.landscape), "each orientation has a fitted tile-back base")
+	_check(ResourceLoader.exists(str(skin.back_variants.portrait)) or FileAccess.file_exists(str(skin.back_variants.portrait)), "portrait revealable tile-back base exists")
+	_check(ResourceLoader.exists(str(skin.blocked_back_variants.portrait)) or FileAccess.file_exists(str(skin.blocked_back_variants.portrait)), "portrait locked tile-back base exists")
+	_check(str(skin.blocked_back_variants.portrait) != str(skin.back_variants.portrait), "portrait locked back uses independent artwork")
 	_check(ResourceLoader.exists(str(skin.back_variants.landscape)) or FileAccess.file_exists(str(skin.back_variants.landscape)), "landscape tile-back base exists")
 	_check(skin.call("tile_back_texture") != null, "Default tile-back base loads independently from the tile front")
+	_check(skin.call("blocked_tile_back_texture") != null, "portrait locked tile-back base loads independently")
 	_check(skin.call("back_design_texture") != null, "Default tile-back design loads independently from its ceramic base")
 	_check_equal(6, skin.modifiers.size(), "Default skin declares all six tile-attached modifier identities")
 	for modifier_id in ["extra_life", "cold_snap", "score_multiplier", "tray_plus_one", "three_pair_clear", "bomb"]:
 		_check(skin.call("modifier_texture", modifier_id) != null, "%s modifier tile overlay loads" % modifier_id)
 	_check(ResourceLoader.exists(str(skin.base_variants.portrait.asset)) or FileAccess.file_exists(str(skin.base_variants.portrait.asset)), "portrait ceramic base runtime asset exists")
+	_check(ResourceLoader.exists(str(skin.base_variants.portrait.blocked_asset)) or FileAccess.file_exists(str(skin.base_variants.portrait.blocked_asset)), "portrait locked ceramic base runtime asset exists")
+	_check(str(skin.base_variants.portrait.blocked_asset) != str(skin.base_variants.portrait.asset), "portrait locked state uses independent artwork")
+	_check(skin.call("blocked_tile_base_texture") != null, "portrait locked ceramic base loads independently")
 	_check(ResourceLoader.exists(str(skin.base_variants.landscape.asset)) or FileAccess.file_exists(str(skin.base_variants.landscape.asset)), "landscape ceramic base runtime asset exists")
 	var portrait_modifier_bounds: Array = skin.active_geometry().modifier_bounds
+	var portrait_source_size: Array = skin.active_geometry().source_size
 	_check_equal(4, portrait_modifier_bounds.size(), "portrait modifier has explicit attachment bounds")
-	_check(float(portrait_modifier_bounds[0]) < 52.0, "portrait modifier is anchored in the upper-left")
+	_check(float(portrait_modifier_bounds[0]) / float(portrait_source_size[0]) < 0.12, "portrait modifier is anchored in the upper-left")
 	_check(float(portrait_modifier_bounds[2]) >= 128.0, "portrait modifier is large enough to read on phone tiles")
 	var portrait_aspect: float = skin.call("tile_aspect")
-	_check(is_equal_approx(portrait_aspect, 1.4375), "portrait ceramic base uses the taller canonical footprint")
+	_check(is_equal_approx(portrait_aspect, 1.5), "portrait ceramic base uses the taller 2:3 footprint")
 	skin.call("set_orientation", "landscape")
 	_check(float(skin.call("tile_aspect")) < 1.0, "landscape uses its wide cosmetic tile geometry")
+	_check(skin.call("blocked_tile_base_texture") == null, "landscape retains the blocked-state fallback until matching wide art exists")
+	_check(skin.call("blocked_tile_back_texture") == null, "landscape tile backs retain the blocked-state fallback until matching wide art exists")
 	_check(str(skin.base_variants.portrait.asset) != str(skin.base_variants.landscape.asset), "landscape uses its fitted ceramic master")
 	_check(skin.call("tile_base_texture") != null, "active landscape ceramic base loads")
 	var landscape_modifier_bounds: Array = skin.active_geometry().modifier_bounds
@@ -184,12 +195,8 @@ func _run_tile_skin_contract_tests() -> void:
 	_check(float(landscape_modifier_bounds[0]) < 52.0, "landscape modifier is anchored in the upper-left")
 	_check(float(landscape_modifier_bounds[2]) >= 128.0, "landscape modifier is large enough to read on canonical tiles")
 	_check_equal(4, skin.active_geometry().back_design_safe_area.size(), "landscape back design has an explicit compositing safe area")
-	_check(
-		float(skin.depth_presentation.lowest_layer_brightness) >= 0.55 \
-			and float(skin.depth_presentation.lowest_layer_brightness) < 1.0,
-		"Default skin keeps covered lower layers distinct without making them excessively dark"
-	)
-	_check_equal(0.91, float(skin.depth_presentation.near_top_layer_brightness), "Default skin preserves contrast directly below the top layer")
+	_check_equal(0.70, float(skin.depth_presentation.lowest_layer_brightness), "Default skin starts the four-layer natural-shadow ramp at seventy percent")
+	_check_equal(0.90, float(skin.depth_presentation.near_top_layer_brightness), "Default skin visibly separates the layer directly below the top")
 	var layer_offset: Array = skin.depth_presentation.layer_offset_ratio
 	_check_equal(2, layer_offset.size(), "Default skin exposes a two-axis authored-layer offset")
 	_check(float(layer_offset[1]) <= -0.05, "Default skin gives each higher layer a visible upward lift")
@@ -260,6 +267,12 @@ func _run_arcade_callout_tests() -> void:
 	_check_equal("board_progress", reveal_alert.type, "final flipped reveal uses the board-progress callout lane")
 	_check_equal("all_tiles_revealed", reveal_alert.key, "final flipped reveal emits a stable callout key")
 	_check_equal("ALL TILES REVEALED!", reveal_alert.text, "final flipped reveal uses the approved arcade copy")
+	var endgame_alert: Dictionary = policy.call("choose_for_transaction", {
+		"all_board_tiles_visible": true,
+	}, 0, tuning)
+	_check_equal("board_progress", endgame_alert.type, "fully visible board uses the board-progress callout lane")
+	_check_equal("all_pieces_revealed", endgame_alert.key, "endgame auto-clear uses a stable callout key")
+	_check_equal("ALL PIECES REVEALED!", endgame_alert.text, "endgame auto-clear announces the visible board")
 	var flipped_match_alert: Dictionary = policy.call("choose_for_transaction", {
 		"flipped_pair": true,
 		"revealed_tile_id": "flipped",
@@ -340,6 +353,8 @@ func _run_board_selectability_tests() -> void:
 	var covered = TileInstanceScript.new("covered", face, BoardPositionScript.new(0, 0, 0))
 	var cover = TileInstanceScript.new("cover", face, BoardPositionScript.new(0, 0, 1))
 	_check(not selectability.call("is_selectable", covered, [covered, cover]), "tile with another tile above is blocked")
+	_check(selectability.call("has_tile_above", covered, [covered, cover]), "vertical coverage is distinguishable from side locking")
+	_check(not selectability.call("has_tile_above", cover, [covered, cover]), "top tile has no vertical cover")
 	_check(not selectability.call("is_visible", covered, [covered, cover]), "exact higher tile fully hides lower tile")
 	var partial_cover = TileInstanceScript.new("partial_cover", face, BoardPositionScript.new(1, 1, 1))
 	_check(not selectability.call("is_selectable", covered, [covered, partial_cover]), "half-offset higher tile blocks by partial footprint overlap")
@@ -475,6 +490,47 @@ func _run_tray_and_game_tests() -> void:
 	var projected_tiles: Array = loss_game.tray.tiles
 	projected_tiles.clear()
 	_check_equal(4, loss_game.tray.tiles.size(), "mutating tray projection cannot mutate store")
+
+	var upper_face := TileFaceScript.new("test", "upper")
+	var lower_face := TileFaceScript.new("test", "lower")
+	var reveal_endgame := GameStateScript.new(_definition([
+		TileInstanceScript.new("lower_a", lower_face, BoardPositionScript.new(0, 0, 0)),
+		TileInstanceScript.new("lower_b", lower_face, BoardPositionScript.new(4, 0, 0)),
+		TileInstanceScript.new("upper_a", upper_face, BoardPositionScript.new(0, 0, 1)),
+		TileInstanceScript.new("upper_b", upper_face, BoardPositionScript.new(4, 0, 1)),
+	]))
+	_check(not EndgameAutoClearPlannerScript.new().call(
+		"is_ready",
+		reveal_endgame.definition,
+		reveal_endgame.call("current_snapshot")
+	), "endgame auto-clear waits while lower tiles remain fully hidden")
+	reveal_endgame.call("select_tile", "upper_a")
+	reveal_endgame.call("select_tile", "upper_b")
+	_check(bool(reveal_endgame.call("last_transaction").telemetry.all_board_tiles_visible), "transaction records the first fully visible remaining board")
+	var endgame_planner := EndgameAutoClearPlannerScript.new()
+	_check(endgame_planner.call(
+		"is_ready",
+		reveal_endgame.definition,
+		reveal_endgame.call("current_snapshot")
+	), "endgame auto-clear becomes ready when every remaining tile is visible")
+	_check_equal(
+		["lower_a", "lower_b"],
+		endgame_planner.call("next_step", reveal_endgame.definition, reveal_endgame.call("current_snapshot")).tile_ids,
+		"endgame planner chooses the deterministic visible pair"
+	)
+	var endgame_guard := 0
+	while reveal_endgame.status == GameStateScript.PLAYING and endgame_guard < 8:
+		var step: Dictionary = endgame_planner.call(
+			"next_step",
+			reveal_endgame.definition,
+			reveal_endgame.call("current_snapshot")
+		)
+		if step.is_empty():
+			break
+		for tile_id in step.tile_ids:
+			reveal_endgame.call("tap_tile", str(tile_id))
+		endgame_guard += 1
+	_check_equal(GameStateScript.WON, reveal_endgame.status, "dynamic endgame plan clears the fully visible board through ordinary taps")
 
 
 func _run_flipped_tile_tests() -> void:
