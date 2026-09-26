@@ -99,6 +99,8 @@ The workflow (`.github/workflows/deploy_playstore_hashtag.yml`):
 7. Uploads to the Google Play Internal testing track.
 8. Posts a status comment back on the PR with version details.
 
+Android setup explicitly requests `platform-tools`, overriding `setup-android@v3`'s default `tools platform-tools` list. Google no longer serves the legacy `tools` package; requesting it fails before export with `Failed to find package 'tools'`. The action installs modern command-line tools separately. License acceptance remains enabled, with license text logging disabled.
+
 ### Required GitHub Repository Secrets
 
 Configure the following secrets in GitHub Repository Settings (`Settings > Secrets and variables > Actions`):
