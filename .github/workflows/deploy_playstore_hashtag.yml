@@ -71,6 +71,11 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # v3 defaults include the retired SDK package "tools".
+          # Command-line tools (including sdkmanager) are installed by the action.
+          packages: 'platform-tools'
+          log-accepted-android-sdk-licenses: false
 
       - name: Setup Godot Engine 4.6.3
         uses: chickensoft-games/setup-godot@v2
