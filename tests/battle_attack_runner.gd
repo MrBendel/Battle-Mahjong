@@ -24,6 +24,7 @@ func command(store: RefCounted, side: String, count: int, time: int) -> Dictiona
 
 func run() -> void:
 	var definition := Definition.defaults()
+	definition.attacks.delay_ms = 1000 # Fixed deadline fixture, independent of playtest tuning.
 	definition.rules_version = 6
 	definition.erase("cpu_attack_charge_units")
 	for source in ["player", "cpu"]:

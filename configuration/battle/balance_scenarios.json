@@ -1,0 +1,9 @@
+{
+  "seeds": [7, 42, 99],
+  "horizon_ms": 300000,
+  "tap_intervals_ms": [800, 1200, 1800],
+  "variants": [
+    {"id": "baseline", "overrides": {"attacks": {"delay_ms": 1000}}},
+    {"id": "response_window", "overrides": {"attacks": {"delay_ms": 2000}}}
+  ]
+}

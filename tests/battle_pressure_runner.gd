@@ -23,6 +23,7 @@ func submit(store: RefCounted, type: String, side: String, fields: Dictionary) -
 
 func run() -> void:
 	var definition := Definition.defaults()
+	definition.attacks.delay_ms = 1000 # Fixed deadline fixture, independent of playtest tuning.
 	definition.cpu_starting_pairs = 3
 	definition.cpu.base_interval_ms = 1000
 	definition.cpu.variance_ms = 0

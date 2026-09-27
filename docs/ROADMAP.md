@@ -161,4 +161,4 @@ The user initiated the separate B1�B11 [1P vs CPU Battle track](BATTLE_MODE.md
 
 B9 adds committed-event attack travel, cancellation markers, insertion/race feedback, and quiet sound hooks. B10 character reactions and B11 balance remain deferred.
 
-B10 now implements read-only semantic reaction hooks and the themeable Rivet character view, using the user-supplied storyboard. Cooldowns, priority, safe-area separation, and result dialogue are verified. B11 balancing remains deferred.
+B10 now implements read-only semantic reaction hooks and the themeable Rivet character view, using the user-supplied storyboard. Cooldowns, priority, safe-area separation, and result dialogue are verified. B11 now has an instrumented first balance pass and a two-second attack window; human playtest validation remains open. See `docs/BATTLE_BALANCE.md`.

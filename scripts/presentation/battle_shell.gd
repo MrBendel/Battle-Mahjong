@@ -17,6 +17,7 @@ const Overlay := preload("res://scripts/presentation/battle_overlay.gd")
 const Scale := preload("res://scripts/presentation/presentation_scale.gd")
 const Safe := preload("res://scripts/presentation/safe_area.gd")
 var gameplay_theme: Resource = preload("res://configuration/default_gameplay_theme.tres")
+@export_file("*.json") var battle_tuning_path := "res://configuration/battle/prototype.json"
 var seed := 42
 var snapshot: Dictionary = {}
 var safe_area_override := Rect2()
@@ -86,7 +87,9 @@ func _start() -> void:
 	_overlay.retry_button.disabled = true
 	_thread = Thread.new()
 	_thread.start(func() -> Dictionary:
-		var tuning := Definition.defaults()
+		var tuning := Definition.from_json_file(battle_tuning_path)
+		if not Definition.validation_errors(tuning).is_empty():
+			return {"initial": true, "accepted": false, "reason": "invalid_battle_tuning"}
 		tuning.seed = seed
 		var generated: Dictionary = Factory.new().create_generated(seed)
 		_host = Host.new(tuning, generated.definition, generated.solution)

@@ -16,6 +16,7 @@ func _init() -> void:
 	var game := GameDefinition.new(42, [Tile.new("a", Face.new("bamboo", "1"), Position.new(0, 0, 0)),
 		Tile.new("b", Face.new("bamboo", "1"), Position.new(4, 0, 0))], {})
 	var tuning := Definition.defaults()
+	tuning.attacks.delay_ms = 1000 # Fixed deadline fixture, independent of playtest tuning.
 	tuning.player_starting_pairs = 1
 	tuning.cpu_starting_pairs = 20
 	tuning.cpu.base_interval_ms = 1000
