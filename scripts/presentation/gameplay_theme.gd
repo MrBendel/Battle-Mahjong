@@ -4,6 +4,13 @@ class_name GameplayTheme
 @export var theme_id := "default"
 @export var display_name := "Default"
 
+@export_group("Battle HUD")
+@export var battle_character: Resource = preload("res://configuration/battle/rivet.tres")
+@export var battle_panel_color := Color("102727")
+@export var battle_player_color := Color("39d6c5")
+@export var battle_cpu_color := Color("ff517a")
+@export var battle_text_color := Color("fff0cc")
+
 @export_group("Surface")
 @export_file("*.png", "*.svg", "*.webp") var background_path := "res://game-assets/ui/portrait/background.png"
 @export_file("*.png", "*.svg", "*.webp") var background_landscape_path := ""

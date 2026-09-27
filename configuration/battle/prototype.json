@@ -1,0 +1,138 @@
+{
+  "rules_version": 8,
+  "seed": 1,
+  "player_starting_pairs": 48,
+  "cpu_starting_pairs": 48,
+  "cpu": {
+    "base_interval_ms": 2500,
+    "variance_ms": 600,
+    "streak_chance_bp": 1800,
+    "streak_pairs": 3,
+    "streak_speed_bp": 14500,
+    "pause_chance_bp": 800,
+    "pause_ms": 1800,
+    "recovery_rate_bp": 10000,
+    "difficulty_bp": 10000
+  },
+  "charge": {
+    "normal_pair_units": 1000,
+    "fast_pair_bonus_units": 500,
+    "fast_pair_window_ms": 2000,
+    "layer_clear_bonus_units": 2000,
+    "momentum_bonus_units": 1000,
+    "momentum_bonus_tier": 4,
+    "attack_threshold_units": 4000
+  },
+  "attacks": {
+    "delay_ms": 1000
+  },
+  "payload": {
+    "max_pairs": 128,
+    "faces": [
+      {
+        "family": "reference",
+        "value": "01"
+      },
+      {
+        "family": "reference",
+        "value": "02"
+      },
+      {
+        "family": "reference",
+        "value": "03"
+      },
+      {
+        "family": "reference",
+        "value": "04"
+      },
+      {
+        "family": "reference",
+        "value": "05"
+      },
+      {
+        "family": "reference",
+        "value": "06"
+      },
+      {
+        "family": "reference",
+        "value": "07"
+      },
+      {
+        "family": "reference",
+        "value": "08"
+      },
+      {
+        "family": "reference",
+        "value": "09"
+      },
+      {
+        "family": "reference",
+        "value": "10"
+      },
+      {
+        "family": "reference",
+        "value": "11"
+      },
+      {
+        "family": "reference",
+        "value": "12"
+      },
+      {
+        "family": "reference",
+        "value": "13"
+      },
+      {
+        "family": "reference",
+        "value": "14"
+      },
+      {
+        "family": "reference",
+        "value": "15"
+      },
+      {
+        "family": "reference",
+        "value": "16"
+      },
+      {
+        "family": "reference",
+        "value": "17"
+      },
+      {
+        "family": "reference",
+        "value": "18"
+      },
+      {
+        "family": "reference",
+        "value": "19"
+      },
+      {
+        "family": "reference",
+        "value": "20"
+      },
+      {
+        "family": "reference",
+        "value": "21"
+      },
+      {
+        "family": "reference",
+        "value": "22"
+      },
+      {
+        "family": "reference",
+        "value": "23"
+      },
+      {
+        "family": "reference",
+        "value": "24"
+      }
+    ]
+  },
+  "insertion": {
+    "top_chance_bp": 8000,
+    "max_layer": 8,
+    "max_tiles": 256,
+    "attempts": 24,
+    "solver_nodes": 5000
+  },
+  "cpu_attack_charge_units": 1000
+}
