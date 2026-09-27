@@ -154,3 +154,11 @@ Later milestones are recorded here to preserve ordering. Detailed implementation
 - M13 Progression + Collection
 
 M9 was inserted before replay presentation because profiles and durable game records are the persistence boundary those later features consume. The former M9 through M12 placeholders move one position later; their scope is otherwise unchanged.
+
+## Local Battle milestone track
+
+The user initiated the separate B1�B11 [1P vs CPU Battle track](BATTLE_MODE.md). B1 implements an isolated, transactional Battle state model and tests. B2 adds seeded CPU scheduling, difficulty/behavior tuning, and a CLI progress preview. B3 adds configurable player charge, first-time layer/Momentum bonuses, overflow-preserving outgoing attacks, and a committed-Mahjong-transaction adapter. B4 adds delayed queues, symmetric cancellation, and transactional landing handoff records. B5 adds seeded matching-pair payloads, preserved tile IDs through cancellation/landing, and a CLI payload inspector. B6 adds a bound simulation board, top/under placement with stable slots, solver-certified insertion, ordinary play on enlarged boards, and overflow/deferral handling. B7 applies landed player attacks to CPU workload exactly once and preserves CPU recovery/solve cadence. B8 adds a Game Hall Battle entry, automatic CPU attacks, a coordinated host, and a shared responsive race/charge HUD. B9 attack presentation is implemented below; character reactions and balance remain deferred to B10-B11. This local mode does not advance M12 networking/backend scope.
+
+B9 adds committed-event attack travel, cancellation markers, insertion/race feedback, and quiet sound hooks. B10 character reactions and B11 balance remain deferred.
+
+B10 now implements read-only semantic reaction hooks and the themeable Rivet character view, using the user-supplied storyboard. Cooldowns, priority, safe-area separation, and result dialogue are verified. B11 balancing remains deferred.

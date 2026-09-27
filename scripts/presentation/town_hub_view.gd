@@ -20,7 +20,7 @@ const DESTINATIONS := [
 		"landscape": Rect2(0.03, 0.09, 0.27, 0.39),
 	},
 	{
-		"id": "game_hall", "label": "GAME HALL", "available": false, "sign_tilt": -0.7,
+		"id": "game_hall", "label": "GAME HALL", "available": true, "sign_tilt": -0.7,
 		"portrait": Rect2(0.56, 0.29, 0.43, 0.23),
 		"landscape": Rect2(0.70, 0.09, 0.27, 0.39),
 	},

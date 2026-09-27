@@ -6,9 +6,10 @@ The Town Hub is Battle Mahjong's application-level home and the future presentat
 
 ## First Slice
 
-The initial implementation launches into a responsive town map. Two destinations are active:
+The initial implementation launches into a responsive town map. Three destinations are active:
 
 - **Quick Play / Home** opens the on-device seeded layout generator, then the existing modifier-loadout and gameplay flow.
+- **Game Hall** opens the session-only 1P-vs-CPU Battle prototype.
 - **The Tower** begins an in-memory endless run whose deterministic generated floors advance one at a time.
 
 Other destinations remain visible but non-interactive until their owning milestones define real behavior.

@@ -1,6 +1,7 @@
 extends Control
 class_name AppRoot
 
+const BattleShellScript := preload("res://scripts/presentation/battle_shell.gd")
 const TownHubViewScript := preload("res://scripts/presentation/town_hub_view.gd")
 const GAME_SHELL_SCENE := preload("res://scenes/game_shell.tscn")
 const TowerRunScript := preload("res://scripts/simulation/tower_run.gd")
@@ -205,6 +206,8 @@ func _replace_active_screen(next_screen: Control) -> void:
 
 func _on_destination_requested(destination_id: String) -> void:
 	match destination_id:
+		"game_hall":
+			_show_battle()
 		"home":
 			_show_quick_play()
 		"tower":
@@ -213,3 +216,14 @@ func _on_destination_requested(destination_id: String) -> void:
 
 func open_destination_for_testing(destination_id: String) -> void:
 	_on_destination_requested(destination_id)
+
+
+func _show_battle() -> void:
+	_replace_active_screen(null)
+	_tower_run = null
+	_hub = null
+	_game_shell = BattleShellScript.new()
+	_game_shell.name = "BattleShell"
+	_game_shell.seed = _new_run_seed()
+	_game_shell.return_to_town_requested.connect(_show_hub)
+	_replace_active_screen(_game_shell)
