@@ -10,7 +10,11 @@ const MAX_COUNTER := 1000000000
 
 
 static func defaults() -> Dictionary:
-	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(DEFAULT_PATH))
+	return from_json_file(DEFAULT_PATH)
+
+## Playtest files are validated and snapshotted by BattleStore before play.
+static func from_json_file(path: String) -> Dictionary:
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
 	if not parsed is Dictionary:
 		return {}
 	# JSON parses numbers as floats; normalize only integral configuration values.

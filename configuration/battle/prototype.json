@@ -24,7 +24,7 @@
     "attack_threshold_units": 4000
   },
   "attacks": {
-    "delay_ms": 1000
+    "delay_ms": 2000
   },
   "payload": {
     "max_pairs": 128,

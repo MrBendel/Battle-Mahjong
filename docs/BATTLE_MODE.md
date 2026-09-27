@@ -2,7 +2,7 @@
 
 ## Scope and sequence
 
-The [supplied proposal](BATTLE_MODE_PROPOSAL.md) defines the intended B1–B11 sequence. These Battle milestones are distinct from project M1–M11. The user authorized B1 through B10 as the first implementation slices under the game-mode work. Local Battle does not introduce networking, persistence, progression, or a rendered CPU board.
+The [supplied proposal](BATTLE_MODE_PROPOSAL.md) defines the intended B1–B11 sequence. These Battle milestones are distinct from project M1–M11. The user authorized B1 through B11 as the first implementation slices under the game-mode work. Local Battle does not introduce networking, persistence, progression, or a rendered CPU board.
 
 - **B1 — implemented:** standalone Battle definition, state, transactional commands, workload-derived progress, terminal winner, and in-memory replay validation.
 - **B2 - implemented:** seeded CPU scheduling and tuning.
@@ -14,7 +14,7 @@ The [supplied proposal](BATTLE_MODE_PROPOSAL.md) defines the intended B1–B11 s
 - **B8 - implemented:** Game Hall entry, coordinated playable host, automatic CPU attacks, and shared responsive HUD.
 - **B9 - implemented:** attack travel, cancellation, landing feedback, and sound hooks.
 - **B10 - implemented:** semantic reaction hooks and Rivet's themeable character presentation.
-- **B11 - deferred:** playable balance pass.
+- **B11 - first pass implemented:** seeded balance probe and a two-second attack response window; human feel validation remains open. See [balance report](BATTLE_BALANCE.md).
 
 ## B1 ownership
 
@@ -108,7 +108,7 @@ Validate B3 with `godot --headless --path . --script res://tests/battle_charge_r
 
 ## B4 attack queue and cancellation
 
-Battle rules 4 snapshots `attacks.delay_ms` (default 1000; supported 1-60000 active milliseconds). Earlier rules retain their original snapshots and behavior. Each pending attack carries a stable sequence/ID, source, target, complete-pair count, creation time, and landing deadline. Rules 5 adds pair identities as described below.
+Battle rules 4 snapshots `attacks.delay_ms` (default 2000 after the B11 pass; supported 1-60000 active milliseconds). Earlier rules retain their original snapshots and behavior. Each pending attack carries a stable sequence/ID, source, target, complete-pair count, creation time, and landing deadline. Rules 5 adds pair identities as described below.
 
 `send_attack` takes `side`, positive `pair_count`, and `at_ms`, using the standard command ID/revision envelope. This is a simulation input for either side; it does not itself generate CPU charge. Player charge crossings automatically call the same reducer. Sending consumes the oldest incoming pairs first, spans queue entries when needed, and sends only excess pairs. Partial cancellation preserves the remaining attack's original deadline. Charge remainder is untouched. `BattleAttacks.pending_pairs` exposes the current incoming count for each side.
 

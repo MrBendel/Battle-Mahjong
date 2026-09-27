@@ -22,6 +22,7 @@ func send(store: RefCounted, side: String, pairs: int, time: int) -> Dictionary:
 
 func run() -> void:
 	var definition := Definition.defaults()
+	definition.attacks.delay_ms = 1000 # Fixed deadline fixture, independent of playtest tuning.
 	var store := Store.new(definition)
 	var cpu_before: Dictionary = store.snapshot().cpu_schedule
 	check(send(store, "cpu", 50, 0).accepted, "multi-pool attack accepted")

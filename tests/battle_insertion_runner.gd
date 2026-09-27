@@ -30,6 +30,7 @@ func board_definition() -> RefCounted:
 
 func definition(top: int = 10000) -> Dictionary:
 	var result := Definition.defaults()
+	result.attacks.delay_ms = 1000 # Fixed deadline fixture, independent of playtest tuning.
 	result.player_starting_pairs = 2
 	result.insertion.top_chance_bp = top
 	return result
@@ -124,6 +125,7 @@ func run() -> void:
 	var reference: Variant = Factory.new().create_definition(42)
 	for chance in [10000, 0, 8000]:
 		var full_tuning := Definition.defaults()
+		full_tuning.attacks.delay_ms = 1000
 		full_tuning.insertion.top_chance_bp = chance
 		var full := Store.new(full_tuning)
 		var bound := submit(full, "bind_board", {"game_definition": reference.to_dict()})
