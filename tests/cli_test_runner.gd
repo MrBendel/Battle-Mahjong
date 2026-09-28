@@ -163,19 +163,15 @@ func _run_tile_skin_contract_tests() -> void:
 	_check(str(skin.back_variants.portrait) != str(skin.base_variants.portrait.asset), "tile back uses a visually distinct full-surface base")
 	_check(str(skin.back_variants.portrait) != str(skin.back_variants.landscape), "each orientation has a fitted tile-back base")
 	_check(ResourceLoader.exists(str(skin.back_variants.portrait)) or FileAccess.file_exists(str(skin.back_variants.portrait)), "portrait revealable tile-back base exists")
-	_check(ResourceLoader.exists(str(skin.blocked_back_variants.portrait)) or FileAccess.file_exists(str(skin.blocked_back_variants.portrait)), "portrait locked tile-back base exists")
-	_check(str(skin.blocked_back_variants.portrait) != str(skin.back_variants.portrait), "portrait locked back uses independent artwork")
 	_check(ResourceLoader.exists(str(skin.back_variants.landscape)) or FileAccess.file_exists(str(skin.back_variants.landscape)), "landscape tile-back base exists")
 	_check(skin.call("tile_back_texture") != null, "Default tile-back base loads independently from the tile front")
-	_check(skin.call("blocked_tile_back_texture") != null, "portrait locked tile-back base loads independently")
+	_check(skin.call("blocked_tile_back_texture") == null, "portrait tile backs use procedural desaturation and darken fallback")
 	_check(skin.call("back_design_texture") != null, "Default tile-back design loads independently from its ceramic base")
 	_check_equal(6, skin.modifiers.size(), "Default skin declares all six tile-attached modifier identities")
 	for modifier_id in ["extra_life", "cold_snap", "score_multiplier", "tray_plus_one", "three_pair_clear", "bomb"]:
 		_check(skin.call("modifier_texture", modifier_id) != null, "%s modifier tile overlay loads" % modifier_id)
 	_check(ResourceLoader.exists(str(skin.base_variants.portrait.asset)) or FileAccess.file_exists(str(skin.base_variants.portrait.asset)), "portrait ceramic base runtime asset exists")
-	_check(ResourceLoader.exists(str(skin.base_variants.portrait.blocked_asset)) or FileAccess.file_exists(str(skin.base_variants.portrait.blocked_asset)), "portrait locked ceramic base runtime asset exists")
-	_check(str(skin.base_variants.portrait.blocked_asset) != str(skin.base_variants.portrait.asset), "portrait locked state uses independent artwork")
-	_check(skin.call("blocked_tile_base_texture") != null, "portrait locked ceramic base loads independently")
+	_check(skin.call("blocked_tile_base_texture") == null, "portrait ceramic bases use procedural desaturation and darken fallback")
 	_check(ResourceLoader.exists(str(skin.base_variants.landscape.asset)) or FileAccess.file_exists(str(skin.base_variants.landscape.asset)), "landscape ceramic base runtime asset exists")
 	var portrait_modifier_bounds: Array = skin.active_geometry().modifier_bounds
 	var portrait_source_size: Array = skin.active_geometry().source_size

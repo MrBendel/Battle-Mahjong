@@ -260,12 +260,15 @@ func _run() -> void:
 				and not live_game.board.call("is_tile_covered", tile.id):
 			blocked_face_down_id = tile.id
 			break
-	if not blocked_face_down_id.is_empty() and tile_skin.call("blocked_tile_back_texture") != null:
+	if not blocked_face_down_id.is_empty():
 		var blocked_back_button: Button = board_view.get("_tile_buttons")[blocked_face_down_id]
 		var blocked_back_art: TextureRect = blocked_back_button.get_node("BackArt")
 		var blocked_back_overlay: TextureRect = blocked_back_button.get_node("BlockedOverlay")
-		_check_equal(tile_skin.call("blocked_tile_back_texture"), blocked_back_art.texture, "inaccessible face-down tile uses the locked portrait back")
-		_check(not blocked_back_overlay.visible, "dedicated locked back replaces the legacy blocked veil")
+		if tile_skin.call("blocked_tile_back_texture") != null:
+			_check_equal(tile_skin.call("blocked_tile_back_texture"), blocked_back_art.texture, "inaccessible face-down tile uses the locked portrait back")
+			_check(not blocked_back_overlay.visible, "dedicated locked back replaces the legacy blocked veil")
+		else:
+			_check(blocked_back_overlay.visible and blocked_back_overlay.modulate.a > 0.0, "inaccessible face-down tile uses the fallback blocked-state veil")
 	shell.call("_on_hint_requested")
 	var animated_hint_id := ""
 	for hinted_tile_id in live_game.call("hinted_tile_ids"):

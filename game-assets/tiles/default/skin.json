@@ -12,11 +12,10 @@
   },
   "base_variants": {
     "portrait": {
-      "asset": "res://game-assets/tiles/default/bases/tile_base_portrait_ink_v3.png",
-      "blocked_asset": "res://game-assets/tiles/default/bases/tile_base_portrait_ink_locked_v3.png",
+      "asset": "res://game-assets/tiles/default/bases/tile_base_portrait.png",
       "source_size": [1024, 1536],
       "runtime_size": [512, 768],
-      "face_safe_area": [168, 150, 688, 1030],
+      "face_safe_area": [152, 190, 720, 1050],
       "modifier_bounds": [80, 90, 280, 330],
       "back_design_safe_area": [240, 350, 544, 700],
       "minimum_runtime_size": [32, 48]
@@ -32,11 +31,8 @@
     }
   },
   "back_variants": {
-    "portrait": "res://game-assets/tiles/default/backs/tile_back_portrait_ink_v3.png",
+    "portrait": "res://game-assets/tiles/default/backs/tile_back_portrait.png",
     "landscape": "res://game-assets/tiles/default/backs/tile_back_landscape.png"
-  },
-  "blocked_back_variants": {
-    "portrait": "res://game-assets/tiles/default/backs/tile_back_portrait_ink_locked_v3.png"
   },
   "default_back_id": "arcade_spark",
   "back_designs": {
@@ -57,6 +53,7 @@
     "lowest_layer_brightness": 0.70,
     "near_top_layer_brightness": 0.90,
     "blocked_brightness_multiplier": 0.82,
+    "blocked_desaturation": 0.75,
     "blocked_overlay_color": [0.11, 0.13, 0.14, 0.46],
     "shadow_asset": "res://game-assets/tiles/default/tile_shadow_soft.png",
     "shadow_opacity": 0.58,
@@ -64,7 +61,7 @@
     "shadow_expansion_ratio": [0.06, 0.10],
     "contact_shadow_opacity": 0.70,
     "contact_shadow_offset_ratio": [0.005, 0.045],
-    "layer_offset_ratio": [0.035, -0.095]
+    "layer_offset_ratio": [0.0, -0.095]
   },
   "layout_presentation": {
     "adjacent_gap_ratio": -0.025,
