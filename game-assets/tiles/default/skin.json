@@ -65,7 +65,7 @@
   },
   "layout_presentation": {
     "adjacent_gap_ratio": -0.025,
-    "ink_outline_color": [0.12, 0.075, 0.045, 0.76],
+    "ink_outline_color": [0.03, 0.03, 0.04, 0.88],
     "ink_outline_expansion_ratio": [0.018, 0.014],
     "ink_outline_offset_ratio": [-0.002, 0.003]
   },
