@@ -96,6 +96,10 @@ func validation_errors() -> Array[String]:
 		errors.append("Near-top tile brightness must be at least the lowest layer and at most 1.")
 	if blocked_brightness <= 0.0 or blocked_brightness >= 1.0:
 		errors.append("Blocked tile brightness multiplier must be in (0, 1).")
+	if depth_presentation.has("blocked_desaturation"):
+		var blocked_desat := float(depth_presentation.get("blocked_desaturation", -1.0))
+		if blocked_desat < 0.0 or blocked_desat > 1.0:
+			errors.append("Blocked tile desaturation must be in [0, 1].")
 	if blocked_overlay.size() != 4:
 		errors.append("Blocked tile overlay color must contain RGBA values.")
 	else:

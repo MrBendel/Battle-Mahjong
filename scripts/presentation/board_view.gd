@@ -40,6 +40,7 @@ var _face_art: Dictionary = {}
 var _hint_glows: Dictionary = {}
 var _blocked_overlays: Dictionary = {}
 var _modifier_art: Dictionary = {}
+var _blocked_material: ShaderMaterial = null
 var _title_label: Label
 var _status_label: Label
 var _tile_layer: Control
@@ -80,6 +81,7 @@ func _init(game_state: Variant, tile_skin: Variant = null, gameplay_theme: Resou
 	_gameplay_theme = GameplayThemeScript.new() if gameplay_theme == null else gameplay_theme
 	_game = game_state
 	_tile_skin = TileSkinScript.new() if tile_skin == null else tile_skin
+	_setup_blocked_material()
 
 
 func _ready() -> void:
@@ -543,9 +545,16 @@ func refresh() -> void:
 		hint_glow.visible = false
 		var blocked_overlay: TextureRect = _blocked_overlays[tile.id]
 		blocked_overlay.visible = uses_fallback_blocked_art
+		blocked_overlay.texture = _tile_skin.tile_back_texture() if face_down else _tile_skin.tile_base_texture()
+		var active_material: Material = _blocked_material if uses_fallback_blocked_art else null
+		base_art.material = active_material
+		back_art.material = active_material
+		back_design_art.material = active_material
+		face_art.material = active_material
 		button.text = "" if face_down or face_art.texture != null else _tile_label(tile)
 		var modifier_art: TextureRect = _modifier_art[tile.id]
 		modifier_art.visible = modifier_art.texture != null
+		modifier_art.material = active_material
 
 	if active_count == 0:
 		_status_label.text = "Board cleared"
@@ -1073,6 +1082,28 @@ func _blocked_brightness_multiplier() -> float:
 		"blocked_brightness_multiplier",
 		0.84
 	)), 0.0, 1.0)
+
+
+func _setup_blocked_material() -> void:
+	if _blocked_material != null:
+		return
+	var shader := Shader.new()
+	shader.code = """
+shader_type canvas_item;
+
+uniform float desaturation : hint_range(0.0, 1.0) = 0.75;
+
+void fragment() {
+	vec4 color = texture(TEXTURE, UV);
+	float gray = dot(color.rgb, vec3(0.299, 0.587, 0.114));
+	color.rgb = mix(color.rgb, vec3(gray), desaturation);
+	COLOR = color * COLOR;
+}
+"""
+	_blocked_material = ShaderMaterial.new()
+	_blocked_material.shader = shader
+	var desat := float(_tile_skin.depth_presentation.get("blocked_desaturation", 0.75))
+	_blocked_material.set_shader_parameter("desaturation", desat)
 
 
 func _grid_bounds() -> Rect2i:
