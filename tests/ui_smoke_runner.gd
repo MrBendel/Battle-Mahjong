@@ -1161,7 +1161,10 @@ func _verify_modifier_picker(requested_size: Vector2i) -> void:
 			"opening countdown scales over the responsive Board region"
 		)
 		_check(picker_shell.call("_gameplay_input_blocked"), "opening countdown and tile deal block premature Board input")
-		await create_timer(0.22).timeout
+		var countdown_wait_frames := 12
+		while countdown_wait_frames > 0 and opening_countdown.get("last_text") != "2":
+			await create_timer(0.04).timeout
+			countdown_wait_frames -= 1
 		_check(opening_countdown.visible and opening_countdown.get("last_text") == "2", "opening countdown advances to 2")
 		await create_timer(0.45).timeout
 		_check(not picker_shell.get("_opening_countdown_active") and not opening_countdown.visible, "opening countdown completes after 1")
