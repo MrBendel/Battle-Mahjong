@@ -15,6 +15,7 @@ var back_designs: Dictionary = {}
 var modifiers: Dictionary = {}
 var depth_presentation: Dictionary = {}
 var layout_presentation: Dictionary = {}
+var base_presentation: Dictionary = {}
 var canonical_face_ids: Array[String] = []
 var faces: Dictionary = {}
 var reference_preview_mapping: Dictionary = {}
@@ -125,6 +126,20 @@ func validation_errors() -> Array[String]:
 	_validate_color_array(layout_presentation.get("ink_outline_color", []), "Ink outline color", errors)
 	_validate_ratio_pair(layout_presentation.get("ink_outline_expansion_ratio", []), "Ink outline expansion", errors)
 	_validate_ratio_pair(layout_presentation.get("ink_outline_offset_ratio", []), "Ink outline offset", errors, true)
+	if base_presentation.has("base_tint"):
+		_validate_color_array(base_presentation.get("base_tint", []), "Base tint", errors)
+	if base_presentation.has("bevel_rim_color"):
+		_validate_color_array(base_presentation.get("bevel_rim_color", []), "Bevel rim color", errors)
+	if base_presentation.has("face_tint"):
+		_validate_color_array(base_presentation.get("face_tint", []), "Face tint", errors)
+	if base_presentation.has("back_tint"):
+		_validate_color_array(base_presentation.get("back_tint", []), "Back tint", errors)
+	if base_presentation.has("selection_glow_color"):
+		_validate_color_array(base_presentation.get("selection_glow_color", []), "Selection glow color", errors)
+	if base_presentation.has("edge_glow_intensity"):
+		var glow_val := float(base_presentation.get("edge_glow_intensity", -1.0))
+		if glow_val < 0.0:
+			errors.append("Edge glow intensity must be non-negative.")
 	var unique_ids := {}
 	for face_id in canonical_face_ids:
 		if unique_ids.has(face_id):
@@ -321,6 +336,59 @@ func has_face_id(face_id: String) -> bool:
 	return faces.has(face_id)
 
 
+func base_tint() -> Color:
+	var color: Array = base_presentation.get("base_tint", [1.0, 1.0, 1.0, 1.0])
+	if color.size() == 4:
+		return Color(float(color[0]), float(color[1]), float(color[2]), float(color[3]))
+	return Color.WHITE
+
+
+func bevel_rim_color() -> Color:
+	var color: Array = base_presentation.get("bevel_rim_color", [0.0, 0.0, 0.0, 0.0])
+	if color.size() == 4:
+		return Color(float(color[0]), float(color[1]), float(color[2]), float(color[3]))
+	return Color(0.0, 0.0, 0.0, 0.0)
+
+
+func edge_glow_intensity() -> float:
+	return float(base_presentation.get("edge_glow_intensity", 0.0))
+
+
+func face_tint() -> Color:
+	var color: Array = base_presentation.get("face_tint", [1.0, 1.0, 1.0, 1.0])
+	if color.size() == 4:
+		return Color(float(color[0]), float(color[1]), float(color[2]), float(color[3]))
+	return Color.WHITE
+
+
+func back_tint() -> Color:
+	var color: Array = base_presentation.get("back_tint", [1.0, 1.0, 1.0, 1.0])
+	if color.size() == 4:
+		return Color(float(color[0]), float(color[1]), float(color[2]), float(color[3]))
+	return Color.WHITE
+
+
+func selection_glow_color() -> Color:
+	var color: Array = base_presentation.get("selection_glow_color", [1.0, 0.82, 0.25, 0.38])
+	if color.size() == 4:
+		return Color(float(color[0]), float(color[1]), float(color[2]), float(color[3]))
+	return Color(1.0, 0.82, 0.25, 0.38)
+
+
+func configure_base_art(base_art: TextureRect) -> void:
+	base_art.texture = tile_base_texture()
+	base_art.self_modulate = base_tint()
+
+
+func configure_face_art(face_art: TextureRect) -> void:
+	face_art.self_modulate = face_tint()
+
+
+func configure_back_art(back_art: TextureRect) -> void:
+	back_art.texture = tile_back_texture()
+	back_art.self_modulate = back_tint()
+
+
 func _validate_color_array(value: Variant, label: String, errors: Array[String]) -> void:
 	if not value is Array or value.size() != 4:
 		errors.append("%s must contain RGBA values." % label)
@@ -369,6 +437,7 @@ func _load_manifest(manifest_path: String) -> void:
 	back_design_id = default_back_id
 	depth_presentation = parsed.get("depth_presentation", {}).duplicate(true)
 	layout_presentation = parsed.get("layout_presentation", {}).duplicate(true)
+	base_presentation = parsed.get("base_presentation", {}).duplicate(true)
 	canonical_face_ids.assign(parsed.get("canonical_face_ids", []))
 	faces = parsed.get("faces", {}).duplicate(true)
 	reference_preview_mapping = parsed.get("reference_preview_mapping", {}).duplicate(true)

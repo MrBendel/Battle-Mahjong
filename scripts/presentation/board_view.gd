@@ -550,22 +550,25 @@ func refresh() -> void:
 		var base_art: TextureRect = _base_art[tile.id]
 		base_art.texture = blocked_base_texture if uses_dedicated_blocked_base \
 			else _tile_skin.tile_base_texture()
+		base_art.self_modulate = _tile_skin.base_tint()
 		var back_art: TextureRect = _back_art[tile.id]
 		back_art.texture = blocked_back_texture if uses_dedicated_blocked_back \
 			else _tile_skin.tile_back_texture()
+		back_art.self_modulate = _tile_skin.back_tint()
 		back_art.visible = face_down and back_art.texture != null
 		var back_design_art: TextureRect = _back_design_art[tile.id]
 		back_design_art.visible = face_down and back_design_art.texture != null
 		base_art.visible = (not face_down or back_art.texture == null) and base_art.texture != null
 		var face_art: TextureRect = _face_art[tile.id]
 		face_art.visible = not face_down and face_art.texture != null
+		face_art.self_modulate = _tile_skin.face_tint()
 		var hint_glow: TextureRect = _hint_glows[tile.id]
 		hint_glow.visible = false
 		var selection_glow: TextureRect = _selection_glows.get(tile.id)
 		if selection_glow != null:
 			if visually_active:
 				selection_glow.visible = true
-				selection_glow.modulate = Color(1.0, 0.82, 0.25, 0.38)
+				selection_glow.modulate = _tile_skin.selection_glow_color()
 			else:
 				selection_glow.visible = false
 		var blocked_overlay: TextureRect = _blocked_overlays[tile.id]
@@ -732,8 +735,9 @@ func create_tile_preview(tile_id: String, force_face_up: bool = false) -> Contro
 	preview.add_child(ink_outline)
 	var base_art := TextureRect.new()
 	base_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	base_art.texture = _tile_skin.tile_base_texture() if force_face_up \
-		or not bool(button.get_meta("face_down", false)) else _tile_skin.tile_back_texture()
+	var is_face_up := force_face_up or not bool(button.get_meta("face_down", false))
+	base_art.texture = _tile_skin.tile_base_texture() if is_face_up else _tile_skin.tile_back_texture()
+	base_art.self_modulate = _tile_skin.base_tint() if is_face_up else _tile_skin.back_tint()
 	base_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	base_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	base_art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -757,6 +761,7 @@ func create_tile_preview(tile_id: String, force_face_up: bool = false) -> Contro
 		face_art.anchor_top = float(safe_area[1]) / float(source_size[1])
 		face_art.anchor_right = float(safe_area[0] + safe_area[2]) / float(source_size[0])
 		face_art.anchor_bottom = float(safe_area[1] + safe_area[3]) / float(source_size[1])
+		face_art.self_modulate = _tile_skin.face_tint()
 		preview.add_child(face_art)
 		face_art.texture = source_art.texture
 	var source_modifier: TextureRect = _modifier_art[tile_id]

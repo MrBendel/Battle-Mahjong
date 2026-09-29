@@ -49,6 +49,14 @@
     "three_pair_clear": {"display_name": "Three Pair Clear", "asset": "res://game-assets/modifiers/tile-overlays/three_pair_clear.png"},
     "bomb": {"display_name": "Bomb", "asset": "res://game-assets/modifiers/tile-overlays/bomb.png"}
   },
+  "base_presentation": {
+    "base_tint": [1.0, 1.0, 1.0, 1.0],
+    "bevel_rim_color": [0.0, 0.0, 0.0, 0.0],
+    "edge_glow_intensity": 0.0,
+    "face_tint": [1.0, 1.0, 1.0, 1.0],
+    "back_tint": [1.0, 1.0, 1.0, 1.0],
+    "selection_glow_color": [1.0, 0.82, 0.25, 0.38]
+  },
   "depth_presentation": {
     "lowest_layer_brightness": 0.70,
     "near_top_layer_brightness": 0.90,
