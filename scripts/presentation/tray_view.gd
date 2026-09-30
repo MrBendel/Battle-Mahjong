@@ -159,8 +159,10 @@ func refresh() -> void:
 		if presented:
 			_tile_skin.configure_ink_outline(ink_outline)
 			base_art.texture = _tile_skin.tile_base_texture()
+			base_art.self_modulate = _tile_skin.base_tint()
 			base_art.visible = base_art.texture != null
 			face_art.texture = _tile_skin.texture_for_face(tile.face)
+			face_art.self_modulate = _tile_skin.face_tint()
 			face_art.visible = face_art.texture != null
 			label.text = _tile_skin.label_for_face(tile.face)
 			label.visible = not face_art.visible
@@ -568,6 +570,7 @@ func create_tile_preview(index: int) -> Control:
 	var base_art := TextureRect.new()
 	base_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	base_art.texture = _tile_skin.tile_base_texture()
+	base_art.self_modulate = _tile_skin.base_tint()
 	base_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	base_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	base_art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -580,6 +583,7 @@ func create_tile_preview(index: int) -> Control:
 		face_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		face_art.position = source_art.position
 		face_art.size = source_art.size
+		face_art.self_modulate = _tile_skin.face_tint()
 		preview.add_child(face_art)
 		face_art.texture = source_art.texture
 	var source_modifier: TextureRect = _slot_modifiers[index]

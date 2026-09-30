@@ -94,8 +94,10 @@ func refresh(playback_time_ms: int) -> void:
 	var momentum: int = _game.call("momentum_at", playback_time_ms)
 	var multiplier: int = _game.call("multiplier_at", playback_time_ms)
 	var maximum: int = int(_game.definition.configuration.momentum_max)
-	_meter.max_value = maximum
-	_meter.value = momentum
+	if _meter.max_value != maximum:
+		_meter.max_value = maximum
+	if _meter.value != momentum:
+		_meter.value = momentum
 	_set_poster_text(_multiplier, _multiplier_shadow, "x%d" % multiplier)
 	var displayed_score := _score_offset + int(_game.score)
 	var displayed_time_ms := _elapsed_time_offset_ms + playback_time_ms
@@ -107,7 +109,9 @@ func refresh(playback_time_ms: int) -> void:
 		else "Combo x%d" % combo if combo > 0 else "Combo ready"
 	_set_poster_text(_combo, _combo_shadow, combo_text)
 	var ratio := clampf(float(momentum) / float(maximum), 0.0, 1.0) if maximum > 0 else 0.0
-	_fill_clip.size.x = _momentum_fill.size.x * ratio
+	var target_fill_width := _momentum_fill.size.x * ratio
+	if not is_equal_approx(_fill_clip.size.x, target_fill_width):
+		_fill_clip.size.x = target_fill_width
 	var snapshot: Variant = _game.call("current_snapshot")
 	var cold_remaining := maxi(0, int(snapshot.cold_snap_until_ms) - playback_time_ms)
 	var score_remaining := maxi(0, int(snapshot.score_multiplier_until_ms) - playback_time_ms)
@@ -119,21 +123,40 @@ func refresh(playback_time_ms: int) -> void:
 			_format_basis_points(int(snapshot.score_multiplier_basis_points)),
 			_format_remaining(score_remaining),
 		])
-	_effect_status.text = "  |  ".join(status_parts)
-	_effect_status.visible = not status_parts.is_empty()
+	var status_text := "  |  ".join(status_parts)
+	if _effect_status.text != status_text:
+		_effect_status.text = status_text
+	var target_status_visible := not status_parts.is_empty()
+	if _effect_status.visible != target_status_visible:
+		_effect_status.visible = target_status_visible
 	var heart_count := int(snapshot.extra_life_charges)
 	for index in range(_heart_icons.size()):
-		_heart_icons[index].visible = index < heart_count
-	_extra_life_count.visible = heart_count > _heart_icons.size()
-	_extra_life_count.text = "+%d" % (heart_count - _heart_icons.size()) \
-		if _extra_life_count.visible else ""
+		var target_heart_vis := index < heart_count
+		if _heart_icons[index].visible != target_heart_vis:
+			_heart_icons[index].visible = target_heart_vis
+	var target_extra_visible := heart_count > _heart_icons.size()
+	if _extra_life_count.visible != target_extra_visible:
+		_extra_life_count.visible = target_extra_visible
+	var extra_text := "+%d" % (heart_count - _heart_icons.size()) if target_extra_visible else ""
+	if _extra_life_count.text != extra_text:
+		_extra_life_count.text = extra_text
 	var freeze_wave := 0.5 + 0.5 * sin(float(playback_time_ms) * 0.008)
-	_momentum_fill.modulate = Color(0.68, 0.95, 1.0, 0.88 + freeze_wave * 0.12) \
+	var target_fill_modulate := Color(0.68, 0.95, 1.0, 0.88 + freeze_wave * 0.12) \
 		if cold_remaining > 0 else Color.WHITE
-	_momentum_frame.modulate = Color("b8f4ff") if cold_remaining > 0 else Color.WHITE
-	_momentum_badge.modulate = Color("ffd36a") if score_remaining > 0 else Color.WHITE
-	_meter.modulate = Color("b8f4ff") if cold_remaining > 0 else Color.WHITE
-	_multiplier.modulate = Color("ffd36a") if score_remaining > 0 else Color.WHITE
+	if _momentum_fill.modulate != target_fill_modulate:
+		_momentum_fill.modulate = target_fill_modulate
+	var target_frame_modulate := Color("b8f4ff") if cold_remaining > 0 else Color.WHITE
+	if _momentum_frame.modulate != target_frame_modulate:
+		_momentum_frame.modulate = target_frame_modulate
+	var target_badge_modulate := Color("ffd36a") if score_remaining > 0 else Color.WHITE
+	if _momentum_badge.modulate != target_badge_modulate:
+		_momentum_badge.modulate = target_badge_modulate
+	var target_meter_modulate := Color("b8f4ff") if cold_remaining > 0 else Color.WHITE
+	if _meter.modulate != target_meter_modulate:
+		_meter.modulate = target_meter_modulate
+	var target_mult_modulate := Color("ffd36a") if score_remaining > 0 else Color.WHITE
+	if _multiplier.modulate != target_mult_modulate:
+		_multiplier.modulate = target_mult_modulate
 
 
 func play_pair_feedback(multiplier: int) -> void:
@@ -423,9 +446,9 @@ func _place_plain_pair(label: Label, shadow_label: Label, rect: Rect2, origin: V
 
 
 func _set_poster_text(label: Label, shadow_label: Label, text: String) -> void:
-	if label != null:
+	if label != null and label.text != text:
 		label.text = text
-	if shadow_label != null:
+	if shadow_label != null and shadow_label.text != text:
 		shadow_label.text = text
 
 

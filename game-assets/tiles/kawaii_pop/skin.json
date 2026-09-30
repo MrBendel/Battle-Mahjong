@@ -1,0 +1,454 @@
+{
+  "schema_version": 1,
+  "id": "kawaii_pop",
+  "display_name": "Kawaii Pop",
+  "geometry": {
+    "source_size": [
+      512,
+      736
+    ],
+    "runtime_size": [
+      256,
+      368
+    ],
+    "face_safe_area": [
+      92,
+      120,
+      328,
+      460
+    ],
+    "modifier_bounds": [
+      24,
+      28,
+      192,
+      221
+    ],
+    "atlas_padding": 8,
+    "minimum_runtime_size": [
+      32,
+      46
+    ]
+  },
+  "base_variants": {
+    "portrait": {
+      "asset": "res://game-assets/tiles/default/bases/tile_base_portrait.png",
+      "source_size": [
+        1024,
+        1536
+      ],
+      "runtime_size": [
+        512,
+        768
+      ],
+      "face_safe_area": [
+        152,
+        190,
+        720,
+        1050
+      ],
+      "modifier_bounds": [
+        80,
+        90,
+        280,
+        330
+      ],
+      "back_design_safe_area": [
+        240,
+        350,
+        544,
+        700
+      ],
+      "minimum_runtime_size": [
+        32,
+        48
+      ]
+    },
+    "landscape": {
+      "asset": "res://game-assets/tiles/default/bases/tile_base_landscape.png",
+      "source_size": [
+        1536,
+        1024
+      ],
+      "runtime_size": [
+        768,
+        512
+      ],
+      "face_safe_area": [
+        250,
+        100,
+        1036,
+        740
+      ],
+      "modifier_bounds": [
+        48,
+        32,
+        384,
+        384
+      ],
+      "back_design_safe_area": [
+        464,
+        208,
+        608,
+        608
+      ],
+      "minimum_runtime_size": [
+        48,
+        32
+      ]
+    }
+  },
+  "back_variants": {
+    "portrait": "res://game-assets/tiles/default/backs/tile_back_portrait.png",
+    "landscape": "res://game-assets/tiles/default/backs/tile_back_landscape.png"
+  },
+  "default_back_id": "arcade_spark",
+  "back_designs": {
+    "arcade_spark": {
+      "display_name": "Arcade Spark",
+      "asset": "res://game-assets/tiles/default/back-designs/arcade_spark.png"
+    }
+  },
+  "modifiers": {
+    "extra_life": {
+      "display_name": "Extra Life",
+      "asset": "res://game-assets/modifiers/tile-overlays/extra_life.png"
+    },
+    "cold_snap": {
+      "display_name": "Cold Snap",
+      "asset": "res://game-assets/modifiers/tile-overlays/cold_snap.png"
+    },
+    "score_multiplier": {
+      "display_name": "Score Multiplier",
+      "asset": "res://game-assets/modifiers/tile-overlays/score_multiplier.png"
+    },
+    "tray_plus_one": {
+      "display_name": "Tray +1",
+      "asset": "res://game-assets/modifiers/tile-overlays/tray_plus_one.png"
+    },
+    "three_pair_clear": {
+      "display_name": "Three Pair Clear",
+      "asset": "res://game-assets/modifiers/tile-overlays/three_pair_clear.png"
+    },
+    "bomb": {
+      "display_name": "Bomb",
+      "asset": "res://game-assets/modifiers/tile-overlays/bomb.png"
+    }
+  },
+  "base_presentation": {
+    "base_tint": [
+      1.0,
+      0.86,
+      0.92,
+      1.0
+    ],
+    "bevel_rim_color": [
+      1.0,
+      0.45,
+      0.75,
+      0.6
+    ],
+    "edge_glow_intensity": 0.4,
+    "face_tint": [
+      1.0,
+      0.96,
+      0.98,
+      1.0
+    ],
+    "back_tint": [
+      1.0,
+      0.65,
+      0.8,
+      1.0
+    ],
+    "selection_glow_color": [
+      1.0,
+      0.35,
+      0.7,
+      0.5
+    ]
+  },
+  "depth_presentation": {
+    "lowest_layer_brightness": 0.7,
+    "near_top_layer_brightness": 0.9,
+    "blocked_brightness_multiplier": 0.82,
+    "blocked_desaturation": 0.75,
+    "blocked_overlay_color": [
+      0.2,
+      0.08,
+      0.14,
+      0.45
+    ],
+    "shadow_asset": "res://game-assets/tiles/default/tile_shadow_soft.png",
+    "shadow_opacity": 0.55,
+    "shadow_offset_ratio": [
+      0.02,
+      0.17
+    ],
+    "shadow_expansion_ratio": [
+      0.06,
+      0.1
+    ],
+    "contact_shadow_opacity": 0.65,
+    "contact_shadow_offset_ratio": [
+      0.005,
+      0.045
+    ],
+    "layer_offset_ratio": [
+      0.0,
+      -0.095
+    ]
+  },
+  "layout_presentation": {
+    "adjacent_gap_ratio": 0.0,
+    "ink_outline_color": [
+      0.35,
+      0.12,
+      0.22,
+      0.8
+    ],
+    "ink_outline_expansion_ratio": [
+      0.018,
+      0.014
+    ],
+    "ink_outline_offset_ratio": [
+      -0.002,
+      0.003
+    ]
+  },
+  "canonical_face_ids": [
+    "bamboo_1",
+    "bamboo_2",
+    "bamboo_3",
+    "bamboo_4",
+    "bamboo_5",
+    "bamboo_6",
+    "bamboo_7",
+    "bamboo_8",
+    "bamboo_9",
+    "dots_1",
+    "dots_2",
+    "dots_3",
+    "dots_4",
+    "dots_5",
+    "dots_6",
+    "dots_7",
+    "dots_8",
+    "dots_9",
+    "characters_1",
+    "characters_2",
+    "characters_3",
+    "characters_4",
+    "characters_5",
+    "characters_6",
+    "characters_7",
+    "characters_8",
+    "characters_9",
+    "east",
+    "south",
+    "west",
+    "north",
+    "red_dragon",
+    "green_dragon",
+    "white_dragon"
+  ],
+  "faces": {
+    "bamboo_1": {
+      "label": "BAM\n1",
+      "asset": "res://game-assets/tiles/default/faces/bamboo_1.png"
+    },
+    "bamboo_2": {
+      "label": "BAM\n2",
+      "asset": "res://game-assets/tiles/default/faces/bamboo_2.png"
+    },
+    "bamboo_3": {
+      "label": "BAM\n3",
+      "asset": "res://game-assets/tiles/default/faces/bamboo_3.png"
+    },
+    "bamboo_4": {
+      "label": "BAM\n4",
+      "asset": "res://game-assets/tiles/default/faces/bamboo_4.png"
+    },
+    "bamboo_5": {
+      "label": "BAM\n5",
+      "asset": "res://game-assets/tiles/default/faces/bamboo_5.png"
+    },
+    "bamboo_6": {
+      "label": "BAM\n6",
+      "asset": "res://game-assets/tiles/default/faces/bamboo_6.png"
+    },
+    "bamboo_7": {
+      "label": "BAM\n7",
+      "asset": "res://game-assets/tiles/default/faces/bamboo_7.png"
+    },
+    "bamboo_8": {
+      "label": "BAM\n8",
+      "asset": "res://game-assets/tiles/default/faces/bamboo_8.png"
+    },
+    "bamboo_9": {
+      "label": "BAM\n9",
+      "asset": "res://game-assets/tiles/default/faces/bamboo_9.png"
+    },
+    "dots_1": {
+      "label": "DOT\n1",
+      "asset": "res://game-assets/tiles/default/faces/dots_1.png"
+    },
+    "dots_2": {
+      "label": "DOT\n2",
+      "asset": "res://game-assets/tiles/default/faces/dots_2.png"
+    },
+    "dots_3": {
+      "label": "DOT\n3",
+      "asset": "res://game-assets/tiles/default/faces/dots_3.png"
+    },
+    "dots_4": {
+      "label": "DOT\n4",
+      "asset": "res://game-assets/tiles/default/faces/dots_4.png"
+    },
+    "dots_5": {
+      "label": "DOT\n5",
+      "asset": "res://game-assets/tiles/default/faces/dots_5.png"
+    },
+    "dots_6": {
+      "label": "DOT\n6",
+      "asset": "res://game-assets/tiles/default/faces/dots_6.png"
+    },
+    "dots_7": {
+      "label": "DOT\n7",
+      "asset": "res://game-assets/tiles/default/faces/dots_7.png"
+    },
+    "dots_8": {
+      "label": "DOT\n8",
+      "asset": "res://game-assets/tiles/default/faces/dots_8.png"
+    },
+    "dots_9": {
+      "label": "DOT\n9",
+      "asset": "res://game-assets/tiles/default/faces/dots_9.png"
+    },
+    "characters_1": {
+      "label": "CHR\n1",
+      "asset": "res://game-assets/tiles/default/faces/characters_1.png"
+    },
+    "characters_2": {
+      "label": "CHR\n2",
+      "asset": "res://game-assets/tiles/default/faces/characters_2.png"
+    },
+    "characters_3": {
+      "label": "CHR\n3",
+      "asset": "res://game-assets/tiles/default/faces/characters_3.png"
+    },
+    "characters_4": {
+      "label": "CHR\n4",
+      "asset": "res://game-assets/tiles/default/faces/characters_4.png"
+    },
+    "characters_5": {
+      "label": "CHR\n5",
+      "asset": "res://game-assets/tiles/default/faces/characters_5.png"
+    },
+    "characters_6": {
+      "label": "CHR\n6",
+      "asset": "res://game-assets/tiles/default/faces/characters_6.png"
+    },
+    "characters_7": {
+      "label": "CHR\n7",
+      "asset": "res://game-assets/tiles/default/faces/characters_7.png"
+    },
+    "characters_8": {
+      "label": "CHR\n8",
+      "asset": "res://game-assets/tiles/default/faces/characters_8.png"
+    },
+    "characters_9": {
+      "label": "CHR\n9",
+      "asset": "res://game-assets/tiles/default/faces/characters_9.png"
+    },
+    "east": {
+      "label": "EAST",
+      "asset": "res://game-assets/tiles/default/faces/east.png"
+    },
+    "south": {
+      "label": "SOUTH",
+      "asset": "res://game-assets/tiles/default/faces/south.png"
+    },
+    "west": {
+      "label": "WEST",
+      "asset": "res://game-assets/tiles/default/faces/west.png"
+    },
+    "north": {
+      "label": "NORTH",
+      "asset": "res://game-assets/tiles/default/faces/north.png"
+    },
+    "red_dragon": {
+      "label": "RED",
+      "asset": "res://game-assets/tiles/default/faces/red_dragon.png"
+    },
+    "green_dragon": {
+      "label": "GREEN",
+      "asset": "res://game-assets/tiles/default/faces/green_dragon.png"
+    },
+    "white_dragon": {
+      "label": "WHITE",
+      "asset": "res://game-assets/tiles/default/faces/white_dragon.png"
+    },
+    "mascot_cat": {
+      "label": "CAT",
+      "asset": "res://game-assets/tiles/default/faces/mascot_cat.png"
+    },
+    "mascot_bunny": {
+      "label": "BUNNY",
+      "asset": "res://game-assets/tiles/default/faces/mascot_bunny.png"
+    },
+    "mascot_panda": {
+      "label": "PANDA",
+      "asset": "res://game-assets/tiles/default/faces/mascot_panda.png"
+    },
+    "mascot_oni": {
+      "label": "ONI",
+      "asset": "res://game-assets/tiles/default/faces/mascot_oni.png"
+    },
+    "mascot_fuji": {
+      "label": "FUJI",
+      "asset": "res://game-assets/tiles/default/faces/mascot_fuji.png"
+    },
+    "mascot_skull": {
+      "label": "SKULL",
+      "asset": "res://game-assets/tiles/default/faces/mascot_skull.png"
+    },
+    "mascot_star": {
+      "label": "STAR",
+      "asset": "res://game-assets/tiles/default/faces/mascot_star.png"
+    },
+    "mascot_flower": {
+      "label": "FLOWER",
+      "asset": "res://game-assets/tiles/default/faces/mascot_flower.png"
+    },
+    "mascot_dragon": {
+      "label": "DRAGON",
+      "asset": "res://game-assets/tiles/default/faces/mascot_dragon.png"
+    }
+  },
+  "reference_preview_mapping": {
+    "reference_01": "bamboo_1",
+    "reference_02": "bamboo_2",
+    "reference_03": "bamboo_3",
+    "reference_04": "bamboo_4",
+    "reference_05": "bamboo_5",
+    "reference_06": "bamboo_6",
+    "reference_07": "dots_1",
+    "reference_08": "dots_2",
+    "reference_09": "dots_3",
+    "reference_10": "dots_4",
+    "reference_11": "dots_5",
+    "reference_12": "dots_6",
+    "reference_13": "characters_1",
+    "reference_14": "characters_2",
+    "reference_15": "characters_3",
+    "reference_16": "characters_4",
+    "reference_17": "characters_5",
+    "reference_18": "characters_6",
+    "reference_19": "east",
+    "reference_20": "south",
+    "reference_21": "west",
+    "reference_22": "north",
+    "reference_23": "red_dragon",
+    "reference_24": "green_dragon"
+  }
+}

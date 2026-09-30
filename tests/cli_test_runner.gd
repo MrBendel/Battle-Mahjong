@@ -229,6 +229,39 @@ func _run_tile_skin_contract_tests() -> void:
 		var asset_path := str(definition.get("asset", ""))
 		_check(ResourceLoader.exists(asset_path) or FileAccess.file_exists(asset_path), "%s Default runtime asset exists" % face_id)
 
+	# Texture atlas contract tests
+	_check(skin.call("has_atlas"), "Default skin detects and loads texture atlas")
+	_check(skin.call("atlas_texture") != null, "Default skin atlas texture is loaded")
+	var sample_face_tex: Variant = skin.call("texture_for_id", "bamboo_1")
+	_check(sample_face_tex is AtlasTexture, "Default skin returns AtlasTexture for face artwork")
+	if sample_face_tex is AtlasTexture:
+		_check(sample_face_tex.filter_clip, "AtlasTexture enables filter_clip to prevent gutter bleeding")
+		_check(sample_face_tex.region.size.x > 0.0 and sample_face_tex.region.size.y > 0.0, "AtlasTexture has valid non-zero region")
+
+	# Base tile theming tests
+	_check_equal(Color.WHITE, skin.call("base_tint"), "Default ceramic skin uses pure white base tint")
+	_check_equal(Color(0.0, 0.0, 0.0, 0.0), skin.call("bevel_rim_color"), "Default skin has no bevel rim color")
+	_check_equal(Color(1.0, 0.82, 0.25, 0.38), skin.call("selection_glow_color"), "Default skin uses warm gold selection glow")
+
+	var themed_manifests := [
+		{"path": "res://game-assets/tiles/neon_nights/skin.json", "id": "neon_nights", "dark": true},
+		{"path": "res://game-assets/tiles/imperial_jade/skin.json", "id": "imperial_jade", "dark": false},
+		{"path": "res://game-assets/tiles/kawaii_pop/skin.json", "id": "kawaii_pop", "dark": false},
+		{"path": "res://game-assets/tiles/vintage_washi/skin.json", "id": "vintage_washi", "dark": false}
+	]
+	for tm in themed_manifests:
+		var themed_skin := TileSkinScript.new(str(tm.path))
+		var errors: Array[String] = themed_skin.call("validation_errors")
+		_check(errors.is_empty(), "%s theme manifest validates without errors" % tm.id)
+		_check_equal(tm.id, themed_skin.id, "%s theme preserves its skin identity" % tm.id)
+		_check_equal(34, themed_skin.canonical_face_ids.size(), "%s theme includes 34 canonical faces" % tm.id)
+		_check(themed_skin.call("base_tint") != Color.WHITE, "%s theme customizes base tint" % tm.id)
+		_check(themed_skin.call("tile_base_texture") != null, "%s theme loads base texture" % tm.id)
+		_check(themed_skin.call("tile_back_texture") != null, "%s theme loads back texture" % tm.id)
+		if bool(tm.dark):
+			_check(themed_skin.call("base_tint").r < 0.3, "%s theme uses dark base tint" % tm.id)
+			_check(themed_skin.call("bevel_rim_color").a > 0.0, "%s theme has accent bevel rim" % tm.id)
+
 
 func _run_arcade_callout_tests() -> void:
 	_log(" - arcade callout policy")

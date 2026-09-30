@@ -1611,12 +1611,14 @@ func _validate_board_tiles(shell: Control, orientation: String) -> void:
 		minimum_tile_size.y = minf(minimum_tile_size.y, button.size.y)
 		var shadow_art: TextureRect = button.get_node("DepthShadow")
 		var contact_shadow_art: TextureRect = button.get_node("ContactShadow")
-		var surface_band: int = tile.position.z * 2 + 1
+		var surface_band: int = tile.position.z * BoardView.DEPTH_Z_STRIDE + BoardView.TILE_SURFACE_Z_OFFSET
 		var shadow_band: int = button.z_index + shadow_art.z_index
 		var contact_shadow_band: int = button.z_index + contact_shadow_art.z_index
-		if button.z_index != surface_band or shadow_band != tile.position.z * 2 or contact_shadow_band != shadow_band:
+		var expected_shadow_band: int = tile.position.z * BoardView.DEPTH_Z_STRIDE
+		var expected_contact_shadow_band: int = tile.position.z * BoardView.DEPTH_Z_STRIDE + 1
+		if button.z_index != surface_band or shadow_band != expected_shadow_band or contact_shadow_band != expected_contact_shadow_band:
 			shadow_bands_isolate_layers = false
-		if tile.position.z > 0 and not ((tile.position.z - 1) * 2 + 1 < shadow_band and shadow_band < surface_band):
+		if tile.position.z > 0 and not ((tile.position.z - 1) * BoardView.DEPTH_Z_STRIDE + BoardView.TILE_SURFACE_Z_OFFSET < shadow_band and shadow_band < surface_band):
 			shadow_bands_isolate_layers = false
 		if button.visible:
 			has_visible_tile = true

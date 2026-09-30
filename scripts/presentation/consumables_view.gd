@@ -198,6 +198,7 @@ func _create_portrait_art(button: Button, consumable_type: String) -> Dictionary
 	button.add_child(root)
 	var tile_shadow := TextureRect.new()
 	tile_shadow.name = "TileShadow"
+	tile_shadow.z_index = 1
 	tile_shadow.texture = _load_texture(str(_gameplay_theme.consumable_tile_path))
 	tile_shadow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	tile_shadow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -208,6 +209,7 @@ func _create_portrait_art(button: Button, consumable_type: String) -> Dictionary
 	for index in 3:
 		var tile := TextureRect.new()
 		tile.name = "TileLayer%d" % index
+		tile.z_index = 2
 		tile.texture = _load_texture(str(_gameplay_theme.consumable_tile_path))
 		tile.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		tile.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -216,10 +218,12 @@ func _create_portrait_art(button: Button, consumable_type: String) -> Dictionary
 		tile_layers.append(tile)
 	var front_content := Control.new()
 	front_content.name = "TopTileContent"
+	front_content.z_index = 3
 	front_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(front_content)
 	var icon := TextureRect.new()
 	icon.name = "Icon"
+	icon.z_index = 3
 	icon.texture = _load_texture(_gameplay_theme.call("consumable_icon_path", consumable_type))
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -227,6 +231,7 @@ func _create_portrait_art(button: Button, consumable_type: String) -> Dictionary
 	front_content.add_child(icon)
 	var quantity := Label.new()
 	quantity.name = "Quantity"
+	quantity.z_index = 4
 	quantity.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	quantity.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	quantity.add_theme_font_override("font", _load_font(str(_gameplay_theme.poster_font_path)))

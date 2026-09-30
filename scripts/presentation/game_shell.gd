@@ -78,8 +78,8 @@ const NO_HINT_AVAILABLE_MESSAGE := "No moves! try something else!"
 ## Keeps the Board as the hero without allowing it to consume the entire felt surface.
 @export_range(0.55, 1.00, 0.01) var portrait_board_content_scale := 1.00
 @export_range(0.55, 1.00, 0.01) var landscape_board_content_scale := 1.00
-## Compresses only visual row spacing so the portrait-authored stack fits the target Board silhouette.
-@export_range(0.75, 1.10, 0.01) var portrait_board_horizontal_stride_scale := 0.90
+## Visual stride scaling for board layouts.
+@export_range(0.75, 1.10, 0.01) var portrait_board_horizontal_stride_scale := 1.00
 @export_range(0.50, 1.00, 0.01) var portrait_board_vertical_stride_scale := 0.92
 @export_range(0.50, 1.40, 0.01) var landscape_board_vertical_stride_scale := 1.20
 ## Travel time for Board-to-Tray, flipped staging, and Undo return presentation.
@@ -2550,12 +2550,17 @@ func _update_tray_danger(delta: float) -> void:
 	if active and _tray_impact_remaining > 0.0:
 		strength = maxf(strength, tray_impact_opacity * _tray_impact_remaining / extra_life_tray_warning_seconds)
 		_tray_impact_remaining = maxf(0.0, _tray_impact_remaining - delta)
-	_tray_danger_overlay.visible = active and strength > 0.0
-	_tray_danger_overlay.material.set_shader_parameter("strength", strength)
-	var safe_scale := PresentationScaleScript.safe_display_scale(size, _get_safe_area_insets())
-	_tray_danger_overlay.material.set_shader_parameter("edge_width", Vector2(52.0, 52.0) * safe_scale / size.max(Vector2.ONE))
+	var target_visible := active and strength > 0.0
+	if _tray_danger_overlay.visible != target_visible:
+		_tray_danger_overlay.visible = target_visible
+	if target_visible:
+		_tray_danger_overlay.material.set_shader_parameter("strength", strength)
+		var safe_scale := PresentationScaleScript.safe_display_scale(size, _get_safe_area_insets())
+		_tray_danger_overlay.material.set_shader_parameter("edge_width", Vector2(52.0, 52.0) * safe_scale / size.max(Vector2.ONE))
 	if _regions.has("tray"):
-		_regions.tray.modulate = Color(1.0, 1.0 - strength * 0.45, 1.0 - strength * 0.45)
+		var target_tray_modulate := Color(1.0, 1.0 - strength * 0.45, 1.0 - strength * 0.45)
+		if _regions.tray.modulate != target_tray_modulate:
+			_regions.tray.modulate = target_tray_modulate
 
 
 func _build_tile_audio() -> void:

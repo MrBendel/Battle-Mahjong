@@ -84,8 +84,9 @@ jobs:
           use-dotnet: false
           include-templates: true
 
-      - name: Import Assets & Run Core Tests
+      - name: Build Texture Atlases & Run Core Tests
         run: |
+          godot --headless --path . --script res://scripts/tools/build_tile_atlas.gd
           godot --headless --path . --editor --quit || true
           godot --headless --path . --script res://tests/cli_test_runner.gd
 
