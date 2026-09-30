@@ -23,6 +23,8 @@ var orientation := "portrait"
 var back_design_id := ""
 
 var _textures: Dictionary = {}
+var _atlas_texture: Texture2D
+var _atlas_frames: Dictionary = {}
 var _base_textures: Dictionary = {}
 var _blocked_base_textures: Dictionary = {}
 var _back_textures: Dictionary = {}
@@ -336,6 +338,14 @@ func has_face_id(face_id: String) -> bool:
 	return faces.has(face_id)
 
 
+func has_atlas() -> bool:
+	return _atlas_texture != null
+
+
+func atlas_texture() -> Texture2D:
+	return _atlas_texture
+
+
 func base_tint() -> Color:
 	var color: Array = base_presentation.get("base_tint", [1.0, 1.0, 1.0, 1.0])
 	if color.size() == 4:
@@ -441,3 +451,45 @@ func _load_manifest(manifest_path: String) -> void:
 	canonical_face_ids.assign(parsed.get("canonical_face_ids", []))
 	faces = parsed.get("faces", {}).duplicate(true)
 	reference_preview_mapping = parsed.get("reference_preview_mapping", {}).duplicate(true)
+	_load_atlas(manifest_path)
+
+
+func _load_atlas(manifest_path: String) -> void:
+	var atlas_json_path := ""
+	var base_dir := manifest_path.get_base_dir()
+	if FileAccess.file_exists(base_dir + "/faces_atlas.json"):
+		atlas_json_path = base_dir + "/faces_atlas.json"
+	elif FileAccess.file_exists("res://game-assets/tiles/default/faces_atlas.json"):
+		atlas_json_path = "res://game-assets/tiles/default/faces_atlas.json"
+	
+	if atlas_json_path.is_empty():
+		return
+	
+	var json_str := FileAccess.get_file_as_string(atlas_json_path)
+	var parsed: Variant = JSON.parse_string(json_str)
+	if not parsed is Dictionary:
+		return
+	
+	var frames: Dictionary = parsed.get("frames", {})
+	if frames.is_empty():
+		return
+	
+	var texture_file: String = str(parsed.get("texture", "faces_atlas.png"))
+	var atlas_dir := atlas_json_path.get_base_dir()
+	var atlas_png_path := atlas_dir + "/" + texture_file
+	
+	var atlas_tex := _load_texture(atlas_png_path)
+	if atlas_tex == null:
+		return
+	
+	_atlas_texture = atlas_tex
+	_atlas_frames = frames
+	
+	for face_id in frames:
+		var frame: Dictionary = frames[face_id]
+		var at := AtlasTexture.new()
+		at.atlas = _atlas_texture
+		at.region = Rect2(float(frame.get("x", 0)), float(frame.get("y", 0)), float(frame.get("w", 0)), float(frame.get("h", 0)))
+		at.filter_clip = true
+		_textures[face_id] = at
+

@@ -229,6 +229,15 @@ func _run_tile_skin_contract_tests() -> void:
 		var asset_path := str(definition.get("asset", ""))
 		_check(ResourceLoader.exists(asset_path) or FileAccess.file_exists(asset_path), "%s Default runtime asset exists" % face_id)
 
+	# Texture atlas contract tests
+	_check(skin.call("has_atlas"), "Default skin detects and loads texture atlas")
+	_check(skin.call("atlas_texture") != null, "Default skin atlas texture is loaded")
+	var sample_face_tex: Variant = skin.call("texture_for_id", "bamboo_1")
+	_check(sample_face_tex is AtlasTexture, "Default skin returns AtlasTexture for face artwork")
+	if sample_face_tex is AtlasTexture:
+		_check(sample_face_tex.filter_clip, "AtlasTexture enables filter_clip to prevent gutter bleeding")
+		_check(sample_face_tex.region.size.x > 0.0 and sample_face_tex.region.size.y > 0.0, "AtlasTexture has valid non-zero region")
+
 	# Base tile theming tests
 	_check_equal(Color.WHITE, skin.call("base_tint"), "Default ceramic skin uses pure white base tint")
 	_check_equal(Color(0.0, 0.0, 0.0, 0.0), skin.call("bevel_rim_color"), "Default skin has no bevel rim color")

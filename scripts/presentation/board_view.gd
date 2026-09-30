@@ -15,9 +15,19 @@ const HEADER_HEIGHT := 48.0
 const BOARD_MARGIN := 14.0
 const COMPACT_HEADER_HEIGHT := 6.0
 const COMPACT_BOARD_MARGIN := 4.0
-const DEPTH_Z_STRIDE := 2
-const TILE_SURFACE_Z_OFFSET := 1
-const SHADOW_Z_OFFSET := -1
+const DEPTH_Z_STRIDE := 16
+const TILE_SURFACE_Z_OFFSET := 4
+const SHADOW_Z_OFFSET := -4
+const CONTACT_SHADOW_Z_OFFSET := -3
+const SELECTION_GLOW_Z_OFFSET := -2
+const INK_OUTLINE_Z_OFFSET := -1
+const BASE_ART_Z_OFFSET := 0
+const BACK_ART_Z_OFFSET := 1
+const BACK_DESIGN_ART_Z_OFFSET := 2
+const FACE_ART_Z_OFFSET := 3
+const BLOCKED_OVERLAY_Z_OFFSET := 4
+const MODIFIER_ART_Z_OFFSET := 5
+const HINT_GLOW_Z_OFFSET := 6
 const HINT_CYCLE_SECONDS := 1.2
 const HINT_BRIGHTNESS_GAIN := 0.10
 const HINT_GLOW_MIN_ALPHA := 0.04
@@ -42,6 +52,7 @@ var _selection_glows: Dictionary = {}
 var _blocked_overlays: Dictionary = {}
 var _modifier_art: Dictionary = {}
 var _blocked_material: ShaderMaterial = null
+var _additive_material: CanvasItemMaterial = null
 var _title_label: Label
 var _status_label: Label
 var _tile_layer: Control
@@ -354,6 +365,7 @@ func _rebuild_tiles() -> void:
 		button.name = tile.id
 		button.tooltip_text = _tile_tooltip(tile)
 		button.focus_mode = Control.FOCUS_NONE
+		button.flat = true
 		button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		button.pressed.connect(_on_tile_pressed.bind(tile.id))
 		button.button_down.connect(_set_tile_interaction_brightness.bind(tile.id, true))
@@ -371,7 +383,7 @@ func _rebuild_tiles() -> void:
 
 		var contact_shadow_art := TextureRect.new()
 		contact_shadow_art.name = "ContactShadow"
-		contact_shadow_art.z_index = SHADOW_Z_OFFSET
+		contact_shadow_art.z_index = CONTACT_SHADOW_Z_OFFSET
 		contact_shadow_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		contact_shadow_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		contact_shadow_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -379,6 +391,7 @@ func _rebuild_tiles() -> void:
 
 		var selection_glow := TextureRect.new()
 		selection_glow.name = "SelectionGlow"
+		selection_glow.z_index = SELECTION_GLOW_Z_OFFSET
 		selection_glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		selection_glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		selection_glow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -386,19 +399,18 @@ func _rebuild_tiles() -> void:
 		selection_glow.anchor_top = -0.05
 		selection_glow.anchor_right = 1.06
 		selection_glow.anchor_bottom = 1.05
-		var selection_material := CanvasItemMaterial.new()
-		selection_material.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
-		selection_glow.material = selection_material
 		selection_glow.visible = false
 		button.add_child(selection_glow)
 
 		var ink_outline := TextureRect.new()
 		ink_outline.name = "InkOutline"
+		ink_outline.z_index = INK_OUTLINE_Z_OFFSET
 		_tile_skin.configure_ink_outline(ink_outline)
 		button.add_child(ink_outline)
 
 		var base_art := TextureRect.new()
 		base_art.name = "BaseArt"
+		base_art.z_index = BASE_ART_Z_OFFSET
 		base_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		base_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		base_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -407,6 +419,7 @@ func _rebuild_tiles() -> void:
 
 		var back_art := TextureRect.new()
 		back_art.name = "BackArt"
+		back_art.z_index = BACK_ART_Z_OFFSET
 		back_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		back_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		back_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -415,30 +428,21 @@ func _rebuild_tiles() -> void:
 
 		var back_design_art := TextureRect.new()
 		back_design_art.name = "BackDesignArt"
+		back_design_art.z_index = BACK_DESIGN_ART_Z_OFFSET
 		_tile_skin.configure_back_design(back_design_art)
 		button.add_child(back_design_art)
 
 		var face_art := TextureRect.new()
 		face_art.name = "FaceArt"
+		face_art.z_index = FACE_ART_Z_OFFSET
 		face_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		face_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		face_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		button.add_child(face_art)
 
-		var hint_glow := TextureRect.new()
-		hint_glow.name = "HintGlow"
-		hint_glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		hint_glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		hint_glow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		hint_glow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		var glow_material := CanvasItemMaterial.new()
-		glow_material.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
-		hint_glow.material = glow_material
-		hint_glow.visible = false
-		button.add_child(hint_glow)
-
 		var blocked_overlay := TextureRect.new()
 		blocked_overlay.name = "BlockedOverlay"
+		blocked_overlay.z_index = BLOCKED_OVERLAY_Z_OFFSET
 		blocked_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		blocked_overlay.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		blocked_overlay.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -447,8 +451,20 @@ func _rebuild_tiles() -> void:
 
 		var modifier_art := TextureRect.new()
 		modifier_art.name = "ModifierArt"
+		modifier_art.z_index = MODIFIER_ART_Z_OFFSET
 		_tile_skin.configure_modifier_art(modifier_art)
 		button.add_child(modifier_art)
+
+		var hint_glow := TextureRect.new()
+		hint_glow.name = "HintGlow"
+		hint_glow.z_index = HINT_GLOW_Z_OFFSET
+		hint_glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		hint_glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		hint_glow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		hint_glow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		hint_glow.material = _get_additive_material()
+		hint_glow.visible = false
+		button.add_child(hint_glow)
 
 		_tile_layer.add_child(button)
 		_tile_buttons[tile.id] = button
@@ -548,41 +564,75 @@ func refresh() -> void:
 		var contact_shadow_art: TextureRect = _contact_shadow_art[tile.id]
 		contact_shadow_art.visible = contact_shadow_art.texture != null
 		var base_art: TextureRect = _base_art[tile.id]
-		base_art.texture = blocked_base_texture if uses_dedicated_blocked_base \
+		var target_base_texture: Texture2D = blocked_base_texture if uses_dedicated_blocked_base \
 			else _tile_skin.tile_base_texture()
-		base_art.self_modulate = _tile_skin.base_tint()
+		if base_art.texture != target_base_texture:
+			base_art.texture = target_base_texture
+		var base_tint: Color = _tile_skin.base_tint()
+		if base_art.self_modulate != base_tint:
+			base_art.self_modulate = base_tint
 		var back_art: TextureRect = _back_art[tile.id]
-		back_art.texture = blocked_back_texture if uses_dedicated_blocked_back \
+		var target_back_texture: Texture2D = blocked_back_texture if uses_dedicated_blocked_back \
 			else _tile_skin.tile_back_texture()
-		back_art.self_modulate = _tile_skin.back_tint()
-		back_art.visible = face_down and back_art.texture != null
+		if back_art.texture != target_back_texture:
+			back_art.texture = target_back_texture
+		var back_tint: Color = _tile_skin.back_tint()
+		if back_art.self_modulate != back_tint:
+			back_art.self_modulate = back_tint
+		var target_back_visible := face_down and back_art.texture != null
+		if back_art.visible != target_back_visible:
+			back_art.visible = target_back_visible
 		var back_design_art: TextureRect = _back_design_art[tile.id]
-		back_design_art.visible = face_down and back_design_art.texture != null
-		base_art.visible = (not face_down or back_art.texture == null) and base_art.texture != null
+		if back_design_art.visible != target_back_visible:
+			back_design_art.visible = target_back_visible
+		var target_base_visible := (not face_down or back_art.texture == null) and base_art.texture != null
+		if base_art.visible != target_base_visible:
+			base_art.visible = target_base_visible
 		var face_art: TextureRect = _face_art[tile.id]
-		face_art.visible = not face_down and face_art.texture != null
-		face_art.self_modulate = _tile_skin.face_tint()
+		var target_face_visible := not face_down and face_art.texture != null
+		if face_art.visible != target_face_visible:
+			face_art.visible = target_face_visible
+		var face_tint: Color = _tile_skin.face_tint()
+		if face_art.self_modulate != face_tint:
+			face_art.self_modulate = face_tint
 		var hint_glow: TextureRect = _hint_glows[tile.id]
-		hint_glow.visible = false
+		if hint_glow.visible:
+			hint_glow.visible = false
 		var selection_glow: TextureRect = _selection_glows.get(tile.id)
 		if selection_glow != null:
 			if visually_active:
-				selection_glow.visible = true
-				selection_glow.modulate = _tile_skin.selection_glow_color()
-			else:
+				if not selection_glow.visible:
+					selection_glow.visible = true
+				var target_glow_modulate: Color = _tile_skin.selection_glow_color()
+				if selection_glow.modulate != target_glow_modulate:
+					selection_glow.modulate = target_glow_modulate
+			elif selection_glow.visible:
 				selection_glow.visible = false
 		var blocked_overlay: TextureRect = _blocked_overlays[tile.id]
-		blocked_overlay.visible = uses_fallback_blocked_art
-		blocked_overlay.texture = _tile_skin.tile_back_texture() if face_down else _tile_skin.tile_base_texture()
-		var active_material: Material = _blocked_material if uses_fallback_blocked_art else null
-		base_art.material = active_material
-		back_art.material = active_material
-		back_design_art.material = active_material
-		face_art.material = active_material
+		if blocked_overlay.visible != uses_fallback_blocked_art:
+			blocked_overlay.visible = uses_fallback_blocked_art
+		var target_overlay_texture: Texture2D = _tile_skin.tile_back_texture() if face_down else _tile_skin.tile_base_texture()
+		if blocked_overlay.texture != target_overlay_texture:
+			blocked_overlay.texture = target_overlay_texture
+		# Only face_art needs desaturation shader; base ceramic and overlays batch cleanly
+		var target_face_material: Material = _blocked_material if uses_fallback_blocked_art else null
+		if face_art.material != target_face_material:
+			face_art.material = target_face_material
+		if base_art.material != null:
+			base_art.material = null
+		if back_art.material != null:
+			back_art.material = null
+		if back_design_art.material != null:
+			back_design_art.material = null
+		if blocked_overlay.material != null:
+			blocked_overlay.material = null
 		button.text = "" if face_down or face_art.texture != null else _tile_label(tile)
 		var modifier_art: TextureRect = _modifier_art[tile.id]
-		modifier_art.visible = modifier_art.texture != null
-		modifier_art.material = active_material
+		var modifier_visible: bool = modifier_art.texture != null
+		if modifier_art.visible != modifier_visible:
+			modifier_art.visible = modifier_visible
+		if modifier_art.material != null:
+			modifier_art.material = null
 
 	if active_count == 0:
 		_status_label.text = "Board cleared"
@@ -723,9 +773,7 @@ func create_tile_preview(tile_id: String, force_face_up: bool = false) -> Contro
 	selection_glow.anchor_top = -0.05
 	selection_glow.anchor_right = 1.06
 	selection_glow.anchor_bottom = 1.05
-	var selection_material := CanvasItemMaterial.new()
-	selection_material.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
-	selection_glow.material = selection_material
+	selection_glow.material = _get_additive_material()
 	selection_glow.texture = _tile_skin.tile_base_texture()
 	selection_glow.modulate = Color(1.0, 0.165, 0.522, 0.88)
 	preview.add_child(selection_glow)
@@ -919,9 +967,7 @@ func _show_flip_blur(tile_id: String, duration_seconds: float = -1.0) -> void:
 	blur.anchor_right = 1.12
 	blur.anchor_bottom = 1.02
 	blur.modulate = Color(1.0, 0.94, 0.78, 0.24)
-	var material := CanvasItemMaterial.new()
-	material.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
-	blur.material = material
+	blur.material = _get_additive_material()
 	button.add_child(blur)
 	var blur_tween := create_tween()
 	var effective_duration := _flip_duration_seconds if duration_seconds <= 0.0 else duration_seconds
@@ -1106,6 +1152,10 @@ func _sync_tile_input_order() -> void:
 func _tile_precedes_for_input(first: Variant, second: Variant) -> bool:
 	if first.position.z != second.position.z:
 		return first.position.z < second.position.z
+	var first_face: String = first.face.logical_id()
+	var second_face: String = second.face.logical_id()
+	if first_face != second_face:
+		return first_face < second_face
 	if first.position.y != second.position.y:
 		return first.position.y < second.position.y
 	if first.position.x != second.position.x:
@@ -1163,6 +1213,13 @@ void fragment() {
 	_blocked_material.shader = shader
 	var desat := float(_tile_skin.depth_presentation.get("blocked_desaturation", 0.75))
 	_blocked_material.set_shader_parameter("desaturation", desat)
+
+
+func _get_additive_material() -> CanvasItemMaterial:
+	if _additive_material == null:
+		_additive_material = CanvasItemMaterial.new()
+		_additive_material.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+	return _additive_material
 
 
 func _grid_bounds() -> Rect2i:

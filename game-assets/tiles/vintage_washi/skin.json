@@ -199,7 +199,7 @@
     ]
   },
   "layout_presentation": {
-    "adjacent_gap_ratio": -0.025,
+    "adjacent_gap_ratio": 0.0,
     "ink_outline_color": [
       0.22,
       0.16,
