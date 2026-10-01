@@ -120,6 +120,18 @@ func set_game_state(game_state: Variant) -> void:
 	_layout_tiles()
 
 
+func set_tile_skin(new_skin: Variant, new_theme: Resource = null) -> void:
+	if new_skin != null:
+		_tile_skin = new_skin
+	if new_theme != null:
+		_gameplay_theme = new_theme
+	_setup_blocked_material()
+	_update_board_tray_style()
+	_apply_static_tile_art()
+	refresh()
+	_layout_tiles()
+
+
 func set_tiles_visible(visible: bool) -> void:
 	if _tile_layer != null:
 		_tile_layer.visible = visible
@@ -1194,7 +1206,9 @@ func _blocked_brightness_multiplier() -> float:
 
 
 func _setup_blocked_material() -> void:
+	var desat := float(_tile_skin.depth_presentation.get("blocked_desaturation", 0.75))
 	if _blocked_material != null:
+		_blocked_material.set_shader_parameter("desaturation", desat)
 		return
 	var shader := Shader.new()
 	shader.code = """
@@ -1211,7 +1225,6 @@ void fragment() {
 """
 	_blocked_material = ShaderMaterial.new()
 	_blocked_material.shader = shader
-	var desat := float(_tile_skin.depth_presentation.get("blocked_desaturation", 0.75))
 	_blocked_material.set_shader_parameter("desaturation", desat)
 
 
@@ -1312,14 +1325,19 @@ func _build_board_tray() -> void:
 	_board_tray.name = "BoardTray"
 	_board_tray.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_board_tray.z_index = 0
-	_board_tray.visible = bool(_gameplay_theme.board_tray_enabled)
-	_board_tray.texture = load(_gameplay_theme.call("board_tray_texture_path"))
 	_board_tray.patch_margin_left = 100
 	_board_tray.patch_margin_right = 100
 	_board_tray.patch_margin_top = 100
 	_board_tray.patch_margin_bottom = 100
-	# Supplied variants share the original silhouette but have opaque checkerboard margins.
-	# Mask only at presentation time; preserve all source artwork unchanged.
+	_update_board_tray_style()
+	add_child(_board_tray)
+
+
+func _update_board_tray_style() -> void:
+	if _board_tray == null:
+		return
+	_board_tray.visible = bool(_gameplay_theme.board_tray_enabled)
+	_board_tray.texture = load(_gameplay_theme.call("board_tray_texture_path"))
 	if str(_gameplay_theme.board_tray_skin) != "dark" and str(_gameplay_theme.board_tray_texture_override).is_empty():
 		var shader := Shader.new()
 		shader.code = """shader_type canvas_item;
@@ -1333,4 +1351,5 @@ void fragment() {
 		material.shader = shader
 		material.set_shader_parameter("silhouette", load("res://game-assets/ui/board-trays/dark.png"))
 		_board_tray.material = material
-	add_child(_board_tray)
+	else:
+		_board_tray.material = null

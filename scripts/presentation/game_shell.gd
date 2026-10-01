@@ -35,6 +35,7 @@ const UpdateCheckerScript := preload("res://scripts/presentation/update_checker.
 const SafeAreaScript := preload("res://scripts/presentation/safe_area.gd")
 const PresentationScaleScript := preload("res://scripts/presentation/presentation_scale.gd")
 const GameplayThemeScript := preload("res://scripts/presentation/gameplay_theme.gd")
+const ThemeCatalogScript := preload("res://scripts/presentation/theme_catalog.gd")
 const EndgameAutoClearPlannerScript := preload("res://scripts/simulation/endgame_auto_clear_planner.gd")
 const PORTRAIT_REFERENCE_SIZE := Vector2(390.0, 844.0)
 const PORTRAIT_PROPORTION_REFERENCE_SIZE := Vector2(942.0, 1672.0)
@@ -437,8 +438,11 @@ func _build_pause_menu() -> void:
 	_pause_menu.town_requested.connect(_on_return_to_town_requested)
 	_pause_menu.sound_changed.connect(_on_sound_changed)
 	_pause_menu.haptics_changed.connect(_on_haptics_changed)
+	_pause_menu.gameplay_theme_changed.connect(_on_theme_changed)
 	add_child(_pause_menu)
 	_pause_menu.call("set_preferences", _sound_enabled, _haptics_enabled)
+	if gameplay_theme != null:
+		_pause_menu.call("set_theme_id", str(gameplay_theme.theme_id))
 
 
 func _build_end_game_menu() -> void:
@@ -915,6 +919,27 @@ func _on_haptics_changed(enabled: bool) -> void:
 	_haptics_enabled = enabled
 
 
+func _on_theme_changed(theme_id: String) -> void:
+	var catalog := ThemeCatalogScript.new()
+	var new_theme: Resource = catalog.call("get_theme", theme_id)
+	if new_theme == null:
+		return
+	gameplay_theme = new_theme
+	_tile_skin = TileSkinScript.new(str(gameplay_theme.tile_skin_manifest_path))
+	var orientation := "Landscape" if size.x >= size.y else "Portrait"
+	_tile_skin.call("set_orientation", orientation.to_lower())
+	if _regions.has("board") and _regions.board != null:
+		_regions.board.call("set_tile_skin", _tile_skin, gameplay_theme)
+	if _regions.has("tray") and _regions.tray != null:
+		_regions.tray.call("set_tile_skin", _tile_skin, gameplay_theme)
+	if _gameplay_background != null:
+		_gameplay_background.texture = _load_texture(
+			str(gameplay_theme.background_path_for_orientation(orientation))
+		)
+	_apply_layout()
+
+
+
 func _apply_sound_preference() -> void:
 	var master_bus := AudioServer.get_bus_index("Master")
 	if master_bus >= 0:
@@ -1132,6 +1157,8 @@ func _on_pause_requested() -> void:
 		return
 	_pause_started_at_ms = Time.get_ticks_msec()
 	_pause_button.visible = false
+	if gameplay_theme != null:
+		_pause_menu.call("set_theme_id", str(gameplay_theme.theme_id))
 	_pause_menu.call("open")
 
 

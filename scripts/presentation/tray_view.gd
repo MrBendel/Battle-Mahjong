@@ -66,6 +66,16 @@ func set_game_state(game_state: Variant) -> void:
 	refresh()
 
 
+func set_tile_skin(new_skin: Variant, new_theme: Resource = null) -> void:
+	if new_skin != null:
+		_tile_skin = new_skin
+	if new_theme != null:
+		_gameplay_theme = new_theme
+	_update_queue_art()
+	refresh()
+	_layout()
+
+
 func set_portrait_style(enabled: bool) -> void:
 	_portrait_style = enabled
 	_vertical_style = false
@@ -709,6 +719,8 @@ func _update_queue_art() -> void:
 	_queue_right_cap.flip_v = _vertical_style
 	for repeat in _queue_repeats:
 		repeat.texture = repeat_texture
+	if _bonus_icon != null:
+		_bonus_icon.texture = _load_texture(str(_gameplay_theme.tray_bonus_icon_path))
 
 
 func _update_style_visibility() -> void:

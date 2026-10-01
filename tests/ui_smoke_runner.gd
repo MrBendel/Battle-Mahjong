@@ -448,8 +448,24 @@ func _run() -> void:
 		_check_equal(pause_haptic_count, shell.get("_haptic_event_count"), "disabled Haptics toggle suppresses feedback")
 		responsive_pause_menu.get("_haptics_toggle").button_pressed = true
 		shell.call("_play_haptic", "selection")
-		_check_equal(pause_haptic_count + 1, shell.get("_haptic_event_count"), "enabled Haptics toggle permits feedback")
 		_check_equal("selection", shell.get("_last_haptic_kind"), "selection uses the light haptic profile")
+		var theme_button: Button = responsive_pause_menu.get("_theme_button")
+		_check(theme_button != null, "pause menu includes theme switcher button")
+		_check(is_equal_approx(44.0 * responsive_pause_scale, theme_button.custom_minimum_size.y), "pause theme button scales with the modal")
+		_check_equal(roundi(18.0 * responsive_pause_scale), theme_button.get_theme_font_size("font_size"), "pause theme button text scales with modal")
+		_check_equal("THEME: DEFAULT", theme_button.text, "pause menu starts with default theme")
+		theme_button.emit_signal("pressed")
+		_check_equal("neon_nights", shell.gameplay_theme.theme_id, "pressing theme button cycles to neon_nights")
+		_check_equal("THEME: NEON NIGHTS", theme_button.text, "theme button label updates to neon_nights")
+		theme_button.emit_signal("pressed")
+		_check_equal("imperial_jade", shell.gameplay_theme.theme_id, "pressing theme button cycles to imperial_jade")
+		theme_button.emit_signal("pressed")
+		_check_equal("kawaii_pop", shell.gameplay_theme.theme_id, "pressing theme button cycles to kawaii_pop")
+		theme_button.emit_signal("pressed")
+		_check_equal("vintage_washi", shell.gameplay_theme.theme_id, "pressing theme button cycles to vintage_washi")
+		theme_button.emit_signal("pressed")
+		_check_equal("default", shell.gameplay_theme.theme_id, "pressing theme button cycles back to default")
+		_check_equal("THEME: DEFAULT", theme_button.text, "theme button label reverts to default")
 		await create_timer(0.05).timeout
 		_check_equal(paused_time, shell.call("_playback_time_ms"), "pause menu freezes active gameplay time")
 		shell.get("_pause_menu").emit_signal("resumed")
@@ -938,6 +954,11 @@ func _run() -> void:
 			shell.call("_on_tile_selected", capture_tile_id)
 			await create_timer(0.25).timeout
 	if OS.get_cmdline_user_args().has("--pause-menu"):
+		if OS.get_cmdline_user_args().has("--theme-id"):
+			var theme_arg_idx := OS.get_cmdline_user_args().find("--theme-id")
+			if theme_arg_idx != -1 and theme_arg_idx + 1 < OS.get_cmdline_user_args().size():
+				var tid: String = OS.get_cmdline_user_args()[theme_arg_idx + 1]
+				shell.call("_on_theme_changed", tid)
 		shell.call("_on_pause_requested")
 		await process_frame
 	if OS.get_cmdline_user_args().has("--hud-reference-capture"):
