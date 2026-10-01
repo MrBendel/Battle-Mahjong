@@ -19,7 +19,6 @@ const DEPTH_Z_STRIDE := 16
 const TILE_SURFACE_Z_OFFSET := 4
 const SHADOW_Z_OFFSET := -4
 const CONTACT_SHADOW_Z_OFFSET := -3
-const SELECTION_GLOW_Z_OFFSET := -2
 const INK_OUTLINE_Z_OFFSET := -1
 const BASE_ART_Z_OFFSET := 0
 const BACK_ART_Z_OFFSET := 1
@@ -48,7 +47,6 @@ var _back_art: Dictionary = {}
 var _back_design_art: Dictionary = {}
 var _face_art: Dictionary = {}
 var _hint_glows: Dictionary = {}
-var _selection_glows: Dictionary = {}
 var _blocked_overlays: Dictionary = {}
 var _modifier_art: Dictionary = {}
 var _blocked_material: ShaderMaterial = null
@@ -364,7 +362,6 @@ func _rebuild_tiles() -> void:
 	_back_design_art.clear()
 	_face_art.clear()
 	_hint_glows.clear()
-	_selection_glows.clear()
 	_blocked_overlays.clear()
 	_modifier_art.clear()
 	_tile_layout_positions.clear()
@@ -400,19 +397,6 @@ func _rebuild_tiles() -> void:
 		contact_shadow_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		contact_shadow_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		button.add_child(contact_shadow_art)
-
-		var selection_glow := TextureRect.new()
-		selection_glow.name = "SelectionGlow"
-		selection_glow.z_index = SELECTION_GLOW_Z_OFFSET
-		selection_glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		selection_glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		selection_glow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		selection_glow.anchor_left = -0.06
-		selection_glow.anchor_top = -0.05
-		selection_glow.anchor_right = 1.06
-		selection_glow.anchor_bottom = 1.05
-		selection_glow.visible = false
-		button.add_child(selection_glow)
 
 		var ink_outline := TextureRect.new()
 		ink_outline.name = "InkOutline"
@@ -488,7 +472,6 @@ func _rebuild_tiles() -> void:
 		_back_design_art[tile.id] = back_design_art
 		_face_art[tile.id] = face_art
 		_hint_glows[tile.id] = hint_glow
-		_selection_glows[tile.id] = selection_glow
 		_blocked_overlays[tile.id] = blocked_overlay
 		_modifier_art[tile.id] = modifier_art
 
@@ -610,16 +593,6 @@ func refresh() -> void:
 		var hint_glow: TextureRect = _hint_glows[tile.id]
 		if hint_glow.visible:
 			hint_glow.visible = false
-		var selection_glow: TextureRect = _selection_glows.get(tile.id)
-		if selection_glow != null:
-			if visually_active:
-				if not selection_glow.visible:
-					selection_glow.visible = true
-				var target_glow_modulate: Color = _tile_skin.selection_glow_color()
-				if selection_glow.modulate != target_glow_modulate:
-					selection_glow.modulate = target_glow_modulate
-			elif selection_glow.visible:
-				selection_glow.visible = false
 		var blocked_overlay: TextureRect = _blocked_overlays[tile.id]
 		if blocked_overlay.visible != uses_fallback_blocked_art:
 			blocked_overlay.visible = uses_fallback_blocked_art
@@ -676,9 +649,6 @@ func _apply_static_tile_art() -> void:
 			0.012,
 			float(_tile_skin.depth_presentation.get("contact_shadow_opacity", 0.30))
 		)
-		var selection_glow: TextureRect = _selection_glows.get(tile.id)
-		if selection_glow != null:
-			selection_glow.texture = base_texture
 		var ink_outline: TextureRect = _ink_outlines[tile.id]
 		_tile_skin.configure_ink_outline(ink_outline)
 		var base_art: TextureRect = _base_art[tile.id]
@@ -733,13 +703,6 @@ func _set_tile_interaction_brightness(tile_id: String, highlighted: bool) -> voi
 	var base_brightness := float(button.get_meta("presentation_brightness", 1.0))
 	var brightness := base_brightness * (1.16 if highlighted else 1.0)
 	button.modulate = Color(brightness, brightness, brightness)
-	var selection_glow: TextureRect = _selection_glows.get(tile_id)
-	if selection_glow != null:
-		if highlighted:
-			selection_glow.visible = true
-			selection_glow.modulate = Color(1.0, 0.165, 0.522, 0.88)
-		else:
-			selection_glow.modulate = Color(1.0, 0.82, 0.25, 0.38)
 
 
 func _apply_hint_presentation() -> void:
@@ -758,10 +721,6 @@ func _apply_hint_presentation() -> void:
 		button.modulate = Color(brightness, brightness, brightness)
 		hint_glow.visible = hint_glow.texture != null
 		hint_glow.modulate = Color(1.0, 0.92, 0.68, lerpf(HINT_GLOW_MIN_ALPHA, HINT_GLOW_MAX_ALPHA, wave))
-		var selection_glow: TextureRect = _selection_glows.get(tile_id)
-		if selection_glow != null:
-			selection_glow.visible = true
-			selection_glow.modulate = Color(1.0, lerpf(0.82, 0.165, wave), lerpf(0.25, 0.522, wave), lerpf(0.38, 0.88, wave))
 
 
 func create_tile_preview(tile_id: String, force_face_up: bool = false) -> Control:
@@ -776,19 +735,6 @@ func create_tile_preview(tile_id: String, force_face_up: bool = false) -> Contro
 	if force_face_up and bool(button.get_meta("face_down", false)):
 		preview_style = _art_backing_style()
 	preview.add_theme_stylebox_override("panel", preview_style)
-	var selection_glow := TextureRect.new()
-	selection_glow.name = "SelectionGlow"
-	selection_glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	selection_glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	selection_glow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	selection_glow.anchor_left = -0.06
-	selection_glow.anchor_top = -0.05
-	selection_glow.anchor_right = 1.06
-	selection_glow.anchor_bottom = 1.05
-	selection_glow.material = _get_additive_material()
-	selection_glow.texture = _tile_skin.tile_base_texture()
-	selection_glow.modulate = Color(1.0, 0.165, 0.522, 0.88)
-	preview.add_child(selection_glow)
 	var ink_outline := TextureRect.new()
 	ink_outline.name = "InkOutline"
 	_tile_skin.configure_ink_outline(ink_outline)
