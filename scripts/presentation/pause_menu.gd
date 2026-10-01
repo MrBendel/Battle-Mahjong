@@ -6,16 +6,25 @@ signal restart_requested
 signal town_requested
 signal sound_changed(enabled: bool)
 signal haptics_changed(enabled: bool)
+signal gameplay_theme_changed(theme_id: String)
 
-const PANEL_REFERENCE_SIZE := Vector2(330.0, 398.0)
+const ThemeCatalogScript := preload("res://scripts/presentation/theme_catalog.gd")
+const PANEL_REFERENCE_SIZE := Vector2(330.0, 452.0)
 
 var _title: Label
 var _sound_toggle: CheckButton
 var _haptics_toggle: CheckButton
+var _theme_button: Button
 var _resume_button: Button
 var _restart_button: Button
 var _town_button: Button
 var _transparent_toggle_icon: ImageTexture
+var _current_theme_id := "default"
+var _theme_catalog: Variant
+
+
+func _init() -> void:
+	_theme_catalog = ThemeCatalogScript.new()
 
 
 func open() -> void:
@@ -30,6 +39,8 @@ func close() -> void:
 	_town_button.release_focus()
 	_sound_toggle.release_focus()
 	_haptics_toggle.release_focus()
+	if _theme_button != null:
+		_theme_button.release_focus()
 	visible = false
 
 
@@ -38,6 +49,11 @@ func set_preferences(sound_enabled: bool, haptics_enabled: bool) -> void:
 	_haptics_toggle.set_pressed_no_signal(haptics_enabled)
 	_update_toggle_text(_sound_toggle, "SOUND", sound_enabled)
 	_update_toggle_text(_haptics_toggle, "HAPTICS", haptics_enabled)
+
+
+func set_theme_id(theme_id: String) -> void:
+	_current_theme_id = theme_id
+	_update_theme_button_text()
 
 
 func _panel_name() -> String:
@@ -66,6 +82,10 @@ func _build_overlay_content() -> void:
 		haptics_changed.emit(enabled)
 	)
 	_content.add_child(_haptics_toggle)
+
+	_theme_button = _make_theme_button()
+	_theme_button.pressed.connect(_on_theme_button_pressed)
+	_content.add_child(_theme_button)
 
 	_resume_button = _make_command_button("RESUME")
 	_resume_button.pressed.connect(func() -> void: resumed.emit())
@@ -96,6 +116,49 @@ func _make_toggle(label_text: String) -> CheckButton:
 	return toggle
 
 
+func _make_theme_button() -> Button:
+	var button := Button.new()
+	button.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	button.focus_mode = Control.FOCUS_ALL
+	button.clip_text = true
+	button.add_theme_font_override("font", REGULAR_FONT)
+	button.add_theme_color_override("font_color", Color("f2e8c8"))
+	button.add_theme_color_override("font_hover_color", Color.WHITE)
+	button.add_theme_color_override("font_pressed_color", Color("fff3bd"))
+	_update_theme_button_text(button)
+	return button
+
+
+func _on_theme_button_pressed() -> void:
+	var next: Resource = _theme_catalog.call("next_theme", _current_theme_id)
+	if next != null:
+		_current_theme_id = str(next.get("theme_id"))
+		_update_theme_button_text()
+		gameplay_theme_changed.emit(_current_theme_id)
+
+
+func _update_theme_button_text(button: Button = null) -> void:
+	var target := _theme_button if button == null else button
+	if target == null or _theme_catalog == null:
+		return
+	var theme_name: String
+	match _current_theme_id:
+		"default":
+			theme_name = "DEFAULT"
+		"neon_nights":
+			theme_name = "NEON NIGHTS"
+		"imperial_jade":
+			theme_name = "IMPERIAL JADE"
+		"kawaii_pop":
+			theme_name = "KAWAII POP"
+		"vintage_washi":
+			theme_name = "VINTAGE WASHI"
+		_:
+			var theme_res: Resource = _theme_catalog.call("get_theme", _current_theme_id)
+			theme_name = str(theme_res.get("display_name")).to_upper() if theme_res != null else _current_theme_id.to_upper()
+	target.text = "THEME: %s" % theme_name
+
+
 func _toggle_icon() -> ImageTexture:
 	if _transparent_toggle_icon == null:
 		var image := Image.create(1, 1, false, Image.FORMAT_RGBA8)
@@ -118,5 +181,12 @@ func _layout_overlay_content(scale_factor: float) -> void:
 		toggle.add_theme_stylebox_override("hover", _button_style(scale_factor, Color("12352e"), Color("d6a83a")))
 		toggle.add_theme_stylebox_override("pressed", _button_style(scale_factor, Color("081b18"), Color("f5d56d")))
 		toggle.add_theme_stylebox_override("focus", _button_style(scale_factor, Color.TRANSPARENT, Color("f5d56d")))
+	if _theme_button != null:
+		_theme_button.custom_minimum_size.y = 44.0 * scale_factor
+		_theme_button.add_theme_font_size_override("font_size", roundi(18.0 * scale_factor))
+		_theme_button.add_theme_stylebox_override("normal", _button_style(scale_factor, Color("0b2520"), Color("426b52")))
+		_theme_button.add_theme_stylebox_override("hover", _button_style(scale_factor, Color("12352e"), Color("d6a83a")))
+		_theme_button.add_theme_stylebox_override("pressed", _button_style(scale_factor, Color("081b18"), Color("f5d56d")))
+		_theme_button.add_theme_stylebox_override("focus", _button_style(scale_factor, Color.TRANSPARENT, Color("f5d56d")))
 	for button in [_resume_button, _restart_button, _town_button]:
 		_apply_command_button_layout(button, scale_factor)

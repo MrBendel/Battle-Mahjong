@@ -42,6 +42,9 @@ const UpdateCheckerScript := preload("res://scripts/presentation/update_checker.
 const TrayAwareShufflePlannerScript := preload("res://scripts/simulation/tray_aware_shuffle_planner.gd")
 const AssistedPairClearPlannerScript := preload("res://scripts/simulation/three_pair_clear_planner.gd")
 const EndgameAutoClearPlannerScript := preload("res://scripts/simulation/endgame_auto_clear_planner.gd")
+const ThemeCatalogScript := preload("res://scripts/presentation/theme_catalog.gd")
+const BoardViewScript := preload("res://scripts/presentation/board_view.gd")
+const TrayViewScript := preload("res://scripts/presentation/tray_view.gd")
 
 var _failures := 0
 var _assertions := 0
@@ -52,6 +55,8 @@ func _init() -> void:
 	_run_tile_matcher_tests()
 	_run_application_version_tests()
 	_run_gameplay_theme_contract_tests()
+	_run_theme_catalog_tests()
+	_run_in_game_theme_switch_tests()
 	_run_tile_skin_contract_tests()
 	_run_board_selectability_tests()
 	_run_board_projection_tests()
@@ -142,6 +147,88 @@ func _run_gameplay_theme_contract_tests() -> void:
 	partial_theme.background_path = "res://game-assets/backgrounds/gameplay_brush_arcade.png"
 	_check(partial_theme.call("validation_errors").is_empty(), "partial seasonal theme inherits valid default component paths")
 	_check_equal(theme.pause_button_path, partial_theme.pause_button_path, "partial theme inherits the default Pause artwork")
+
+
+func _run_theme_catalog_tests() -> void:
+	_log(" - theme catalog and switching contract")
+	var catalog := ThemeCatalogScript.new()
+	var ids: Array[String] = catalog.theme_ids()
+	_check_equal(5, ids.size(), "ThemeCatalog exposes 5 curated gameplay themes")
+	var expected_ids: Array[String] = ["default", "neon_nights", "imperial_jade", "kawaii_pop", "vintage_washi"]
+	_check_equal(expected_ids, ids, "ThemeCatalog preserves ordered theme sequence")
+
+	for theme_id in ids:
+		var theme: Resource = catalog.get_theme(theme_id)
+		_check(theme != null, "Theme %s loads from catalog" % theme_id)
+		_check(theme.call("validation_errors").is_empty(), "Theme %s validates all asset paths" % theme_id)
+		_check_equal(theme_id, theme.theme_id, "Theme %s has matching theme_id" % theme_id)
+		_check(ResourceLoader.exists(theme.tile_skin_manifest_path) or FileAccess.file_exists(theme.tile_skin_manifest_path), "Theme %s tile skin exists" % theme_id)
+
+	_check_equal("neon_nights", catalog.next_theme("default").theme_id, "default cycles to neon_nights")
+	_check_equal("imperial_jade", catalog.next_theme("neon_nights").theme_id, "neon_nights cycles to imperial_jade")
+	_check_equal("kawaii_pop", catalog.next_theme("imperial_jade").theme_id, "imperial_jade cycles to kawaii_pop")
+	_check_equal("vintage_washi", catalog.next_theme("kawaii_pop").theme_id, "kawaii_pop cycles to vintage_washi")
+	_check_equal("default", catalog.next_theme("vintage_washi").theme_id, "vintage_washi cycles back to default")
+	_check_equal("default", catalog.get_theme("unknown_nonexistent").theme_id, "unknown theme gracefully falls back to default")
+	_check_equal(5, catalog.all_themes().size(), "all_themes returns all 5 themes")
+
+
+func _run_in_game_theme_switch_tests() -> void:
+	_log(" - in-game theme switching")
+	var catalog := ThemeCatalogScript.new()
+	var default_theme: Resource = catalog.get_theme("default")
+	var default_skin := TileSkinScript.new(default_theme.tile_skin_manifest_path)
+	var factory := ReferenceGameFactoryScript.new()
+	var game: Variant = factory.call("create_game", 92817361)
+	var board_view: Variant = BoardViewScript.new(game, default_skin, default_theme)
+	var tray_view: Variant = TrayViewScript.new(game, default_skin, default_theme)
+
+	_check_equal("default", default_theme.theme_id, "initial theme is default")
+	_check_equal("dark", default_theme.board_tray_skin, "initial board tray skin is dark")
+
+	# Switch to neon_nights
+	var neon_theme: Resource = catalog.get_theme("neon_nights")
+	var neon_skin := TileSkinScript.new(neon_theme.tile_skin_manifest_path)
+	board_view.set_tile_skin(neon_skin, neon_theme)
+	tray_view.set_tile_skin(neon_skin, neon_theme)
+
+	_check_equal("neon_nights", neon_theme.theme_id, "switched theme is neon_nights")
+	_check_equal("terrazzo", neon_theme.board_tray_skin, "neon_nights uses terrazzo board tray")
+	_check(board_view.get("_board_tray").texture.resource_path.ends_with("terrazzo.png"), "board tray updates texture to terrazzo")
+	_check(board_view.get("_board_tray").material != null, "terrazzo uses silhouette mask material")
+	_check_equal(96, game.board.tiles.size(), "theme switch preserves game board tiles")
+	_check_equal(0, game.tray.tiles.size(), "theme switch preserves tray state")
+
+	# Switch to imperial_jade
+	var jade_theme: Resource = catalog.get_theme("imperial_jade")
+	var jade_skin := TileSkinScript.new(jade_theme.tile_skin_manifest_path)
+	board_view.set_tile_skin(jade_skin, jade_theme)
+	tray_view.set_tile_skin(jade_skin, jade_theme)
+	_check_equal("walnut", jade_theme.board_tray_skin, "imperial_jade uses walnut board tray")
+	_check(board_view.get("_board_tray").texture.resource_path.ends_with("walnut.png"), "board tray updates texture to walnut")
+
+	# Switch to kawaii_pop
+	var kawaii_theme: Resource = catalog.get_theme("kawaii_pop")
+	var kawaii_skin := TileSkinScript.new(kawaii_theme.tile_skin_manifest_path)
+	board_view.set_tile_skin(kawaii_skin, kawaii_theme)
+	tray_view.set_tile_skin(kawaii_skin, kawaii_theme)
+	_check_equal("porcelain", kawaii_theme.board_tray_skin, "kawaii_pop uses porcelain board tray")
+	_check(board_view.get("_board_tray").texture.resource_path.ends_with("porcelain.png"), "board tray updates texture to porcelain")
+
+	# Switch to vintage_washi
+	var washi_theme: Resource = catalog.get_theme("vintage_washi")
+	var washi_skin := TileSkinScript.new(washi_theme.tile_skin_manifest_path)
+	board_view.set_tile_skin(washi_skin, washi_theme)
+	tray_view.set_tile_skin(washi_skin, washi_theme)
+	_check_equal("paper", washi_theme.board_tray_skin, "vintage_washi uses paper board tray")
+	_check(board_view.get("_board_tray").texture.resource_path.ends_with("paper.png"), "board tray updates texture to paper")
+
+	# Switch back to default
+	board_view.set_tile_skin(default_skin, default_theme)
+	tray_view.set_tile_skin(default_skin, default_theme)
+	_check(board_view.get("_board_tray").texture.resource_path.ends_with("dark.png"), "board tray reverts to dark")
+	_check(board_view.get("_board_tray").material == null, "dark tray does not require mask material")
+	_check_equal(96, game.board.tiles.size(), "theme round-trip leaves board tiles unmutated")
 
 
 func _run_tile_skin_contract_tests() -> void:

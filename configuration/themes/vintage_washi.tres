@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="GameplayTheme" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/presentation/gameplay_theme.gd" id="1_theme"]
+
+[resource]
+script = ExtResource("1_theme")
+theme_id = "vintage_washi"
+display_name = "Vintage Washi"
+background_path = "res://game-assets/backgrounds/gameplay_manga_paper.png"
+background_landscape_path = "res://game-assets/backgrounds/gameplay_manga_paper_landscape.png"
+tray_cap_path = "res://game-assets/ui/tray/porcelain/tray-left.png"
+tray_repeat_path = "res://game-assets/ui/tray/porcelain/tray-repeat.png"
+tray_right_cap_path = "res://game-assets/ui/tray/porcelain/tray-right.png"
+board_tray_skin = "paper"
+tile_skin_manifest_path = "res://game-assets/tiles/vintage_washi/skin.json"
